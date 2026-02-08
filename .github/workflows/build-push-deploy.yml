@@ -494,17 +494,27 @@ jobs:
             chmod +x devops/generate-caddyfile.sh
             chmod +x devops/minio-init.sh
             echo "Updating Docker node label for stage $branch_name..."
-            # Use grep/awk to avoid GitHub Actions string interpolation issues with {{ }}
-            NODE_ID=$(docker info | grep "NodeID:" | awk '{print $2}')
             
-            # Fallback if empty (should not happen if Swarm is active)
-            if [ -z "$NODE_ID" ]; then
-                echo "Error: Could not retrieve Node ID. Docker Info:"
-                docker info
-                exit 1
+            # Try to get Node ID (Best Effort)
+            NODE_ID=""
+            if docker info > /dev/null 2>&1; then
+                # Method 1: Docker Info Format
+                NODE_ID=$(docker info --format '{{.Swarm.NodeID}}' 2>/dev/null || true)
+                
+                # Method 2: Grep Fallback
+                if [ -z "$NODE_ID" ]; then
+                     NODE_ID=$(docker info 2>/dev/null | grep "NodeID:" | awk '{print $2}')
+                fi
             fi
-            echo "Node ID: $NODE_ID"
-            docker node update --label-add stage.$branch_name=true $NODE_ID
+
+            if [ -n "$NODE_ID" ]; then
+                echo "Node ID found: $NODE_ID. Updating labels..."
+                docker node update --label-add stage.$branch_name=true $NODE_ID || true
+            else
+                echo "WARNING: Could not retrieve Node ID. Skipping label update."
+                echo "Ensure node has label 'stage.$branch_name=true' set manually."
+                # Do not exit 1, allow deployment to proceed
+            fi
             echo "Deploying Docker stack for $branch_name..."
             deploy_output=\$(docker stack deploy --with-registry-auth -c docker-compose-server.yml $branch_name 2>&1)
           

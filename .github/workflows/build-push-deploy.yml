@@ -494,7 +494,9 @@ jobs:
             chmod +x devops/generate-caddyfile.sh
             chmod +x devops/minio-init.sh
             echo "Updating Docker node label for stage $branch_name..."
-            NODE_ID=$(docker info --format '{{.Swarm.NodeID}}')
+            # Use grep/awk to avoid GitHub Actions string interpolation issues with {{ }}
+            NODE_ID=$(docker info | grep "NodeID:" | awk '{print $2}')
+            
             # Fallback if empty (should not happen if Swarm is active)
             if [ -z "$NODE_ID" ]; then
                 echo "Error: Could not retrieve Node ID. Docker Info:"

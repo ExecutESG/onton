@@ -154,8 +154,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 30720M
-          cpus: "6.0"
+          memory: 2048M
+          cpus: "1.0"
       mode: global
       update_config:
         failure_action: rollback
@@ -747,11 +747,11 @@ services:
       mode: global
       resources:
         limits:
-          memory: 8192M
-          cpus: "3.0"
-        reservations:
-          memory: 4096M
+          memory: 2048M
           cpus: "1.0"
+        reservations:
+          memory: 512M
+          cpus: "0.2"
       restart_policy:
         condition: on-failure
         delay: 15s

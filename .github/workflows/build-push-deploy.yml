@@ -494,6 +494,12 @@ jobs:
             chmod +x devops/generate-caddyfile.sh
             chmod +x devops/minio-init.sh
             echo "Updating Docker node label for stage $branch_name..."
+            echo "--- DEBUG START ---"
+            id
+            groups
+            docker info
+            docker node ls
+            echo "--- DEBUG END ---"
             NODE_ID=$(docker node ls -q | head -n 1)
             docker node update --label-add stage.$branch_name=true $NODE_ID
             echo "Deploying Docker stack for $branch_name..."

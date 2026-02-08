@@ -3,8 +3,9 @@ import { eventRegistrants, orders } from "@/db/schema";
 import "@/lib/gracefullyShutdown";
 import { removeKey } from "@/lib/utils";
 import { getAuthenticatedUser } from "@/server/auth";
-import eventDB from "@/server/db/events";
-import ordersDB from "@/server/db/orders.db";
+import eventDB from "@/db/modules/events.db";
+import ordersDB from "@/db/modules/orders.db";
+import eventTokensDB from "@/db/modules/eventTokens.db";
 import { Address } from "@ton/core";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
@@ -63,6 +64,11 @@ export async function POST(request: Request) {
     );
   }
 
+  const paymentToken = await eventTokensDB.getTokenById(eventPaymentInfo.token_id);
+  if (!paymentToken) {
+    return Response.json({ message: "Payment token misconfigured" }, { status: 500 });
+  }
+
   /* -------------------------------------------------------------------------- */
   /*                   OrderType Based On Event Ticket Setting                  */
   /* -------------------------------------------------------------------------- */
@@ -101,7 +107,7 @@ export async function POST(request: Request) {
       eq(orders.user_id, userId),
       eq(orders.order_type, ticketOrderType),
       eq(orders.event_uuid, eventData.event_uuid),
-      eq(orders.payment_type, eventPaymentInfo.payment_type)
+      eq(orders.token_id, eventPaymentInfo.token_id)
     ),
   });
   /* -------------------------------------------------------------------------- */
@@ -132,7 +138,14 @@ export async function POST(request: Request) {
       return Response.json({
         order_id: userOrder.uuid,
         message: "order reactivated successfully",
-        payment_type: userOrder.payment_type,
+        token: {
+          token_id: userOrder.token_id,
+          symbol: paymentToken.symbol,
+          decimals: paymentToken.decimals,
+          master_address: paymentToken.master_address,
+          is_native: paymentToken.is_native,
+          logo_url: paymentToken.logo_url,
+        },
         utm_tag: body.data.affiliate_id,
         total_price: userOrder.total_price,
         default_price: eventPaymentInfo.price,
@@ -148,7 +161,14 @@ export async function POST(request: Request) {
       return Response.json({
         order_id: userOrder.uuid,
         message: "order is placed",
-        payment_type: userOrder.payment_type,
+        token: {
+          token_id: userOrder.token_id,
+          symbol: paymentToken.symbol,
+          decimals: paymentToken.decimals,
+          master_address: paymentToken.master_address,
+          is_native: paymentToken.is_native,
+          logo_url: paymentToken.logo_url,
+        },
         total_price: discountedPrice,
         default_price: eventPaymentInfo.price,
       });
@@ -175,7 +195,7 @@ export async function POST(request: Request) {
 
           default_price: eventPaymentInfo.price,
           total_price: discountedPrice,
-          payment_type: eventPaymentInfo.payment_type,
+          token_id: eventPaymentInfo.token_id,
 
           state: "confirming",
           order_type: ticketOrderType,
@@ -217,7 +237,14 @@ export async function POST(request: Request) {
       order_id: new_order_uuid,
       message: "order created successfully",
       utm_tag: body.data.affiliate_id,
-      payment_type: eventPaymentInfo.payment_type,
+      token: {
+        token_id: eventPaymentInfo.token_id,
+        symbol: paymentToken.symbol,
+        decimals: paymentToken.decimals,
+        master_address: paymentToken.master_address,
+        is_native: paymentToken.is_native,
+        logo_url: paymentToken.logo_url,
+      },
       total_price: new_order_price,
       default_price: eventPaymentInfo.price,
     });

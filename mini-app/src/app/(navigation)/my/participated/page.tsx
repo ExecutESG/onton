@@ -1,9 +1,11 @@
 "use client";
 
+import CustomCard from "@/app/_components/atoms/cards/CustomCard";
 import Section from "@/app/_components/atoms/section";
 import CustomButton from "@/app/_components/Button/CustomButton";
 import EventsTimeline from "@/app/_components/Event/EventsTImeline";
 import SearchIcon from "@/app/_components/icons/search-icon";
+import DataStatus from "@/app/_components/molecules/alerts/DataStatus";
 import ContestsTimeline from "@/app/_components/myonton/participated/ContestsTImeline";
 import { trpc } from "@/app/_trpc/client";
 import Typography from "@/components/Typography";
@@ -11,8 +13,14 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import useWebApp from "@/hooks/useWebApp";
 import { useDebouncedState } from "@mantine/hooks";
-import { useState } from "react";
+import Link from "next/link";
+import { useMemo, useState } from "react";
 
+/**
+ * MyParticipatedEventsPage displays events and contests you’ve joined. 🤝
+ *
+ * @returns JSX.Element
+ */
 export default function MyParticipatedEventsPage() {
   const webApp = useWebApp();
   const userId = webApp?.initDataUnsafe?.user?.id;
@@ -20,8 +28,12 @@ export default function MyParticipatedEventsPage() {
   const [contestsSearch, setContestsSearch] = useDebouncedState("", 500);
   const [activeTab, setActiveTab] = useState("events");
 
-  const infiniteApi = trpc.events.getEventsWithFiltersInfinite.useInfiniteQuery(
-    { filter: { user_id: userId }, search: eventsSearch, limit: 10 },
+  const eventsInfinite = trpc.events.getEventsWithFiltersInfinite.useInfiniteQuery(
+    {
+      filter: { user_id: userId },
+      search: eventsSearch.length > 2 ? eventsSearch : "",
+      limit: 10,
+    },
     {
       enabled: Boolean(userId) && Boolean(activeTab === "events"),
       getNextPageParam(lastPage) {
@@ -35,7 +47,7 @@ export default function MyParticipatedEventsPage() {
       filter: {
         status: "ended",
       },
-      search: contestsSearch,
+      search: contestsSearch.length > 2 ? contestsSearch : "",
       limit: 10,
     },
     {
@@ -44,6 +56,22 @@ export default function MyParticipatedEventsPage() {
         return lastPage.nextCursor;
       },
     }
+  );
+
+  /**
+   * Flattened list of participated events. 🔄
+   */
+  const events = useMemo(
+    () => eventsInfinite.data?.pages.map((p) => p.items.eventsData).flat() ?? [],
+    [eventsInfinite.data?.pages]
+  );
+
+  /**
+   * Flattened list of participated contests. 🔄
+   */
+  const contests = useMemo(
+    () => contestsInfinite.data?.pages.map((p) => p.tournaments).flat() ?? [],
+    [contestsInfinite.data?.pages]
   );
 
   return (
@@ -60,22 +88,40 @@ export default function MyParticipatedEventsPage() {
           <Section>
             <Input
               className="bg-brand-light mt-2"
-              placeholder="Search Events and Organizers"
+              placeholder="Search Events"
               prefix_icon={<SearchIcon />}
               onChange={(e) => {
                 setEventsSearch(e.target.value);
               }}
             />
-            <Typography variant="title2">Participated Events ({infiniteApi.data?.pages[0].items.rowsCount})</Typography>
+            <Typography variant="title2">Participated Events ({eventsInfinite.data?.pages[0].items.rowsCount})</Typography>
+            {events.length === 0 && (
+              <CustomCard defaultPadding>
+                <div className="flex flex-col gap-5">
+                  <DataStatus
+                    status="archive_duck"
+                    title="It’s looking quiet here..."
+                    description="Participate in an event and see your activity here."
+                    size="lg"
+                  />
+                  <Link
+                    href="/"
+                    prefetch
+                  >
+                    <CustomButton>Explore Events</CustomButton>
+                  </Link>
+                </div>
+              </CustomCard>
+            )}
             <EventsTimeline
-              isLoading={infiniteApi.isFetching}
+              isLoading={eventsInfinite.isFetching}
               preserveDataOnFetching
-              events={infiniteApi.data?.pages.map((p) => p.items.eventsData).flat() || null}
+              events={events}
             />
-            {!infiniteApi.isFetching && infiniteApi.data?.pages.at(-1)?.nextCursor && (
+            {!eventsInfinite.isFetching && eventsInfinite.data?.pages.at(-1)?.nextCursor && (
               <CustomButton
-                onClick={() => {
-                  infiniteApi.fetchNextPage();
+                onClick={(e) => {
+                  eventsInfinite.fetchNextPage();
                 }}
                 variant="link"
                 fontSize="body"
@@ -98,13 +144,31 @@ export default function MyParticipatedEventsPage() {
             />
             <Typography variant="title2">Past Contests</Typography>
 
+            {contests.length === 0 && (
+              <CustomCard defaultPadding>
+                <div className="flex flex-col gap-5">
+                  <DataStatus
+                    status="archive_duck"
+                    title="It’s looking quiet here..."
+                    description="Join a contest and see your results here."
+                    size="lg"
+                  />
+                  <Link
+                    href="/play-2-win"
+                    prefetch
+                  >
+                    <CustomButton>Explore Contests</CustomButton>
+                  </Link>
+                </div>
+              </CustomCard>
+            )}
             <ContestsTimeline
-              tournaments={contestsInfinite.data?.pages.map((p) => p.tournaments).flat() || null}
-              isLoading={infiniteApi.isFetching}
+              tournaments={contests}
+              isLoading={contestsInfinite.isFetching}
             />
             {!contestsInfinite.isFetching && contestsInfinite.data?.pages.at(-1)?.nextCursor && (
               <CustomButton
-                onClick={() => {
+                onClick={(e) => {
                   contestsInfinite.fetchNextPage();
                 }}
                 variant="link"

@@ -1,12 +1,12 @@
 "use client";
 
-import { FC, useState, useEffect, useCallback } from "react";
 import { trpc } from "@/app/_trpc/client";
-import useWebApp from "@/hooks/useWebApp";
-import TicketDrawer from "./TicketDrawer"; // Import the TicketDrawer component
 import { Button } from "@/components/ui/button";
-import { CheckInState } from "./CheckInState";
+import useWebApp from "@/hooks/useWebApp";
+import { FC, useCallback, useEffect, useState } from "react";
 import { RiQrScan2Line } from "react-icons/ri";
+import { CheckInState } from "./CheckInState";
+import TicketDrawer from "./TicketDrawer"; // Import the TicketDrawer component
 
 const CheckInGuest: FC<{
   params: {
@@ -129,7 +129,11 @@ const CheckInGuest: FC<{
   return (
     <>
       <Button
-        onClick={handleScanQr}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          handleScanQr();
+        }}
         variant="link" // Use the link variant
         className="ml-auto flex items-center text-sm text-gray-300 px-0 no-underline hover:no-underline"
       >

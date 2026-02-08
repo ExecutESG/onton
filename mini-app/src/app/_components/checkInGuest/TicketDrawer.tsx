@@ -2,14 +2,7 @@
 
 import VariantBadge from "@/app/_components/checkInGuest/VariantBadge";
 import { Button } from "@/components/ui/button";
-import {
-  Drawer,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-} from "@/components/ui/drawer";
+import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { isValidImageUrl } from "@/lib/isValidImageUrl";
 import Image from "next/image";
 import { FC, useCallback } from "react";
@@ -54,9 +47,7 @@ const TicketDrawer: FC<TicketDrawerProps> = ({
             <div className="flex flex-col items-start">
               <div className="relative w-full h-auto overflow-hidden shadow-lg cursor-pointer pt-1 flex justify-center items-center">
                 <Image
-                  src={
-                    isValidImageUrl(eventTicketData.ticketImage) ? eventTicketData.ticketImage : defaultImage
-                  }
+                  src={isValidImageUrl(eventTicketData.ticketImage) ? eventTicketData.ticketImage : defaultImage}
                   alt="Ticket Image"
                   width={300}
                   height={300}
@@ -113,7 +104,11 @@ const TicketDrawer: FC<TicketDrawerProps> = ({
           )}
           {checkInState === "needToCheckin" && (
             <Button
-              onClick={handleCheckIn}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleCheckIn();
+              }}
               className="bg-[#0A84FF] text-white"
             >
               Check In
@@ -156,7 +151,11 @@ const TicketDrawer: FC<TicketDrawerProps> = ({
       </DrawerHeader>
       <DrawerFooter>
         <Button
-          onClick={handleScanQr}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleScanQr();
+          }}
           className="bg-[#0A84FF] text-white"
         >
           Scan Again

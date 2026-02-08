@@ -1,4 +1,4 @@
-// db/games.ts
+// modules/games.ts
 import { pool } from "./pool";
 
 // The shape of each row in the "games" table

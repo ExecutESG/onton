@@ -1,98 +1,95 @@
 "use client";
 
-import { Block, Page } from "konsta/react";
+import { Block } from "konsta/react";
 import { useEffect, useState } from "react";
-
-import { useDownloadCSV } from "@/app/_components/Event/PromotionCode/useDownloadCSV";
-import { trpc } from "@/app/_trpc/client";
-import NavigationButtons from "@/components/NavigationButtons";
-import { useGetEvent } from "@/hooks/events.hooks";
-import useWebApp from "@/hooks/useWebApp";
-import { Download } from "lucide-react";
-import Image from "next/image";
 import { useParams } from "next/navigation";
+import Image from "next/image";
+import { Download } from "lucide-react";
+
+import { trpc } from "@/app/_trpc/client";
+import { useGetEvent } from "@/hooks/events.hooks";
+import { useDownloadCSV } from "@/app/_components/Event/PromotionCode/useDownloadCSV";
+import useWebApp from "@/hooks/useWebApp";
+
+import NavigationButtons from "@/components/NavigationButtons";
 import MainButton from "../../atoms/buttons/web-app/MainButton";
 import ActionCardWithMenu from "./ActionCardWithMenu";
 import CreatePromotionForm from "./CreatePromotionForm";
 import EditPromotionDatesForm from "./EditPromotionDatesForm";
 import promotionCodeNoResult from "./promotion-code-no-result.svg";
 
-// The shape of a coupon definition from your server
-// If your start/end date come as strings, convert them or adjust the type
+/* ------------------------------------------------------------------ */
+/* Shape returned from the server (adjust if your API returns strings) */
+/* ------------------------------------------------------------------ */
 interface Definition {
   id: number;
   count: number;
   value: number;
   used: number;
-  start_date: Date; // or string => Date if needed
-  end_date: Date; // or string => Date if needed
+  start_date: Date;
+  end_date: Date;
   cpd_status: "active" | "inactive" | "expired";
 }
 
 export default function PromotionCode() {
-  // 1) Hide Telegram basck button on unmount
+  /* ────────────────────────────────────────────────
+     1) Router & Telegram Web-App hooks
+  ──────────────────────────────────────────────── */
   const { hash } = useParams() as { hash?: string };
-  const { data: eventData, isLoading: eventDataLoading, isError: eventDataError } = useGetEvent(hash);
-
   const webApp = useWebApp();
-  useEffect(() => {
-    return () => {
-      webApp?.BackButton.hide();
-    };
-  }, [webApp]);
+  useEffect(() => () => webApp?.BackButton.hide(), [webApp]);
 
-  // 2) Local states
+  /* ────────────────────────────────────────────────
+     2) Event details (always called)
+  ──────────────────────────────────────────────── */
+  const { data: eventData, isLoading: eventLoading, isError: eventError } = useGetEvent(hash);
+  const eventUuid = eventData?.event_uuid ?? "";
+
+  /* ────────────────────────────────────────────────
+     3) Coupon definitions query (always called)
+        Network fire is gated via `enabled`
+  ──────────────────────────────────────────────── */
+  const defsQuery = trpc.coupon.getCouponDefinitions.useQuery({ event_uuid: eventUuid }, { enabled: !!eventUuid });
+  const { data, isLoading, isError, error, refetch } = defsQuery;
+
+  /* ────────────────────────────────────────────────
+     4) CSV helper hook (always called)
+  ──────────────────────────────────────────────── */
+  const { isCSVLoading, handleDownloadCSV } = useDownloadCSV();
+
+  /* ────────────────────────────────────────────────
+     5) Local UI state (always called)
+  ──────────────────────────────────────────────── */
   const [showCreateForm, setShowCreateForm] = useState(false);
-  // track the definition we want to edit (dates)
   const [editingDef, setEditingDef] = useState<Definition | null>(null);
 
-  // 3) CSV logic
-  const { isCSVLoading, handleDownloadCSV } = useDownloadCSV();
-  if (eventDataError) {
-    return <div>something went wrong</div>;
-  }
-  if (!eventData?.event_uuid || eventDataLoading) {
-    return <div>Loading...</div>;
-  }
-  const eventUuid = eventData.event_uuid;
-
-  // 4) tRPC query: get coupon definitions
-  const { data, isLoading, isError, error, refetch } = trpc.coupon.getCouponDefinitions.useQuery(
-    { event_uuid: eventUuid },
-    { enabled: Boolean(eventUuid) }
-  );
-
-  // 5) Status update (activate/deactivate) logic
-  //    We'll show an item in the 3-dot menu that calls this
+  /* ────────────────────────────────────────────────
+     6) Status-toggle mutation (always called)
+  ──────────────────────────────────────────────── */
   const updateStatusMutation = trpc.coupon.updateCouponDefinitionStatus.useMutation({
-    onSuccess: () => {
-      // Refresh the data
-      refetch();
-    },
+    onSuccess: () => refetch(),
   });
 
-  // 6) Handlers for toggling forms
-  const handleCreatePromotion = () => {
-    console.log("Create Promotion button clicked!");
-    setShowCreateForm(true);
-  };
-  const handleFormDone = () => {
-    setShowCreateForm(false);
-    refetch(); // refresh definitions after creation
-  };
+  /* ────────────────────────────────────────────────
+     7) Early-return blocks — AFTER every hook call
+  ──────────────────────────────────────────────── */
+  if (eventError) return <div>Something went wrong.</div>;
+  if (eventLoading || !eventUuid) return <div>Loading…</div>;
 
-  // 7) If showCreateForm => show <CreatePromotionForm />
-  if (showCreateForm) {
+  /* Show create form */
+  if (showCreateForm)
     return (
       <CreatePromotionForm
         eventUuid={eventUuid}
-        onDone={handleFormDone}
+        onDone={() => {
+          setShowCreateForm(false);
+          refetch();
+        }}
       />
     );
-  }
 
-  // 8) If editingDef => show <EditPromotionDatesForm />
-  if (editingDef) {
+  /* Show edit-dates form */
+  if (editingDef)
     return (
       <EditPromotionDatesForm
         id={editingDef.id}
@@ -107,44 +104,36 @@ export default function PromotionCode() {
         }}
       />
     );
-  }
 
-  // 9) Loading / error / empty states
-  if (isLoading) {
+  /* List-level loading / error / empty */
+  if (isLoading)
     return (
-      <Page>
-        <div className="px-4">
-          <h1 className="text-lg font-bold">Create Your Codes</h1>
-        </div>
-        <Block className="text-center mt-4">Loading promotion codes...</Block>
-      </Page>
+      <>
+        <h1 className="px-4 text-lg font-bold">Create Your Codes</h1>
+        <Block className="text-center mt-4">Loading promotion codes…</Block>
+      </>
     );
-  }
-  if (isError) {
+
+  if (isError)
     return (
-      <Page>
-        <div className="px-4">
-          <h1 className="text-lg font-bold">Create Your Codes</h1>
-        </div>
+      <>
+        <h1 className="px-4 text-lg font-bold">Create Your Codes</h1>
         <Block className="text-center mt-4 text-red-600">Failed to load codes: {error.message}</Block>
-      </Page>
+      </>
     );
-  }
-  if (!data || data.length === 0) {
+
+  if (!data || data.length === 0)
     return (
-      <Page>
-        <div className="px-4">
-          <h1 className="text-lg font-bold">Create Your Codes</h1>
-        </div>
-        <Block className="flex flex-col items-center justify-center mt-8">
-          <div className="mb-4 text-blue-500 text-6xl">
-            <Image
-              src={promotionCodeNoResult}
-              width={48}
-              height={48}
-              alt=""
-            />
-          </div>
+      <div>
+        <h1 className="px-4 text-lg font-bold">Create Your Codes</h1>
+        <Block className="flex flex-col items-center mt-8">
+          <Image
+            src={promotionCodeNoResult}
+            width={48}
+            height={48}
+            alt=""
+            className="mb-4"
+          />
           <p className="font-bold text-lg">No discount code generated!</p>
           <p className="text-gray-500 text-sm mt-2 text-center max-w-[300px]">
             You can generate one-time discount codes and share them with your audience so they can benefit from discounts
@@ -152,94 +141,69 @@ export default function PromotionCode() {
           </p>
         </Block>
 
-        <NavigationButtons
-          actions={[
-            {
-              label: "Create Promotion",
-              onClick: handleCreatePromotion,
-            },
-          ]}
-        />
-      </Page>
+        <NavigationButtons actions={[{ label: "Create Promotion", onClick: () => setShowCreateForm(true) }]} />
+      </div>
     );
-  }
 
-  // 10) Otherwise => render the list with ActionCardWithMenu
+  /* ────────────────────────────────────────────────
+     8) Render list of definitions
+  ──────────────────────────────────────────────── */
   return (
     <>
       <div className="space-y-2">
         {data.map((def) => {
-          // Convert string => Date if needed
-          // e.g. def.start_date = new Date(def.start_date)
-          // e.g. def.end_date = new Date(def.end_date)
-
-          // We'll build footers
           const footerTexts = [
             { count: def.count, value: "codes" },
             { count: def.used, value: "used" },
           ];
 
-          // Build dynamic "Activate/Deactivate" item based on cpd_status
-          let statusMenuItem = null;
-          if (def.cpd_status === "expired") {
-            // skip or show a disabled item
-          } else if (def.cpd_status === "active") {
-            statusMenuItem = {
-              label: updateStatusMutation.isLoading ? "Deactivating..." : "Deactivate",
-              disabled: updateStatusMutation.isLoading,
-              onClick: () => {
-                updateStatusMutation.mutate({
-                  id: def.id,
-                  event_uuid: eventUuid,
-                  status: "inactive",
-                });
-              },
-            };
-          } else if (def.cpd_status === "inactive") {
-            statusMenuItem = {
-              label: updateStatusMutation.isLoading ? "Activating..." : "Activate",
-              disabled: updateStatusMutation.isLoading,
-              onClick: () => {
-                updateStatusMutation.mutate({
-                  id: def.id,
-                  event_uuid: eventUuid,
-                  status: "active",
-                });
-              },
-            };
-          }
+          const statusMenuItem =
+            def.cpd_status === "active"
+              ? {
+                  label: updateStatusMutation.isLoading ? "Deactivating…" : "Deactivate",
+                  disabled: updateStatusMutation.isLoading,
+                  onClick: () =>
+                    updateStatusMutation.mutate({
+                      id: def.id,
+                      event_uuid: eventUuid,
+                      status: "inactive",
+                    }),
+                }
+              : def.cpd_status === "inactive"
+                ? {
+                    label: updateStatusMutation.isLoading ? "Activating…" : "Activate",
+                    disabled: updateStatusMutation.isLoading,
+                    onClick: () =>
+                      updateStatusMutation.mutate({
+                        id: def.id,
+                        event_uuid: eventUuid,
+                        status: "active",
+                      }),
+                  }
+                : null; // expired ➜ no toggle
 
-          // Now build the 3-dot menu
           const menuItems = [
             {
-              label: isCSVLoading ? "Loading CSV file..." : "Get list and statistics",
+              label: isCSVLoading ? "Loading CSV file…" : "Get list and statistics",
               icon: <Download className="w-4 h-4" />,
               disabled: isCSVLoading,
-              onClick: async () => {
-                if (!isCSVLoading) {
-                  await handleDownloadCSV(def.id, eventUuid);
-                }
-              },
+              onClick: () => !isCSVLoading && handleDownloadCSV(def.id, eventUuid),
             },
             {
               label: "Edit Dates",
-              onClick: () => {
+              onClick: () =>
                 setEditingDef({
                   ...def,
                   start_date: new Date(def.start_date),
                   end_date: new Date(def.end_date),
-                });
-              },
+                }),
             },
-            // Insert the status item if not null
             ...(statusMenuItem ? [statusMenuItem] : []),
-
             {
               label: "Delete",
               color: "text-red-500",
               onClick: () => {
-                console.log("Delete clicked for definition", def.id);
-                // e.g. call a mutation to delete
+                /* TODO: delete mutation */
               },
             },
           ];
@@ -248,20 +212,19 @@ export default function PromotionCode() {
             <ActionCardWithMenu
               key={def.id}
               title={`${def.count} codes`}
-              subtitle={`%${Number(def.value)} discount - ${def.used} used`}
+              subtitle={`%${Number(def.value)} discount • ${def.used} used`}
               footerTexts={footerTexts}
               menuItems={menuItems}
-              onCardClick={() => {
-                console.log("Card clicked, id =", def.id);
-              }}
+              onCardClick={() => console.log("Card clicked", def.id)}
             />
           );
         })}
       </div>
+
       {eventData.isNotEnded && (
         <MainButton
           text="Create Promotion"
-          onClick={handleCreatePromotion}
+          onClick={() => setShowCreateForm(true)}
         />
       )}
     </>

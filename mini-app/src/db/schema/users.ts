@@ -3,7 +3,10 @@ import { relations } from "drizzle-orm";
 import { airdropRoutines } from "@/db/schema/airdropRoutines";
 import { tickets } from "@/db/schema/tickets";
 import { userEventFields } from "@/db/schema/userEventFields";
+import { usersX } from "./usersX";
 
+// @ts-ignore
+// @ts-ignore
 export const users = pgTable(
   "users",
   {
@@ -38,6 +41,7 @@ export const users = pgTable(
     /*                                   Points                                   */
     /* -------------------------------------------------------------------------- */
     user_point: integer("user_point").notNull().default(0),
+    affiliatorUserId: bigint("affiliator_user_id", { mode: "number" }),
   },
   (table) => ({
     usernameIdx: index("users_username_idx").on(table.username),
@@ -57,5 +61,6 @@ export const userRelations = relations(users, ({ many }) => ({
   userEventFields: many(userEventFields),
   airdropRoutines: many(airdropRoutines),
   tickets: many(tickets),
+  xAccounts: many(usersX),
   // orders: many(orders),
 }));

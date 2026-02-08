@@ -3,7 +3,7 @@ import "@/lib/gracefullyShutdown";
 import { getAuthenticatedUserApi } from "@/server/auth";
 import { isStructuredErrorShape } from "@/lib/openAPIErrorHandler";
 import externalSellerApi from "@/lib/externalSeller.api";
-import ordersDB from "@/server/db/orders.db"; // if you have a default export, adjust this import
+import ordersDB from "@/db/modules/orders.db"; // if you have a default export, adjust this import
 
 export async function POST(request: Request) {
   // Handle OPTIONS Preflight
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     const { telegramUserId, eventUuid } = await externalSellerApi.parseRequestRefundBody(request);
 
     await externalSellerApi.externalSellerApiAccessLimit(eventUuid);
-    
+
     // 3) Ensure event ownership
     await externalSellerApi.fetchAndValidateEvent(eventUuid, eventOwner);
 

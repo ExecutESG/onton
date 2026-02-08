@@ -1,15 +1,13 @@
-import React, { useRef, useState } from "react";
-import { toast } from "sonner";
-import { useCreateEventStore } from "@/zustand/createEventStore";
-import { generalStepDataSchema } from "@/zodSchema/event/validation";
 import { ErrorMessage } from "@/app/_components/molecules/alerts/ErrorMessage";
 import { useMainButton } from "@/hooks/useMainButton";
-import BasicEventInputs from "../../Event/steps/BasicEventInputs";
+import { generalStepDataSchema } from "@/zodSchema/event/validation";
+import { useCreateEventStore } from "@/zustand/createEventStore";
 import { useSectionStore } from "@/zustand/useSectionStore";
-
+import React, { useRef, useState } from "react";
+import { toast } from "sonner";
+import BasicEventInputs from "../../Event/steps/BasicEventInputs";
 
 let lastToastId: string | number | null = null;
-
 
 export const GeneralStep = () => {
   const formRef = useRef<HTMLFormElement>(null);
@@ -23,7 +21,6 @@ export const GeneralStep = () => {
       eventData: state.eventData,
       clearGeneralErrors: state.clearGeneralStepErrors,
       setGeneralStepErrors: state.setGeneralStepErrors,
-
     })
   );
   const { edit: editOptions } = useCreateEventStore();
@@ -34,20 +31,18 @@ export const GeneralStep = () => {
     if (checked) setShowTermsError(false);
     _setTermsChecked(checked);
   };
- 
+
   // TODO: eventData is updated multiple times during each render
   // useEffect(() => {
   //   if (!eventData?.start_date) return
   //   setTermsChecked(true)
-  // }, [eventData?.event_uuid]) 
-
+  // }, [eventData?.event_uuid])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formRef.current) return;
 
     if (!termsChecked && !editOptions?.eventHash) {
-
       toast.error("Please agree to the terms and conditions to continue.");
       return;
     }
@@ -56,7 +51,10 @@ export const GeneralStep = () => {
     formData.append("image_url", eventData?.image_url || "");
 
     const formDataObject = Object.fromEntries(formData.entries());
-    const formDataParsed = generalStepDataSchema.safeParse(formDataObject);
+    const formDataParsed = generalStepDataSchema.safeParse({
+      ...formDataObject,
+      category_id: Number(formDataObject.category_id),
+    });
 
     if (!formDataParsed.success) {
       const flattenedErrors = formDataParsed.error.flatten().fieldErrors;
@@ -83,7 +81,6 @@ export const GeneralStep = () => {
     clearGeneralErrors();
     setCurrentStep(2);
     setSection("event_setup_form_time_place_step");
-
   };
 
   useMainButton(() => {
@@ -99,7 +96,6 @@ export const GeneralStep = () => {
         showTermsError={showTermsError}
         termsChecked={termsChecked}
         setTermsChecked={setTermsChecked}
-
       />
     </form>
   );

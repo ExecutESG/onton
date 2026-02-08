@@ -1,17 +1,17 @@
-import { Card } from "konsta/react";
-import Image from "next/image";
-import Typography from "../../../components/Typography";
-import { PropsWithChildren } from "react";
-import xPlatformIcon from "./xplatform.svg";
-import telegramIcon from "./telegram.svg";
-import shareIcon from "./share.svg";
-import { Channel } from "@/types";
-import channelAvatar from "@/components/icons/channel-avatar.svg";
 import { trpc } from "@/app/_trpc/client";
+import channelAvatar from "@/components/icons/channel-avatar.svg";
+import LoadableImage from "@/components/LoadableImage";
 import useWebApp from "@/hooks/useWebApp";
 import { wait } from "@/lib/utils";
+import { Channel } from "@/types";
+import { Card } from "konsta/react";
 import { LoaderIcon } from "lucide-react";
-import LoadableImage from "@/components/LoadableImage";
+import Image from "next/image";
+import { PropsWithChildren } from "react";
+import Typography from "../../../components/Typography";
+import shareIcon from "./share.svg";
+import telegramIcon from "./telegram.svg";
+import xPlatformIcon from "./xplatform.svg";
 
 export default function ChannelInfoCard({ data }: { data: Channel }) {
   const WebApp = useWebApp();
@@ -113,7 +113,11 @@ function IconBg({ onClick, children }: PropsWithChildren<{ onClick: () => void }
   return (
     <button
       className="w-8 h-8 bg-[#efeff4] rounded-[10px] p-2"
-      onClick={onClick}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onClick();
+      }}
     >
       {children}
     </button>

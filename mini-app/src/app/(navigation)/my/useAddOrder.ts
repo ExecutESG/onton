@@ -1,6 +1,13 @@
 import { useMutation } from "@tanstack/react-query";
 
-type PaymentType = "TON" | "USDT";
+type PaymentToken = {
+  token_id: number;
+  symbol: string;
+  decimals: number;
+  master_address?: string | null;
+  is_native?: boolean | null;
+  logo_url?: string | null;
+};
 
 async function addOrder(body: {
   full_name: string;
@@ -23,7 +30,7 @@ async function addOrder(body: {
   const event: {
     order_id: string;
     message: string;
-    payment_type: PaymentType;
+    token: PaymentToken;
   } = await eventResponse.json();
 
   return event;

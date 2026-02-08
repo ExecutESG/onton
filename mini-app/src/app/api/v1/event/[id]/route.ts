@@ -1,22 +1,24 @@
 import { db } from "@/db/db";
-import { nftItems, orders } from "@/db/schema";
+import { EventCategoryRow, nftItems, orders } from "@/db/schema";
 import { OrderRow } from "@/db/schema/orders";
 import "@/lib/gracefullyShutdown";
 import { removeKey } from "@/lib/utils";
 import { getAuthenticatedUser } from "@/server/auth";
-import { affiliateClicksDB } from "@/server/db/affiliateClicks.db";
-import { affiliateLinksDB } from "@/server/db/affiliateLinks.db";
-import { couponItemsDB } from "@/server/db/couponItems.db";
-import { getByEventUuidAndUserId } from "@/server/db/eventRegistrants.db";
-import eventDB from "@/server/db/events";
-import ordersDB from "@/server/db/orders.db";
-import { userRolesDB } from "@/server/db/userRoles.db";
-import { usersDB } from "@/server/db/users";
-import tonCenter, { NFTItem } from "@/server/routers/services/tonCenter";
+import { affiliateClicksDB } from "@/db/modules/affiliateClicks.db";
+import { affiliateLinksDB } from "@/db/modules/affiliateLinks.db";
+import { couponItemsDB } from "@/db/modules/couponItems.db";
+import eventTokensDB from "@/db/modules/eventTokens.db";
+import { getByEventUuidAndUserId } from "@/db/modules/eventRegistrants.db";
+import eventDB from "@/db/modules/events.db";
+import ordersDB from "@/db/modules/orders.db";
+import { userRolesDB } from "@/db/modules/userRoles.db";
+import { usersDB } from "@/db/modules/users.db";
+import tonCenter, { NFTItem } from "@/services/tonCenter";
 import { decodePayloadToken, verifyToken } from "@/server/utils/jwt";
 import { logger } from "@/server/utils/logger";
 import { and, eq } from "drizzle-orm";
 import { type NextRequest } from "next/server";
+import eventCategoriesDB from "@/db/modules/eventCategories.db";
 
 // Helper function for retrying the HTTP request
 async function getRequestWithRetry(uri: string, retries: number = 3): Promise<any> {
@@ -60,7 +62,7 @@ async function getValidNfts(
           continue;
         }
         // Query the tickets database for this NFT address
-        // const ticketsResult = await db.select().from(tickets).where(eq(tickets.nftAddress, nft.address)).execute();
+        // const ticketsResult = await modules.select().from(tickets).where(eq(tickets.nftAddress, nft.address)).execute();
 
         // Check if there's exactly one ticket for this NFT
         // if (ticketsResult.length !== 1) {
@@ -85,7 +87,7 @@ async function getValidNfts(
         const nft_db = (await db.select().from(nftItems).where(eq(nftItems.nft_address, nft.address)).execute()).pop();
 
         if (!nft_db) {
-          logger.error("Critical_API_V1_event NFT not found in our db ", nft.address);
+          logger.error("Critical_API_V1_event NFT not found in our modules ", nft.address);
         }
 
         if (
@@ -163,6 +165,12 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         },
       });
       if (event_payment_info) {
+        const paymentToken = await eventTokensDB.getTokenById(Number(event_payment_info.token_id));
+        event_payment_info = {
+          ...event_payment_info,
+          token: paymentToken,
+          payment_type: paymentToken?.symbol ?? null,
+        } as typeof event_payment_info;
         const eventTicketingType = event_payment_info?.ticket_type;
 
         const ticketOrderTypeMap = {
@@ -182,11 +190,17 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         isSoldOut = iso;
       }
     }
+    // NEW STEP: Fetch the category if you have a category_id
+    let category: EventCategoryRow | null = null;
+    if (eventData.category_id) {
+      category = await eventCategoriesDB.fetchCategoryById(eventData.category_id);
+    }
 
     if (dataOnly === "true") {
       return Response.json(
         {
           ...eventData,
+          category,
           organizer,
           eventTicket: event_payment_info,
           isSoldOut,
@@ -317,6 +331,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
     const data = {
       ...eventData,
+      category,
       userHasTicket: userHasTicket,
       needToUpdateTicket: userHasTicket && needToUpdateTicket,
       chosenNFTaddress,

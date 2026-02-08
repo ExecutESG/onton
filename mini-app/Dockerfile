@@ -43,7 +43,7 @@ ARG CLIENT_API_FIXED_USER
 ARG CLIENT_API_FIXED_ORGANIZER
 ARG NEXT_PUBLIC_SOCKET_URL
 ARG IP_REDIS
-
+ARG EVENT_WALLET_ENC_KEY
 # Export arguments as environment variables
 ENV ENV=${ENV}
 ENV NEXT_PUBLIC_ENV=${NEXT_PUBLIC_ENV}
@@ -74,6 +74,7 @@ ENV CLIENT_API_FIXED_KEY=${CLIENT_API_FIXED_KEY}
 ENV CLIENT_API_FIXED_USER=${CLIENT_API_FIXED_USER}
 ENV CLIENT_API_FIXED_ORGANIZER=${CLIENT_API_FIXED_ORGANIZER}
 ENV NEXT_PUBLIC_SOCKET_URL=${NEXT_PUBLIC_SOCKET_URL}
+ENV EVENT_WALLET_ENC_KEY=${EVENT_WALLET_ENC_KEY}
 
 ##
 # Stage: base
@@ -121,7 +122,8 @@ RUN echo "Build stage files:" && ls -la /app
 
 # Install all dependencies (including dev) and build
 RUN yarn install
-RUN yarn lint:quiet
+# eslint 9  is not supported in next 14
+#RUN yarn lint:quiet
 RUN yarn build
 
 ##

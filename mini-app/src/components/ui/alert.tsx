@@ -1,32 +1,42 @@
 import { cva, type VariantProps } from "class-variance-authority";
 import * as React from "react";
 
+import InfoCircleFillIcon from "@/app/_components/icons/info-circle-fill";
 import { cn } from "@/lib/utils";
 import { Info } from "lucide-react";
 
-const alertVariants = cva("relative w-full rounded-xl p-2 items-center flex", {
+const alertVariants = cva("relative w-full rounded-2lg p-2 items-center flex", {
   variants: {
     variant: {
       default: "bg-disabled-font/10 text-disabled-font",
-      destructive:
-        "border-destructive/50 text-destructive dark:border-destructive [&>svg]:text-cn-destructive",
+      info: "bg-info-light text-black items-start gap-2",
     },
   },
   defaultVariants: {
     variant: "default",
   },
 });
-const Alert = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement> & VariantProps<typeof alertVariants>
->(({ className, variant, ...props }, ref) => (
-  <div
-    ref={ref}
-    role="alert"
-    className={cn(alertVariants({ variant }), className)}
-    {...props}
-  />
-));
+
+const alertGenericVariants = cva("relative w-full rounded-2lg p-2 items-center flex", {
+  variants: {
+    variant: {
+      info: "bg-info-light text-black items-start gap-2",
+      "info-light": "bg-info-light text-black items-start gap-2",
+      destructive: "bg-destructive-light text-black items-start gap-2",
+    },
+  },
+});
+
+const Alert = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement> & VariantProps<typeof alertVariants>>(
+  ({ className, variant, ...props }, ref) => (
+    <div
+      ref={ref}
+      role="alert"
+      className={cn(alertVariants({ variant }), className)}
+      {...props}
+    />
+  )
+);
 Alert.displayName = "Alert";
 
 const AlertTitle = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLHeadingElement>>(
@@ -54,14 +64,15 @@ AlertDescription.displayName = "AlertDescription";
 const AlertGeneric = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement> & {
-    variant?: "info" | "destructive";
+    variant?: "info" | "destructive" | "info-light";
   }
 >(({ className, ...props }, ref) => (
   <Alert
     ref={ref}
-    className={cn("gap-2 text-cn-muted-foreground", className)}
+    className={cn("gap-2 text-cn-muted-foreground", className, alertGenericVariants({ variant: props.variant }))}
   >
     {props.variant === "info" && <Info className="min-w-6" />}
+    {props.variant === "info-light" && <InfoCircleFillIcon className="min-w-6" />}
     <AlertDescription>{props.children}</AlertDescription>
   </Alert>
 ));

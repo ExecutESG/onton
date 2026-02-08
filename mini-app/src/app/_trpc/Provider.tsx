@@ -3,7 +3,7 @@
 import { httpLink, TRPCLink } from "@trpc/react-query";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React, { useState } from "react";
-import { trpc } from "./client";
+import { getJwt, trpc } from "./client";
 import { useUserStore } from "@/context/store/user.store";
 import { observable } from "@trpc/server/observable";
 
@@ -19,7 +19,7 @@ const initDataExpirationAlert = () => {
     window.Telegram.WebApp.showPopup(
       {
         message: "Your session has expired. Please restart the app.",
-        buttons: [{  type: "close" }],
+        buttons: [{ type: "close" }],
       },
       () => {
         window.Telegram.WebApp.close();
@@ -97,13 +97,18 @@ export default function TRPCAPIProvider({ children }: { children: React.ReactNod
       links: [
         createCombinedLink(), // custom link to handlen retring
         httpLink({
-          url: process.env.NEXT_PUBLIC_TRPC_BASE_URL
-            ? process.env.NEXT_PUBLIC_TRPC_BASE_URL + "/api/trpc"
-            : "/api/trpc",
-          headers: () => {
-            return {
-              Authorization: initData!,
-            };
+          url: process.env.NEXT_PUBLIC_TRPC_BASE_URL ? process.env.NEXT_PUBLIC_TRPC_BASE_URL + "/api/trpc" : "/api/trpc",
+          headers() {
+            const headers: Record<string, string> = {};
+
+            /* Telegram init-data (your existing auth) */
+            if (initData) headers.Authorization = initData;
+
+            /* Session-JWT from ton-proof */
+            const jwt = getJwt();
+            if (jwt) headers["x-session-jwt"] = jwt; // <- choose any header name
+
+            return headers;
           },
         }),
       ],

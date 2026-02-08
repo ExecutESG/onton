@@ -67,6 +67,7 @@ ${MINI_APP_DOMAIN} {
     ${TLS_CONFIG}
     ${LOG_CONFIG}
     reverse_proxy /ptma* http://${PROXY_PARTICIPANT_TMA}:${PARTICIPANT_TMA_PORT}
+    reverse_proxy /swagger* http://${PROXY_SWAGGER_UI}:${SWAGGER_UI_PORT}
     reverse_proxy http://${PROXY_MINI_APP}:${MINI_APP_PORT}
 }
 ${SWAGGER_UI_DOMAIN} {

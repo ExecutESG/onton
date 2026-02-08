@@ -109,7 +109,7 @@ export const Play2WinProvider = ({ children }: { children: React.ReactNode }) =>
         contest: {
           ...prev.contest,
           gameLink: play2winGameQuery.data?.tournamentLink ?? "#",
-          noGame: !Boolean(play2winGameQuery.data?.tournamentLink),
+          noGame: !Boolean(play2winGameQuery.data?.tournamentLink && seconds > 0),
           reward: `${roundedReward} TON`,
           ticketPrice: `${fromNano(play2winGameQuery.data?.entryFee ?? 0)} TON`,
           dataFetchStatus: play2winGameQuery.status,
@@ -124,11 +124,11 @@ export const Play2WinProvider = ({ children }: { children: React.ReactNode }) =>
         contest: {
           ...prev.contest,
           dataFetchStatus: play2winGameQuery.status,
-          noGame: !Boolean(play2winGameQuery.data?.tournamentLink),
+          noGame: true,
         },
       }));
     }
-  }, [play2winGameQuery.isLoading, play2winGameQuery.isSuccess, play2winGameQuery.data?.tournamentLink]);
+  }, [play2winGameQuery.isLoading, play2winGameQuery.isSuccess, play2winGameQuery.data, play2winGameQuery.status]);
 
   // Timer to update countdown every second
   useEffect(() => {

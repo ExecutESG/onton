@@ -17,7 +17,7 @@ import { useTransferTon } from "~/hooks/ton.hooks";
 import { useAddOrderMutation } from "~/hooks/useAddOrderMutation";
 import { discountCodeAtom, isRequestingTicketAtom } from "~/store/atoms/event.atoms";
 import { useUserStore } from "~/store/user.store";
-import { PaymentType } from "~/types/order.types";
+import { PaymentToken } from "~/types/order.types";
 import { ALLOWED_TONFEST_EVENT_UUIDS } from "~/utils/constants";
 import BuyTicketTxQueryState from "./BuyTicketTxQueryState";
 
@@ -30,7 +30,7 @@ type BuyTicketFormProps = {
   event_uuid: string;
   sendTo: string;
   affiliate_id: string | null;
-  paymentType: PaymentType;
+  paymentToken: PaymentToken | null;
 };
 
 interface BuyTicketFormElement extends HTMLFormElement {
@@ -81,20 +81,27 @@ const BuyTicketForm = (params: BuyTicketFormProps) => {
         coupon_code: discountCode || null,
       });
 
-      console.log("transfer data", params.sendTo, Number(params.price), orderData.payment_type, {
+      if (!orderData.token) {
+        throw new Error("Payment token information is missing in the order response");
+      }
+
+      console.log("transfer data", params.sendTo, Number(params.price), orderData.token.symbol, {
         comment: `onton_order=${orderData.order_id}`,
       });
 
+      setIsRequestingTicket({ state: true, orderId: orderData.order_id });
+
       try {
-        await transfer(params.sendTo, Number(orderData.total_price), orderData.payment_type, {
+        await transfer(params.sendTo, Number(orderData.total_price), orderData.token, {
           comment: `onton_order=${orderData.order_id}`,
         });
-        setIsRequestingTicket({ state: true, orderId: orderData.order_id });
       } catch (error) {
-        mainButton?.show().enable();
         console.error("Error during transfer:", error);
+        setIsRequestingTicket({ state: false });
+        mainButton?.show().enable();
       }
     } catch (error) {
+      setIsRequestingTicket({ state: false });
       mainButton?.show().enable();
       console.error("Error adding order:", error);
     }
@@ -178,6 +185,14 @@ const BuyTicketForm = (params: BuyTicketFormProps) => {
               name="owner_address"
               value={wallet?.account.address}
             />
+            {wallet?.account.address && (
+              <button
+                type="submit"
+                className="mt-4 w-full rounded-full bg-[#007AFF] py-3 text-white font-semibold"
+              >
+                {params.paymentToken ? `Pay ${params.paymentToken.symbol}` : "Pay"}
+              </button>
+            )}
             <FormActionLoader />
           </form>
         </CardContent>
@@ -188,7 +203,7 @@ const BuyTicketForm = (params: BuyTicketFormProps) => {
         orderAlreadyPlace={params.orderAlreadyPlace}
         price={params.price}
         validateForm={validateForm}
-        paymentType={params.paymentType}
+        paymentToken={params.paymentToken}
         eventId={params.id}
       />
       {typeof window !== "undefined" && createPortal(<BuyTicketTxQueryState />, document.body)}
@@ -197,19 +212,21 @@ const BuyTicketForm = (params: BuyTicketFormProps) => {
 };
 
 function FormActionLoader() {
-  const [isRequestingTicket] = useAtom(isRequestingTicketAtom);
+  const [requestState] = useAtom(isRequestingTicketAtom);
 
   const mainButton = useMainButton(true);
 
   useEffect(() => {
     mainButton?.hideLoader();
 
-    if (isRequestingTicket) {
+    if (requestState.state) {
+      console.log("[FormActionLoader] hiding main button (requesting)");
       mainButton?.hide().disable();
     } else {
+      console.log("[FormActionLoader] showing main button");
       mainButton?.show().enable();
     }
-  }, [isRequestingTicket, mainButton]);
+  }, [requestState.state, mainButton]);
 
   return <></>;
 }

@@ -3,7 +3,7 @@ import { EventRow } from "@/db/schema/events";
 import { removeKey, removeSecretKey } from "@/lib/utils";
 import { getNoticeEmoji } from "@/moderationBot/helpers";
 import { configProtected } from "@/server/config";
-import moderationLogDB from "@/server/db/moderationLogger.db";
+import moderationLogDB from "@/db/modules/moderationLogger.db";
 import { logger } from "@/server/utils/logger";
 import axios, { AxiosError } from "axios";
 import { Bot, InputFile } from "grammy";

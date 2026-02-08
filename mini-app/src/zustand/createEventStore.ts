@@ -5,6 +5,7 @@ import type {} from "@redux-devtools/extension";
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
+import { NFT_EVENT_PRICE } from "@/constants";
 // required for devtools typing
 
 export type StoreEventData = Omit<EventDataSchemaAllOptional, "paid_event"> & {
@@ -21,12 +22,10 @@ export type StoreEventData = Omit<EventDataSchemaAllOptional, "paid_event"> & {
   };
 };
 
-type PaymentType = "USDT" | "TON" | "STAR";
-
 type PaidInfoErrors = {
   has_payment?: string[] | undefined;
   payment_recipient_address?: string[] | undefined;
-  payment_type?: string[] | undefined;
+  token_id?: string[] | undefined;
   payment_amount?: string[] | undefined;
   has_nft?: string[] | undefined;
   nft_title?: string[] | undefined;
@@ -72,7 +71,7 @@ export type CreateEventStoreType = {
    * PAID EVENT CREATION ACTIONS
    */
   togglePaidEvent: () => void;
-  changePaymentType: (paymentType: PaymentType) => void;
+  changePaymentToken: (tokenId: number) => void;
   changeTicketType: (ticketType: EventTicketType) => void;
   changePaymentAmount: (amount: number) => void;
   // --- // nft info
@@ -224,7 +223,7 @@ export const useCreateEventStore = create<CreateEventStoreType>()(
           const paidEventInfo = {
             has_payment: !state.eventData?.paid_event?.has_payment,
             has_nft: true,
-            payment_type: "TON",
+            token_id: state.eventData?.paid_event?.token_id ?? 1,
             ticket_type: "NFT",
             payment_amount: 1,
           } as Partial<PaidEventType>;
@@ -235,7 +234,9 @@ export const useCreateEventStore = create<CreateEventStoreType>()(
           if (!state.eventData.paid_event.has_payment) {
             try {
               window.Telegram.WebApp.showConfirm(
-                "You will need to pay 10 TON to create a paid event if the ticket type is NFT it will include 0.06 TON for each person buying the ticket (minting fees) this does not include cSBT ticket type",
+                "You will need to pay " +
+                  NFT_EVENT_PRICE +
+                  " TON to create a paid event if the ticket type is NFT it will include 0.06 TON for each person buying the ticket (minting fees) this does not include cSBT ticket type",
                 (confirmed) => {
                   if (confirmed) {
                     set((state) => {
@@ -257,10 +258,12 @@ export const useCreateEventStore = create<CreateEventStoreType>()(
           }
         });
       },
-      changePaymentType(payment_type) {
+      changePaymentToken(tokenId) {
         set((state) => {
-          state.eventData.paid_event.payment_type = payment_type;
-          state.eventData.paid_event.payment_amount = payment_type === "USDT" ? 5 : 1;
+          state.eventData.paid_event.token_id = tokenId;
+          if (!state.eventData.paid_event.payment_amount) {
+            state.eventData.paid_event.payment_amount = 1;
+          }
         });
       },
       changePaymentAmount(amount: number) {

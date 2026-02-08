@@ -2,7 +2,7 @@
 
 import axios from "axios";
 import { logger } from "@/server/utils/logger";
-import { usersDB } from "@/server/db/users";
+import { usersDB } from "@/db/modules/users.db";
 
 // Pause execution for `ms` milliseconds
 function sleep(ms: number): Promise<void> {

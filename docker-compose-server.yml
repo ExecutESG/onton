@@ -88,7 +88,7 @@ x-common-env: &common-env
   ONTON_API_SECRET: ${ONTON_API_SECRET}
   SWAGGER_UI_DOMAIN: ${SWAGGER_UI_DOMAIN}
   SWAGGER_UI_PORT: ${SWAGGER_UI_PORT}
-
+  EVENT_WALLET_ENC_KEY: ${EVENT_WALLET_ENC_KEY}
 services:
   minio:
     hostname: minio
@@ -312,6 +312,18 @@ services:
       <<: *common-env
       TON_SOCIETY_API_KEY: ${TON_SOCIETY_API_KEY}
       TON_SOCIETY_BASE_URL: ${TON_SOCIETY_BASE_URL}
+      TWITTER_CLIENT_ID : ${TWITTER_CLIENT_ID}
+      TWITTER_CLIENT_SECRET : ${TWITTER_CLIENT_SECRET}
+      GITHUB_CLIENT_ID : ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET : ${GITHUB_CLIENT_SECRET}
+      LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID}
+      LINKEDIN_CLIENT_SECRET: ${LINKEDIN_CLIENT_SECRET}
+      GOOGLE_CLIENT_ID : ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET : ${GOOGLE_CLIENT_SECRET}
+      MS_CLIENT_ID : ${MS_CLIENT_ID}
+      MS_CLIENT_SECRET : ${MS_CLIENT_SECRET}
+
+
     depends_on:
       - postgres
       - redis
@@ -351,7 +363,7 @@ services:
       mode: global
       update_config:
         failure_action: rollback
-        order: start-first
+        order: stop-first
       restart_policy:
         condition: on-failure
         delay: 10s
@@ -383,6 +395,50 @@ services:
         tag: "docker.${BRANCH_NAME}-mini-app-sbt-worker"
         #fluentd-async-connect: "true"
 
+  mini-app-nft-api-worker:
+    hostname: mini-app-nft-api-worker
+    image: ${REGISTRY_URL}/${GITHUB_REPO}/mini-app:${BRANCH_NAME}-latest
+    <<: *default-extra-hosts
+    deploy:
+      resources:
+        limits:
+          memory: 2000M
+          cpus: "2.0"
+      mode: global
+      update_config:
+        failure_action: rollback
+        order: stop-first
+      restart_policy:
+        condition: on-failure
+        delay: 30s
+        max_attempts: 20
+        window: 300s
+    stop_grace_period: 30s
+    stop_signal: SIGTERM
+    environment:
+      <<: *common-env
+      MNEMONIC: ${MNEMONIC}
+      TON_SOCIETY_API_KEY: ${TON_SOCIETY_API_KEY}
+      TON_SOCIETY_BASE_URL: ${TON_SOCIETY_BASE_URL}
+    depends_on:
+      - postgres
+      - redis
+      - minio
+      - fluentd
+    volumes:
+      - drizzle_data_cron:/app/drizzle
+    networks:
+      - onton-network
+    command: [ "yarn", "run", "start-cron-nft-api" ]
+    secrets:
+      - registry-onton-config
+    logging:
+      driver: "fluentd"
+      options:
+        fluentd-address: "127.0.0.1:24224"
+        tag: "docker.${BRANCH_NAME}-mini-app-nft-api-worker"
+        #fluentd-async-connect: "true"
+
 
   mini-app-reward-worker:
     hostname: mini-app-reward-worker
@@ -396,7 +452,7 @@ services:
       mode: global
       update_config:
         failure_action: rollback
-        order: start-first
+        order: stop-first
       restart_policy:
         condition: on-failure
         delay: 10s
@@ -440,7 +496,7 @@ services:
       mode: global
       update_config:
         failure_action: rollback
-        order: start-first
+        order: stop-first
       restart_policy:
         condition: on-failure
         delay: 10s
@@ -484,7 +540,7 @@ services:
       mode: global
       update_config:
         failure_action: rollback
-        order: start-first
+        order: stop-first
       restart_policy:
         condition: on-failure
         delay: 10s
@@ -809,11 +865,13 @@ services:
       <<: *common-env
       SWAGGER_JSON: "/swagger.yaml"
     volumes:
-      - ./swagger/ExternalSeller.yml:/usr/share/nginx/html/ExternalSeller.yaml
-      - ./swagger/GameRewards.yml:/usr/share/nginx/html/GameRewards.yaml
+      - ./swagger/ExternalSeller.yml:/usr/share/nginx/html/swagger/ExternalSeller.yaml
+      - ./swagger/GameRewards.yml:/usr/share/nginx/html/swagger/GameRewards.yaml
+      - ./swagger/NFTApi.yml:/usr/share/nginx/html/swagger/NFTApi.yaml
       - ./swagger/swagger-initializer.js:/usr/share/nginx/html/swagger-initializer.js
-      - ./swagger/custom.css:/usr/share/nginx/html/custom.css
-      - ./swagger/home.html:/usr/share/nginx/html/home.html
+      - ./swagger/custom.css:/usr/share/nginx/html/swagger/custom.css
+      - ./swagger/home.html:/usr/share/nginx/html/swagger/home.html
+      - ./swagger/index.html:/usr/share/nginx/html/swagger/index.html
     networks:
       - onton-network
     deploy:

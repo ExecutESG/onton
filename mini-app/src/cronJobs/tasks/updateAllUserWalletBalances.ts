@@ -1,8 +1,8 @@
-import { tokenCampaignOrdersDB } from "@/server/db/tokenCampaignOrders.db";
-import { userWalletBalancesDB } from "@/server/db/userWalletBalances.db";
-import ordersDB from "@/server/db/orders.db";
-import { usersDB } from "@/server/db/users";
-import { getAccountBalance } from "@/server/routers/services/tonCenter";
+import { tokenCampaignOrdersDB } from "@/db/modules/tokenCampaignOrders.db";
+import { userWalletBalancesDB } from "@/db/modules/userWalletBalances.db";
+import ordersDB from "@/db/modules/orders.db";
+import { usersDB } from "@/db/modules/users.db";
+import { getAccountBalance } from "@/services/tonCenter";
 import { db } from "@/db/db";
 import { PlaceOfWalletConnection } from "@/db/schema/userWalletBalances";
 import { logger } from "@/server/utils/logger";

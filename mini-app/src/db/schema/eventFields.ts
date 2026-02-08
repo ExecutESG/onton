@@ -3,7 +3,7 @@ import { events } from "@/db/schema/events";
 import { eq, InferSelectModel, relations } from "drizzle-orm";
 import { userEventFields } from "@/db/schema/userEventFields";
 import { redisTools } from "@/lib/redisTools";
-import eventFieldsDB from "@/server/db/eventFields.db";
+import eventFieldsDB from "@/db/modules/eventFields.db";
 import { db } from "@/db/db";
 
 export const eventFields = pgTable(

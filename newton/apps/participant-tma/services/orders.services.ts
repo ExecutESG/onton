@@ -1,5 +1,5 @@
 import { env } from "~/env.mjs";
-import { GetOrderResponse, PaymentType } from "~/types/order.types";
+import { GetOrderResponse, PaymentToken } from "~/types/order.types";
 
 export async function addOrder(body: {
   full_name: string;
@@ -29,7 +29,7 @@ export async function addOrder(body: {
     order_id: string;
     message: string;
     total_price: number;
-    payment_type: PaymentType;
+    token: PaymentToken;
   } = await orderResponse.json();
 
   return order;

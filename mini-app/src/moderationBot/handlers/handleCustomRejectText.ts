@@ -1,4 +1,4 @@
-import moderationLogDB from "@/server/db/moderationLogger.db";
+import moderationLogDB from "@/db/modules/moderationLogger.db";
 import { InlineKeyboard } from "grammy";
 import { sendTelegramMessage } from "@/lib/tgBot";
 import { PendingCustomReply } from "@/moderationBot/types";

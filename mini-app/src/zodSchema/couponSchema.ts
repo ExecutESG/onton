@@ -118,6 +118,25 @@ const getItemsSchema = z.object({
     .positive("Coupon definition ID must be a positive number."),
 });
 
+/* ------------------------------------------------------------------ *
+ *  addCouponsCsvSchema – used when the organiser uploads a file. *
+ * ------------------------------------------------------------------ */
+const addCouponsCsvSchema = z
+  .object({
+    event_uuid: z.string({ required_error: "Event UUID is required." }).uuid("Event UUID must be a valid UUID."),
+    csv_text: z.string({ required_error: "CSV content is required." }).min(1, "CSV cannot be empty."),
+    value: z
+      .number({ required_error: "Coupon value is required." })
+      .min(0, "Coupon value cannot be negative.")
+      .max(100, "More than 100 % discount is not allowed."),
+    start_date: z.coerce.date({ invalid_type_error: "Start date must be a valid date." }),
+    end_date: z.coerce.date({ invalid_type_error: "End date must be a valid date." }),
+  })
+  .refine((d) => d.end_date >= d.start_date, {
+    message: "End date must be on or after Start date.",
+    path: ["end_date"],
+  });
+
 //
 // Combine them into couponSchema
 //
@@ -127,6 +146,7 @@ const couponSchema = {
   updateCouponDefinitionStatusSchema,
   getDefinitionsSchema,
   getItemsSchema,
+  addCouponsCsvSchema,
 };
 
 export default couponSchema;

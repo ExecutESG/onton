@@ -1,18 +1,18 @@
 "use client";
 
-import React, { useState } from "react";
-import { z } from "zod";
-import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useState } from "react";
+import { Controller, useForm } from "react-hook-form";
+import { z } from "zod";
 
 import { trpc } from "@/app/_trpc/client";
 import couponSchema from "@/zodSchema/couponSchema";
 
 import NavigationButtons, { NavAction } from "@/components/NavigationButtons";
-import SuccessDialog from "./SuccessDialog";
 import ConfirmDialog from "./ConfirmDialog";
-import PlusMinusInput from "./PlusMinusInput";
 import DatePickerRow from "./DatePickerRow";
+import PlusMinusInput from "./PlusMinusInput";
+import SuccessDialog from "./SuccessDialog";
 
 // We only want to mutate the dates. So let's define a type that has
 // { id, event_uuid, start_date, end_date } from your `editCouponDatesSchema`.
@@ -36,14 +36,14 @@ interface EditPromotionFormProps {
 }
 
 export default function EditPromotionForm({
-                                            id,
-                                            eventUuid,
-                                            initialCount,
-                                            initialValue,
-                                            initialStartDate,
-                                            initialEndDate,
-                                            onDone,
-                                          }: EditPromotionFormProps) {
+  id,
+  eventUuid,
+  initialCount,
+  initialValue,
+  initialStartDate,
+  initialEndDate,
+  onDone,
+}: EditPromotionFormProps) {
   // 1) Setup form, but we only need to store date fields in the final mutation
   // The "count" & "value" we'll show as read-only in the UI.
   const {
@@ -112,13 +112,21 @@ export default function EditPromotionForm({
   const actions: NavAction[] = [
     {
       label: "Update",
-      onClick: handleUpdateClick,
+      onClick: (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        handleUpdateClick();
+      },
     },
     {
       label: "Cancel",
-      colors: { textIos :'text-primary', textMaterial: 'text-primary' },
+      colors: { textIos: "text-primary", textMaterial: "text-primary" },
       outline: true,
-      onClick: handleCancelClick,
+      onClick: (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        handleCancelClick();
+      },
     },
   ];
 
@@ -181,14 +189,12 @@ export default function EditPromotionForm({
             if (!startValue) {
               return (
                 <div className="mb-4">
-                  <label className="text-sm text-gray-500 mb-1 block">
-                    Deactivate at
-                  </label>
-                  <p className="text-xs text-gray-400 mb-1">
-                    It is set to the event start time by default.
-                  </p>
+                  <label className="text-sm text-gray-500 mb-1 block">Deactivate at</label>
+                  <p className="text-xs text-gray-400 mb-1">It is set to the event start time by default.</p>
                   <div
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
                       alert("You must select start date first!");
                     }}
                     className="bg-gray-100 p-3 rounded shadow-sm text-sm text-gray-500 cursor-pointer"
@@ -214,7 +220,10 @@ export default function EditPromotionForm({
         />
       </div>
 
-      <NavigationButtons layout="vertical" actions={actions} />
+      <NavigationButtons
+        layout="vertical"
+        actions={actions}
+      />
 
       {/* Confirmation Dialog */}
       <ConfirmDialog

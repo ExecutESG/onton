@@ -20,7 +20,11 @@ interface Props {
 export default function ActionCard({ onClick, iconSrc, title, subtitle, footerTexts }: Props) {
   return (
     <Card
-      onClick={onClick}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onClick(e);
+      }}
       className={cn("!mx-0 w-full ", onClick !== undefined ? "cursor-pointer" : "")}
     >
       <div className="flex gap-3 align-stretch">

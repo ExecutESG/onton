@@ -29,7 +29,6 @@ export class AppService {
   // ) {
   //   console.log(Number(process.env.NFT_INTERVAL_TIME));
   // }
-
   // async retry<T>(
   //   fn: () => Promise<T>,
   //   options: { retries: number; delay: number },
@@ -40,7 +39,6 @@ export class AppService {
   //       return await fn();
   //     } catch (e) {
   //       console.info(e);
-
   //       if (e instanceof Error) {
   //         lastError = e;
   //       }
@@ -50,7 +48,6 @@ export class AppService {
   //   }
   //   throw lastError;
   // }
-
   // @Interval(5_000)
   // async nftMintingProcess() {
   //   return;
@@ -58,10 +55,8 @@ export class AppService {
   //     console.log("MAIN_NFT_CRON_JOB is running");
   //     return;
   //   }
-
   //   CRONJOB_IS_RUNNING = true;
   //   console.info("Starting nftMintingProcess");
-
   //   const timeoutMs = 15 * 60 * 1000; // 5 minutes
   //   try {
   //     await Promise.race([
@@ -90,7 +85,6 @@ export class AppService {
   //     },
   //   });
   //   console.log(`Found ${wallets.length} wallets to check`);
-
   //   for (const wallet of wallets) {
   //     try {
   //       console.log(`Checking transactions for wallet: ${wallet.address}`);
@@ -104,22 +98,18 @@ export class AppService {
   //       console.log(
   //         `Found ${transactions.length} transactions for wallet: ${wallet.address}`,
   //       );
-
   //       // remove the last checked lt
   //       const newTransactions = transactions.filter(
   //         (t) => t.lt !== wallet.last_checked_lt,
   //       );
-
   //       for (const transaction of newTransactions) {
   //         const inMsg = transaction.in_msg;
   //         if (inMsg?.message_content?.decoded?.type === "text_comment") {
   //           const comment = inMsg.message_content.decoded.comment;
   //           if (comment.startsWith("order=")) {
   //             const orderId = comment.split("=")[1];
-
   //             try {
   //               const order = await this.getOrder(orderId, transaction.hash);
-
   //               const trxValue = BigInt(inMsg.value);
   //               if (BigInt(order.total_price) === trxValue) {
   //                 if (
@@ -150,13 +140,11 @@ export class AppService {
   //               }
   //             } catch (error) {
   //               console.log("ERROR_150", error);
-
   //               if (error instanceof AxiosError) {
   //                 console.error("ERROR_153", error.response?.data?.message);
   //               } else if (error instanceof Error) {
   //                 console.error("ERROR_153", error.message);
   //               }
-
   //               await this.saveFailedTransaction(
   //                 transaction,
   //                 null,
@@ -167,7 +155,6 @@ export class AppService {
   //           }
   //         }
   //       }
-
   //       await this.prisma.watchWallet.update({
   //         where: {
   //           id: wallet.id,
@@ -181,13 +168,10 @@ export class AppService {
   //       console.error(`Error processing wallet ${wallet.address}:`, e);
   //       console.error(`Watch wallet ${wallet.address} is out of sync`);
   //     }
-
   //     console.log("Finished checkWalletTransactionsJob");
   //   }
-
   //   this.updateOrdersAndCreateNftMintRequests();
   // }
-
   // /**
   //  * Get transactions and create mint requests
   //  * - get all unprocessed transactions (valid transactions but not processed yet)
@@ -208,9 +192,8 @@ export class AppService {
   //   for (const unProcessedTransaction of unProcessedTransactions) {
   //     try {
   //       console.log(`Processing transaction: ${unProcessedTransaction.id}`);
-
-  //       await this.prisma.$transaction(async (db) => {
-  //         await db.transactions.update({
+  //       await this.prisma.$transaction(async (modules) => {
+  //         await modules.transactions.update({
   //           where: {
   //             id: unProcessedTransaction.id,
   //           },
@@ -220,20 +203,17 @@ export class AppService {
   //           },
   //         });
   //         const orderId = unProcessedTransaction.tx_comment.split("=")[1];
-
   //         const order = await this.getOrder(
   //           orderId,
   //           unProcessedTransaction.hash,
   //         );
-
-  //         const nftCollection = await db.nFTCollection.findUnique({
+  //         const nftCollection = await modules.nFTCollection.findUnique({
   //           where: {
   //             address: order.nft_collection_address,
   //           },
   //         });
-
   //         // create nft in queue
-  //         await db.nFTItem.create({
+  //         await modules.nFTItem.create({
   //           data: {
   //             collection_id: nftCollection.id,
   //             owner_address: unProcessedTransaction.src,
@@ -243,7 +223,6 @@ export class AppService {
   //             metadata_url: "empty",
   //           },
   //         });
-
   //         await this.updateOrder(orderId, {
   //           state: "mint_request",
   //           transaction_id: unProcessedTransaction.id,
@@ -279,10 +258,8 @@ export class AppService {
   //   }
   //   console.log("Finished updateOrdersAndCreateNftMintRequests");
   // }
-
   // async sendMintRequest() {
   //   console.log("Starting sendMintRequest");
-
   //   try {
   //     const collectionAddressToNftItems =
   //       await this.prisma.nFTCollection.findMany({
@@ -306,18 +283,15 @@ export class AppService {
   //     console.log(
   //       `Found ${collectionAddressToNftItems.length} collections with NFT items to process`,
   //     );
-
   //     // for each collection
   //     for (const {
   //       address: collectionAddress,
   //       items: collectionNftItems,
   //     } of collectionAddressToNftItems) {
   //       console.log(`Processing collection: ${collectionAddress}`);
-
   //       const isMintRequestExists = collectionNftItems.some(
   //         (nftItem) => nftItem.state == "mint_request",
   //       );
-
   //       if (!isMintRequestExists) {
   //         // TODO: better error handling for async
   //         const lastNftIndex = await NftCollection.getLastNftIndex(
@@ -332,11 +306,9 @@ export class AppService {
   //             item_meta_data: true,
   //           },
   //         });
-
   //         console.log("CONTRACT ADDRESS: ", collectionAddress, {
   //           lastNftIndex,
   //         });
-
   //         if (collectionAddress === null) continue;
   //         const metadata = {
   //           //@ts-ignore
@@ -346,7 +318,6 @@ export class AppService {
   //           //@ts-ignore
   //           image_url: nftCollection.item_meta_data.image,
   //         };
-
   //         const participantsData: participantData[] = collectionNftItems.map(
   //           (nftItem, idx) => ({
   //             address: Address.parse(nftItem.owner_address),
@@ -357,7 +328,6 @@ export class AppService {
   //             },
   //           }),
   //         );
-
   //         // update to mint_request
   //         // mint_request means the mint request has been sent but the nft is not yet verified
   //         const updateData = participantsData.map((item) => {
@@ -371,11 +341,9 @@ export class AppService {
   //             },
   //           } as Prisma.NFTItemUpdateArgs<DefaultArgs>;
   //         });
-
   //         for (const query of updateData) {
   //           await this.prisma.nFTItem.update(query);
   //         }
-
   //         console.log(
   //           `Sending mint request for collection: ${collectionAddress}`,
   //         );
@@ -395,13 +363,10 @@ export class AppService {
   //     console.error("SEND_MINT_REQUEST_ERROR", e);
   //   }
   //   console.log("Finished sendMintRequest");
-
   //   this.checkMintRequestStatus();
   // }
-
   // async checkMintRequestStatus() {
   //   console.log("Starting checkMintRequestStatus");
-
   //   const collectionAddressToNftItems =
   //     await this.prisma.nFTCollection.findMany({
   //       where: {
@@ -422,35 +387,27 @@ export class AppService {
   //   console.log(
   //     `Found ${collectionAddressToNftItems.length} collections with mint requests to check`,
   //   );
-
   //   for (const collection of collectionAddressToNftItems) {
   //     const { items: nftItems, address: collectionAddress } = collection;
   //     console.log(`Checking mint status for collection: ${collectionAddress}`);
-
   //     const updateDate = nftItems.map(async (item) => {
   //       try {
   //         console.log(
   //           `Checking NFT item: ${item.id} in collection: ${collectionAddress}`,
   //         );
-
   //         const nftResponse = await OnTon.getNftItem(
   //           collectionAddress,
   //           item.index,
   //         );
-
   //         if (nftResponse.nft_items.length) {
   //           const nftOnchainData = nftResponse.nft_items[0];
-
   //           console.log(
   //             `Found NFT item: ${item.id} in collection: ${collectionAddress}`,
   //           );
-
   //           console.log(`nft_onchain_data_${item.id}`, nftOnchainData);
-
   //           // get nft metadata
   //           const metadataRaw = await axios.get(nftOnchainData.content.uri);
   //           const orderId = metadataRaw.data?.attributes?.order_id;
-
   //           // if it was wrong order id we fail it
   //           if (orderId !== item.order_id) {
   //             console.error(
@@ -469,7 +426,6 @@ export class AppService {
   //               },
   //             } as Prisma.NFTItemUpdateArgs<DefaultArgs>;
   //           }
-
   //           console.log(
   //             `NFT item: ${item.id} in collection: ${collectionAddress} was minted`,
   //           );
@@ -519,7 +475,6 @@ export class AppService {
   //         }
   //       } catch (error) {
   //         const message = getErrorMessage(error);
-
   //         console.log(`CHECK_MINT_REQUEST_STATUS_ERROR_${item.id}`, message);
   //         return {
   //           where: {
@@ -532,17 +487,14 @@ export class AppService {
   //         } as Prisma.NFTItemUpdateArgs<DefaultArgs>;
   //       }
   //     });
-
   //     for (const data of updateDate) {
   //       console.log(`Updating NFT data: ${JSON.stringify(await data)}`);
   //       try {
-  //         await this.prisma.$transaction(async (db) => {
+  //         await this.prisma.$transaction(async (modules) => {
   //           const awaitedData = await data;
-  //           const nftData = await db.nFTItem.update(awaitedData);
-
+  //           const nftData = await modules.nFTItem.update(awaitedData);
   //           if (nftData.state === "minted") {
   //             console.log(`NFT minted successfully: ${nftData.id}`);
-
   //             await this.updateOrder(nftData.order_id, {
   //               state: "minted",
   //               nft_address: nftData.address,
@@ -564,7 +516,6 @@ export class AppService {
   //   }
   //   console.log("Finished checkMintRequestStatus");
   // }
-
   // @Interval(60_000)
   // async miniAppJobs() {
   //   return;
@@ -576,7 +527,6 @@ export class AppService {
   //       console.error("updating dodders failed");
   //     });
   // }
-
   // async saveSuccessfulTransaction(
   //   transaction: Transaction,
   //   order: GetOrderResponse,
@@ -587,7 +537,6 @@ export class AppService {
   //       hash: transaction.hash,
   //     },
   //   });
-
   //   if (!existedTransaction) {
   //     await this.prisma.transactions.create({
   //       data: {
@@ -603,7 +552,6 @@ export class AppService {
   //     });
   //   }
   // }
-
   // async saveFailedTransaction(
   //   transaction: Transaction,
   //   order: GetOrderResponse | null,
@@ -631,13 +579,11 @@ export class AppService {
   //     });
   //   }
   // }
-
   // private async getOrder(orderId: string, txId: string) {
   //   try {
   //     const order = await miniAppClient.get<GetOrderResponse>(
   //       `/order/${orderId}`,
   //     );
-
   //     return order.data;
   //   } catch (error) {
   //     if (error instanceof AxiosError && error.status === 404) {
@@ -646,11 +592,9 @@ export class AppService {
   //         "order_does_not_exist",
   //       );
   //     }
-
   //     throw error;
   //   }
   // }
-
   // private async updateOrder(
   //   orderId: string,
   //   data: {

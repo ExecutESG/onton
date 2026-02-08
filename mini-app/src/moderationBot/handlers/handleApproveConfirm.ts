@@ -1,6 +1,6 @@
 import { logger } from "@/server/utils/logger";
-import eventDB from "@/server/db/events";
-import moderationLogDB from "@/server/db/moderationLogger.db";
+import eventDB from "@/db/modules/events.db";
+import moderationLogDB from "@/db/modules/moderationLogger.db";
 import { tgBotApprovedMenu } from "@/moderationBot/menu";
 import { onCallBackModerateEvent } from "@/moderationBot/callBacks/onCallBackModerateEvent";
 import { sendTelegramMessage, sendToEventsTgChannel } from "@/lib/tgBot";

@@ -37,7 +37,6 @@ export async function GET(req: NextRequest) {
       console.error(error);
       console.error("==========");
 
-
       return Response.json(
         { error: "invalid_init_data" },
         {
@@ -45,7 +44,6 @@ export async function GET(req: NextRequest) {
           headers: { "Content-Type": "application/json" },
         }
       );
-      
     }
 
     const userRaw = initDataSearchParams.get("user");
@@ -62,7 +60,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Check if user exists in db
+    // Check if user exists in modules
     let user = (await db.select().from(users).where(eq(users.user_id, userdata.data.id)).execute()).pop();
 
     if (!user) {

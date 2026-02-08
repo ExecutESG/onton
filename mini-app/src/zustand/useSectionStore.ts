@@ -1,4 +1,4 @@
-import create from "zustand";
+import { create } from "zustand";
 
 /**
  * For your “steps” or “tabs” or “sub-pages,” we define them as string-based.
@@ -67,7 +67,7 @@ export const useSectionStore = create<SectionStackState>((set, get) => ({
   getCurrentSection: () => {
     const state = get();
     const stack = state.sections;
-    return stack[stack.length - 1] || "none" ;
+    return stack[stack.length - 1] || "none";
   },
 
   setSection: (section) => {
@@ -79,7 +79,6 @@ export const useSectionStore = create<SectionStackState>((set, get) => ({
   goBack: () => {
     let didGoBack = false;
     set((state) => {
-
       if (state.sections.length > 1) {
         // pop the top
         const newStack = state.sections.slice(0, -1);

@@ -1,0 +1,2 @@
+ALTER TABLE "token_campaign_nft_collections" ALTER COLUMN "item_meta_data" SET DATA TYPE json;--> statement-breakpoint
+ALTER TABLE "token_campaign_nft_collections" ALTER COLUMN "collection_meta_data" SET DATA TYPE json;

@@ -1,14 +1,14 @@
 "use client";
 
-import * as React from "react";
-import { PiMicrosoftOutlookLogoFill } from "react-icons/pi";
+import Divider from "@/components/Divider";
 import { Block } from "konsta/react";
 import { LucideCalendarPlus } from "lucide-react";
-import CustomSheet from "./Sheet/CustomSheet";
-import CustomButton from "./Button/CustomButton";
-import Divider from "@/components/Divider";
+import * as React from "react";
 import { AiFillYahoo } from "react-icons/ai";
+import { PiMicrosoftOutlookLogoFill } from "react-icons/pi";
 import { SiGooglecalendar } from "react-icons/si";
+import CustomButton from "./Button/CustomButton";
+import CustomSheet from "./Sheet/CustomSheet";
 
 // Assuming shadcn drawer is structured like this
 
@@ -58,7 +58,11 @@ const AddToCalendar = ({ title, startDate, endDate, description }: Props) => {
     <>
       <CustomButton
         variant="outline"
-        onClick={() => setIsOpen(true)}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsOpen(true);
+        }}
         icon={<LucideCalendarPlus />}
       >
         Add to Calendar
@@ -73,7 +77,11 @@ const AddToCalendar = ({ title, startDate, endDate, description }: Props) => {
           <div className="p-4 w-full flex flex-col gap-1">
             <CustomButton
               variant="link"
-              onClick={() => openInOSBrowser(googleCalendarLink)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                openInOSBrowser(googleCalendarLink);
+              }}
               fontWeight={"normal"}
               icon={<SiGooglecalendar />}
             >
@@ -82,7 +90,11 @@ const AddToCalendar = ({ title, startDate, endDate, description }: Props) => {
             <Divider height={"1"} />
             <CustomButton
               variant="link"
-              onClick={() => openInOSBrowser(outlookLink)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                openInOSBrowser(outlookLink);
+              }}
               icon={<PiMicrosoftOutlookLogoFill />}
               fontWeight={"normal"}
             >
@@ -91,7 +103,11 @@ const AddToCalendar = ({ title, startDate, endDate, description }: Props) => {
             <Divider height={"1"} />
             <CustomButton
               variant="link"
-              onClick={() => openInOSBrowser(yahooLink)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                openInOSBrowser(yahooLink);
+              }}
               icon={<AiFillYahoo />}
               fontWeight={"normal"}
             >
@@ -101,7 +117,11 @@ const AddToCalendar = ({ title, startDate, endDate, description }: Props) => {
           {/* Close button at the bottom */}
           <CustomButton
             variant="outline"
-            onClick={() => setIsOpen(false)}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsOpen(false);
+            }}
           >
             Close
           </CustomButton>

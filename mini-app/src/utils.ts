@@ -96,9 +96,7 @@ export const getTimeFromUnix = (unixTimestamp: number): { hours: string; minutes
   };
 };
 
-export const getDateFromUnix = (
-  unixTimestamp: number
-): { day: string; month: string; year: string } | null => {
+export const getDateFromUnix = (unixTimestamp: number): { day: string; month: string; year: string } | null => {
   const date = new Date(unixTimestamp * 1000);
   const day = date.getDate().toString().padStart(2, "0");
   const month = (date.getMonth() + 1).toString().padStart(2, "0");
@@ -119,7 +117,15 @@ export function isEmptyObject(obj: object) {
   return Object.keys(obj).length === 0 && obj.constructor === Object;
 }
 
-export function rounder(num : number, decimals = 0) {
+export function rounder(num: number, decimals = 0) {
   const factor = Math.pow(10, decimals);
   return Math.round(num * factor) / factor;
+}
+/**
+ * @param url Absolute URL to share, e.g. "https://example.com/path/to/article?with=params"
+ * @param text Optional comment to share URL with, e.g. "Check out this article!"
+ * @returns Telegram share link
+ */
+export function telegramShareLink(url: string, text: string = ""): string {
+  return `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
 }

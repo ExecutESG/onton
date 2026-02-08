@@ -16,12 +16,13 @@ export default function Page() {
       <Button
         onClick={() => {
           tmaUtils?.openTelegramLink(
-            `https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME}/event?startapp=6acf01ed-3122-498a-a937-329766b459aa`,
+            `https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME}/event?startapp=6acf01ed-3122-498a-a937-329766b459aa`
           );
         }}
         className="mt-6 px-2 text-white"
       >
         TON Gateway 2024
+        {/* Change */}
       </Button>
     </QueryState>
   );

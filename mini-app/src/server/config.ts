@@ -1,4 +1,4 @@
-import { fetchOntonSettings } from "@/server/db/ontoSetting";
+import { fetchOntonSettings } from "@/db/modules/ontoSetting";
 
 // Initialize config and configProtected as empty objects
 let config: { [key: string]: string | null } = {};

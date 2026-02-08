@@ -8,7 +8,11 @@ import { games } from "@/db/schema";
 import { postTelegramCsvToTonSociety } from "@/cronJobs/helper/postTelegramCsvToTonSociety";
 import { generateTelegramCsv } from "@/cronJobs/helper/generateTelegramCsv";
 import { fetchAllElympicsParticipants } from "@/cronJobs/helper/fetchAllElympicsParticipants";
-import gameLeaderboardDB from "@/server/db/gameLeaderboard.db";
+import gameLeaderboardDB from "@/db/modules/gameLeaderboard.db";
+import {
+  extendTournamentEndDateIfNeeded,
+  revertTournamentEndDateIfNeeded,
+} from "@/cronJobs/helper/tournamentRewards.helpers";
 
 /**
  * 1) A helper that returns tournaments whose endDate is
@@ -21,10 +25,13 @@ export async function getJustEndedTournaments(): Promise<
     hostTournamentId: string;
     activityId: number | null;
     hostGameId: string | null;
+    endDate: Date | null;
   }[]
 > {
   const now = new Date();
-  const fiveMinAgo = new Date(now.getTime() - 5 * 60_000); // 5 minutes ago
+ 
+  const fiveMinAgo = new Date(now.getTime() - 150 * 86400_000); // 5 minutes ago
+ 
 
   // 1) Build the query, but don't execute yet
   const query = db
@@ -34,10 +41,14 @@ export async function getJustEndedTournaments(): Promise<
       hostTournamentId: tournaments.hostTournamentId,
       activityId: tournaments.activityId,
       hostGameId: games.hostGameId,
+      endDate: tournaments.endDate,
     })
     .from(tournaments)
     .innerJoin(games, eq(tournaments.gameId, games.id))
-    .where(and(lt(tournaments.endDate, fiveMinAgo), isNull(tournaments.rewardLink), isNotNull(tournaments.activityId)));
+ 
+    // .where(and(lt(tournaments.endDate, fiveMinAgo), isNull(tournaments.rewardLink), isNotNull(tournaments.activityId)));
+ 
+    .where(and(isNull(tournaments.rewardLink), isNotNull(tournaments.activityId)));
   //,
   // 2) Convert to SQL
   const compiled = query.toSQL();
@@ -49,7 +60,7 @@ export async function getJustEndedTournaments(): Promise<
 
   // 3) Now execute the query
   const endedTournies = await query;
-  logger.info("Just ended tournaments =>", endedTournies);
+  logger.info("Just ended tournaments =>", endedTournies.length);
 
   return endedTournies;
 }
@@ -88,11 +99,12 @@ export async function processRecentlyEndedTournaments() {
 
     // b) check if we have local participants
     const hasRecords = await hasLeaderboardRecords(t.id);
-    if (!hasRecords) {
+    if (!hasRecords || 1) {
       // gather all participants from Elympics
       const participants = await fetchAllElympicsParticipants(t.hostTournamentId, t.hostGameId || null);
-      logger.info(`Participants for tournament #${t.id} =>`, participants);
+
       if (participants.length) {
+        logger.info(`Participants for tournament #${t.id} =>`, participants.length);
         await gameLeaderboardDB.insertParticipantsToLeaderboard(t, participants);
       } else {
         logger.info(`No Elympics participants found for tournament #${t.id} / hostTID=${t.hostTournamentId}`);
@@ -115,13 +127,33 @@ export async function processRecentlyEndedTournaments() {
     // d) generate CSV
     const csvBuff = generateTelegramCsv(finalRows);
 
-    // e) post to Ton Society => get reward_link
-    const rewardLink = await postTelegramCsvToTonSociety(t.activityId, csvBuff);
-    if (rewardLink) {
-      await db.update(gameLeaderboard).set({ rewardCreated: true }).where(eq(gameLeaderboard.tournamentId, t.id));
-      // save reward_link in tournaments table
-      await db.update(tournaments).set({ rewardLink }).where(eq(tournaments.id, t.id));
-      logger.info(`Tournament #${t.id} => reward_link saved: ${rewardLink}`);
+    const nowSec = Math.floor(Date.now() / 1000);
+    const extendedEndDate = nowSec + 86400; // +1 day
+    let didExtend = false;
+    try {
+      didExtend = await extendTournamentEndDateIfNeeded(t, extendedEndDate);
+    } catch (err) {
+      logger.error(`Failed to extend end_date for tournament #${t.id}`, err);
+      continue;
+    }
+
+    try {
+      // e) post to Ton Society => get reward_link
+      const rewardLink = await postTelegramCsvToTonSociety(t.activityId, csvBuff);
+      if (rewardLink) {
+        await db.update(gameLeaderboard).set({ rewardCreated: true }).where(eq(gameLeaderboard.tournamentId, t.id));
+        // save reward_link in tournaments table
+        await db.update(tournaments).set({ rewardLink }).where(eq(tournaments.id, t.id));
+        logger.info(`Tournament #${t.id} => reward_link saved: ${rewardLink}`);
+      }
+    } finally {
+      if (didExtend) {
+        try {
+          await revertTournamentEndDateIfNeeded(t);
+        } catch (err) {
+          logger.error(`Failed to revert end_date for tournament #${t.id}`, err);
+        }
+      }
     }
   }
 }

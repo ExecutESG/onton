@@ -21,7 +21,10 @@ type TicketInfoProps = {
   ticket: {
     ticketImage: string;
     price: number | string;
-    payment_type: string;
+    payment_type?: string;
+    token?: {
+      symbol: string;
+    };
     title: string;
   };
 };
@@ -40,7 +43,7 @@ const TicketInfo = ({ ticket }: TicketInfoProps) => {
         />
         <div className="flex flex-col">
           <h5 className="type-headline font-semibold">
-            {ticket.price} {ticket.payment_type}
+            {ticket.price} {ticket.token?.symbol ?? ticket.payment_type}
           </h5>
           <p className="type-subtitle-2 text-telegram-hint-color font-normal">{ticket.title}</p>
         </div>
@@ -101,6 +104,18 @@ const BuyTicket = ({ params, searchParams }: BuyTicketProps) => {
     );
   }
 
+  const paymentToken = event.eventTicket.token ??
+    (event.eventTicket.payment_type
+      ? {
+          token_id: -1,
+          symbol: event.eventTicket.payment_type,
+          decimals: event.eventTicket.payment_type.toUpperCase() === "USDT" ? 6 : 9,
+          is_native: event.eventTicket.payment_type.toUpperCase() === "TON",
+          master_address: null,
+          logo_url: null,
+        }
+      : null);
+
   return (
     <PageTma className={"bg-telegram-secondary-bg-color flex flex-col gap-6 pt-0"}>
       <Section
@@ -111,7 +126,7 @@ const BuyTicket = ({ params, searchParams }: BuyTicketProps) => {
           eventImage={event.eventTicket.ticketImage}
           eventName={event.eventTicket.title}
           initialPrice={event.eventTicket.price}
-          currency={event.eventTicket.payment_type}
+          currency={paymentToken?.symbol ?? ""}
           has_discount={event.hasActiveCoupon}
           eventId={event.event_id}
         />
@@ -125,7 +140,7 @@ const BuyTicket = ({ params, searchParams }: BuyTicketProps) => {
         event_uuid={event.event_uuid}
         price={event.eventTicket.price}
         affiliate_id={affiliate_id}
-        paymentType={event.eventTicket.payment_type}
+        paymentToken={paymentToken}
       />
     </PageTma>
   );

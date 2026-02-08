@@ -1,13 +1,13 @@
 import { db } from "@/db/db";
-import { affiliateLinksDB } from "@/server/db/affiliateLinks.db";
-import { tokenCampaignOrdersDB } from "@/server/db/tokenCampaignOrders.db";
-import { tokenCampaignUserSpinsDB } from "@/server/db/tokenCampaignUserSpins.db";
+import { affiliateLinksDB } from "@/db/modules/affiliateLinks.db";
+import { tokenCampaignOrdersDB } from "@/db/modules/tokenCampaignOrders.db";
+import { tokenCampaignUserSpinsDB } from "@/db/modules/tokenCampaignUserSpins.db";
 import { logger } from "@/server/utils/logger";
 import { AffiliateItemTypeEnum } from "@/db/schema/affiliateLinks";
 import { TokenCampaignUserSpinsInsert } from "@/db/schema/tokenCampaignUserSpins";
 import { notifyUserOfAffiliateReward } from "../helper/notifyUserOfAffiliateReward";
 import { sendLogNotification } from "@/lib/tgBot";
-import { usersDB } from "@/server/db/users";
+import { usersDB } from "@/db/modules/users.db";
 
 /**
  * Cron job: awarding spins for onion1-campaign affiliates

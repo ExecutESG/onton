@@ -1,7 +1,8 @@
 import "@/lib/gracefullyShutdown";
 import { getAuthenticatedUserApi } from "@/server/auth";
 import externalSellerApi from "@/lib/externalSeller.api";
-import ordersDB from "@/server/db/orders.db";
+import ordersDB from "@/db/modules/orders.db";
+import eventTokensDB from "@/db/modules/eventTokens.db";
 import { isStructuredErrorShape } from "@/lib/openAPIErrorHandler";
 import { is_local_env } from "@/server/utils/evnutils";
 import { logger } from "@/server/utils/logger";
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
 
   try {
     // 2) Parse & validate
-    const { telegramUserId, telegramUsername, eventUuid, paymentType, paymentAmount } =
+    const { telegramUserId, telegramUsername, eventUuid, paymentTokenSymbol, paymentAmount } =
       await externalSellerApi.parseAndValidateRequest(request);
 
     await externalSellerApi.externalSellerApiAccessLimit(eventUuid);
@@ -28,7 +29,14 @@ export async function POST(request: Request) {
     const eventData = await externalSellerApi.fetchAndValidateEvent(eventUuid, eventOwner);
 
     // 4) Fetch payment info, check sold out, determine orderType
-    const orderType = await externalSellerApi.fetchPaymentInfoAndCheckSoldOut(eventUuid, eventData);
+    const { eventPaymentInfo, orderType } = await externalSellerApi.fetchPaymentInfoAndCheckSoldOut(eventUuid, eventData);
+    const paymentToken = await eventTokensDB.getTokenById(Number(eventPaymentInfo.token_id));
+    if (!paymentToken || paymentToken.symbol.toUpperCase() !== paymentTokenSymbol.toUpperCase()) {
+      return new Response(
+        JSON.stringify({ success: false, message: "Wrong payment token", status: "wrong_payment_token" }),
+        { status: 400 }
+      );
+    }
 
     // 5) Ensure user exists
     const user = await externalSellerApi.ensureUserExists(telegramUserId, telegramUsername);
@@ -44,7 +52,7 @@ export async function POST(request: Request) {
       eventUuid,
       telegramUserId,
       paymentAmount,
-      paymentType,
+      paymentToken.token_id,
       orderType,
       telegramUsername
     );

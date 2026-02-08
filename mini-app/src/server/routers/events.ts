@@ -1,7 +1,16 @@
 import { NonVerifiedHubsIds } from "@/constants";
 import { db } from "@/db/db";
-import { eventFields, eventPayment, events, orders } from "@/db/schema";
+import eventCategoriesDB from "@/db/modules/eventCategories.db";
+import eventFieldsDB from "@/db/modules/eventFields.db";
+import { eventRegistrantsDB } from "@/db/modules/eventRegistrants.db";
+import eventDB from "@/db/modules/events.db";
+import eventTokensDB from "@/db/modules/eventTokens.db";
+import { organizerTsVerified, userHasModerationAccess } from "@/db/modules/userFlags.db";
+import { userRolesDB } from "@/db/modules/userRoles.db";
+import { getUserCacheKey, usersDB } from "@/db/modules/users.db";
+import { EventCategoryRow, eventFields, eventPayment, events, orders } from "@/db/schema";
 import { EventPaymentSelectType } from "@/db/schema/eventPayment";
+import { EventTokenRow } from "@/db/schema/eventTokens";
 import { hashPassword } from "@/lib/bcrypt";
 import { timestampToIsoString } from "@/lib/DateAndTime";
 import { redisTools } from "@/lib/redisTools";
@@ -17,12 +26,8 @@ import {
 import { registerActivity, tonSocietyClient, updateActivity } from "@/lib/ton-society-api";
 import { getObjectDifference, removeKey } from "@/lib/utils";
 import { tgBotModerationMenu } from "@/moderationBot/menu";
-import eventFieldsDB from "@/server/db/eventFields.db";
-import { eventRegistrantsDB } from "@/server/db/eventRegistrants.db";
-import eventDB from "@/server/db/events";
-import { userRolesDB } from "@/server/db/userRoles.db";
-import { CreateTonSocietyDraft } from "@/server/routers/services/tonSocietyService";
 import { logger } from "@/server/utils/logger";
+import { CreateTonSocietyDraft } from "@/services/tonSocietyService";
 import { EventDataSchema, UpdateEventDataSchema } from "@/types";
 import { TonSocietyRegisterActivityT } from "@/types/event.types";
 import searchEventsInputZod from "@/zodSchema/searchEventsInputZod";
@@ -34,8 +39,6 @@ import { Message } from "grammy/types";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
 import { config, configProtected } from "../config";
-import { organizerTsVerified, userHasModerationAccess } from "../db/userFlags.db";
-import { getUserCacheKey, usersDB } from "../db/users";
 import {
   adminOrganizerProtectedProcedure,
   eventManagementProtectedProcedure as eventManagerPP,
@@ -50,8 +53,11 @@ const getEvent = initDataProtectedProcedure.input(z.object({ event_uuid: z.strin
   const userId = opts.ctx.user.user_id;
   const userRole = opts.ctx.user.role;
   const event_uuid = opts.input.event_uuid;
+  type PaymentDetailsWithToken = Partial<EventPaymentSelectType & { token?: EventTokenRow | null }>;
+
   let eventData = {
-    payment_details: {} as Partial<EventPaymentSelectType>,
+    payment_details: {} as PaymentDetailsWithToken,
+    category: {} as EventCategoryRow,
     ...(await eventDB.selectEventByUuid(event_uuid)),
   };
   let capacity_filled = false;
@@ -80,7 +86,13 @@ const getEvent = initDataProtectedProcedure.input(z.object({ event_uuid: z.strin
       throw new TRPCError({ code: "UNPROCESSABLE_CONTENT", message: "event is not published yet" });
     }
   }
-
+  // If event is not enabled, we don't need to fetch the category
+  if (eventData.category_id) {
+    const fetchedCategory = await eventCategoriesDB.fetchCategoryById(eventData.category_id);
+    if (fetchedCategory) {
+      eventData.category = fetchedCategory;
+    }
+  }
   //    Fetch user data for event owner
   //    We'll rename org_* fields to 'organizer: { ... }' in the returned object.
   const ownerUserId = eventData.owner; // This is the user_id who created the event
@@ -148,7 +160,11 @@ const getEvent = initDataProtectedProcedure.input(z.object({ event_uuid: z.strin
           message: "Event Payment Data Not found (Corrupted Event)",
         });
       }
-      eventData.payment_details = { ...payment_details };
+      const token = await eventTokensDB.getTokenById(payment_details.token_id);
+      eventData.payment_details = {
+        ...payment_details,
+        token,
+      };
     }
   }
 
@@ -216,6 +232,19 @@ const getEvent = initDataProtectedProcedure.input(z.object({ event_uuid: z.strin
   };
 });
 
+const listPaymentTokens = adminOrganizerProtectedProcedure.query(async () => {
+  const tokens = await eventTokensDB.listTokens();
+  return tokens.map((token) => ({
+    token_id: token.token_id,
+    symbol: token.symbol,
+    name: token.name,
+    decimals: token.decimals,
+    master_address: token.master_address,
+    is_native: token.is_native,
+    logo_url: token.logo_url,
+  }));
+});
+
 /* -------------------------------------------------------------------------- */
 /*                                  🆕Add Event🆕                            */
 /* -------------------------------------------------------------------------- */
@@ -228,7 +257,10 @@ const addEvent = adminOrganizerProtectedProcedure.input(z.object({ eventData: Ev
   const is_ts_verified = await organizerTsVerified(user_id);
   if (!is_ts_verified && !NonVerifiedHubsIds.includes(input_event_data.society_hub.id))
     throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid HUBS for non verified organizer" });
-
+  const category = await eventCategoriesDB.fetchCategoryById(input_event_data.category_id);
+  if (!category || !category.enabled) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid or disabled category" });
+  }
   try {
     const result = await db.transaction(async (trx) => {
       const event_has_payment = input_event_data.paid_event && input_event_data.paid_event.has_payment;
@@ -257,6 +289,7 @@ const addEvent = adminOrganizerProtectedProcedure.input(z.object({ eventData: Ev
       const newEvent = await trx
         .insert(events)
         .values({
+          category_id: input_event_data.category_id,
           type: input_event_data.type,
           event_uuid: uuidv4(),
           title: input_event_data.title,
@@ -305,17 +338,25 @@ const addEvent = adminOrganizerProtectedProcedure.input(z.object({ eventData: Ev
         if (opts.input.eventData?.paid_event?.ticket_type === undefined)
           throw new TRPCError({ code: "BAD_REQUEST", message: "Ticket Type Required for paid events" });
 
-        if (input_event_data.paid_event.payment_type === undefined)
-          throw new TRPCError({ code: "BAD_REQUEST", message: "Payment Type Required for paid events" });
+        const tokenId = input_event_data.paid_event.token_id;
+        if (tokenId === undefined)
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Payment token required for paid events" });
+
+        const paymentToken = await eventTokensDB.getTokenById(tokenId);
+        if (!paymentToken)
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Unknown payment token selected" });
 
         const ticketType = opts.input.eventData?.paid_event?.ticket_type;
         const order_price = eventDB.getPaidEventPrice(input_event_data.capacity, ticketType);
+
+        const tonToken = await eventTokensDB.getTokenBySymbol("TON");
+        if (!tonToken) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "TON token not configured" });
 
         await trx.insert(orders).values({
           event_uuid: eventData.event_uuid,
           user_id: user_id,
           total_price: order_price,
-          payment_type: "TON",
+          token_id: tonToken.token_id,
           state: "new",
           order_type: "event_creation",
           owner_address: "",
@@ -328,7 +369,7 @@ const addEvent = adminOrganizerProtectedProcedure.input(z.object({ eventData: Ev
         await trx.insert(eventPayment).values({
           event_uuid: newEvent[0].event_uuid,
           /* -------------------------------------------------------------------------- */
-          payment_type: input_event_data.paid_event.payment_type,
+          token_id: paymentToken.token_id,
           price: event_ticket_price,
           recipient_address: input_event_data.paid_event.payment_recipient_address,
           bought_capacity: input_event_data.capacity,
@@ -537,6 +578,10 @@ const updateEvent = eventManagerPP
     const eventUuid = opts.ctx.event.event_uuid;
     const eventId = opts.ctx.event.event_id;
     const user_id = opts.ctx.user.user_id;
+    const category = await eventCategoriesDB.fetchCategoryById(eventData.category_id);
+    if (!category || !category.enabled) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid or disabled category" });
+    }
 
     try {
       return await db.transaction(async (trx) => {
@@ -604,6 +649,8 @@ const updateEvent = eventManagerPP
 
           /* ------------------- Create Order For Increase Capacity ------------------- */
           if (eventData.capacity > paymentInfo!.bought_capacity) {
+            const tonToken = await eventTokensDB.getTokenBySymbol("TON");
+            if (!tonToken) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "TON token not configured" });
             // Increase in event capacity
             // create an update_capacity_order if not exists otherwise just update it
             const update_order = (
@@ -626,7 +673,7 @@ const updateEvent = eventManagerPP
               event_uuid: eventUuid,
               order_type: "event_capacity_increment" as const,
               state: "new" as const,
-              payment_type: "TON" as const,
+              token_id: tonToken.token_id,
               total_price: 0.06 * (eventData.capacity - paymentInfo!.bought_capacity),
               user_id: user_id,
             };
@@ -643,6 +690,7 @@ const updateEvent = eventManagerPP
         const updatedEvent = await trx
           .update(events)
           .set({
+            category_id: eventData.category_id,
             type: eventData.type,
             title: eventData.title,
             subtitle: eventData.subtitle,
@@ -947,6 +995,18 @@ export const getEventsWithFiltersInfinite = initDataProtectedProcedure.input(sea
     nextCursor,
   };
 });
+
+const getCategories = initDataProtectedProcedure.query(async () => {
+  try {
+    return await eventCategoriesDB.fetchAllCategories(true);
+  } catch (error) {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Error fetching enabled categories",
+      cause: error,
+    });
+  }
+});
 /* -------------------------------------------------------------------------- */
 /*                                   Router                                   */
 /* -------------------------------------------------------------------------- */
@@ -957,4 +1017,6 @@ export const eventsRouter = router({
   updateEvent, //private
   getEventsWithFilters,
   getEventsWithFiltersInfinite,
+  getCategories,
+  listPaymentTokens,
 });

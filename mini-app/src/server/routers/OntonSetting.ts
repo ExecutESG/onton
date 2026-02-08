@@ -1,9 +1,8 @@
 import { publicProcedure, router } from "@/server/trpc";
-import { fetchOntonSettings } from "@/server/db/ontoSetting";
+import { fetchOntonSettings } from "@/db/modules/ontoSetting";
 
 export const configRouter = router({
   getConfig: publicProcedure.query(async () => {
-    
     try {
       const { config } = await fetchOntonSettings();
       return { config };

@@ -1,17 +1,16 @@
-import React from "react";
-import ListLayout from "../../atoms/cards/ListLayout";
+import { KSheet } from "@/components/ui/drawer";
+import { useGetHubsManageEvent } from "@/hooks/events.hooks";
+import { useCreateEventStore } from "@/zustand/createEventStore";
 import { Block, Button, Checkbox, ListInput, ListItem, Toolbar } from "konsta/react";
+import ListLayout from "../../atoms/cards/ListLayout";
+import EventCategoryPicker from "../../molecules/pickers/EventCategoryPicker";
 import TonHubPicker from "../../molecules/pickers/TonHubpicker";
 import { ImageUpload } from "./ImageUpload";
-import { useCreateEventStore } from "@/zustand/createEventStore";
-import { useGetHubs, useGetHubsManageEvent } from "@/hooks/events.hooks";
-import { KSheet } from "@/components/ui/drawer";
 
 interface Props {
   termsChecked: boolean;
   setTermsChecked: (_checked: boolean) => void;
   showTermsError: boolean;
-
 }
 
 function BasicEventInputs(props: Props) {
@@ -52,6 +51,16 @@ function BasicEventInputs(props: Props) {
         }}
         value={eventData?.society_hub}
         errors={errors?.hub}
+      />
+      <EventCategoryPicker
+        onValueChange={(data) => {
+          console.log("data", data);
+          if (data) {
+            setEventData({ category_id: data.category_id });
+          }
+        }}
+        value={eventData?.category_id}
+        errors={errors?.category_id}
       />
       <ListInput
         type="textarea"
@@ -153,7 +162,9 @@ function TermsCheckbox({ termsChecked, setTermsChecked, showTermsError }: Props)
               <div className="mt-6">
                 <Button
                   className="py-5 rounded-3xl"
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     setTermsChecked(true);
                     setOpen(false);
                   }}

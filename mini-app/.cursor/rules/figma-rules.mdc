@@ -1,0 +1,8 @@
+---
+description: Use these rule when using figma designs or link to figma
+globs: 
+alwaysApply: false
+---
+- Make sure to follow design details in figma
+- Make sure the texts are correct and match what it's in figma
+- The spacing unit in figma is px but in the react inline styling it's tailwind 

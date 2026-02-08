@@ -130,6 +130,26 @@ export interface SessionData {
     | "askFile"
     | "askText"
     | "done";
+  /* ---------- Poll Creation Flow ---------- */
+  pollStep?:
+      | "askCsv"
+      | "askChoiceType"
+      | "askPollQuestion"
+      | "askPollAnswer"
+      | "askPollAnswerMore"
+      | "askDeadline"
+      | "askDeadlineMethod"
+      | "askDeadlineHours"
+      | "askDeadlineDateTime"
+      | "confirmPoll"
+      | "done";
+
+  pollUserIds?: string[];         // from CSV
+  pollQuestion?: string;
+  pollAnswers?: string[];
+  pollDeadline?: Date;
+  pollIsMultiple?: boolean;
+
 }
 
 export type MyContext = Context & SessionFlavor<SessionData>;

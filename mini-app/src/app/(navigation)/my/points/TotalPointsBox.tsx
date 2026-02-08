@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import ontonWhite from "@/components/icons/onton-white.svg";
 import Image from "next/image";
 
@@ -22,7 +21,7 @@ export default function TotalPointsBox({ totalPoints }: TotalPointsBoxProps) {
             height={48}
           />
           <div className="flex flex-col ml-3">
-            <span className="text-xl font-bold leading-tight">{totalPoints}</span>
+            <span className="text-xl font-bold leading-tight">{Number(totalPoints)}</span>
             <span className="text-sm leading-tight">ONTON points</span>
           </div>
         </div>

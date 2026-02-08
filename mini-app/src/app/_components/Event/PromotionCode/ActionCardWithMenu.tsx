@@ -47,7 +47,9 @@ export default function ActionCardWithMenu({
 
   return (
     <CustomCard
-      onClick={onCardClick}
+      onClick={(e) => {
+        onCardClick?.();
+      }}
       className="cursor-pointer"
       defaultPadding
     >
@@ -106,7 +108,9 @@ export default function ActionCardWithMenu({
               link
               title={item.label}
               className={item.color || ""}
-              onClick={() => {
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 closeMenu();
                 item.onClick();
               }}

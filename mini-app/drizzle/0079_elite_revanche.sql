@@ -1,0 +1,1 @@
+ALTER TABLE "nft_api_collections" ADD COLUMN "last_registered_index" bigint DEFAULT -1 NOT NULL;

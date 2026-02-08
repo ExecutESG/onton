@@ -30,22 +30,14 @@ x-common-env: &common-env
   METABASE_DOMAIN: ${METABASE_DOMAIN}
   MINI_APP_DOMAIN: ${MINI_APP_DOMAIN}
   MINI_APP_PORT: ${MINI_APP_PORT}
-  MINIO_COLLECTION_BUCKET: ${MINIO_COLLECTION_BUCKET}
   MINIO_DASHBOARD_PORT: ${MINIO_DASHBOARD_PORT}
-  MINIO_DOC_BUCKET: ${MINIO_DOC_BUCKET}
-  MINIO_DOC_DEFAULT_BUCKET: ${MINIO_DOC_DEFAULT_BUCKET}
   MINIO_ENDPOINT: ${MINIO_ENDPOINT}
-  MINIO_IMAGE_BUCKET: ${MINIO_IMAGE_BUCKET}
-  MINIO_ITEM_BUCKET: ${MINIO_ITEM_BUCKET}
   MINIO_PORT: ${MINIO_PORT}
   MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL}
-  MINIO_REGION_NAME: ${MINIO_REGION_NAME}
   MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
   MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-  MINIO_SBT_COLLECTIONS_BUCKET: ${MINIO_SBT_COLLECTIONS_BUCKET}
   MINIO_STORAGE_ADMIN_DOMAIN: ${MINIO_STORAGE_ADMIN_DOMAIN}
   MINIO_STORAGE_DOMAIN: ${MINIO_STORAGE_DOMAIN}
-  MINIO_VIDEO_BUCKET: ${MINIO_VIDEO_BUCKET}
   MONITORING_DOMAIN: ${MONITORING_DOMAIN}
   NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
   NEXT_PUBLIC_APP_BASE_URL: ${NEXT_PUBLIC_APP_BASE_URL}
@@ -88,10 +80,15 @@ x-common-env: &common-env
   IP_MINI_APP_MODERATION: ${IP_MINI_APP_MODERATION}
   SWAGGER_UI_DOMAIN: ${SWAGGER_UI_DOMAIN}
   SWAGGER_UI_PORT: ${SWAGGER_UI_PORT}
+  USE_CLOUDFLARE: ${USE_CLOUDFLARE}
+  CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN}
 
 services:
   caddy:
-    image: caddy:latest
+#    image: caddy:latest
+    build:
+      context: ./devops/caddy
+      target: production
     container_name: ${ENV}-caddy
     restart: unless-stopped
     profiles:
@@ -100,20 +97,20 @@ services:
       - expecting-mini-app
       - full
     ports:
-      - "80:80"
+#      - "80:80"
       - "443:443"
     volumes:
       - ./data/caddy_data:/data
       - ./data/caddy_config:/config
-      - ./devops/generate-caddyfile.sh:/usr/bin/envsh/generate-caddyfile.sh
+      - ./devops/generate-caddyfile.sh:/usr/bin/envsh/generate-caddyfile.sh:delegate
       - ./devops/cert:/certs
-    #    networks:
-    #      onton-network:
-    #        ipv4_address: "${IP_CADDY}"
+    networks:
+      onton-network:
+        ipv4_address: "${IP_CADDY}"
     environment:
       <<: *common-env
     <<: *default-extra-hosts
-    network_mode: "host"
+#    network_mode: "host"
     entrypoint: /usr/bin/envsh/generate-caddyfile.sh
 
   minio:
@@ -134,7 +131,7 @@ services:
       - "${MINIO_DASHBOARD_PORT}:${MINIO_DASHBOARD_PORT}"
     volumes:
       - ./data/minio_data:/data
-      - ./devops/minio-init.sh:/usr/bin/entrypoint.sh # Mount the script into the container
+      - ./devops/minio-init.sh:/usr/bin/entrypoint.sh:delegate
     entrypoint: [ "/usr/bin/entrypoint.sh" ] # Use the custom entrypoint script
     environment:
       <<: *common-env
@@ -145,7 +142,7 @@ services:
     image: postgres:16.3-alpine3.20
     restart: unless-stopped
     ports:
-      - "${POSTGRES_PORT}:${POSTGRES_PORT}"
+      - "${POSTGRES_PORT}:5432"
     profiles:
       - front-end-development
       - expecting-mini-app
@@ -258,6 +255,16 @@ services:
     stop_signal: SIGTERM
     environment:
       <<: *common-env
+      TWITTER_CLIENT_ID: ${TWITTER_CLIENT_ID}
+      TWITTER_CLIENT_SECRET: ${TWITTER_CLIENT_SECRET}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID}
+      LINKEDIN_CLIENT_SECRET: ${LINKEDIN_CLIENT_SECRET}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      MS_CLIENT_ID: ${MS_CLIENT_ID}
+      MS_CLIENT_SECRET: ${MS_CLIENT_SECRET}
     depends_on:
       - postgres
       - redis
@@ -563,11 +570,13 @@ services:
     ports:
       - "${SWAGGER_UI_PORT}:8080"
     volumes:
-      - ./swagger/ExternalSeller.yml:/usr/share/nginx/html/ExternalSeller.yaml
-      - ./swagger/GameRewards.yml:/usr/share/nginx/html/GameRewards.yaml
+      - ./swagger/ExternalSeller.yml:/usr/share/nginx/html/swagger/ExternalSeller.yaml
+      - ./swagger/GameRewards.yml:/usr/share/nginx/html/swagger/GameRewards.yaml
+      - ./swagger/NFTApi.yml:/usr/share/nginx/html/swagger/NFTApi.yaml
       - ./swagger/swagger-initializer.js:/usr/share/nginx/html/swagger-initializer.js
-      - ./swagger/custom.css:/usr/share/nginx/html/custom.css
-      - ./swagger/home.html:/usr/share/nginx/html/home.html
+      - ./swagger/custom.css:/usr/share/nginx/html/swagger/custom.css
+      - ./swagger/home.html:/usr/share/nginx/html/swagger/home.html
+      - ./swagger/index.html:/usr/share/nginx/html/swagger/index.html
     depends_on:
       - caddy
     networks:

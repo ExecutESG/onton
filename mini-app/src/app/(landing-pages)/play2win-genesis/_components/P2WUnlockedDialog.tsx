@@ -41,7 +41,11 @@ export const P2WUnlockedDialog: FC = () => {
               <Button
                 variant="link"
                 className="text-[#5297FF] w-full"
-                onClick={() => setShowNFTDialog(false)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowNFTDialog(false);
+                }}
               >
                 <Typography
                   variant="body"

@@ -37,6 +37,7 @@ export async function fetchWithAuth<T>(requestFn: (_token: string) => Promise<T>
 
   try {
     // Attempt the request
+
     return await requestFn(token);
   } catch (err) {
     logger.error("=============Error fetching with auth:", err);
@@ -163,6 +164,15 @@ export async function getTournamentLeaderboard(
           Authorization: `Bearer ${token}`,
         },
       });
+      console.log(
+        "Elympics leaderboard response for url",
+        url,
+        " with auth token:",
+        token,
+        " => ",
+        response.data.data.length,
+        " entries"
+      );
       return response.data;
     } catch (error) {
       handleAxiosError(error, "Error fetching leaderboard");

@@ -14,7 +14,7 @@ EXPOSE 8080
 # RUN PGPASSWORD=AVNS_SF-V9s5GCKbRRhY9aL9 \
 #     pg_dump -a \
 #     -U doadmin \
-#     -h db-postgresql-fra1-96017-do-user-16430870-0.c.db.ondigitalocean.com \
+#     -h modules-postgresql-fra1-96017-do-user-16430870-0.c.modules.ondigitalocean.com \
 #     -p 25060 -d defaultdb -F p \ 
 #     > ${backup}
 

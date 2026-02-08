@@ -29,7 +29,7 @@ export const tokenCampaignOrders = pgTable(
     spinPackageIdIdx: index("spin_package_id_idx").on(table.spinPackageId),
     userIdIdx: index("user_id_idx").on(table.userId),
     trxHashIdx: index("trx_hash_idx").on(table.trxHash),
-    uuidIdx: uniqueIndex("token_campaign_orders_uuid_idx").on(table.uuid),
+    uuidIdx: uniqueIndex("token_campaign_orders_uuid_idxe").on(table.uuid),
     walletAddressIdx: index("wallet_address_idx").on(table.wallet_address),
   })
 );

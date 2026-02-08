@@ -1,10 +1,12 @@
 import { useMainButton } from "@tma.js/sdk-react";
 import { useCallback, useEffect } from "react";
 
+import { PaymentToken } from "~/types/order.types";
+
 const BuyTicketSendTransactionButton = (props: {
   price: string | number;
   validateForm: () => boolean;
-  paymentType: "USDT" | "TON";
+  paymentToken: PaymentToken;
 }) => {
   const mainButton = useMainButton(true);
 
@@ -14,11 +16,12 @@ const BuyTicketSendTransactionButton = (props: {
     if (!isFormValid) {
       return;
     }
-  }, [mainButton?.isEnabled]);
+  }, [props.validateForm]);
 
   useEffect(() => {
+    console.log("[BuyTicketSendTransactionButton] init", props.paymentToken.symbol);
     mainButton?.setBgColor("#007AFF");
-    mainButton?.setTextColor("#ffffff").setText("Pay");
+    mainButton?.setTextColor("#ffffff").setText(`Pay (${props.paymentToken.symbol})`);
     mainButton?.enable().show();
     mainButton?.hideLoader();
 
@@ -27,7 +30,10 @@ const BuyTicketSendTransactionButton = (props: {
       mainButton?.hide().disable();
       mainButton?.off("click", buyTicketOnClick);
     };
-  }, [mainButton]);
+    return () => {
+      console.log("[BuyTicketSendTransactionButton] cleanup");
+    };
+  }, [mainButton, buyTicketOnClick, props.paymentToken.symbol]);
 
   return <></>;
 };

@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
-import { MobileDateTimePicker } from "@mui/x-date-pickers/MobileDateTimePicker";
-import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
-import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { IconButton, InputAdornment } from "@mui/material";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { MobileDateTimePicker } from "@mui/x-date-pickers/MobileDateTimePicker";
 import dayjs, { Dayjs } from "dayjs";
+import { useState } from "react";
 
 interface DatePickerRowProps {
   label: string;
@@ -21,16 +21,16 @@ interface DatePickerRowProps {
 }
 
 export default function DatePickerRow({
-                                        label,
-                                        helperText,
-                                        error,
-                                        value,
-                                        onChange,
-                                        placeholder = "Not set",
-                                        minDate,
-                                        maxDate,
-                                        twentyFourHour = true,
-                                      }: DatePickerRowProps) {
+  label,
+  helperText,
+  error,
+  value,
+  onChange,
+  placeholder = "Not set",
+  minDate,
+  maxDate,
+  twentyFourHour = true,
+}: DatePickerRowProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   // Convert JS Date -> Dayjs
@@ -50,11 +50,7 @@ export default function DatePickerRow({
     <div className="mb-4">
       {/* Label & helper */}
       <label className="text-sm text-gray-500 mb-1 block">{label}</label>
-      {helperText && (
-        <p className="text-xs text-gray-400 mb-1">
-          {helperText}
-        </p>
-      )}
+      {helperText && <p className="text-xs text-gray-400 mb-1">{helperText}</p>}
 
       <LocalizationProvider dateAdapter={AdapterDayjs}>
         <MobileDateTimePicker
@@ -101,10 +97,15 @@ export default function DatePickerRow({
                 disableUnderline: true,
                 endAdornment: (
                   <InputAdornment position="end">
-                    <IconButton onClick={handleOpen} size="small" style={{ padding: 4 }}>
-                      <span className="text-blue-600 text-sm underline">
-                        Select Time
-                      </span>
+                    <IconButton
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleOpen();
+                      }}
+                      size="small"
+                      style={{ padding: 4 }}
+                    >
+                      <span className="text-blue-600 text-sm underline">Select Time</span>
                     </IconButton>
                   </InputAdornment>
                 ),

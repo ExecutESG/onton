@@ -1,0 +1,1 @@
+ALTER TABLE "partnership_affiliate_purchases" ALTER COLUMN "wallet_address" SET DATA TYPE varchar(256);

@@ -3,9 +3,9 @@ import { TRPCError } from "@trpc/server";
 import { TRPC_ERROR_CODES_BY_NUMBER } from "@trpc/server/http";
 import { z } from "zod";
 import { initDataProtectedProcedure, router } from "../trpc";
-import userEventFieldsDB from "@/server/db/userEventFields.db";
-import { getEventById } from "@/server/db/events";
-import eventFieldsDB from "@/server/db/eventFields.db";
+import userEventFieldsDB from "@/db/modules/userEventFields.db";
+import { getEventById } from "@/db/modules/events.db";
+import eventFieldsDB from "@/db/modules/eventFields.db";
 import { checkRateLimit } from "@/lib/checkRateLimit";
 import { EVENT_PASSWORD_RATE_LIMIT } from "@/constants";
 

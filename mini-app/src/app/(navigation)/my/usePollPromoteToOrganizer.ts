@@ -45,10 +45,11 @@ export default function usePollPromoteToOrganizer(onFinish: (_success: boolean) 
 
     try {
       const response = await userToOrganizerMutation.mutateAsync(emptyObject);
+      const tokenSymbol = (response.token?.symbol || "TON") as "TON";
       await transfer(
         (config.ONTON_WALLET_ADDRESS as string) || "UQA02ekDpWFrIL5xh5g7WVY6UrcQRINXli5gDlD7cQrEkfOM",
         Number(response.total_price),
-        response.payment_type,
+        tokenSymbol,
         {
           comment: `onton_order=${response.uuid}`,
         }

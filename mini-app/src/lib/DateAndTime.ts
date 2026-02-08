@@ -25,12 +25,10 @@ export const formatDateTime = (date: number): string => {
     hour: "numeric",
     minute: "numeric",
     second: "numeric",
-    timeZone : "UTC"
-
-
+    timeZone: "UTC",
   });
 };
-export const formatDateRange = (start: number, end: number, _timezone: string): string => {
+export const formatDateRange = (start: number, end: number, _timezone?: string): string => {
   if (!start || !end) return "Date not available";
 
   const startDate = new Date(start * 1000);
@@ -45,6 +43,15 @@ export const formatDateRange = (start: number, end: number, _timezone: string): 
   return `${startDate.toLocaleDateString("en-US", startOptions)}${
     sameDay ? "" : ` - ${endDate.toLocaleDateString("en-US", endOptions)}`
   } `;
+};
+
+// Helper to format time without seconds and using lowercase am/pm
+export const formatTime = (date: Date) => {
+  let hours = date.getHours();
+  const minutes = date.getMinutes();
+  const period = hours >= 12 ? "pm" : "am";
+  hours = hours % 12 || 12;
+  return minutes === 0 ? `${hours}${period}` : `${hours}:${minutes < 10 ? "0" : ""}${minutes}${period}`;
 };
 
 export const timestampToIsoString = (timestamp: number) => {

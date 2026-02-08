@@ -140,7 +140,7 @@ export async function getUpcomingPaidEvents(isAdmin: boolean, userId: string) {
   let sqlQuery = `
       SELECT event_uuid, event_id, title, end_date
       FROM events
-      WHERE end_date > EXTRACT(EPOCH FROM now())
+      WHERE  end_date >= EXTRACT(EPOCH FROM now() - INTERVAL '2 month')
         AND has_payment = true
       ORDER BY end_date ASC
       LIMIT 50
@@ -152,7 +152,7 @@ export async function getUpcomingPaidEvents(isAdmin: boolean, userId: string) {
     sqlQuery = `
         SELECT event_uuid, event_id, title, end_date
         FROM events
-        WHERE end_date > EXTRACT(EPOCH FROM now())
+        WHERE end_date >= EXTRACT(EPOCH FROM now() - INTERVAL '2 month')
           AND has_payment = true
           AND owner = $1
         ORDER BY end_date ASC

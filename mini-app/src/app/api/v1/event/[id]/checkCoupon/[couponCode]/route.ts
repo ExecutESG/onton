@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { logger } from "@/server/utils/logger";
 import { getAuthenticatedUser } from "@/server/auth";
-import { couponItemsDB } from "@/server/db/couponItems.db";
-import { couponDefinitionsDB } from "@/server/db/couponDefinitions.db";
-import eventDB from "@/server/db/events";
+import { couponItemsDB } from "@/db/modules/couponItems.db";
+import { couponDefinitionsDB } from "@/db/modules/couponDefinitions.db";
+import eventDB from "@/db/modules/events.db";
 import { checkRateLimit } from "@/lib/checkRateLimit";
 import { NextResponse } from "next/server";
 import { db } from "@/db/db";

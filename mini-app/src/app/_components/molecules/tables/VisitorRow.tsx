@@ -1,8 +1,8 @@
+import VariantBadge from "@/app/_components/checkInGuest/VariantBadge";
+import { Wallet2 } from "lucide-react";
 import React, { FC, Fragment } from "react";
 import { FaUserCircle } from "react-icons/fa";
 import { FiAtSign } from "react-icons/fi";
-import { Wallet2 } from "lucide-react";
-import VariantBadge from "@/app/_components/checkInGuest/VariantBadge";
 import { Visitor } from "./VisitorsTable"; // Adjust the path if needed
 
 interface VisitorRowProps {
@@ -33,7 +33,9 @@ const VisitorRow: FC<VisitorRowProps> = ({ visitor, refProp, webApp, index, isLa
           <br />
           <a
             className="flex-1 truncate text-xs py-0 italic cursor-pointer"
-            onClick={() => {
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
               if (visitor?.username) {
                 webApp?.openTelegramLink(`https://t.me/${visitor?.username}`);
               }
@@ -50,7 +52,8 @@ const VisitorRow: FC<VisitorRowProps> = ({ visitor, refProp, webApp, index, isLa
           {!visitor.has_ticket ? (
             <div
               className="cursor-pointer"
-              onClick={() => {
+              onClick={(e) => {
+                e.preventDefault();
                 if (visitor?.wallet_address) {
                   webApp?.openLink(`https://tonviewer.com/${visitor?.wallet_address}`);
                 }

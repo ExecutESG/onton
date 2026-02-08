@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
-import ticketDB from "@/server/db/ticket.db";
-import rewardsService from "@/server/routers/services/rewardsService";
+import ticketDB from "@/db/modules/ticket.db";
+import rewardsService from "@/services/rewardsService";
 import { validateJwtFromRequest } from "@/app/api/client/v1/authService";
-import { selectUserById } from "@/server/db/users";
+import { selectUserById } from "@/db/modules/users.db";
 
 // Zod schema to validate the request body
 const checkInTicketSchema = z.object({

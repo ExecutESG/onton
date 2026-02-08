@@ -1,0 +1,43 @@
+-- Run from 96 to 99 after multiple tickets
+
+-- ALTER TABLE "event_registrants" DROP CONSTRAINT "event_registrants_event_payment_id_event_payment_info_id_fk";
+-- --> statement-breakpoint
+-- ALTER TABLE "event_registrants" DROP CONSTRAINT "event_registrants_order_uuid_orders_uuid_fk";
+-- --> statement-breakpoint
+-- ALTER TABLE "event_registrants" DROP CONSTRAINT "event_registrants_buyer_user_id_users_user_id_fk";
+-- --> statement-breakpoint
+-- ALTER TABLE "nft_items" DROP CONSTRAINT "nft_items_registrant_id_event_registrants_id_fk";
+-- --> statement-breakpoint
+-- ALTER TABLE "orders" DROP CONSTRAINT "orders_event_payment_id_event_payment_info_id_fk";
+-- --> statement-breakpoint
+-- DROP INDEX IF EXISTS "event_payment_event_uuid_idx";--> statement-breakpoint
+-- DROP INDEX IF EXISTS "event_payment_ticket_type_idx";--> statement-breakpoint
+-- DROP INDEX IF EXISTS "registrants_event_uuid_idx";--> statement-breakpoint
+-- DROP INDEX IF EXISTS "registrants_user_id_idx";--> statement-breakpoint
+-- DROP INDEX IF EXISTS "registrants_order_uuid_idx";--> statement-breakpoint
+-- DROP INDEX IF EXISTS "registrants_event_payment_idx";--> statement-breakpoint
+-- DROP INDEX IF EXISTS "nft_items_order_reg_uq";--> statement-breakpoint
+-- DROP INDEX IF EXISTS "orders_event_payment_idx";--> statement-breakpoint
+-- ALTER TABLE "event_payment_info" ALTER COLUMN "event_uuid" DROP NOT NULL;--> statement-breakpoint
+-- ALTER TABLE "event_payment_info" ALTER COLUMN "title" DROP NOT NULL;--> statement-breakpoint
+-- ALTER TABLE "event_registrants" ALTER COLUMN "registrant_uuid" SET DEFAULT gen_random_uuid
+--         ();--> statement-breakpoint
+-- CREATE UNIQUE INDEX IF NOT EXISTS "event_payment_info_event_uuid_index" ON "event_payment_info" USING btree ("event_uuid");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "event_event_uuid_idx" ON "event_payment_info" USING btree ("event_uuid");--> statement-breakpoint
+-- CREATE UNIQUE INDEX IF NOT EXISTS "event_registrants_event_uuid_user_id_index" ON "event_registrants" USING btree ("event_uuid","user_id");--> statement-breakpoint
+-- CREATE UNIQUE INDEX IF NOT EXISTS "nft_items_order_uuid_index" ON "nft_items" USING btree ("order_uuid");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "orders_wallet_address_idx" ON "orders" USING btree ("owner_address");--> statement-breakpoint
+-- ALTER TABLE "event_payment_info" DROP COLUMN IF EXISTS "active";--> statement-breakpoint
+-- ALTER TABLE "event_payment_info" DROP COLUMN IF EXISTS "reserved_count";--> statement-breakpoint
+-- ALTER TABLE "event_registrants" DROP COLUMN IF EXISTS "event_payment_id";--> statement-breakpoint
+-- ALTER TABLE "event_registrants" DROP COLUMN IF EXISTS "order_uuid";--> statement-breakpoint
+-- ALTER TABLE "event_registrants" DROP COLUMN IF EXISTS "buyer_user_id";--> statement-breakpoint
+-- ALTER TABLE "event_registrants" DROP COLUMN IF EXISTS "default_price";--> statement-breakpoint
+-- ALTER TABLE "event_registrants" DROP COLUMN IF EXISTS "final_price";--> statement-breakpoint
+-- ALTER TABLE "event_registrants" DROP COLUMN IF EXISTS "mint_wallet_address";--> statement-breakpoint
+-- ALTER TABLE "event_registrants" DROP COLUMN IF EXISTS "minted_token_address";--> statement-breakpoint
+-- ALTER TABLE "events" DROP COLUMN IF EXISTS "payment_type";--> statement-breakpoint
+-- ALTER TABLE "events" DROP COLUMN IF EXISTS "ticket_type";--> statement-breakpoint
+-- ALTER TABLE "nft_items" DROP COLUMN IF EXISTS "registrant_id";--> statement-breakpoint
+-- ALTER TABLE "orders" DROP COLUMN IF EXISTS "event_payment_id";--> statement-breakpoint
+-- ALTER TABLE "orders" DROP COLUMN IF EXISTS "ticket_count";

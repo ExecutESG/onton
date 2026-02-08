@@ -4,6 +4,7 @@ import { uploadJsonToMinio } from "@/lib/minioTools";
 import { logger } from "@/server/utils/logger";
 import { sendNftDeployedNotifications } from "@/cronJobs/helper/sendNftDeployedNotifications";
 import { deployCollection } from "@/lib/nft";
+import { config } from "@/server/config";
 
 /**
  * Deploys an NFT collection if metadata is successfully uploaded.
@@ -29,7 +30,13 @@ export const deployNftCollection = async (event: EventRow, paymentInfo: EventPay
 
   // Deploy the NFT collection
   logger.log(`paid_event_deploy_collection_${event.event_uuid}`);
-  const deployedAddress = await deployCollection(metaDataUrl);
+  const deployedAddress = await deployCollection(metaDataUrl, {
+    expectedMinterAddress: config?.ONTON_MINTER_WALLET ?? undefined,
+  });
+  if (!deployedAddress) {
+    logger.error(`deployNftCollection: failed to deploy collection for event ${event.event_uuid}`);
+    return null;
+  }
   logger.log(`paid_event_deployed_collection_${event.event_uuid}_${deployedAddress}`);
 
   // Telegram notifications

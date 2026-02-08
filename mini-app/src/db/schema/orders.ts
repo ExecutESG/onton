@@ -1,5 +1,5 @@
-import { bigint, index, pgTable, text, timestamp, uuid, real, pgEnum } from "drizzle-orm/pg-core";
-import { coupon_items, orderState, paymentTypes } from "@/db/schema";
+import { bigint, index, integer, pgTable, text, timestamp, uuid, real, pgEnum } from "drizzle-orm/pg-core";
+import { coupon_items, eventTokens, orderState } from "@/db/schema";
 import { events } from "@/db/schema/events";
 import { users } from "@/db/schema/users";
 import { InferSelectModel, relations } from "drizzle-orm";
@@ -22,7 +22,9 @@ export const orders = pgTable(
     user_id: bigint("user_id", { mode: "number" }).references(() => users.user_id),
     default_price: real("default_price").default(0).notNull(),
     total_price: real("total_price").notNull(),
-    payment_type: paymentTypes("payment_type").notNull(),
+    token_id: integer("token_id")
+      .references(() => eventTokens.token_id)
+      .notNull(),
 
     state: orderState("state").notNull(),
     order_type: orderTypes("order_type").notNull(),
@@ -60,6 +62,10 @@ export const orderRelations = relations(orders, ({ one }) => ({
   user: one(users, {
     fields: [orders.user_id],
     references: [users.user_id],
+  }),
+  token: one(eventTokens, {
+    fields: [orders.token_id],
+    references: [eventTokens.token_id],
   }),
 }));
 

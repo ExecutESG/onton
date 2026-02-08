@@ -1,5 +1,5 @@
-import eventDB from "@/server/db/events";
-import { CreateTonSocietyDraft } from "@/server/routers/services/tonSocietyService";
+import eventDB from "@/db/modules/events.db";
+import { CreateTonSocietyDraft } from "@/services/tonSocietyService";
 import { registerActivity } from "@/lib/ton-society-api";
 import { db } from "@/db/db";
 import { events } from "@/db/schema/events";

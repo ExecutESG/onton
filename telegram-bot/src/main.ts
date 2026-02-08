@@ -19,7 +19,6 @@ import { announceBotAdded } from "./handlers/announceBotAdded";
 import { bannerHandler } from "./handlers/bannerHandler";
 import { cmdHandler } from "./handlers/cmdHandler";
 import { orgHandler } from "./handlers/orgHandler";
-import { sbtdistHandler } from "./handlers/sbtdistHandler";
 import { startHandler } from "./handlers/startHandler";
 import { updateAdminOrganizerProfilesHandler } from "./handlers/updateAdminOrganizerProfilesHandler";
 import { isBotNewlyAddedOrPromoted } from "./helpers/isBotNewlyAddedOrPromoted";
@@ -28,8 +27,12 @@ import { MyContext } from "./types/MyContext";
 import { checkRateLimit } from "./utils/checkRateLimit";
 import { logger } from "./utils/logger";
 import { handleShareTournament } from "./handlers/handleShareTournament";
-import { parse } from "csv-parse/sync";
 import { handleShareAffiliateLink } from "./handlers/handleShareAffiliateLink";
+
+import {handleShareJoinOntonLink} from "./controllers/handleShareJoinOntonLink";
+
+import {startPollSenderCron} from "./cronJobs/initializer";
+export const bot = new Bot<MyContext>(process.env.BOT_TOKEN || "");
 
 (async function bootstrap() {
   try {
@@ -38,7 +41,7 @@ import { handleShareAffiliateLink } from "./handlers/handleShareAffiliateLink";
     logger.log("Redis connected successfully.");
 
     // 2) Initialize your bot
-    const bot = new Bot<MyContext>(process.env.BOT_TOKEN || "");
+
     bot.use(session({ initial: () => ({}) }));
     logger.log("Starting bot... v2");
     // --- RATE LIMIT MIDDLEWARE ---
@@ -46,7 +49,7 @@ import { handleShareAffiliateLink } from "./handlers/handleShareAffiliateLink";
       const user = ctx.from;
       if (!user) return next();
 
-      // Check if the incoming message has 'bot_command' type
+      // Check if the incoming message has a 'bot_command' type
       const hasCommandEntity =
         ctx.message?.entities?.some(
           (entity) => entity.type === "bot_command",
@@ -128,11 +131,14 @@ import { handleShareAffiliateLink } from "./handlers/handleShareAffiliateLink";
     app.post("/create-invite", createInviteLinkHandler);
     app.post("/delete-invite", deleteInviteLinkHandler);
     app.post("/share-affiliate-link", handleShareAffiliateLink);
+    app.post("/share-join-onton-link-affiliate", handleShareJoinOntonLink);
     // 7) Start listening, store the server instance
     const server = app.listen(port, () =>
       logger.log(`Telegram Bot API service on port ${port}`),
     );
-
+    // 3) **Call the cron job** after the bot is available
+    startPollSenderCron(); // The function that schedules the cron
+    logger.log("PollSenderCron job scheduled to run every 2 minutes.");
     // CLEAN SHUTDOWN HANDLERS
     process.once("SIGINT", async () => {
       logger.log("Received SIGINT. Stopping bot and server...");

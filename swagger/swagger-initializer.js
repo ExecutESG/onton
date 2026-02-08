@@ -4,6 +4,7 @@ window.onload = function() {
     urls: [
       { url: "./ExternalSeller.yaml", name: "External Seller API" },
       { url: "./GameRewards.yaml", name: "Game Rewards API" },
+      { url: "./NFTApi.yaml", name: "NFT API" },
     ],
 
     // The ID of the DOM element where Swagger UI will render

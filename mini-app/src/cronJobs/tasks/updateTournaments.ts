@@ -1,6 +1,6 @@
 import { db } from "@/db/db";
-import { gamesDB } from "@/server/db/games.db";
-import { tournamentsDB } from "@/server/db/tournaments.db";
+import { gamesDB } from "@/db/modules/games.db";
+import { tournamentsDB } from "@/db/modules/tournaments.db";
 import { getTournamentDetails } from "@/lib/elympicsApi"; // your existing function
 import { logger } from "@/server/utils/logger";
 

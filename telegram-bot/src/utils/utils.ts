@@ -3,6 +3,10 @@ import * as fs from "fs"
 import { Context, InputFile } from "grammy"
 import { InlineKeyboardMarkup } from "grammy/types"
 import sharp from "sharp"
+import {MyContext} from "../types/MyContext";
+import {ChatMember} from "@grammyjs/types";
+import {logger} from "./logger";
+import {INVITE_PLACEHOLDER_REGEX} from "../constants";
 
 export const validateMiniAppData = (rawInitData: any): boolean => {
   const initData = new URLSearchParams(rawInitData as string);
@@ -130,3 +134,68 @@ export function isUrlValid(url: string) {
   ); 
   return !!pattern.test(url);
 }
+
+/* -------------------------------------------------------------------------- */
+/* Utility => convert em-dash/en-dash to ASCII minus                         */
+/* -------------------------------------------------------------------------- */
+export function normalizeDashes(text: string): string {
+    return text.replace(/[\u2013\u2014]/g, "-");
+}
+
+/* -------------------------------------------------------------------------- */
+/* Utility => escape CSV fields                                              */
+/* -------------------------------------------------------------------------- */
+export function escapeCsv(str: string): string {
+    if (!str) return "";
+    let s = str.replace(/"/g, "\"\"");
+    if (/[,"]/.test(s)) {
+        s = `"${s}"`;
+    }
+    return s;
+}
+
+/* -------------------------------------------------------------------------- */
+/* generateBroadcastGroupTitle => produce a unique group title (timestamp)   */
+/* -------------------------------------------------------------------------- */
+export function generateBroadcastGroupTitle(): string {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, "0");
+    const d = String(now.getDate()).padStart(2, "0");
+    const hh = String(now.getHours()).padStart(2, "0");
+    const mm = String(now.getMinutes()).padStart(2, "0");
+    const ss = String(now.getSeconds()).padStart(2, "0");
+    return `broad-cast-${y}${m}${d}${hh}${mm}${ss}`;
+}
+
+/* -------------------------------------------------------------------------- */
+/* checkBotIsAdmin => returns true if bot is admin in chatId                 */
+/* createOneTimeInviteLink => single-use link for that chatId                */
+/* -------------------------------------------------------------------------- */
+export async function checkBotIsAdmin(api: MyContext["api"], chatId: number): Promise<boolean> {
+    try {
+        const me = await api.getMe();
+        const member: ChatMember = await api.getChatMember(chatId, me.id);
+        return member.status === "administrator" || member.status === "creator";
+    } catch (err) {
+        logger.warn(`checkBotIsAdmin failed chatId=${chatId}: ${err}`);
+        return false;
+    }
+}
+
+
+/* -------------------------------------------------------------------------- */
+/* Utility => parse all invite placeholders to gather chat IDs (if needed)   */
+/* -------------------------------------------------------------------------- */
+export function extractInviteChatIds(text: string): number[] {
+    const normalized = normalizeDashes(text);
+    const found: number[] = [];
+    const matches =  Array.from(normalized.matchAll(INVITE_PLACEHOLDER_REGEX));
+    for (const m of matches) {
+        const chatId = parseInt(m[1], 10);
+        if (!isNaN(chatId)) found.push(chatId);
+    }
+    return found;
+}
+
+

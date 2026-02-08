@@ -1,15 +1,15 @@
 "use client";
 
 import React from "react";
-import { FaPlus, FaMinus } from "react-icons/fa";
+import { FaMinus, FaPlus } from "react-icons/fa";
 
 interface PlusMinusInputProps {
   label: string;
   value: number;
   onChange: (val: number) => void;
-  error?: string;      // optional error message
-  unitLabel?: string;  // optional suffix like '%'
-  disabled?: boolean;  // NEW: optional disabled state
+  error?: string; // optional error message
+  unitLabel?: string; // optional suffix like '%'
+  disabled?: boolean; // NEW: optional disabled state
 }
 
 /**
@@ -19,14 +19,7 @@ interface PlusMinusInputProps {
  *  - Allows user to type or increment/decrement
  *  - Optional `disabled` prop to make it read-only
  */
-export default function PlusMinusInput({
-                                         label,
-                                         value,
-                                         onChange,
-                                         error,
-                                         unitLabel,
-                                         disabled = false,
-                                       }: PlusMinusInputProps) {
+export default function PlusMinusInput({ label, value, onChange, error, unitLabel, disabled = false }: PlusMinusInputProps) {
   // Called when user types a new value
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (disabled) return; // ignore input if disabled
@@ -59,9 +52,7 @@ export default function PlusMinusInput({
   return (
     <div className="mb-4">
       {/* Label */}
-      <label className="text-sm text-gray-500 mb-1 block">
-        {label}
-      </label>
+      <label className="text-sm text-gray-500 mb-1 block">{label}</label>
 
       {/* Container box */}
       <div className="bg-white py-2 px-4 rounded-md flex items-center justify-between shadow-sm">
@@ -75,36 +66,28 @@ export default function PlusMinusInput({
               text-center
               outline-none
               p-0
-              ${
-              disabled
-                ? "bg-gray-100 text-gray-500 cursor-not-allowed"
-                : ""
-            }
+              ${disabled ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}
             `}
             value={value.toString()}
             onChange={handleInputChange}
             readOnly={disabled} // or we could use "disabled" if you prefer
           />
-          {unitLabel && (
-            <span className="text-gray-600 text-sm">
-              {unitLabel}
-            </span>
-          )}
+          {unitLabel && <span className="text-gray-600 text-sm">{unitLabel}</span>}
         </div>
 
         {/* Right side: plus/minus stuck together (no gap) */}
         <div className="flex">
           <button
             type="button"
-            onClick={handleMinus}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleMinus();
+            }}
             disabled={disabled}
             className={`
               px-3 py-1
-              ${
-              disabled
-                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                : "bg-gray-200 hover:bg-gray-300"
-            }
+              ${disabled ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-gray-200 hover:bg-gray-300"}
               rounded-l
               focus:outline-none
               border-r-2
@@ -115,15 +98,15 @@ export default function PlusMinusInput({
           </button>
           <button
             type="button"
-            onClick={handlePlus}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handlePlus();
+            }}
             disabled={disabled}
             className={`
               px-3 py-1
-              ${
-              disabled
-                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                : "bg-gray-200 hover:bg-gray-300"
-            }
+              ${disabled ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-gray-200 hover:bg-gray-300"}
               rounded-r
               focus:outline-none
             `}
@@ -134,11 +117,7 @@ export default function PlusMinusInput({
       </div>
 
       {/* Error message if needed */}
-      {error && (
-        <p className="text-red-500 text-sm mt-1">
-          {error}
-        </p>
-      )}
+      {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
     </div>
   );
 }

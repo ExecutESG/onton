@@ -3,9 +3,8 @@
 import MainButton from "@/app/_components/atoms/buttons/web-app/MainButton";
 import RegistrantCheckInQrCode from "@/app/_components/Event/RegistrantCheckInQrCode";
 import useWebApp from "@/hooks/useWebApp";
-import { Block, BlockHeader, BlockTitle, Page } from "konsta/react";
+import { Block, BlockHeader, BlockTitle } from "konsta/react";
 import { useParams, useRouter } from "next/navigation";
-import React from "react";
 
 export default function RegistrantQrCodePage() {
   const params = useParams<{
@@ -13,13 +12,11 @@ export default function RegistrantQrCodePage() {
     reg_id: string;
   }>();
 
-
-
   const webApp = useWebApp();
   const router = useRouter();
 
   return (
-    <Page>
+    <div>
       <BlockTitle>Check-in QR Code</BlockTitle>
       <BlockHeader>Please show this QR code to the event organizers to check-in.</BlockHeader>
       <Block
@@ -35,6 +32,6 @@ export default function RegistrantQrCodePage() {
           router.back();
         }}
       />
-    </Page>
+    </div>
   );
 }

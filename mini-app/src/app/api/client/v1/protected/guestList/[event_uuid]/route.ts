@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
-import { selectVisitorsByEventUuid } from "@/server/db/visitors";
+import { selectVisitorsByEventUuid } from "@/db/modules/visitors.db";
 import { validateJwtFromRequest } from "@/app/api/client/v1/authService";
 
 // Zod schema for validating the path and query parameters

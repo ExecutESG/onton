@@ -1,0 +1,1 @@
+ALTER TABLE "token_campaign_user_spins" ADD COLUMN "is_minted" boolean DEFAULT false;

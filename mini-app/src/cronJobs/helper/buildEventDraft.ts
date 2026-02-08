@@ -1,4 +1,4 @@
-import { CreateTonSocietyDraft } from "@/server/routers/services/tonSocietyService";
+import { CreateTonSocietyDraft } from "@/services/tonSocietyService";
 import { EventRow } from "@/db/schema/events";
 
 /** Builds a standard Ton Society draft for the main event. */

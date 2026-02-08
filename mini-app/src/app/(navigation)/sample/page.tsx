@@ -1,674 +1,192 @@
 "use client";
-import React, { useState, useEffect } from "react";
-import { trpc } from "@/app/_trpc/client"; // your TRPC client
-import { CampaignType, campaignTypes, paymentTypes, TokenCampaignOrders } from "@/db/schema";
-import { TonConnectButton, useTonAddress, useTonConnectModal } from "@tonconnect/ui-react";
-import { toast } from "sonner"; // or any toast library
-import { useUserStore } from "@/context/store/user.store"; // adjust path
-import { Button } from "konsta/react";
-import Image from "next/image";
-import tonIcon from "@/components/icons/ton.svg";
-import OntonDialog from "@/components/OntonDialog"; // from your snippet
-import { Card } from "konsta/react";
-import Typography from "@/components/Typography";
-import PaymentFlow from "@/app/(navigation)/sample/PaymentFlow";
-import { useConfig } from "@/context/ConfigContext";
 
-// ====================== //
-//   CONNECT WALLET CARD  //
-// ====================== //
-function ConnectWalletCard() {
-  const [isOpen, setOpen] = useState(false);
+import { useCallback, useEffect } from "react";
+import { trpc } from "@/app/_trpc/client";
+import useWebApp from "@/hooks/useWebApp";
 
-  const hasWallet = !!useTonAddress();
-
-  return (
-    <Card className="w-full !mx-0 p-4 mb-8 border border-gray-300 rounded shadow-sm">
-      <Typography
-        bold
-        variant="headline"
-        className="mb-4"
-      >
-        Your Wallet
-      </Typography>
-
-      <ConfirmConnectDialog
-        open={isOpen}
-        onClose={() => setOpen(false)}
-      />
-
-      {hasWallet ? (
-        <TonConnectButton className="mx-auto" />
-      ) : (
-        <Button
-          className="py-4 rounded-[10px] w-full bg-blue-600 text-white hover:bg-blue-700"
-          onClick={() => setOpen(true)}
-        >
-          <Image
-            className="mr-2 inline-block"
-            src={tonIcon}
-            alt=""
-            width={15}
-            height={15}
-          />
-          Connect your Wallet
-        </Button>
-      )}
-    </Card>
-  );
+function openAuthUrl(url?: string) {
+  if (url) window.open(url, "_blank", "noopener");
 }
 
-// =========================== //
-//  CONFIRM CONNECT DIALOG    //
-// =========================== //
-function ConfirmConnectDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const walletModal = useTonConnectModal();
-  const tonWalletAddress = useTonAddress();
-  const { user } = useUserStore();
-  const addWalletMutation = trpc.users.addWallet.useMutation({
-    onSuccess: () => {
-      // any invalidations if needed
-      onClose();
-    },
-  });
+export default function ConnectAccountsPage() {
+  /* --------------------------- X queries --------------------------- */
+  const { data: linkedX, refetch: refetchX } = trpc.usersX.getLinkedAccount.useQuery();
+  const getXAuthUrl = trpc.usersX.getAuthUrl.useQuery(undefined, { enabled: false });
+  const saveX = trpc.usersX.saveAccount.useMutation({ onSuccess: () => refetchX() });
+  const unlinkX = trpc.usersX.unlink.useMutation({ onSuccess: () => refetchX() });
+
+  /* ------------------------- GitHub queries ------------------------ */
+  const { data: linkedGh, refetch: refetchGh } = trpc.usersGithub.getLinkedAccount.useQuery();
+  const getGhAuthUrl = trpc.usersGithub.getAuthUrl.useQuery(undefined, { enabled: false });
+  const saveGh = trpc.usersGithub.saveAccount.useMutation({ onSuccess: () => refetchGh() });
+  const unlinkGh = trpc.usersGithub.unlink.useMutation({ onSuccess: () => refetchGh() });
+
+  /* ----------------------- LinkedIn queries ------------------------ */
+  const { data: linkedLi, refetch: refetchLi } = trpc.usersLinkedin.getLinkedAccount.useQuery();
+  const getLiAuthUrl = trpc.usersLinkedin.getAuthUrl.useQuery(undefined, { enabled: false });
+  const saveLi = trpc.usersLinkedin.saveAccount.useMutation({ onSuccess: () => refetchLi() });
+  const unlinkLi = trpc.usersLinkedin.unlink.useMutation({ onSuccess: () => refetchLi() });
+
+  /* ----------------------- Telegram bridge ------------------------- */
+  const webApp = useWebApp();
 
   useEffect(() => {
-    if (!user?.user_id) return;
-    if (tonWalletAddress) {
-      // user has connected wallet or changed wallet
-      onClose();
-      if (!user?.wallet_address) {
-        // If user doesn't have a wallet in DB, update
-        toast.success("Your wallet is now connected");
-        addWalletMutation.mutate({
-          wallet: tonWalletAddress,
+    function handleMessage(ev: MessageEvent) {
+      const { type, payload } = ev.data || {};
+      if (type === "x-auth" && payload?.ok) {
+        saveX.mutate({
+          xUserId: payload.xUserId,
+          xUsername: payload.xUsername,
+          xDisplayName: payload.xDisplayName,
+          xProfileImageUrl: payload.xProfileImageUrl,
+        });
+      }
+      if (type === "gh-auth" && payload?.ok) {
+        saveGh.mutate({
+          ghUserId: payload.ghUserId,
+          ghLogin: payload.ghLogin,
+          ghDisplayName: payload.ghDisplayName,
+          ghAvatarUrl: payload.ghAvatarUrl,
+        });
+      }
+      if (type === "li-auth" && payload?.ok) {
+        saveLi.mutate({
+          liUserId: payload.liUserId,
+          liFirstName: payload.liFirstName,
+          liLastName: payload.liLastName,
+          liAvatarUrl: payload.liAvatarUrl,
+          liEmail: payload.liEmail,
         });
       }
     }
-  }, [user, tonWalletAddress, addWalletMutation, onClose]);
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [saveX, saveGh, saveLi]);
 
-  const handleConnect = () => {
-    walletModal.open();
-  };
+  /* --------------- open consent screens (X / GitHub / LinkedIn) --------------- */
+  const startXConnect = useCallback(async () => {
+    const { data } = await getXAuthUrl.refetch();
+    openAuthUrl(data?.authUrl);
+    webApp?.close();
+  }, [getXAuthUrl, webApp]);
 
+  const startGhConnect = useCallback(async () => {
+    const { data } = await getGhAuthUrl.refetch();
+    openAuthUrl(data?.authUrl);
+    webApp?.close();
+  }, [getGhAuthUrl, webApp]);
+
+  const startLiConnect = useCallback(async () => {
+    const { data } = await getLiAuthUrl.refetch();
+    openAuthUrl(data?.authUrl);
+    webApp?.close();
+  }, [getLiAuthUrl, webApp]);
+
+  /* ------------------------------- UI ------------------------------ */
   return (
-    <OntonDialog
-      open={open}
-      onClose={onClose}
-      title="Connect your wallet"
-    >
-      <Typography
-        variant="body"
-        className="text-center mb-6 font-normal"
-      >
-        <b>You are becoming an ONTON organizer.</b>
-        <br />
-        To create a channel and use special event publishing features, you need to pay 10 TON
-      </Typography>
-      <Button
-        className="py-4 rounded-[10px] mb-3 bg-blue-600 text-white w-full"
-        onClick={handleConnect}
-      >
-        Connect Wallet
-      </Button>
-      <Button
-        className="py-4 rounded-[10px] w-full"
-        outline
-        onClick={onClose}
-      >
-        Maybe Later
-      </Button>
-    </OntonDialog>
+    <main className="flex flex-col items-center gap-10 p-6">
+      <h1 className="text-2xl font-semibold">Connect your social accounts</h1>
+
+      {/* ---------- X section ---------- */}
+      <AccountBlock
+        title="Twitter / X"
+        connected={!!linkedX}
+        avatar={linkedX?.xProfileImageUrl}
+        handle={linkedX?.xUsername ? `@${linkedX.xUsername}` : undefined}
+        onConnect={startXConnect}
+        onDisconnect={() => unlinkX.mutate()}
+        loadingConnect={getXAuthUrl.isFetching}
+        loadingDisconnect={unlinkX.isLoading}
+        connectColor="bg-black"
+      />
+
+      {/* ---------- GitHub section ---------- */}
+      <AccountBlock
+        title="GitHub"
+        connected={!!linkedGh}
+        avatar={linkedGh?.ghAvatarUrl}
+        handle={linkedGh?.ghLogin ? `@${linkedGh.ghLogin}` : undefined}
+        onConnect={startGhConnect}
+        onDisconnect={() => unlinkGh.mutate()}
+        loadingConnect={getGhAuthUrl.isFetching}
+        loadingDisconnect={unlinkGh.isLoading}
+        connectColor="bg-gray-800"
+      />
+
+      {/* ---------- LinkedIn section ---------- */}
+      <AccountBlock
+        title="LinkedIn"
+        connected={!!linkedLi}
+        avatar={linkedLi?.liAvatarUrl}
+        handle={linkedLi ? `${linkedLi.liFirstName ?? ""} ${linkedLi.liLastName ?? ""}`.trim() : undefined}
+        onConnect={startLiConnect}
+        onDisconnect={() => unlinkLi.mutate()}
+        loadingConnect={getLiAuthUrl.isFetching}
+        loadingDisconnect={unlinkLi.isLoading}
+        connectColor="bg-blue-700"
+      />
+    </main>
   );
 }
 
-// ====================== //
-//   MAIN CAMPAIGN PAGE   //
-// ====================== //
-export default function CampaignTestPage() {
-  const campaignTypeEnum = campaignTypes.enumValues;
-  const paymentTypesEnum = paymentTypes.enumValues;
+/* ------------------------- Small sub‑component ------------------------ */
+interface AccountBlockProps {
+  title: string;
+  connected: boolean;
+  avatar?: string | null;
+  handle?: string;
+  onConnect: () => void;
+  onDisconnect: () => void;
+  loadingConnect: boolean;
+  loadingDisconnect: boolean;
+  connectColor: string; // Tailwind class
+}
 
-  // 1) ADD ORDER
-  const [orderSpinPackageId, setOrderSpinPackageId] = useState<number>(1);
-
-  // We'll store the last created order to show a payment button
-  const [createdOrder, setCreatedOrder] = useState<undefined | TokenCampaignOrders>(undefined);
-  const config = useConfig();
-  const ontonWalletAddress = config?.ONTON_WALLET_ADDRESS || "UQDIh_j4EZPAouFr4MJOZFogV8ux2zSdED36KQ7ODUp-um9H";
-  // get the ending Time from the config
-  const campaignEndingTime = Number(config?.ONION1_EDN_DATE) || 1745269200;
-  // convert to Format: YYYY-MM-DDTHH:mm:ss (ISO format)
-  const campaignEndingDate = new Date(campaignEndingTime * 1000).toISOString().slice(0, 19);
-
-  const addOrderMutation = trpc.campaign.addOrder.useMutation({
-    onSuccess(data) {
-      if (!data) return;
-      setCreatedOrder(data);
-      toast.success(`Order #${data.id} created! Now proceed to payment.`);
-    },
-  });
-
-  function handleAddOrder(e: React.FormEvent) {
-    e.preventDefault();
-    addOrderMutation.mutate({
-      spinPackageId: orderSpinPackageId,
-      walletAddress: ontonWalletAddress,
-    });
-  }
-
-  // 2) GET ORDER
-  const [getOrderId, setGetOrderId] = useState<number>(1);
-  const getOrderQuery = trpc.campaign.getOrder.useQuery({ orderId: getOrderId }, { enabled: false });
-
-  function handleGetOrder(e: React.FormEvent) {
-    e.preventDefault();
-    getOrderQuery.refetch();
-  }
-
-  // 3) GET ACTIVE SPIN PACKAGES
-  const [activePackagesCampaignType, setActivePackagesCampaignType] = useState<string>(campaignTypeEnum[0]);
-  const getActivePackagesQuery = trpc.campaign.getActiveSpinPackagesByCampaignType.useQuery(
-    { campaignType: activePackagesCampaignType as any },
-    { enabled: false }
-  );
-
-  function handleGetActivePackages(e: React.FormEvent) {
-    e.preventDefault();
-    getActivePackagesQuery.refetch();
-  }
-
-  // 4) SPIN FOR NFT
-  const [spinCampaignType, setSpinCampaignType] = useState<string>(campaignTypeEnum[0]);
-  const spinMutation = trpc.campaign.spinForNft.useMutation();
-
-  function handleSpin(e: React.FormEvent) {
-    e.preventDefault();
-    spinMutation.mutate({
-      campaignType: spinCampaignType as CampaignType,
-    });
-  }
-
-  // 5) GET USER COLLECTIONS
-  const [collectionsCampaignType, setCollectionsCampaignType] = useState<string>(campaignTypeEnum[0]);
-  const getUserCollectionsQuery = trpc.campaign.getUserCollectionsResult.useQuery(
-    { campaignType: collectionsCampaignType as any },
-    { enabled: false }
-  );
-
-  function handleGetUserCollections(e: React.FormEvent) {
-    e.preventDefault();
-    getUserCollectionsQuery.refetch();
-  }
-
-  // 6) GET COLLECTIONS BY TYPE
-  const [collectionsByType, setCollectionsByType] = useState<string>(campaignTypeEnum[0]);
-  const getCollectionsByTypeQuery = trpc.campaign.getCollectionsByCampaignType.useQuery(
-    { campaignType: collectionsByType as any },
-    { enabled: false }
-  );
-
-  function handleGetCollections(e: React.FormEvent) {
-    e.preventDefault();
-    getCollectionsByTypeQuery.refetch();
-  }
-
-  // 7) GET USER SPIN STATS
-  const [statSpinPackageId, setStatSpinPackageId] = useState<number>();
-  const getUserSpinStatsQuery = trpc.campaign.getUserSpinStats.useQuery(
-    { spinPackageId: statSpinPackageId },
-    { enabled: false }
-  );
-
-  function handleGetUserSpinStats(e: React.FormEvent) {
-    e.preventDefault();
-    getUserSpinStatsQuery.refetch();
-  }
-
-  // 8) CHECK USER ELIGIBILITY
-  // This calls `checkUserEligible` which uses ctx.user?.user_id on the backend.
-  const {
-    data: eligibilityData,
-    isFetching: isFetchingEligibility,
-    error: eligibilityError,
-    refetch: refetchEligibility,
-  } = trpc.campaign.checkUserEligible.useQuery(undefined, { enabled: false });
-
-  function handleCheckEligibility(e: React.FormEvent) {
-    e.preventDefault();
-    refetchEligibility();
-  }
-
-  // 9) GET ONION CAMPAIGN AFFILIATE DATA
-  // Calls `getOnionCampaignAffiliateData`, which returns { linkHash, totalSpins }
-  const {
-    data: onionAffiliateData,
-    isLoading: isLoadingOnionAff,
-    isFetching: isFetchingOnionAff,
-    error: onionAffError,
-    refetch: refetchOnionAffiliate,
-  } = trpc.campaign.getOnionCampaignAffiliateData.useQuery(undefined, { enabled: false });
-
-  function handleOnionAffiliate(e: React.FormEvent) {
-    e.preventDefault();
-    refetchOnionAffiliate();
-  }
-
-  // 10) SHARE AFFILIATE LINK
-  const shareAffiliateLinkMutation = trpc.telegramInteractions.requestShareAffiliateOnionCampaign.useMutation();
-
-  function handleShareAffiliate(e: React.FormEvent) {
-    e.preventDefault();
-    shareAffiliateLinkMutation.mutate(undefined, {
-      onSuccess: () => toast.success("Affiliate link share requested! Check your Telegram app."),
-      onError: (err) => toast.error(`Error: ${err.message}`),
-    });
-  }
-
+function AccountBlock({
+  title,
+  connected,
+  avatar,
+  handle,
+  onConnect,
+  onDisconnect,
+  loadingConnect,
+  loadingDisconnect,
+  connectColor,
+}: AccountBlockProps) {
   return (
-    <div className="p-8">
-      <h1 className="text-2xl font-bold mb-4">Campaign Test Page</h1>
-      {/* Campaign Ending Date */}
-      <section className="mb-8 border border-gray-300 p-4 rounded shadow-sm">
-        <h2 className="text-lg font-semibold mb-2">Campaign Ending Date</h2>
-        <p className="text-gray-600">
-          The campaign will end on: <strong>{campaignEndingDate}</strong>
-        </p>
-      </section>
-      {/* Connect Wallet Section */}
-      <ConnectWalletCard />
+    <section className="flex flex-col items-center gap-4">
+      <h2 className="text-xl font-medium">{title}</h2>
 
-      {/* 1) ADD ORDER FORM */}
-      <section className="mb-8 border border-gray-300 p-4 rounded shadow-sm">
-        <h2 className="text-lg font-semibold mb-2">Add Order</h2>
-        <form
-          onSubmit={handleAddOrder}
-          className="space-y-4"
-        >
-          <div>
-            <label className="block mb-1 font-medium">
-              Spin Package ID:
-              <input
-                type="number"
-                value={orderSpinPackageId}
-                onChange={(e) => setOrderSpinPackageId(parseInt(e.target.value, 10))}
-                className="block w-full mt-1 p-2 border border-gray-300 rounded bg-gray-50"
+      {connected ? (
+        <div className="flex flex-col items-center gap-2">
+          <div className="flex items-center gap-2">
+            {avatar && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={avatar}
+                alt="avatar"
+                className="h-8 w-8 rounded-full"
               />
-            </label>
+            )}
+            {handle && <span>{handle}</span>}
           </div>
-
-          <div></div>
-
           <button
-            type="submit"
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            disabled={addOrderMutation.isLoading}
+            className="rounded-xl bg-red-500 px-4 py-1 text-white"
+            onClick={onDisconnect}
+            disabled={loadingDisconnect}
           >
-            {addOrderMutation.isLoading ? "Placing order..." : "Add Order"}
+            {loadingDisconnect ? "Unlinking…" : "Disconnect"}
           </button>
-        </form>
-
-        {addOrderMutation.error && <p className="mt-2 text-red-600">Error: {addOrderMutation.error.message}</p>}
-      </section>
-
-      {/* PaymentFlow for newly created order */}
-      {createdOrder && createdOrder?.wallet_address && (
-        <section className="mb-8 border border-gray-300 p-4 rounded shadow-sm">
-          <h2 className="text-lg font-semibold mb-2">Pay for Order #{createdOrder.id}</h2>
-          <p className="text-gray-600 mb-2">
-            This order costs <strong>{createdOrder.finalPrice} TON</strong>.
-          </p>
-          <PaymentFlow
-            orderId={createdOrder.id}
-            orderUuid={createdOrder.uuid}
-            walletAddress={createdOrder.wallet_address}
-            finalPrice={parseFloat(createdOrder.finalPrice)}
-            onSuccess={() => {
-              toast.success("Order Payment Confirmed!");
-              // Do something else, e.g. refresh or show new status
-            }}
-            onCancel={() => {
-              toast.error("User canceled or transaction failed.");
-            }}
-          />
-        </section>
+        </div>
+      ) : (
+        <button
+          className={`rounded-xl px-6 py-2 text-white ${connectColor}`}
+          onClick={onConnect}
+          disabled={loadingConnect}
+        >
+          {loadingConnect ? "Loading…" : `Connect ${title}`}
+        </button>
       )}
-
-      {/* 2) GET ORDER */}
-      <section className="mb-8 border border-gray-300 p-4 rounded shadow-sm">
-        <h2 className="text-lg font-semibold mb-2">Get Order</h2>
-        <form
-          onSubmit={handleGetOrder}
-          className="space-y-4"
-        >
-          <div>
-            <label className="block mb-1 font-medium">
-              Order ID:
-              <input
-                type="number"
-                value={getOrderId}
-                onChange={(e) => setGetOrderId(parseInt(e.target.value, 10))}
-                className="block w-full mt-1 p-2 border border-gray-300 rounded"
-              />
-            </label>
-          </div>
-          <button
-            type="submit"
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Fetch Order
-          </button>
-        </form>
-        {getOrderQuery.isFetching && <p className="mt-2 text-gray-600">Loading order...</p>}
-        {getOrderQuery.data && (
-          <div className="mt-2 text-gray-800">
-            <p>Order ID: {getOrderQuery.data.id}</p>
-            <p>Spin Package ID: {getOrderQuery.data.spinPackageId}</p>
-            <p>Status: {getOrderQuery.data.status}</p>
-          </div>
-        )}
-        {getOrderQuery.error && <p className="mt-2 text-red-600">Error: {getOrderQuery.error.message}</p>}
-      </section>
-
-      {/* 3) GET ACTIVE SPIN PACKAGES */}
-      <section className="mb-8 border border-gray-300 p-4 rounded shadow-sm">
-        <h2 className="text-lg font-semibold mb-2">Get Active Spin Packages</h2>
-        <form
-          onSubmit={handleGetActivePackages}
-          className="space-y-4"
-        >
-          <div>
-            <label className="block mb-1 font-medium">
-              Campaign Type:
-              <select
-                value={activePackagesCampaignType}
-                onChange={(e) => setActivePackagesCampaignType(e.target.value)}
-                className="block w-full mt-1 p-2 border border-gray-300 rounded bg-white"
-              >
-                {campaignTypeEnum.map((ct) => (
-                  <option
-                    key={ct}
-                    value={ct}
-                  >
-                    {ct}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <button
-            type="submit"
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Fetch Active Packages
-          </button>
-        </form>
-        {getActivePackagesQuery.isFetching && <p className="mt-2 text-gray-600">Loading spin packages...</p>}
-        {getActivePackagesQuery.data && (
-          <ul className="mt-2 list-disc list-inside text-gray-800">
-            {getActivePackagesQuery.data.map((pkg) => (
-              <li key={pkg.id}>
-                ID: {pkg.id}, Name: {pkg.name}, Active: {pkg.active ? "Yes" : "No"}
-              </li>
-            ))}
-          </ul>
-        )}
-        {getActivePackagesQuery.error && <p className="mt-2 text-red-600">Error: {getActivePackagesQuery.error.message}</p>}
-      </section>
-
-      {/* 4) SPIN FOR NFT */}
-      <section className="mb-8 border border-gray-300 p-4 rounded shadow-sm">
-        <h2 className="text-lg font-semibold mb-2">Spin For NFT</h2>
-        <form
-          onSubmit={handleSpin}
-          className="space-y-4"
-        >
-          <div>
-            <label className="block mb-1 font-medium">
-              Campaign Type:
-              <select
-                value={spinCampaignType}
-                onChange={(e) => setSpinCampaignType(e.target.value)}
-                className="block w-full mt-1 p-2 border border-gray-300 rounded bg-white"
-              >
-                {campaignTypeEnum.map((ct) => (
-                  <option
-                    key={ct}
-                    value={ct}
-                  >
-                    {ct}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <button
-            type="submit"
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Spin!
-          </button>
-        </form>
-        {spinMutation.isLoading && <p className="mt-2 text-gray-600">Spinning...</p>}
-        {spinMutation.data && (
-          <div className="mt-2 text-gray-800">
-            <p>Random NFT Collection: {spinMutation.data.name}</p>
-            <p>Description: {spinMutation.data.description}</p>
-          </div>
-        )}
-        {spinMutation.error && <p className="mt-2 text-red-600">Error: {spinMutation.error.message}</p>}
-      </section>
-
-      {/* 5) GET USER COLLECTIONS RESULT */}
-      <section className="mb-8 border border-gray-300 p-4 rounded shadow-sm">
-        <h2 className="text-lg font-semibold mb-2">Get User Collections Result</h2>
-        <form
-          onSubmit={handleGetUserCollections}
-          className="space-y-4"
-        >
-          <div>
-            <label className="block mb-1 font-medium">
-              Campaign Type:
-              <select
-                value={collectionsCampaignType}
-                onChange={(e) => setCollectionsCampaignType(e.target.value)}
-                className="block w-full mt-1 p-2 border border-gray-300 rounded bg-white"
-              >
-                {campaignTypeEnum.map((ct) => (
-                  <option
-                    key={ct}
-                    value={ct}
-                  >
-                    {ct}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <button
-            type="submit"
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Fetch Collections Result
-          </button>
-        </form>
-        {getUserCollectionsQuery.isFetching && <p className="mt-2 text-gray-600">Loading user collections...</p>}
-        {getUserCollectionsQuery.data && (
-          <ul className="mt-2 list-disc list-inside text-gray-800">
-            {getUserCollectionsQuery.data.map((col) => (
-              <li key={col.id}>
-                Collection ID: {col.id}, Name: {col.name}, Count: {col.count}
-              </li>
-            ))}
-          </ul>
-        )}
-        {getUserCollectionsQuery.error && (
-          <p className="mt-2 text-red-600">Error: {getUserCollectionsQuery.error.message}</p>
-        )}
-      </section>
-
-      {/* 6) GET COLLECTIONS BY CAMPAIGN TYPE */}
-      <section className="mb-8 border border-gray-300 p-4 rounded shadow-sm">
-        <h2 className="text-lg font-semibold mb-2">Get Collections By Campaign Type</h2>
-        <form
-          onSubmit={handleGetCollections}
-          className="space-y-4"
-        >
-          <div>
-            <label className="block mb-1 font-medium">
-              Campaign Type:
-              <select
-                value={collectionsByType}
-                onChange={(e) => setCollectionsByType(e.target.value)}
-                className="block w-full mt-1 p-2 border border-gray-300 rounded bg-white"
-              >
-                {campaignTypeEnum.map((ct) => (
-                  <option
-                    key={ct}
-                    value={ct}
-                  >
-                    {ct}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <button
-            type="submit"
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Fetch Collections
-          </button>
-        </form>
-        {getCollectionsByTypeQuery.isFetching && <p className="mt-2 text-gray-600">Loading collections...</p>}
-        {getCollectionsByTypeQuery.data && (
-          <ul className="mt-2 list-disc list-inside text-gray-800">
-            {getCollectionsByTypeQuery.data.map((col) => (
-              <li key={col.id}>
-                ID: {col.id}, Name: {col.name},
-              </li>
-            ))}
-          </ul>
-        )}
-        {getCollectionsByTypeQuery.error && (
-          <p className="mt-2 text-red-600">Error: {getCollectionsByTypeQuery.error.message}</p>
-        )}
-      </section>
-
-      {/* 7) GET USER SPIN STATS */}
-      <section className="mb-8 border border-gray-300 p-4 rounded shadow-sm">
-        <h2 className="text-lg font-semibold mb-2">Get User Spin Stats</h2>
-        <form
-          onSubmit={handleGetUserSpinStats}
-          className="space-y-4"
-        >
-          <div>
-            <label className="block mb-1 font-medium">
-              Spin Package ID (optional):
-              <input
-                type="number"
-                value={statSpinPackageId ?? ""}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setStatSpinPackageId(val === "" ? undefined : parseInt(val, 10));
-                }}
-                placeholder="Leave blank for all packages"
-                className="block w-full mt-1 p-2 border border-gray-300 rounded bg-gray-50"
-              />
-            </label>
-          </div>
-          <button
-            type="submit"
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Get Spin Stats
-          </button>
-        </form>
-        {getUserSpinStatsQuery.isFetching && <p className="mt-2 text-gray-600">Loading spin stats...</p>}
-        {getUserSpinStatsQuery.data && (
-          <div className="mt-2 text-gray-800">
-            <p>Used: {getUserSpinStatsQuery.data.used}</p>
-            <p>Remaining: {getUserSpinStatsQuery.data.remaining}</p>
-          </div>
-        )}
-        {getUserSpinStatsQuery.error && <p className="mt-2 text-red-600">Error: {getUserSpinStatsQuery.error.message}</p>}
-      </section>
-
-      {/* 8) CHECK USER ELIGIBILITY */}
-      <section className="mb-8 border border-gray-300 p-4 rounded shadow-sm">
-        <h2 className="text-lg font-semibold mb-2">Check User Eligibility</h2>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            refetchEligibility();
-          }}
-          className="space-y-4"
-        >
-          <button
-            type="submit"
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            disabled={isFetchingEligibility}
-          >
-            {isFetchingEligibility ? "Checking..." : "Check My Eligibility"}
-          </button>
-        </form>
-
-        {/* Show the result */}
-        {eligibilityError && <p className="mt-2 text-red-600">Error: {eligibilityError.message}</p>}
-        {eligibilityData && (
-          <p className="mt-2 text-gray-800">
-            Eligible? <strong>{eligibilityData.eligible ? "Yes" : "No"}</strong>
-          </p>
-        )}
-      </section>
-
-      {/* 9) GET ONION CAMPAIGN AFFILIATE */}
-      <section className="mb-8 border border-gray-300 p-4 rounded shadow-sm">
-        <h2 className="text-lg font-semibold mb-2">Onion Campaign Affiliate Data</h2>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            refetchOnionAffiliate();
-          }}
-          className="space-y-4"
-        >
-          <button
-            type="submit"
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            disabled={isFetchingOnionAff}
-          >
-            {isFetchingOnionAff ? "Loading..." : "Get Onion Campaign Affiliate"}
-          </button>
-        </form>
-
-        {onionAffError && <p className="mt-2 text-red-600">Error: {onionAffError.message}</p>}
-        {onionAffiliateData && (
-          <div className="mt-2 text-gray-800">
-            <p>
-              <strong>Link Hash:</strong> {onionAffiliateData.linkHash}
-            </p>
-            <p>
-              <strong>Total Spins Sold:</strong> {onionAffiliateData.totalSpins}
-            </p>
-          </div>
-        )}
-      </section>
-
-      <section className="mb-8 border border-gray-300 p-4 rounded shadow-sm">
-        <h2 className="text-lg font-semibold mb-2">Share Onion1 Affiliate Link</h2>
-        <form
-          onSubmit={handleShareAffiliate}
-          className="space-y-4"
-        >
-          <button
-            type="submit"
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            disabled={shareAffiliateLinkMutation.isLoading}
-          >
-            {shareAffiliateLinkMutation.isLoading ? "Sharing..." : "Share Link on Telegram"}
-          </button>
-        </form>
-      </section>
-    </div>
+    </section>
   );
 }

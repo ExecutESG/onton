@@ -2,10 +2,10 @@ import { Server } from "socket.io";
 import { Channel, Message } from "amqplib";
 import { retryLimit, SocketEvents, UserId, userSockets } from "@/sockets/constants";
 import { sanitizeInput } from "@/lib/sanitizer";
-import { notificationsDB } from "@/server/db/notifications.db";
-import { eventPoaTriggersDB } from "@/server/db/eventPoaTriggers.db";
-import { eventPoaResultsDB } from "@/server/db/eventPoaResults.db";
-import { getEventById } from "@/server/db/events";
+import { notificationsDB } from "@/db/modules/notifications.db";
+import { eventPoaTriggersDB } from "@/db/modules/eventPoaTriggers.db";
+import { eventPoaResultsDB } from "@/db/modules/eventPoaResults.db";
+import { getEventById } from "@/db/modules/events.db";
 import { NotificationItemType, NotificationStatus, NotificationType } from "@/db/enum"; // Ensure this import is present
 import { logger } from "@/server/utils/logger";
 
@@ -14,17 +14,15 @@ export const emitNotification = async (
   userId: UserId, // it must be number, if it was string and use casting them map will not work
   message: any,
   channel: Channel,
-  msg: Message,
+  msg: Message
 ) => {
-
   const roomName = `user_${userId}`;
   const room = io.sockets.adapter.rooms.get(roomName);
   logger.log(`emitNotification - userId: ${userId}, type: ${typeof userId}`);
 
   // Extract notificationId and ensure it's a number
-  const notificationIdNum = typeof message.notificationId === "string"
-    ? parseInt(message.notificationId, 10)
-    : message.notificationId;
+  const notificationIdNum =
+    typeof message.notificationId === "string" ? parseInt(message.notificationId, 10) : message.notificationId;
 
   if (!room || room.size === 0) {
     logger.warn(`User ${userId} is not online. Message will be retried.`);
@@ -35,18 +33,16 @@ export const emitNotification = async (
     let retryCount = 0;
 
     if (deathHeader.length > 0) {
-      retryCount = deathHeader.reduce(
-        (total, death) => total + (death.count || 0),
-        0,
-      );
+      retryCount = deathHeader.reduce((total, death) => total + (death.count || 0), 0);
     } else {
       logger.warn("x-death header not found. Assuming first attempt.");
     }
-    logger.warn(`Message retry count: ${retryCount}/${retryLimit} for User ${userId} and Notification ID ${notificationIdNum}`,msg.properties.headers);
+    logger.warn(
+      `Message retry count: ${retryCount}/${retryLimit} for User ${userId} and Notification ID ${notificationIdNum}`,
+      msg.properties.headers
+    );
     if (retryCount >= retryLimit && !message.notificationId.includes("-") && notificationIdNum > 0) {
-      logger.error(
-        `Message dropped for User ${userId} after ${retryCount} retries:`,
-      );
+      logger.error(`Message dropped for User ${userId} after ${retryCount} retries:`);
       // Update notification status to EXPIRED before acknowledging
       await notificationsDB.updateNotificationStatus(notificationIdNum, "EXPIRED");
       if (message.item_type === "POA_TRIGGER") {
@@ -68,7 +64,7 @@ export const emitNotification = async (
           logger.warn(`Event POA Trigger not found for ID ${message.itemId}`);
         }
       }
-      if(message.notificationId.includes("-") || notificationIdNum <= 0) {
+      if (message.notificationId.includes("-") || notificationIdNum <= 0) {
         logger.warn(`Notification ID ${notificationIdNum} is non-persist for User ${userId}`);
         channel.ack(msg); // Acknowledge the message, no further retries
         return;
@@ -93,18 +89,14 @@ export const emitNotification = async (
   io.to(roomName).emit(SocketEvents.send.notification, sanitizedMessage);
   logger.log(`Notification sent to User ${userId} in room ${roomName}: ${sanitizedMessage.notificationId}`);
 
-
   try {
     // Since notification is successfully delivered, update its status to READ
-    if(Number(notificationIdNum) > 0) {
+    if (Number(notificationIdNum) > 0) {
       await notificationsDB.updateNotificationAsRead(notificationIdNum);
       logger.log(`Notification ID ${notificationIdNum} marked as READ for User ${userId}`);
-    }
-    else
-    {
+    } else {
       logger.warn(`Notification ID ${notificationIdNum} is non-persist for User ${userId}`);
     }
-
   } catch (updateError) {
     logger.error(`Failed to update notification status for Notification ID ${notificationIdNum}:`, updateError);
   }

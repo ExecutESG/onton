@@ -1,7 +1,7 @@
 import { initDataProtectedProcedure, router } from "@/server/trpc";
 import { hardCodedHubs, nonVerifiedHubs } from "@/constants";
-import { getHubs as getHubsApi} from "@/lib/ton-society-api";
-import { organizerTsVerified } from "@/server/db/userFlags.db";
+import { getHubs as getHubsApi } from "@/lib/ton-society-api";
+import { organizerTsVerified } from "@/db/modules/userFlags.db";
 
 const getHubs = initDataProtectedProcedure.query(async () => {
   if (process.env?.ENV === "local") {
@@ -10,11 +10,11 @@ const getHubs = initDataProtectedProcedure.query(async () => {
       hubs: hardCodedHubs,
     };
   }
-   const result =  await getHubsApi();
-   return {
-     success: true,
-     hubs : result
-   }
+  const result = await getHubsApi();
+  return {
+    success: true,
+    hubs: result,
+  };
 });
 
 const getOrgHubs = initDataProtectedProcedure.query(async (opts) => {

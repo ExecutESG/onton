@@ -2,7 +2,7 @@ import { db } from "@/db/db";
 import { orders } from "@/db/schema/orders";
 import { and, eq } from "drizzle-orm";
 import { logger } from "@/server/utils/logger";
-import eventDB from "@/server/db/events";
+import eventDB from "@/db/modules/events.db";
 import { eventPayment } from "@/db/schema/eventPayment";
 import { events } from "@/db/schema/events";
 
@@ -24,7 +24,7 @@ export const UpdateEventCapacity = async () => {
         logger.error("error_CronJob--CreateOrUpdateEvent_Orders---eventUUID is null order=", order.uuid);
         continue;
       }
-      // const event = await db.select().from(events).where(eq(events.event_uuid, event_uuid)).execute();
+      // const event = await modules.select().from(events).where(eq(events.event_uuid, event_uuid)).execute();
       const event = await eventDB.selectEventByUuid(event_uuid);
 
       if (!event) {

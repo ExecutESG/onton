@@ -1,10 +1,10 @@
 "use client";
-import React, { useState, useEffect } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Separator } from "@/components/ui/separator";
 import { KSheet } from "@/components/ui/drawer";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import { Block, BlockTitle, Button } from "konsta/react";
+import React, { useEffect, useState } from "react";
 
 interface Hub {
   id: string;
@@ -39,9 +39,7 @@ const HubSelectorDrawer: React.FC<HubSelectorDrawerProps> = ({
   }, [isOpen, selectedHubs]);
 
   const toggleHubSelection = (hubId: string) => {
-    setLocalSelectedHubs((prev) =>
-      prev.includes(hubId) ? prev.filter((id) => id !== hubId) : [...prev, hubId]
-    );
+    setLocalSelectedHubs((prev) => (prev.includes(hubId) ? prev.filter((id) => id !== hubId) : [...prev, hubId]));
   };
 
   const selectAllHubs = () => {
@@ -71,7 +69,10 @@ const HubSelectorDrawer: React.FC<HubSelectorDrawerProps> = ({
       <Block className="my-0 space-y-2">
         <div
           className="flex justify-between items-center cursor-pointer p-0 px-10"
-          onClick={allSelected ? deselectAllHubs : selectAllHubs}
+          onClick={(e) => {
+            e.preventDefault();
+            allSelected ? deselectAllHubs : selectAllHubs;
+          }}
         >
           <span className="text-zinc-400">Select All</span>
           <Checkbox
@@ -86,7 +87,10 @@ const HubSelectorDrawer: React.FC<HubSelectorDrawerProps> = ({
             <div
               key={hub.id}
               className={`flex justify-between items-center border-b-2 border-b-gray-800 px-6 cursor-pointer h-12`}
-              onClick={() => toggleHubSelection(hub.id)}
+              onClick={(e) => {
+                e.preventDefault();
+                toggleHubSelection(hub.id);
+              }}
             >
               <span>{hub.name}</span>
               <Checkbox
@@ -96,7 +100,15 @@ const HubSelectorDrawer: React.FC<HubSelectorDrawerProps> = ({
             </div>
           ))}
         </ScrollArea>
-        <Button onClick={handleDoneClick}>Done</Button>
+        <Button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleDoneClick();
+          }}
+        >
+          Done
+        </Button>
       </Block>
     </KSheet>
   );

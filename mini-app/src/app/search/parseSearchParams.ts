@@ -18,7 +18,7 @@ export default function parseSearchParams(searchParams: URLSearchParams) {
   const selectedHubsFromParams = searchParams.get("selectedHubs")?.split(",") || [];
   const sortByQ = (searchParams.get("sortBy") as SortBy) || "start_date_desc";
   const term = searchParams.get("query") || "";
-
+  const selectedCategoriesFromParams = searchParams.get("selectedCategories")?.split(",") || [];
   // ONGOING FILTER
   const eventStatusParam = searchParams.get("eventStatus");
   const eventStatus = eventStatusValues.includes(eventStatusParam as any)
@@ -31,6 +31,7 @@ export default function parseSearchParams(searchParams: URLSearchParams) {
     filter: {
       participationType,
       society_hub_id: selectedHubsFromParams.map(Number).filter(Boolean),
+      category_id: selectedCategoriesFromParams.map(Number).filter(Boolean),
       eventStatus,
     },
   };

@@ -3,7 +3,7 @@ import { InlineKeyboard } from "grammy";
 const startKeyboard = () => {
   return new InlineKeyboard()
     .webApp("Explore Events", `${process.env.NEXT_PUBLIC_APP_BASE_URL}/`).row()
-    .webApp("Genesis ONIONs", `${process.env.NEXT_PUBLIC_APP_BASE_URL}/genesis-onions`).row();
+
 };
 
 

@@ -2,8 +2,8 @@ import { NextRequest } from "next/server";
 import { apiKeyAuthentication, getAuthenticatedUser } from "@/server/auth";
 import { getTournamentDetails } from "@/lib/elympicsApi";
 import { db } from "@/db/db"; // Drizzle main instance for transactions
-import { gamesDB } from "@/server/db/games.db";
-import { tournamentsDB } from "@/server/db/tournaments.db";
+import { gamesDB } from "@/db/modules/games.db";
+import { tournamentsDB } from "@/db/modules/tournaments.db";
 import { logger } from "@/server/utils/logger";
 import sizeOf from "image-size";
 import { scanFileWithClamAV } from "@/lib/scanFileWithClamAV";
@@ -17,7 +17,7 @@ import { z } from "zod";
 import { TonSocietyRegisterActivityT } from "@/types/event.types";
 
 import { PLACEHOLDER_IMAGE, PLACEHOLDER_VIDEO } from "@/constants";
-import { fetchSBTRewardCollectionById, SBTRewardCollectionDB } from "@/server/db/SBTRewardCollection.db";
+import { fetchSBTRewardCollectionById, SBTRewardCollectionDB } from "@/db/modules/SBTRewardCollection.db";
 import { registerActivity } from "@/lib/ton-society-api";
 
 /** Env config / constants **/

@@ -1,6 +1,6 @@
 import { EventRow } from "@/db/schema/events";
 import { EventPaymentSelectType } from "@/db/schema/eventPayment";
-import { CreateTonSocietyDraft } from "@/server/routers/services/tonSocietyService";
+import { CreateTonSocietyDraft } from "@/services/tonSocietyService";
 import { registerActivity } from "@/lib/ton-society-api";
 import { logger } from "@/server/utils/logger";
 

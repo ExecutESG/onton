@@ -1,10 +1,12 @@
-import PlayStationIcon from "@/app/_components/icons/play-station";
 import { cn } from "@/utils";
-import { Page, Tabbar, TabbarLink } from "konsta/react";
-import { Calendar, UserIcon, Users } from "lucide-react";
 import { PrefetchKind } from "next/dist/client/components/router-reducer/router-reducer-types";
 import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useEffect } from "react";
+import CalendarIcon from "./icons/navigation/calendar-icon";
+import PeopleIcon from "./icons/navigation/people-icon";
+import PlayIcon from "./icons/navigation/play-icon";
+import UserIcon from "./icons/navigation/user-icon";
+import Typography from "./Typography";
 
 interface Tab {
   title: string;
@@ -15,24 +17,24 @@ interface Tab {
 const tabs: Tab[] = [
   {
     title: "Events",
-    icon: <Calendar />,
+    icon: <CalendarIcon />,
     urls: ["/"],
   },
   {
     title: "Channels",
-    icon: <Users />,
+    icon: <PeopleIcon />,
     urls: ["/channels"],
   },
   {
     title: "Play2Win",
-    icon: <PlayStationIcon />,
+    icon: <PlayIcon />,
     urls: ["/play-2-win"],
   },
   {
     title: "My ONTON",
     icon: <UserIcon />,
     urls: ["/my", "/my/points"],
-  }
+  },
 ];
 
 export default function BottomNavigation(props: { children: ReactNode }) {
@@ -55,27 +57,54 @@ export default function BottomNavigation(props: { children: ReactNode }) {
     return <>{props.children}</>;
   }
 
+  // Calculate navigation height including safe area
+  const navHeight = "68px";
+
   return (
-    <Page>
-      <div className="p-4 flex flex-col min-h-full gap-2 mb-12">
+    <div className="flex flex-col min-h-screen bg-ios-light-surface dark:bg-ios-dark-surface">
+      <div
+        className="flex-1 p-4 overflow-y-auto isolate"
+        style={{
+          paddingBottom: `calc(${navHeight} + 1rem + var(--tg-safe-area-inset-bottom))`,
+        }}
+      >
         {props.children}
-        <Tabbar
-          labels
-          icons
-          className={`left-0 bottom-0 h-[calc(48px+(var(--tg-safe-area-inset-bottom,0px)/2))] fixed`}
+      </div>
+      <div className="fixed left-0 bottom-0 w-full">
+        <div
+          className="flex-1 w-full flex bg-white items-center justify-between px-4 gap-4 z-[1000]"
+          style={{ height: navHeight }}
         >
           {tabs.map((tab) => (
-            <TabbarLink
+            <div
               key={tab.title}
-              active={tab.urls.includes(pathname)}
-              onClick={() => router.push(tab.urls[0])}
-              icon={tab.icon}
-              label={tab.title}
-              linkProps={{ className: cn("pt-1 before:bg-[#CCD1EA4D]") }}
-            />
+              className={cn(
+                "flex-1 flex flex-col gap-0.5 items-center justify-center cursor-pointer text-[#6D6D72]",
+                tab.urls.includes(pathname) && "text-primary"
+              )}
+              onClick={(e) => {
+                e.preventDefault();
+                router.push(tab.urls[0]);
+              }}
+            >
+              {tab.icon}
+              <Typography
+                weight="normal"
+                variant="footnote"
+                truncate
+              >
+                {tab.title}
+              </Typography>
+            </div>
           ))}
-        </Tabbar>
+        </div>
+        <div
+          className="h-[var(--tg-safe-area-inset-bottom)] bg-white/75"
+          style={{
+            backdropFilter: "blur(50px)",
+          }}
+        />
       </div>
-    </Page>
+    </div>
   );
 }

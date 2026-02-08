@@ -41,9 +41,7 @@ export const startHandler = async (ctx: Context) => {
       `Welcome to ONTON, your gateway to the best events on the TON blockchain and beyond!
 
 <b>Explore Events</b>: Discover a variety of exciting events, from Play2Win games and meetups to exclusive NFT drops.
-
-<b>Genesis ONIONs</b>: Unlock a world of rewards with our limited-edition NFT collection!
-
+ 
 Get started now and dive into the ONTON experience!`
 
       ,

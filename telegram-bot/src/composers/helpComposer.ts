@@ -22,6 +22,7 @@ helpComposer.command('help', async (ctx) => {
     { command: '/play2winfeatured', description: 'Update featured play2win tournaments' },
     { command: '/broadcast', description: 'Send broadcast messages' },
     { command: '/tournament', description: 'Manage tournaments' },
+    { command: '/sendpoll', description: 'Create and send polls' },
   ];
 
   // Format the help message

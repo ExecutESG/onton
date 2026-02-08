@@ -1,7 +1,7 @@
 import { logger } from "@/server/utils/logger";
 import { redisTools } from "@/lib/redisTools";
-import callbackTasksDB from "@/server/db/callbackTasks.db";
-import callbackTaskRunsDB from "@/server/db/callbackTaskRuns.db";
+import callbackTasksDB from "@/db/modules/callbackTasks.db";
+import callbackTaskRunsDB from "@/db/modules/callbackTaskRuns.db";
 import { ApiTaskRouter } from "@/cronJobs/helper/apiTaskRouter";
 import { enforceDistributedRateLimit, recordDistributedRequest } from "@/lib/distributedRequestRateLimiter";
 

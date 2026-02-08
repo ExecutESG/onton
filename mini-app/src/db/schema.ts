@@ -20,19 +20,24 @@ import {
   ticketStatus,
   CampaignType,
   campaignTypes,
+  nftStatusEnum,
+  NftStatusEnum,
+  claimStatusEnum,
+  walletTypeEnum,
 } from "@/db/enum";
 
 import { specialGuests } from "@/db/schema/specialGuest";
 import { airdropRoutineRelations, airdropRoutines } from "./schema/airdropRoutines";
 import { coupon_definition, coupon_definition_status, coupon_definition_type } from "./schema/coupon_definition";
-import { coupon_item_status, coupon_items } from "./schema/coupon_items";
+import { coupon_item_status, coupon_items, couponMessageSendStatus, CouponMessageSendStatus } from "./schema/coupon_items";
 import { event_details_search_list } from "./schema/event_details_search_list";
 import { eventFieldRelations, eventFields } from "./schema/eventFields";
 import { eventPayment, EventTicketType, organizerPaymentStatus, pgTicketTypes, ticketTypes } from "./schema/eventPayment";
 import { eventPoaResults, eventPoaResultsIndexes } from "./schema/eventPoaResults";
 import { eventPoaTriggers, eventPoaTriggersIndexes } from "./schema/eventPoaTriggers";
 import { eventRegistrants, eventRegistrantStatus } from "./schema/eventRegistrants";
-import { events } from "./schema/events";
+import { events, raffleKindEnum, RaffleKindType } from "./schema/events";
+import { eventTokens } from "./schema/eventTokens";
 import { giataCity } from "./schema/giataCity";
 import { moderationLog, ModerationLogActionType } from "./schema/moderation_log";
 import { nftItems } from "./schema/nft_items";
@@ -50,6 +55,7 @@ import { visitors } from "./schema/visitors";
 import { walletChecks } from "./schema/walletChecks";
 import { affiliateLinks, AffiliateLinksRow, AffiliateItemTypeEnum, affiliateItemType } from "./schema/affiliateLinks";
 import { affiliateClick, AffiliateClickRow } from "./schema/affiliateClick";
+import { tasks, TasksInsert, TaskPeriodType, taskPeriodEnum, taskTypeEnum, TaskTypeType, Tasks } from "./schema/tasks";
 import {
   tournaments,
   TournamentsRow,
@@ -69,7 +75,14 @@ import {
   userRolesRelations,
   userRoleStatusEnum,
 } from "./schema/userRoles";
-import { UserScoreItemType, usersScore, UsersScoreActivityType, UsersScoreType } from "./schema/usersScore";
+import {
+  UserScoreItemType,
+  usersScore,
+  UsersScoreActivityType,
+  usersScoreActivity,
+  UsersScoreType,
+  userScoreItem,
+} from "./schema/usersScore";
 
 import { callbackTaskRuns, CallbackTaskRunsRow, callbackTaskRunStatusType } from "./schema/callbackTaskRuns";
 import { gameLeaderboard, GameLeaderboardRow, GameLeaderboardRowInsert } from "./schema/gameLeaderboard";
@@ -128,7 +141,103 @@ import {
   Play2WinCampaignType,
   play2winCampaignType,
 } from "./schema/play2winCampaigns";
-// export all the enums
+import {
+  tokenCampaignNftItems,
+  TokenCampaignNftItems,
+  TokenCampaignNftItemsInsert,
+  MergeStatusType,
+  mergeStatusEnum,
+} from "./schema/tokenCampaignNftItems";
+import {
+  tokenCampaignMergeTransactions,
+  tokenCampaignMergeTransactionsStatus,
+  TokenCampaignMergeTransactionsStatus,
+  TokenCampaignMergeTransactions,
+  TokenCampaignMergeTransactionsInsert,
+} from "./schema/tokenCampaignMergeTransactions";
+
+import { taskSBT, TaskSBT, TaskSBTInsert } from "@/db/schema/taskSbt";
+import { taskGroups, TaskGroups, TaskGroupsInsert } from "@/db/schema/taskGroups";
+import {
+  taskUsers,
+  taskSBTStatusEnum,
+  taskUserPointStatusEnum,
+  taskUserStatusEnum,
+  TaskUsers,
+  TaskUsersInsert,
+  TaskUsersStatusType,
+  TaskSbtStatusType,
+  TaskUsersPointStatusType,
+} from "@/db/schema/taskUsers";
+
+import { nftApiKeys, NftApiKeys, NftApiKeysInsert } from "./schema/nftApiKeys";
+import { nftApiMinterWallets, NftApiMinterWallets, NftApiMinterWalletsInsert } from "./schema/nftApiMinterWallets";
+import {
+  nftApiCollections,
+  NftApiCollections,
+  NftApiCollectionsInsert,
+  NftApiCollectionsUpdate,
+} from "./schema/nftApiCollections";
+import { nftApiItems, NftApiItems, NftApiItemsInsert } from "./schema/nftApiItems";
+import { userScoreRules, scoreRuleRole, UserScoreRuleRow, UserScoreRuleRoleType } from "./schema/userScoreRules";
+import { eventCategories, EventCategoryRow } from "./schema/eventCategories";
+import { snapshotCollections, SnapshotCollectionRow, SnapshotCollectionInsert } from "./schema/snapshotCollections";
+import { userScoreSnapshots, UserScoreSnapshotRow, UserScoreSnapshotInsert } from "./schema/userScoreSnapshots";
+import {
+  tokenCampaignClaimOnion,
+  TokenCampaignClaimOnionRow,
+  TokenCampaignClaimOnionInsert,
+} from "./schema/tokenCampaignClaimOnion";
+
+import { eventWallets, EventWalletRow } from "./schema/eventWallets";
+import { eventRaffles, raffleStatus, EventRaffleInsert, EventRaffleRow, RaffleStatusType } from "./schema/eventRaffles";
+import { raffleTokens, RaffleTokenRow } from "./schema/raffleTokens";
+import {
+  eventRaffleResults,
+  EventRaffleResultRow,
+  EventRaffleResultInsert,
+  eventRaffleResultStatus,
+  eventRaffleResultStatusType,
+} from "./schema/eventRaffleResults";
+import { eventMerchRaffles } from "./schema/eventMerchRaffles";
+import {
+  eventMerchRaffleResults,
+  merchResultStatus,
+  MerchResultStatusType,
+  EventMerchRaffleResultRow,
+} from "./schema/eventMerchRaffleResults";
+import {
+  eventMerchPrizes,
+  eventMerchFulfilMethod,
+  eventMerchPrizeStatus,
+  EventMerchFulfilMethodType,
+  EventMerchPrizeRow,
+  EventMerchPrizeInsert,
+  EventMerchPrizeStatusType,
+} from "./schema/eventMerchPrizes";
+
+import {
+  eventMerchPrizeResults,
+  eventMerchPrizeResultStatus,
+  EventMerchPrizeResultStatusType,
+  EventMerchPrizeResultInsert,
+  EventMerchPrizeResultRow,
+  eventMerchNotifStatus,
+  EventMerchNotifStatusType,
+} from "./schema/eventMerchPrizeResults";
+
+import {
+  partnershipAffiliatePurchases,
+  PartnershipAffiliatePurchasesRow,
+  PartnershipAffiliateUserEntryEnum,
+  PartnershipAffiliateUserEntryType,
+} from "./schema/partnershipAffiliatePurchases";
+import { usersX } from "./schema/usersX";
+import { usersGithub } from "./schema/usersGithub";
+import { usersLinkedin } from "./schema/usersLinkedin";
+import { usersGoogle } from "./schema/usersGoogle";
+import { usersOutlook } from "./schema/usersOutlook";
+
 export {
   accessRoleEnum,
   accessRoleItemTypeEnum,
@@ -154,6 +263,38 @@ export {
   user_flags,
   userRoleStatusEnum,
   affiliateItemType,
+  campaignTypes,
+  tokenCampaignMergeTransactionsStatus,
+  tasks,
+  taskPeriodEnum,
+  taskTypeEnum,
+  taskSBT,
+  taskGroups,
+  taskUsers,
+  taskSBTStatusEnum,
+  taskUserPointStatusEnum,
+  taskUserStatusEnum,
+  userScoreItem,
+  snapshotCollections,
+  claimStatusEnum,
+  walletTypeEnum,
+  eventWallets,
+  eventRaffles,
+  raffleTokens,
+  raffleStatus,
+  eventRaffleResults,
+  eventRaffleResultStatus,
+  eventMerchRaffles,
+  eventMerchRaffleResults,
+  merchResultStatus,
+  eventMerchFulfilMethod,
+  eventMerchPrizeStatus,
+  eventMerchPrizes,
+  eventMerchPrizeResults,
+  eventMerchPrizeResultStatus,
+  raffleKindEnum,
+  eventMerchNotifStatus,
+  eventTokens,
 };
 
 // export all the tables and relations
@@ -175,6 +316,7 @@ export {
   eventRegistrants,
   eventRegistrantStatus,
   events,
+  eventCategories,
   giataCity,
   moderationLog,
   nftItems,
@@ -203,7 +345,6 @@ export {
   tournaments,
   games,
   gameLeaderboard,
-  campaignTypes,
   tokenCampaignUserSpins,
   tokenCampaignSpinType,
   tokenCampaignSpinPackages,
@@ -215,6 +356,27 @@ export {
   placeOfWalletConnection,
   play2winCampaigns,
   play2winCampaignType,
+  tokenCampaignNftItems,
+  mergeStatusEnum,
+  tokenCampaignMergeTransactions,
+  nftApiKeys,
+  nftApiMinterWallets,
+  nftApiCollections,
+  nftApiItems,
+  nftStatusEnum,
+  userScoreRules,
+  scoreRuleRole,
+  usersScoreActivity,
+  userScoreSnapshots,
+  tokenCampaignClaimOnion,
+  couponMessageSendStatus,
+  partnershipAffiliatePurchases,
+  PartnershipAffiliateUserEntryEnum,
+  usersX,
+  usersGithub,
+  usersLinkedin,
+  usersGoogle,
+  usersOutlook,
 };
 
 // Type Exports
@@ -224,6 +386,7 @@ export type {
   EventPoaResultStatus,
   EventTriggerStatus,
   EventTriggerType,
+  EventCategoryRow,
   ModerationLogActionType,
   NotificationItemType,
   NotificationStatus,
@@ -279,4 +442,68 @@ export type {
   Play2WinCampaignsInsert,
   Play2WinCampaignsRow,
   Play2WinCampaignType,
+  TokenCampaignNftItems,
+  TokenCampaignNftItemsInsert,
+  MergeStatusType,
+  TokenCampaignMergeTransactions,
+  TokenCampaignMergeTransactionsInsert,
+  TokenCampaignMergeTransactionsStatus,
+  TasksInsert,
+  TaskPeriodType,
+  TaskTypeType,
+  Tasks,
+  TaskSBTInsert,
+  TaskSBT,
+  TaskGroups,
+  TaskGroupsInsert,
+  TaskUsers,
+  TaskUsersInsert,
+  TaskUsersStatusType,
+  TaskSbtStatusType,
+  TaskUsersPointStatusType,
+  // NFT API keys
+  NftApiKeys,
+  NftApiKeysInsert,
+  // Minter wallets
+  NftApiMinterWallets,
+  NftApiMinterWalletsInsert,
+  // Collections
+  NftApiCollections,
+  NftApiCollectionsInsert,
+  // Items
+  NftApiItems,
+  NftApiItemsInsert,
+  NftStatusEnum,
+  NftApiCollectionsUpdate,
+  UserScoreRuleRow,
+  UserScoreRuleRoleType,
+  SnapshotCollectionRow,
+  SnapshotCollectionInsert,
+  UserScoreSnapshotRow,
+  UserScoreSnapshotInsert,
+  TokenCampaignClaimOnionRow,
+  TokenCampaignClaimOnionInsert,
+  CouponMessageSendStatus,
+  EventWalletRow,
+  RaffleTokenRow,
+  EventRaffleRow,
+  EventRaffleInsert,
+  EventRaffleResultRow,
+  EventRaffleResultInsert,
+  eventRaffleResultStatusType,
+  RaffleStatusType,
+  EventMerchRaffleResultRow,
+  MerchResultStatusType,
+  EventMerchPrizeRow,
+  EventMerchPrizeInsert,
+  EventMerchFulfilMethodType,
+  EventMerchPrizeStatusType,
+  EventMerchPrizeResultRow,
+  EventMerchPrizeResultInsert,
+  EventMerchPrizeResultStatusType,
+  RaffleKindType,
+  EventMerchNotifStatusType,
+  PartnershipAffiliatePurchasesRow,
+  PartnershipAffiliateUserEntryType,
+
 };

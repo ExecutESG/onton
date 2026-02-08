@@ -1,11 +1,11 @@
-import eventDB from "@/server/db/events";
+import eventDB from "@/db/modules/events.db";
 import { z } from "zod";
 import { logger } from "@/server/utils/logger";
 import { getAuthenticatedUserApi } from "@/server/auth";
 import { createUserRewardLink } from "@/lib/ton-society-api";
 import "@/lib/gracefullyShutdown";
-import rewardDB from "@/server/db/rewards.db";
-import rewardService from "@/server/routers/services/rewardsService";
+import rewardDB from "@/db/modules/rewards.db";
+import rewardService from "@/services/rewardsService";
 import externalSellerApi from "@/lib/externalSeller.api";
 /* -------------------------------------------------------------------------- */
 /*                              Reward Api Schema                             */

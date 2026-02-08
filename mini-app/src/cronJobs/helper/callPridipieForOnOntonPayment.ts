@@ -1,7 +1,7 @@
 import { callTaskImmediate } from "@/lib/callTaskImmediate";
 import { OrderRow } from "@/db/schema/orders";
 import { logger } from "@/server/utils/logger";
-import eventDB from "@/server/db/events";
+import eventDB from "@/db/modules/events.db";
 import { is_prod_env } from "@/server/utils/evnutils";
 
 const PridipieOrganizers = {

@@ -1,5 +1,5 @@
 import { getTournamentLeaderboard } from "@/lib/elympicsApi";
-import { GamerData } from "@/server/db/games.db";
+import { GamerData } from "@/db/modules/games.db";
 import { sleep } from "@/utils";
 import { logger } from "@/server/utils/logger";
 
@@ -19,7 +19,7 @@ export async function fetchAllElympicsParticipants(
     await sleep(100); // sleep  200ms between requests
     const lbData = await getTournamentLeaderboard(hostGameId, hostTournamentId, pageSize, pageNumber);
     if (!lbData.data.length) break;
-    logger.info(`Elympics leaderboard page ${pageNumber} =>`, lbData.data);
+    logger.info(`Elympics leaderboard page ${pageNumber} =>`, lbData.data.length);
 
     // Convert Elympics response to the shape we need
     const mapped = lbData.data.map((entry) => ({

@@ -1,6 +1,6 @@
-import { getOngoingTournaments } from "@/server/db/tournaments.db";
+import { getOngoingTournaments } from "@/db/modules/tournaments.db";
 import { fetchAllElympicsParticipants } from "@/cronJobs/helper/fetchAllElympicsParticipants";
-import gameLeaderboardDB from "@/server/db/gameLeaderboard.db";
+import gameLeaderboardDB from "@/db/modules/gameLeaderboard.db";
 // ^-- Example import; adjust path to wherever your insertParticipantsToLeaderboard is defined
 
 import { logger } from "@/server/utils/logger";

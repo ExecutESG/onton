@@ -1,4 +1,5 @@
 import { eventPayment, eventPayment as tickets } from "@/db/schema/eventPayment";
+import { eventTokens } from "@/db/schema/eventTokens";
 import { events } from "@/db/schema/events";
 import { giataCity } from "@/db/schema/giataCity";
 import { users } from "@/db/schema/users";
@@ -46,8 +47,9 @@ export const event_details_search_list = pgView("event_details_search_list", {
   hasRegistration: boolean("has_registration"),
   hasApproval: boolean("has_approval"),
   paymentType: text("payment_type"),
+  paymentTokenId: integer("payment_token_id"),
+  categoryId: integer("category_id"),
   // ticketCount: integer("ticket_count"),
-
 }).as(sql`
   SELECT
     e.event_id,
@@ -70,6 +72,7 @@ export const event_details_search_list = pgView("event_details_search_list", {
     e.participation_type,
     e.country_id,
     e.city_id,   
+    e.category_id,
     country.title AS country,
     city.title AS city,
     organizer.user_id AS organizer_user_id,
@@ -93,7 +96,8 @@ export const event_details_search_list = pgView("event_details_search_list", {
     min_tickets.description AS ticket_description,
     min_tickets.price AS ticket_price,
     min_tickets.ticket_image,
-    min_tickets.payment_type,   
+    min_tickets.payment_type,
+    min_tickets.payment_token_id
   FROM
     ${events} e
   LEFT JOIN
@@ -104,10 +108,14 @@ export const event_details_search_list = pgView("event_details_search_list", {
     ${giataCity} country ON e.country_id = country.id
   LEFT JOIN
     LATERAL (SELECT et.id,
+                    et.title,
+                    et.description,
                     et.price,
                     et.ticket_image,
-                    et.payment_type
+                    tok.symbol AS payment_type,
+                    et.token_id AS payment_token_id
              FROM ${eventPayment} et
+             JOIN ${eventTokens} tok ON tok.token_id = et.token_id
              WHERE et.event_uuid = e.event_uuid
              ORDER BY et.price
              LIMIT 1) min_tickets ON true

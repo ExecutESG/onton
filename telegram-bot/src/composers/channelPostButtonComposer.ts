@@ -1,5 +1,5 @@
 import { Bot, Composer } from "grammy"
-import { logger } from "src/utils/logger"
+import { logger } from "../utils/logger"
 import { z } from "zod"
 import { isUserAdmin } from "../db/db"; // added admin check import
 import { fetchOntonSetting } from "../db/ontonSettings"

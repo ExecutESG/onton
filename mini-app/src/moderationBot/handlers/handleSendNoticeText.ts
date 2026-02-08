@@ -1,4 +1,4 @@
-import moderationLogDB from "@/server/db/moderationLogger.db";
+import moderationLogDB from "@/db/modules/moderationLogger.db";
 import { tgBotApprovedMenu } from "@/moderationBot/menu";
 import { sendTelegramMessage } from "@/lib/tgBot";
 import { PendingCustomReply } from "@/moderationBot/types";

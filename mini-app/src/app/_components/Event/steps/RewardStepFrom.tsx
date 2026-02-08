@@ -1,11 +1,11 @@
-import { useCreateEventStore } from "@/zustand/createEventStore";
-import { SbtOptionContent } from "../../organisms/events/SbtOptionContent";
-import ListLayout from "../../atoms/cards/ListLayout";
-import { ListInput, ListItem, Preloader, Toggle } from "konsta/react";
-import { cn } from "@/utils";
-import { useEffect } from "react";
 import { useGetEvent } from "@/hooks/events.hooks";
+import { cn } from "@/utils";
+import { useCreateEventStore } from "@/zustand/createEventStore";
+import { ListInput, ListItem, Preloader, Toggle } from "konsta/react";
 import Image from "next/image";
+import { useEffect } from "react";
+import ListLayout from "../../atoms/cards/ListLayout";
+import { SbtOptionContent } from "../../organisms/events/SbtOptionContent";
 
 interface RewardFormProps {
   passwordDisabled: boolean;
@@ -69,7 +69,9 @@ export const RewardForm = ({
             inputClassName={cn({
               "text-cn-muted-foreground cursor-pointer": passwordDisabled,
             })}
-            onClick={() => {
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
               if (passwordDisabled) {
                 setPasswordDisabled(false);
                 setPasswordValue("");

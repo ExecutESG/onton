@@ -1,5 +1,5 @@
-import eventDB from "@/server/db/events";
-import { usersDB } from "@/server/db/users";
+import eventDB from "@/db/modules/events.db";
+import { usersDB } from "@/db/modules/users.db";
 import { MinimalOrganizerData } from "@/types/extendedUserTypes";
 import { organizersHostedInput, orgFieldsSchema, searchOrganizersInput } from "@/zodSchema/OrganizerDataSchema";
 import { TRPCError } from "@trpc/server";

@@ -1,12 +1,12 @@
 import { publicProcedure, router } from "../trpc";
 import { z } from "zod";
-import ticketDB from "@/server/db/ticket.db";
+import ticketDB from "@/db/modules/ticket.db";
 import { TRPCError } from "@trpc/server";
-import rewardsService from "@/server/routers/services/rewardsService";
+import rewardsService from "@/services/rewardsService";
 import { logger } from "../utils/logger";
-import visitorsDB from "@/server/db/visitors";
-import rewardDB from "@/server/db/rewards.db";
-import eventDB from "@/server/db/events";
+import visitorsDB from "@/db/modules/visitors.db";
+import rewardDB from "@/db/modules/rewards.db";
+import eventDB from "@/db/modules/events.db";
 
 // Type guard to check if result is alreadyCheckedIn type
 function isAlreadyCheckedIn(result: any): result is { alreadyCheckedIn: boolean } {

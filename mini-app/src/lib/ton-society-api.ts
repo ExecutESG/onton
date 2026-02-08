@@ -131,6 +131,7 @@ export async function getSBTClaimedStatus(activity_id: number, user_id: number |
       status: "NOT_CLAIMED" | "CLAIMED" | "RECEIVED";
     };
   } catch (error) {
+    logger.error(`Error getting SBT claimed status for activity ${activity_id} and user ${user_id}`);
     return {
       status: "NOT_ELIGIBLE",
     };

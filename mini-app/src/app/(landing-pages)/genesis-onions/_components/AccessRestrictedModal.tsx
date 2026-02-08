@@ -29,7 +29,11 @@ export const AccessRestrictedModal = ({ open, onClose }: Props) => {
 
           <CircleX
             className="cursor-pointer hover:opacity-80"
-            onClick={onClose}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onClose();
+            }}
           />
         </Box>
 

@@ -1,14 +1,13 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import useNotificationStore from "@/zustand/useNotificationStore";
 import { Input } from "@/components/ui/input";
+import { NotificationItemType, NotificationStatus, NotificationType } from "@/db/enum";
+import useWebApp from "@/hooks/useWebApp";
+import useNotificationStore from "@/zustand/useNotificationStore";
 import { useSocketStore } from "@/zustand/useSocketStore";
 import { Dialog, DialogButton } from "konsta/react";
-import useWebApp from "@/hooks/useWebApp";
-import { NotificationItemType, NotificationStatus, NotificationType } from "@/db/enum";
-import { FaCheck } from "react-icons/fa";
 import { useRouter } from "next/navigation"; // For programmatic navigation in Next.js 13
+import React, { useEffect, useState } from "react";
 
 type Notification = {
   notificationId: string;
@@ -63,9 +62,7 @@ const NotificationHandler: React.FC = () => {
   // ─────────────────────────────────────────────────────────────────────────────
   useEffect(() => {
     const newNotification = notifications.find(
-      (n) =>
-        (n.type === "POA_PASSWORD" || n.type === "POA_SIMPLE") &&
-        !handledNotificationIds.has(n.notificationId),
+      (n) => (n.type === "POA_PASSWORD" || n.type === "POA_SIMPLE") && !handledNotificationIds.has(n.notificationId)
     );
 
     if (newNotification) {
@@ -174,7 +171,7 @@ const NotificationHandler: React.FC = () => {
           // If some other success-like status => close
           handleClose();
         }
-      },
+      }
     );
   };
 
@@ -189,7 +186,7 @@ const NotificationHandler: React.FC = () => {
       },
       () => {
         handleClose();
-      },
+      }
     );
   };
 
@@ -204,7 +201,7 @@ const NotificationHandler: React.FC = () => {
       },
       () => {
         handleClose();
-      },
+      }
     );
   };
 
@@ -230,8 +227,7 @@ const NotificationHandler: React.FC = () => {
   const isPoaPassword = notificationToShow?.type === "POA_PASSWORD";
 
   const dialogTitle = notificationToShow?.title || "NOTIFICATION";
-  const formattedTime =
-    timeLeft > 0 ? `(${new Date(timeLeft * 1000).toISOString().slice(14, 19)})` : "(00:00)";
+  const formattedTime = timeLeft > 0 ? `(${new Date(timeLeft * 1000).toISOString().slice(14, 19)})` : "(00:00)";
 
   return (
     <>
@@ -281,14 +277,20 @@ const NotificationHandler: React.FC = () => {
             notificationToShow.type === "POA_SIMPLE" ? (
               <div className="flex justify-end space-x-0 px-0 pb-0 bg-white">
                 <DialogButton
-                  onClick={handleNo}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleNo();
+                  }}
                   className="w-1/2"
                 >
                   No
                 </DialogButton>
                 <DialogButton
                   strong
-                  onClick={handleYes}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleYes();
+                  }}
                   className="w-1/2"
                 >
                   Yes
@@ -300,7 +302,10 @@ const NotificationHandler: React.FC = () => {
                 <DialogButton
                   strong
                   className="bg-blue-500 text-white text-sm w-full"
-                  onClick={hasExceededAttempts ? handleClose : handleConfirmPassword}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    hasExceededAttempts ? handleClose() : handleConfirmPassword();
+                  }}
                   disabled={!hasExceededAttempts && !password}
                 >
                   {hasExceededAttempts ? "Close" : "Confirm"}
@@ -320,56 +325,51 @@ const NotificationHandler: React.FC = () => {
         translucent={false}
         content={
           <div className="p-4 text-center">
+            {successEventUuid && successEventHasPayment ? (
+              <p className="inline-flex text-left text-sm mb-2">
+                You have successfully entered the correct password. we will send you the reward link soon.
+              </p>
+            ) : (
+              <p className="inline-flex text-left text-sm mb-2">
+                You have entered the correct password. Now you must check the event page to get your SBT reward.
+              </p>
+            )}
 
-
-              {successEventUuid &&
-                successEventHasPayment ?
-                (
-                  <p className="inline-flex text-left text-sm mb-2">
-                    You have successfully entered the correct password. we will send you the reward link soon.
-                  </p>
-                )
-                : (
-                  <p className="inline-flex text-left text-sm mb-2">
-                    You have entered the correct password. Now you must check the event page to get your SBT reward.
-
-                  </p>
-                )
-              }
-
-
-              {successEventUuid && redirectCountdown > 0 && (
-                <>
-              {successEventHasPayment ? (
+            {successEventUuid && redirectCountdown > 0 && (
+              <>
+                {successEventHasPayment ? (
+                  <p className="text-xs text-gray-600">check your telegram later</p>
+                ) : (
                   <p className="text-xs text-gray-600">
-                    check your telegram later
+                    Redirecting in {redirectCountdown} second
+                    {redirectCountdown > 1 ? "s" : ""}...
                   </p>
-                    ) : (
-                    <p className="text-xs text-gray-600">
-                      Redirecting in {redirectCountdown} second
-                      {redirectCountdown > 1 ? "s" : ""}...
-                    </p>
-                    )}
-                  </>
                 )}
-              </div>
-            }
+              </>
+            )}
+          </div>
+        }
         buttons={
           <div className="flex justify-center bg-white p-0 w-full">
             {successEventUuid ? (
               <DialogButton
                 strong
                 className="bg-blue-500 text-white text-sm w-full"
-                onClick={closeSuccessDialogAndRedirect}
+                onClick={(e) => {
+                  e.preventDefault();
+                  closeSuccessDialogAndRedirect();
+                }}
               >
                 {successEventHasPayment ? "Close" : "Go to Event Page"}
-
               </DialogButton>
             ) : (
               <DialogButton
                 strong
                 className="bg-blue-500 text-white w-full"
-                onClick={() => setShowSuccessDialog(false)}
+                onClick={(e) => {
+                  e?.preventDefault();
+                  setShowSuccessDialog(false);
+                }}
               >
                 Close
               </DialogButton>

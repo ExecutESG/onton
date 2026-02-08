@@ -1,0 +1,905 @@
+openapi: 3.0.3
+info:
+  title: NFT Creation API
+  description: >
+    This API manages the creation of NFT Collections and NFT Items (minting), 
+    with asynchronous on-chain processes. It also provides endpoints for 
+    listing NFTs, checking wallet information, checking minter wallet balances, 
+    and returning NFTs per owner in a collection-based structure.
+    \n
+    **User-Friendly Addresses**:  
+    - Each address param can optionally include a `friendlyAddress` query parameter.  
+    - All returned objects (NFTs, Collections) include a `friendlyAddress` if available.  
+    - The system can resolve user-friendly addresses to on-chain addresses internally.
+  version: "1.0.0"
+
+servers:
+  - url: https://staging-app.toncloud.observer/api/nft
+    description: Staging server
+  - url: http://host.docker.internal:3000/api/nft
+    description: Local server
+  - url: https://dev-app.toncloud.observer/api/nft
+    description: Development server
+  - url: https://app.onton.live/api/nft
+    description: Production server
+
+tags:
+  - name: Collections
+    description: Endpoints for creating, listing, and checking the status of NFT Collections
+  - name: NFTs
+    description: Endpoints for creating (minting), listing, and checking the status of NFTs
+  - name: Wallets
+    description: Endpoints for checking wallet balances and owned NFTs
+
+paths:
+
+  ###########################
+  #   COLLECTION ENDPOINTS  #
+  ###########################
+
+  /collections:
+    post:
+      tags:
+        - Collections
+      summary: Create a new NFT Collection
+      description: >
+        Initiates the creation of a new NFT collection.  
+        Returns a `collectionId`, `status = CREATING`, `address = null`, 
+        `minterAddress`, and the submitted `collectionData` until the process completes on-chain.  
+        You can check the status using `GET /collections/{collectionId}/status`.
+      security:
+        - ApiKeyAuth: [ ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCollectionRequest'
+      responses:
+        '200':
+          description: Successfully initiated collection creation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionCreationResponse'
+        '400':
+          description: >
+            Bad request.  
+            This may occur if:
+            - Any social link is not a valid URL  
+            - `image` is not a valid image URL or not in recommended dimension (512x512)  
+            - `cover_image` is not a valid cover image URL or not in recommended dimension (2500x650)  
+            - `royalties` is out of expected range or invalid
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    description: Description of the validation error(s)
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '500':
+          description: Internal server error
+
+  /collections/{collectionId}/status:
+    get:
+      tags:
+        - Collections
+      summary: Check status of an NFT Collection creation
+      description: >
+        Returns the current state of the Collection creation process 
+        (`CREATING`, `VALIDATION_FAILED`, `COMPLETED`, or `FAILED`).  
+        If completed, includes the final blockchain `address`, `friendlyAddress`, and the `minterAddress`.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: collectionId
+          in: path
+          required: true
+          description: The **internal** ID of the NFT collection
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Returns the status and data of the requested collection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionStatusResponse'
+        '404':
+          description: Collection not found
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '500':
+          description: Internal server error
+
+  ###########################
+  #     NFT ENDPOINTS       #
+  ###########################
+
+
+  /nfts:
+    post:
+      tags:
+        - NFTs
+      summary: Mint a new NFT item
+      description: >
+        Initiates the minting of a new NFT.  
+        Returns an `nftId`, `status = CREATING`, `address = null`, 
+        `nftIndex = null`, and the submitted `nftData` until the minting is complete on-chain.  
+        You can check the status using `GET /nfts/{nftId}/status`.
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateNFTRequest'
+      responses:
+        '200':
+          description: Successfully initiated NFT creation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NFTCreationResponse'
+        '400':
+          description: Bad request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '500':
+          description: Internal server error
+
+  /nfts/{nftId}/status:
+    get:
+      tags:
+        - NFTs
+      summary: Check status of an NFT minting
+      description: >
+        Returns the current state of the NFT minting process 
+        (`CREATING`, `VALIDATION_FAILED`, `COMPLETED`, or `FAILED`).  
+        If completed, includes the final blockchain `address`, `friendlyAddress`, and `nftIndex`.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: nftId
+          in: path
+          required: true
+          description: The **internal** ID of the NFT
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Returns the status and data of the requested NFT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NFTStatusResponse'
+        '404':
+          description: NFT not found
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '500':
+          description: Internal server error
+  /nfts/first-owner/{collectionAddress}:
+    get:
+      tags:
+        - NFTs
+      summary: List NFT items in a collection by first (original) owner
+      description: >
+        Returns a list of NFTs in this collection for which the **firstOwnerAddress** 
+        matches the wallet(s) authorized by the current API key.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: collectionAddress
+          in: path
+          required: true
+          description: The **on-chain** address of the NFT collection
+          schema:
+            type: string
+        - name: friendlyAddress
+          in: query
+          required: false
+          description: A user-friendly version (e.g., ENS) of the collection address
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of NFT items originally minted by the API key's wallet(s)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  collectionAddress:
+                    type: string
+                    description: The on-chain address of the collection
+                  friendlyAddress:
+                    type: string
+                    nullable: true
+                    description: A user-friendly version of the collection's address
+                  minterAddress:
+                    type: string
+                    description: The wallet address that created this collection (if available)
+                  nfts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NFTItem'
+        '404':
+          description: Collection not found
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '500':
+          description: Internal server error
+
+  /nfts/current-owner/{collectionAddress}:
+    get:
+      tags:
+        - NFTs
+      summary: List NFT items in a collection by current owner
+      description: >
+        Returns a list of NFTs in this collection where the **currentOwnerAddress** 
+        matches the wallet(s) authorized by the current API key.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: collectionAddress
+          in: path
+          required: true
+          description: The **on-chain** address of the NFT collection
+          schema:
+            type: string
+        - name: friendlyAddress
+          in: query
+          required: false
+          description: A user-friendly version (e.g., ENS) of the collection address
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of NFT items currently owned by the API key's wallet(s)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  collectionAddress:
+                    type: string
+                    description: The on-chain address of the collection
+                  friendlyAddress:
+                    type: string
+                    nullable: true
+                    description: A user-friendly version of the collection's address
+                  minterAddress:
+                    type: string
+                    description: The wallet address that created this collection (if available)
+                  nfts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NFTItem'
+        '404':
+          description: Collection not found
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '500':
+          description: Internal server error
+
+
+  /nfts/wallet/check-nfts/{walletAddress}:
+    get:
+      tags:
+        - Wallets
+      summary: List NFTs for a given owner, filtered by specific collections
+      description: >
+        Returns an array of **collections** that the specified `ownerAddress` has NFTs in, 
+        **filtered** by an optional array of `collectionAddress` query parameters.  
+        
+        If `collectionAddress` query params are provided, only those collections 
+        are included in the result **if** the owner has NFTs in them.  
+        If no query params are provided, you may choose to return **all** collections the user owns 
+        (or an empty list, depending on your business rules).  
+        You can also pass a `friendlyAddress` query param if the `ownerAddress` is a user-friendly domain 
+        (e.g., an ENS name).
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: ownerAddress
+          in: path
+          required: true
+          description: The wallet address or domain name of the current owner
+          schema:
+            type: string
+        - name: collectionAddress
+          in: query
+          description: Optional list of collection addresses to filter on
+          required: false
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+              description: On-chain collection address
+              example: "0x1111..."
+      responses:
+        '200':
+          description: A list of collections and their NFT items owned by this wallet address
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OwnerNFTListResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '500':
+          description: Internal server error
+
+  ###########################
+  #    WALLET ENDPOINTS     #
+  ###########################
+
+  /wallets/info/{walletAddress}:
+    get:
+      tags:
+        - Wallets
+      summary: Check the wallet balance
+      description: >
+        Returns the balance of the specified wallet. 
+        If the wallet is **not** in the list of wallets for this API key, 
+        return an error (e.g., `403`).
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: walletAddress
+          in: path
+          required: true
+          description: The wallet address (or domain) to retrieve the balance for
+          schema:
+            type: string
+        - name: friendlyAddress
+          in: query
+          required: false
+          description: A user-friendly domain name or ENS for the minter wallet address
+          schema:
+            type: string
+      responses:
+        '200':
+          description: wallet balance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletBalanceResponse'
+        '403':
+          description: The wallet is not authorized for this API key
+        '401':
+          description: Unauthorized
+        '404':
+          description: Wallet not found
+        '500':
+          description: Internal server error
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-KEY
+      description: Use your assigned API key here
+
+  #########################
+  #     SCHEMA OBJECTS    #
+  #########################
+
+  schemas:
+
+    ##################
+    # Request Schemas
+    ##################
+
+    CreateCollectionRequest:
+      type: object
+      required:
+        - walletAddress
+        - collectionData
+        - userCallbackUrl
+      properties:
+        walletAddress:
+          type: string
+          description: The wallet address (or domain) that will own or create the collection
+        collectionData:
+          type: object
+          required:
+            - name
+            - description
+            - image
+            - social_links
+          properties:
+            name:
+              type: string
+              description: Name of the NFT collection
+            description:
+              type: string
+              description: Detailed description of the collection
+            image:
+              type: string
+              format: uri
+              description: >
+                Main image (icon) for the collection.  
+                Recommended dimension: **512x512**  
+                Must be a valid image URL.
+            cover_image:
+              type: string
+              format: uri
+              description: >
+                Cover or banner image for the collection.  
+                Recommended dimension: **2500x650**  
+                Must be a valid image URL.
+            social_links:
+              type: array
+              description: >
+                Social media or external links related to the collection.  
+                Each must be a valid URL.
+              items:
+                type: string
+                format: uri
+            royalties:
+              type: number
+              description: >
+                Royalties percentage for the creator (e.g., 5 means 5%).  
+                Optional. If provided, must be within a valid range (e.g., 0-100).
+        userCallbackUrl:
+          type: string
+          format: uri
+          description: A callback URL on the user's server to confirm the request
+
+
+
+    CreateNFTRequest:
+      type: object
+      required:
+        - walletAddress
+        - nftData
+        - userCallbackUrl
+      properties:
+        walletAddress:
+          type: string
+          description: The wallet address (or domain) that will mint the NFT
+        nftData:
+          type: object
+          required:
+            - collectionId
+            - name
+            - description
+            - image
+          properties:
+            collectionId:
+              type: string
+              description: The **internal** ID of the collection to mint under
+            name:
+              type: string
+              description: Name or title of the NFT
+            description:
+              type: string
+              description: Detailed description of the NFT
+            image:
+              type: string
+              format: uri
+              description: Main image (icon) of the NFT
+            content_url:
+              type: string
+              format: uri
+              description: URL for additional content (video, audio, etc.)
+            content_type:
+              type: string
+              description: MIME type of the additional content (e.g., video/mp4)
+            buttons:
+              type: array
+              description: A set of interactive buttons or links
+              items:
+                type: object
+                required:
+                  - label
+                  - uri
+                properties:
+                  label:
+                    type: string
+                    description: Button text
+                  uri:
+                    type: string
+                    format: uri
+                    description: Destination URL
+            attributes:
+              type: array
+              description: Optional NFT attributes or traits
+              items:
+                type: object
+                properties:
+                  trait_type:
+                    type: string
+                    description: Name of the trait
+                  value:
+                    type: string
+                    description: Value of the trait
+        userCallbackUrl:
+          type: string
+          format: uri
+          description: A callback URL on the user's server to confirm the request
+
+    ##################
+    # Response Schemas
+    ##################
+
+    CollectionCreationResponse:
+      type: object
+      properties:
+        collectionId:
+          type: string
+          description: A server-generated ID representing this collection
+        address:
+          type: string
+          nullable: true
+          description: Blockchain address of the collection (null if not yet deployed)
+        status:
+          type: string
+          enum:
+            - CREATING
+            - VALIDATION_FAILED
+            - COMPLETED
+            - FAILED
+          description: Current status of the collection creation process
+        minterAddress:
+          type: string
+          description: The wallet address that created this collection
+        collectionData:
+          type: object
+          description: Original data submitted for this collection
+          properties:
+            name:
+              type: string
+            description:
+              type: string
+            image:
+              type: string
+              format: uri
+            cover_image:
+              type: string
+              format: uri
+            social_links:
+              type: array
+              items:
+                type: string
+                format: uri
+            royalties:
+              type: number
+              description: Royalties percentage for the creator if provided
+      required:
+        - collectionId
+        - status
+    CollectionStatusResponse:
+      type: object
+      properties:
+        collectionId:
+          type: string
+          description: The internal ID of the collection
+        address:
+          type: string
+          nullable: true
+          description: Blockchain address of the collection if created
+        friendlyAddress:
+          type: string
+          nullable: true
+          description: A user-friendly domain or name for this collection (ENS, etc.)
+        status:
+          type: string
+          enum:
+            - CREATING
+            - VALIDATION_FAILED
+            - COMPLETED
+            - FAILED
+          description: Current status of the collection creation process
+        minterAddress:
+          type: string
+          description: The wallet address that created this collection
+        collectionData:
+          type: object
+          description: The original or stored collection metadata
+          properties:
+            name:
+              type: string
+            description:
+              type: string
+            image:
+              type: string
+              format: uri
+            cover_image:
+              type: string
+              format: uri
+            social_links:
+              type: array
+              items:
+                type: string
+                format: uri
+            royalties:
+              type: number
+              description: Royalties percentage for the creator if provided
+      required:
+        - collectionId
+        - status
+
+    NFTCreationResponse:
+      type: object
+      properties:
+        nftId:
+          type: string
+          description: A server-generated ID for the NFT minting request
+        address:
+          type: string
+          nullable: true
+          description: Blockchain address of the NFT if minted (null if still pending)
+        friendlyAddress:
+          type: string
+          nullable: true
+          description: A user-friendly name or domain for this NFT (if applicable)
+        nftIndex:
+          type: integer
+          nullable: true
+          description: On-chain index (token ID) of the NFT if minted (null if still pending)
+        status:
+          type: string
+          enum:
+            - CREATING
+            - VALIDATION_FAILED
+            - COMPLETED
+            - FAILED
+          description: Current status of the NFT minting process
+        nftData:
+          type: object
+          description: Original data submitted for this NFT
+          properties:
+            collectionId:
+              type: string
+            name:
+              type: string
+            description:
+              type: string
+            image:
+              type: string
+              format: uri
+            content_url:
+              type: string
+              format: uri
+            content_type:
+              type: string
+            buttons:
+              type: array
+              items:
+                type: object
+                properties:
+                  label:
+                    type: string
+                  uri:
+                    type: string
+                    format: uri
+            attributes:
+              type: array
+              items:
+                type: object
+                properties:
+                  trait_type:
+                    type: string
+                  value:
+                    type: string
+      required:
+        - nftId
+        - status
+
+    NFTStatusResponse:
+      type: object
+      properties:
+        nftId:
+          type: string
+          description: The internal ID of the NFT
+        address:
+          type: string
+          nullable: true
+          description: Blockchain address of the NFT if minted
+        friendlyAddress:
+          type: string
+          nullable: true
+          description: A user-friendly domain or name for this NFT (if applicable)
+        nftIndex:
+          type: integer
+          nullable: true
+          description: On-chain index (token ID) of the NFT if minted (null if still pending)
+        status:
+          type: string
+          enum:
+            - CREATING
+            - VALIDATION_FAILED
+            - COMPLETED
+            - FAILED
+          description: Current status of the NFT minting process
+        nftData:
+          type: object
+          description: The original or stored NFT metadata
+          properties:
+            collectionId:
+              type: string
+            name:
+              type: string
+            description:
+              type: string
+            image:
+              type: string
+              format: uri
+            content_url:
+              type: string
+              format: uri
+            content_type:
+              type: string
+            buttons:
+              type: array
+              items:
+                type: object
+                properties:
+                  label:
+                    type: string
+                  uri:
+                    type: string
+                    format: uri
+            attributes:
+              type: array
+              items:
+                type: object
+                properties:
+                  trait_type:
+                    type: string
+                  value:
+                    type: string
+      required:
+        - nftId
+        - status
+
+    ###################
+    #   Listing Types #
+    ###################
+
+    NFTItem:
+      type: object
+      description: Representation of an NFT on-chain and in the database
+      properties:
+        nftId:
+          type: string
+          description: Internal ID of the NFT (in your database)
+        address:
+          type: string
+          nullable: true
+          description: On-chain contract address + token reference (if minted)
+        friendlyAddress:
+          type: string
+          nullable: true
+          description: A user-friendly domain/name for this NFT's address (e.g., ENS subdomain)
+        nftIndex:
+          type: integer
+          nullable: true
+          description: On-chain token index (token ID) if minted
+        name:
+          type: string
+          description: Name of the NFT
+        description:
+          type: string
+          description: Description of the NFT
+        image:
+          type: string
+          format: uri
+          description: Image or icon of the NFT
+        content_url:
+          type: string
+          format: uri
+          nullable: true
+          description: Additional content URL if applicable
+        content_type:
+          type: string
+          nullable: true
+          description: MIME type of the additional content
+        attributes:
+          type: array
+          items:
+            type: object
+            properties:
+              trait_type:
+                type: string
+              value:
+                type: string
+        firstOwnerAddress:
+          type: string
+          description: The address that originally minted the NFT
+        currentOwnerAddress:
+          type: string
+          description: The address that currently owns the NFT
+      required:
+        - nftId
+        - name
+        - description
+        - image
+
+    # Response for /nfts/wallet/check-nfts/{walletAddress}
+    OwnerNFTListResponse:
+      type: object
+      description: Structure grouping all NFT collections for the specified owner
+      properties:
+        ownerAddress:
+          type: string
+          description: The wallet/domain address we are querying
+        friendlyAddress:
+          type: string
+          nullable: true
+          description: A user-friendly domain or name for this owner address
+        balance:
+          type: string
+          description: The wallet’s current coin/token balance for this chain
+        collections:
+          type: array
+          description: Array of collection objects, each with an NFT list the owner possesses
+          items:
+            type: object
+            properties:
+              collectionAddress:
+                type: string
+                description: On-chain address of the collection
+              friendlyAddress:
+                type: string
+                nullable: true
+                description: A user-friendly domain/name for this collection address
+              minterAddress:
+                type: string
+                description: The wallet address that created this collection
+              collectionData:
+              # ...
+              nfts:
+                type: array
+                # ...
+      required:
+        - ownerAddress
+        - balance
+        - collections
+
+
+
+    # Response for /wallets/info/{walletAddress}
+    WalletBalanceResponse:
+      type: object
+      description: Basic wallet balance information
+      properties:
+        walletAddress:
+          type: string
+          description: The wallet address for which the balance was checked
+        friendlyAddress:
+          type: string
+          nullable: true
+          description: A user-friendly domain or name for this minter wallet
+        balance:
+          type: string
+          description: Wallet's current coin/token balance
+      required:
+        - walletAddress
+        - balance
+
+security:
+  - ApiKeyAuth: []

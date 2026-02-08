@@ -1,3 +1,4 @@
+/* eslint-disable */
 const konstaConfig = require("konsta/config");
 
 /** @type {import('tailwindcss').Config} */
@@ -54,6 +55,7 @@ module.exports = konstaConfig({
       screens: {
         xxs: "320px",
         xs: "375px",
+        xsm: "420px",
       },
       borderRadius: {
         "2lg": "10px",
@@ -76,16 +78,25 @@ module.exports = konstaConfig({
           mid: "#31517B",
           superLight: "#24354C",
           light: "#203248",
-          dark: "#0B1D34",
+          dark: "#020B16",
+        },
+        onion: {
+          DEFAULT: "#F36A00",
+          extraLight: "#FF923D",
         },
         silverBlue: {
           1: "#77B8FE",
           2: "#4C688B",
-          3: '#4B5B71'
+          3: "#4B5B71",
         },
         silver: {
           DEFAULT: "#DFDDDD",
           base: "#A4B3C7",
+        },
+        info: {
+          DEFAULT: "#E5F2FF",
+          dark: "#575757",
+          light: "#F8F8F8",
         },
         bronze: "#D3766A",
         gold: {

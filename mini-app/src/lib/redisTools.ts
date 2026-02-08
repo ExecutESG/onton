@@ -333,6 +333,19 @@ export const cacheKeys = {
   getTournamentById: "getTournamentById:",
   gameIds: "gameIds",
   getTournamentsByIds: "getTournamentsByIds:",
+  category_id: "category_id:",
+  category_uuid: "category_uuid:",
+  event_wallet_event_id: "event_wallet_event_id:",
+  userX: "userX:", // X account for a Telegram user
+  userXByXId: "userXByXId:", // X user‑id to Telegram user‑id mapping
+  userGithub: "userGithub:", // GitHub account for a Telegram user
+  userGithubById: "userGithubById:", // GitHub user‑id to Telegram user‑id mapping
+  userLinkedin: "userLinkedin:", // LinkedIn account for a Telegram user
+  userLinkedinById: "userLinkedinById:", // LinkedIn user‑id to Telegram user‑id mapping
+  userGoogle: "userGoogle:", // Google account for a Telegram user
+  userGoogleByGId: "userGoogleByGId:", // Google user‑id to Telegram user‑id mapping
+  userOutlook: "userOutlook:", // Outlook account for a Telegram user
+  userOutlookByMsId: "userOutlookById:", // Outlook user‑id to Telegram user‑id mapping
 };
 export const cacheLvl = {
   guard: 60, // 1 minutes

@@ -1,5 +1,5 @@
-import { useCreateEventStore } from "@/zustand/createEventStore";
 import { cn } from "@/lib/utils";
+import { useCreateEventStore } from "@/zustand/createEventStore";
 import React from "react";
 import { IoIosCheckmark } from "react-icons/io";
 
@@ -30,7 +30,10 @@ const Stepper = ({ steps, currentStep }: StepperProps) => {
         return (
           <React.Fragment key={index}>
             <li
-              onClick={() => index < currentStep && setCurrentStep(index + 1)}
+              onClick={(e) => {
+                e.preventDefault();
+                index < currentStep && setCurrentStep(index + 1);
+              }}
               className={cn(
                 "flex w-full justify-center relative",
                 {
@@ -44,10 +47,18 @@ const Stepper = ({ steps, currentStep }: StepperProps) => {
             >
               <div className="block text-xs font-semibold text-center z-10">
                 <span
-                  className={cn("w-5 h-5 text-sm flex justify-center items-center mx-auto mb-2 rounded-full lg:w-10 lg:h-10", {
-                    "bg-cn-primary text-white border-transparent": ["completed", "in-progress", "in-progress-last"].includes(stepState),
-                    "bg-cn-muted text-cn-muted-foreground border-cn-muted": stepState === "not-active" || stepState === "last",
-                  })}
+                  className={cn(
+                    "w-5 h-5 text-sm flex justify-center items-center mx-auto mb-2 rounded-full lg:w-10 lg:h-10",
+                    {
+                      "bg-cn-primary text-white border-transparent": [
+                        "completed",
+                        "in-progress",
+                        "in-progress-last",
+                      ].includes(stepState),
+                      "bg-cn-muted text-cn-muted-foreground border-cn-muted":
+                        stepState === "not-active" || stepState === "last",
+                    }
+                  )}
                 >
                   {stepState === "completed" ? <IoIosCheckmark className="text-4xl" /> : step.icon || index + 1}
                 </span>

@@ -7,14 +7,14 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 import { isRequestingTicketAtom } from "~/store/atoms/event.atoms";
-import { PaymentType } from "~/types/order.types";
+import { PaymentToken } from "~/types/order.types";
 import BuyTicketConnectWalletButton from "./BuyTicketConnectWalletButton";
 import BuyTicketSendTransactionButton from "./BuyTicketSendTransactionButton";
 
 type BuyTicketTmaSettingsProps = {
   eventId: string;
   price: string | number;
-  paymentType: PaymentType | null;
+  paymentToken: PaymentToken | null;
   isSoldOut: boolean;
   userHasTicket: boolean;
   orderAlreadyPlace: boolean;
@@ -33,6 +33,15 @@ const BuyTicketTmaSettings = (props: BuyTicketTmaSettingsProps) => {
 
   // main button
   useEffect(() => {
+    console.log("[BuyTicketTmaSettings] evaluate", {
+      userHasTicket: props.userHasTicket,
+      orderAlreadyPlace: props.orderAlreadyPlace,
+      isSoldOut: props.isSoldOut,
+      paymentToken: props.paymentToken,
+      isRequesting: isRequestingTicket.state,
+      orderState: isRequestingTicket.state ? "pending" : "idle",
+    });
+
     if (props.userHasTicket) {
       if (!isRequestingTicket.state) {
         router.push(`/ticket/${props.eventId}`);
@@ -75,11 +84,14 @@ const BuyTicketTmaSettings = (props: BuyTicketTmaSettingsProps) => {
       };
     }
 
+    mainButton?.hideLoader();
+    mainButton?.hide().disable();
+
     return () => {
       mainButton?.hideLoader();
       mainButton?.hide().disable();
     };
-  }, [mainButton]);
+  }, [mainButton, props.userHasTicket, props.orderAlreadyPlace, props.isSoldOut, props.eventId, isRequestingTicket.state, props.paymentToken]);
 
   // back button
   useEffect(() => {
@@ -101,19 +113,33 @@ const BuyTicketTmaSettings = (props: BuyTicketTmaSettingsProps) => {
 
   return (
     <>
-      {props.userHasTicket || isRequestingTicket.state || props.isSoldOut ? (
-        <></>
-      ) : tonconnectUI.account?.address ? (
-        props.paymentType && (
+      {(() => {
+        if (props.userHasTicket) {
+          return null;
+        }
+        if (isRequestingTicket.state) {
+          return null;
+        }
+        if (props.isSoldOut) {
+          return null;
+        }
+        if (!tonconnectUI.account?.address) {
+          console.log("[BuyTicketTmaSettings] wallet not connected");
+          return <BuyTicketConnectWalletButton />;
+        }
+        if (!props.paymentToken) {
+          console.log("[BuyTicketTmaSettings] missing payment token");
+          return null;
+        }
+        console.log("[BuyTicketTmaSettings] rendering pay button", props.paymentToken.symbol);
+        return (
           <BuyTicketSendTransactionButton
             validateForm={props.validateForm}
             price={props.price}
-            paymentType={props.paymentType}
+            paymentToken={props.paymentToken}
           />
-        )
-      ) : (
-        <BuyTicketConnectWalletButton />
-      )}
+        );
+      })()}
     </>
   );
 };

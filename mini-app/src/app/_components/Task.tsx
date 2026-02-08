@@ -21,7 +21,11 @@ const Task = ({ title, status, onClick }: TaskProps) => {
         after={
           <CustomButton
             variant={status === "not_done" ? "outline" : status === "done" ? "success-outline" : "link"}
-            onClick={onClick}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onClick?.();
+            }}
             fontWeight="normal"
             size="md"
           >

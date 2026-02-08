@@ -14,6 +14,7 @@ export const rewardStatus = pgEnum("reward_status", [
   "fixed_failed",
 ]);
 export const ticketStatus = pgEnum("event_ticket_status", ["USED", "UNUSED"]);
+export const nftStatusEnum = pgEnum("nft_status_enum", ["CREATING", "MINTING", "VALIDATION_FAILED", "COMPLETED", "FAILED"]);
 
 export const orderState = pgEnum("order_state", ["new", "confirming", "processing", "completed", "cancelled", "failed"]);
 export const paymentTypes = pgEnum("payment_types", ["USDT", "TON", "STAR"]);
@@ -44,7 +45,7 @@ export const notificationItemType = pgEnum("notification_item_type", [
   "UNKNOWN",
 ]);
 export const eventPoaResultStatus = pgEnum("event_poa_result_status", ["REPLIED", "EXPIRED"]);
-export const campaignTypes = pgEnum("campaign_type", ["onion1", "genesis_season"]);
+export const campaignTypes = pgEnum("campaign_type", ["onion1", "genesis_season", "merge_platinum"]);
 export type CampaignType = (typeof campaignTypes.enumValues)[number];
 // Type Exports
 export type EventParticipationType = (typeof eventParticipationType.enumValues)[number];
@@ -61,3 +62,12 @@ export type NotificationStatus = (typeof notificationStatus.enumValues)[number];
 export type NotificationItemType = (typeof notificationItemType.enumValues)[number];
 export type EventPoaResultStatus = (typeof eventPoaResultStatus.enumValues)[number];
 export type PaymentTypes = (typeof paymentTypes.enumValues)[number];
+export type NftStatusEnum = (typeof nftStatusEnum.enumValues)[number];
+
+/** row state inside snapshots & claim table */
+export const claimStatusEnum = pgEnum("claim_status", ["not_claimed", "claimed"]);
+export type ClaimStatusEnum = (typeof claimStatusEnum.enumValues)[number];
+
+/** how this wallet will receive ONION */
+export const walletTypeEnum = pgEnum("wallet_type", ["primary", "secondary"]);
+export type WalletTypeEnum = (typeof walletTypeEnum.enumValues)[number];

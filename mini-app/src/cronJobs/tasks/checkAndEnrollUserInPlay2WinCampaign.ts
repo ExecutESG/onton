@@ -6,7 +6,7 @@ import { tokenCampaignOrders } from "@/db/schema";
 import { play2winCampaigns } from "@/db/schema";
 
 import { logger } from "@/server/utils/logger";
-import { getCollectionById } from "@/server/db/tokenCampaignNftCollections.db";
+import { getCollectionById } from "@/db/modules/tokenCampaignNftCollections.db";
 import { attemptSendTelegramWithRetries } from "@/cronJobs/helper/attemptSendTelegramWithRetries";
 import {
   PLAY2WIN_CAMPAIGN_MIN_DATE,
@@ -49,7 +49,7 @@ export async function checkAndEnrollUserInPlay2WinCampaign(): Promise<void> {
   // groupBy to ensure distinct user IDs if they have multiple rows
 
   // 2) Find order-eligible users
-  // const orderEligible = await db
+  // const orderEligible = await modules
   //   .select({
   //     userId: tokenCampaignOrders.userId,
   //   })

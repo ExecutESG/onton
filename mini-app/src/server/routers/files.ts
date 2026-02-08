@@ -8,14 +8,21 @@ import FormData from "form-data";
 import sizeOf from "image-size";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
-import { adminOrganizerCoOrganizerProtectedProcedure, router } from "../trpc";
+import { adminOrganizerCoOrganizerProtectedProcedure, eventManagementProtectedProcedure, router } from "../trpc";
 import { logger } from "../utils/logger";
+import couponSchema from "@/zodSchema/couponSchema";
+import { db } from "@/db/db";
+import eventDB from "@/db/modules/events.db";
+import { coupon_items } from "@/db/schema";
+import { couponDefinitionsDB } from "@/db/modules/couponDefinitions.db";
 
+import { randomBytes } from "crypto";
+import { parse as csvParse } from "csv-parse/sync";
 const API_BASE_URL = (process.env.NEXT_PUBLIC_APP_BASE_URL || "http://localhost:3000") + "/api/";
 
 // JWT secret from env
 const JWT_SECRET = process.env.ONTON_API_SECRET ?? "fallback-secret";
-
+const genCode = () => randomBytes(10).toString("hex").toUpperCase();
 export const fieldsRouter = router({
   uploadImage: adminOrganizerCoOrganizerProtectedProcedure
     .input(

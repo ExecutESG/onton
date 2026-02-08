@@ -119,7 +119,10 @@ export const UploadVideoFile = (props: UploadFileProps) => {
           props.isError ? "border-red-300 bg-red-400/10" : "border-cn-primary",
           props.disabled && "cursor-not-allowed opacity-50"
         )}
-        onClick={() => !props.disabled && setIsSheetOpen(true)}
+        onClick={(e) => {
+          e.preventDefault();
+          !props.disabled && setIsSheetOpen(true);
+        }}
         type="button"
         variant={props.isError ? "destructive" : "outline"}
       >
@@ -159,7 +162,10 @@ export const UploadVideoFile = (props: UploadFileProps) => {
       {createPortal(
         <Sheet
           opened={isSheetOpen}
-          onBackdropClick={() => setIsSheetOpen(false)}
+          onBackdropClick={(e) => {
+            e.preventDefault();
+            setIsSheetOpen(false);
+          }}
           className={cn("w-full")}
         >
           <BlockTitle>Upload Video</BlockTitle>

@@ -2,18 +2,22 @@
 
 import { trpc } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
-import useWebApp from "@/hooks/useWebApp";
-import { LoaderIcon } from "lucide-react";
-import { SiGoogleclassroom } from "react-icons/si";
 import { EventTriggerType } from "@/db/enum";
+import useWebApp from "@/hooks/useWebApp";
 import { cn } from "@/lib/utils";
-import React, { useEffect, useState } from "react";
 import { Dialog } from "konsta/react"; // Import Konsta UI Dialog
+import { LoaderIcon } from "lucide-react";
+import { useEffect, useState } from "react";
+import { SiGoogleclassroom } from "react-icons/si";
 
-const ButtonPOA = ({ event_uuid, poa_type, showPOAButton }: {
+const ButtonPOA = ({
+  event_uuid,
+  poa_type,
+  showPOAButton,
+}: {
   event_uuid: string;
-  poa_type?: EventTriggerType,
-  showPOAButton: boolean
+  poa_type?: EventTriggerType;
+  showPOAButton: boolean;
 }) => {
   const WebApp = useWebApp();
   const initData = WebApp?.initData || "";
@@ -24,21 +28,24 @@ const ButtonPOA = ({ event_uuid, poa_type, showPOAButton }: {
   const [dialogOpen, setDialogOpen] = useState<boolean>(false);
   const [countdown, setCountdown] = useState<number>(0);
 
-  const { data: poaInfo, refetch } = trpc.EventPOA.Info.useQuery({ event_uuid }, {
-    enabled: !!initData,
-    onSuccess(data) {
-      if (!data.success) {
-        // If info query returns success: false, show the error dialog
-        setErrorMessage(data?.message || "Unknown error");
+  const { data: poaInfo, refetch } = trpc.EventPOA.Info.useQuery(
+    { event_uuid },
+    {
+      enabled: !!initData,
+      onSuccess(data) {
+        if (!data.success) {
+          // If info query returns success: false, show the error dialog
+          setErrorMessage(data?.message || "Unknown error");
+          setDialogOpen(true);
+        }
+      },
+      onError(error) {
+        // If there is a query-level error (network or unhandled), show it
+        setErrorMessage(error.message);
         setDialogOpen(true);
-      }
-    },
-    onError(error) {
-      // If there is a query-level error (network or unhandled), show it
-      setErrorMessage(error.message);
-      setDialogOpen(true);
-    },
-  });
+      },
+    }
+  );
 
   const CreatePOAMutation = trpc.EventPOA.Create.useMutation({
     onError(error) {
@@ -126,7 +133,15 @@ const ButtonPOA = ({ event_uuid, poa_type, showPOAButton }: {
           <div style={{ padding: "1rem" }}>
             <p>{errorMessage}</p>
             <div style={{ marginTop: "1rem", display: "flex", justifyContent: "flex-end" }}>
-              <Button onClick={() => setDialogOpen(false)}>Close</Button>
+              <Button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setDialogOpen(false);
+                }}
+              >
+                Close
+              </Button>
             </div>
           </div>
         )}
@@ -136,7 +151,11 @@ const ButtonPOA = ({ event_uuid, poa_type, showPOAButton }: {
         className={cn("w-full text-sm xs:text-md space-x-2 mb-4 mt-2")}
         variant={"secondary"}
         disabled={disabled}
-        onClick={handleClick}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          handleClick();
+        }}
       >
         <SiGoogleclassroom />
         <span>{buttonText}</span>

@@ -1,6 +1,6 @@
-import callbackTasksDB from "@/server/db/callbackTasks.db";
+import callbackTasksDB from "@/db/modules/callbackTasks.db";
 import { ApiTaskRouter } from "@/cronJobs/helper/apiTaskRouter";
-import callbackTaskRunsDB from "@/server/db/callbackTaskRuns.db";
+import callbackTaskRunsDB from "@/db/modules/callbackTaskRuns.db";
 import { CallBackTaskAPINameType, CallBackTaskFunctionType, CallBackTaskItemType } from "@/db/schema/callbackTasks";
 import { logger } from "@/server/utils/logger";
 

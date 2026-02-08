@@ -1,0 +1,10 @@
+---
+description: Rules for creating new React components and writing jsx in the codebase
+globs: 
+alwaysApply: false
+---
+- for cards use [CustomCard.tsx](mdc:src/app/_components/atoms/cards/CustomCard.tsx) 
+- with CustomCard use defaultPadding enabled by default unless you want it to be specific
+- use [button.tsx](mdc:src/components/ui/button.tsx) for buttons and size prop for different sizes
+- use [Typography.tsx](mdc:src/components/Typography.tsx) component for texts 
+- use [DataStatus.tsx](mdc:src/app/_components/molecules/alerts/DataStatus.tsx) for sticker and ducks 

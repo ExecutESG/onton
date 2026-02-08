@@ -1,0 +1,1 @@
+ALTER TABLE "token_campaign_claim_onion" ADD COLUMN "onions_from_partnership" numeric(20, 6) DEFAULT '0';

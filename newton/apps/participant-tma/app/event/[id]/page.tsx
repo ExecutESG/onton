@@ -118,9 +118,12 @@ const Event = async ({ params, searchParams }: EventParams) => {
   attributes.push(["Location", eventData.location]);
 
   if (eventData.eventTicket) {
-    attributes.push(["Ticket Price", `${eventData.eventTicket?.price} ${eventData.eventTicket.payment_type}`]);
+    const symbol = eventData.eventTicket.token?.symbol ?? eventData.eventTicket.payment_type ?? "";
+    attributes.push(["Ticket Price", `${eventData.eventTicket?.price} ${symbol}`]);
   }
-
+  if (eventData.category) {
+    attributes.push(["Category", eventData.category.name]);
+  }
   if (eventData?.website && websiteLabel && websiteLink) {
     attributes.push([
       "Website",

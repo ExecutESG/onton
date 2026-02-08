@@ -2,7 +2,8 @@ import Typography from "@/components/Typography";
 import useWebApp from "@/hooks/useWebApp";
 import { isTelegramUrl } from "@tonconnect/ui-react";
 import { cva, VariantProps } from "class-variance-authority";
-import React, { ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import React, { ReactNode, useEffect } from "react";
 
 const eventKeyValueCva = cva("flex-1 text-sm font-medium text-black text-right", {
   variants: {
@@ -22,10 +23,19 @@ export interface EventKeyValueProps
     VariantProps<typeof eventKeyValueCva> {
   label: string;
   value: ReactNode | string;
+  href?: string;
 }
 
 const EventKeyValue = (props: EventKeyValueProps) => {
   const webApp = useWebApp();
+  const router = useRouter();
+
+  // Prefetch if href is a local link
+  useEffect(() => {
+    if (props.href?.startsWith("/")) {
+      router.prefetch(props.href);
+    }
+  }, [router, props.href]);
 
   return (
     <div className="flex items-center justify-between">
@@ -40,12 +50,18 @@ const EventKeyValue = (props: EventKeyValueProps) => {
         className={eventKeyValueCva({
           variant: props.variant,
         })}
-        onClick={() => {
-          if (props.variant === "link" && typeof props.value === "string") {
-            if (isTelegramUrl(props.value)) {
-              webApp?.openTelegramLink(props.value);
-            } else {
-              webApp?.openLink(props.value);
+        onClick={(e) => {
+          e.preventDefault();
+
+          if (props.href?.startsWith("/")) {
+            router.push(props.href);
+          } else {
+            if (props.variant === "link" && typeof props.value === "string") {
+              if (isTelegramUrl(props.href ?? props.value)) {
+                webApp?.openTelegramLink(props.href ?? props.value);
+              } else {
+                webApp?.openLink(props.href ?? props.value);
+              }
             }
           }
         }}

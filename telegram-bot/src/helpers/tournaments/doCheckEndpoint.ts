@@ -1,10 +1,10 @@
-import { MyContext } from "src/types/MyContext";
+import { MyContext } from "../../types/MyContext";
 import process from "node:process";
-import { logger } from "src/utils/logger";
+import { logger } from "../../utils/logger";
 import axios from "axios";
-import { resetTournamentFlow } from "src/helpers/tournaments/resetTournamentFlow";
+import { resetTournamentFlow } from "../../helpers/tournaments/resetTournamentFlow";
 import { InlineKeyboard } from "grammy";
-import { handleCheckError } from "src/helpers/tournaments/handleCheckError";
+import { handleCheckError } from "../../helpers/tournaments/handleCheckError";
 
 export async function doCheckEndpoint(ctx: MyContext) {
   const userId = ctx.from?.id || 0;

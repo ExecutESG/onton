@@ -1,4 +1,4 @@
-import { pgTable, bigint, serial, timestamp, text, index, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, bigint, serial, timestamp, text, index, pgEnum, boolean } from "drizzle-orm/pg-core";
 import { InferSelectModel } from "drizzle-orm";
 import { users } from "@/db/schema/users";
 
@@ -13,6 +13,7 @@ export const tokenCampaignUserSpins = pgTable(
     spinPackageId: bigint("spin_package_id", { mode: "number" }),
     spinIndex: bigint("spin_index", { mode: "number" }),
     nftCollectionId: bigint("nft_collection_id", { mode: "number" }),
+    isMinted: boolean("is_minted").default(false),
     spinType: tokenCampaignSpinType("spin_type").default("normal"),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).$onUpdate(() => new Date()),
@@ -40,7 +41,7 @@ export type TokenCampaignUserSpins = InferSelectModel<typeof tokenCampaignUserSp
  */
 export type TokenCampaignUserSpinsInsert = Omit<
   InferSelectModel<typeof tokenCampaignUserSpins>,
-  "id" | "createdAt" | "updatedAt" | "updatedBy"
+  "id" | "createdAt" | "updatedAt" | "updatedBy" | "isMinted"
 >;
 
 export type TokenCampaignSpinType = (typeof tokenCampaignSpinType.enumValues)[number];

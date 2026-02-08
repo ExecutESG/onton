@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
-import { getOrganizerEvents } from "@/server/db/events"; // Ensure the function is correctly imported
+import { getOrganizerEvents } from "@/db/modules/events.db"; // Ensure the function is correctly imported
 import { validateJwtFromRequest } from "@/app/api/client/v1/authService";
 
 // Zod schema for validating query parameters

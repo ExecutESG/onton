@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e
 # Define TLS configuration based on the USE_CLOUDFLARE variable
 echo "Generating Caddyfile... ${USE_CLOUDFLARE}"
 if [ -n "${USE_CLOUDFLARE}" ]; then
@@ -14,17 +15,17 @@ fi
 
 # Set the IP for services based on the USE_MAIN_IP_TO_EXPOSE variable
 if [ "${USE_MAIN_IP_TO_EXPOSE}" = "true" ]; then
-    PROXY_MINI_APP=${IP_RANGE_BASE}
-    PROXY_PARTICIPANT_TMA=${IP_RANGE_BASE}
-    PROXY_METABASE=${IP_RANGE_BASE}
-    PROXY_MINIO=${IP_RANGE_BASE}
-    PROXY_PGADMIN=${IP_RANGE_BASE}
-    PROXY_CLIENT_WEB=${IP_RANGE_BASE}
-    PROXY_WEBSITE=${IP_RANGE_BASE}
-    PROXY_RABBITMQ=${IP_RANGE_BASE}
-    PROXY_SOCKET=${IP_RANGE_BASE}
-    PROXY_KIBANA=${IP_RANGE_BASE}
-    PROXY_SWAGGER_UI=${IP_RANGE_BASE}
+    PROXY_MINI_APP='host.docker.internal'
+    PROXY_PARTICIPANT_TMA='host.docker.internal'
+    PROXY_METABASE='host.docker.internal'
+    PROXY_MINIO='host.docker.internal'
+    PROXY_PGADMIN='host.docker.internal'
+    PROXY_CLIENT_WEB='host.docker.internal'
+    PROXY_WEBSITE='host.docker.internal'
+    PROXY_RABBITMQ='host.docker.internal'
+    PROXY_SOCKET='host.docker.internal'
+    PROXY_KIBANA='host.docker.internal'
+    PROXY_SWAGGER_UI='host.docker.internal'
 else
     PROXY_MINI_APP=${IP_MINI_APP}
     PROXY_PARTICIPANT_TMA=${IP_PARTICIPANT_TMA}
@@ -52,6 +53,7 @@ ${MINI_APP_DOMAIN} {
     ${TLS_CONFIG}
     ${LOG_CONFIG}
     reverse_proxy /ptma* http://${PROXY_PARTICIPANT_TMA}:${PARTICIPANT_TMA_PORT}
+    reverse_proxy /swagger* http://${PROXY_SWAGGER_UI}:${SWAGGER_UI_PORT}
     reverse_proxy http://${PROXY_MINI_APP}:${MINI_APP_PORT}
 }
 

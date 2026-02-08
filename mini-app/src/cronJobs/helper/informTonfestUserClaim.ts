@@ -1,8 +1,8 @@
 import { callTaskImmediate } from "@/lib/callTaskImmediate";
 import { logger } from "@/server/utils/logger";
-import eventDB from "@/server/db/events";
+import eventDB from "@/db/modules/events.db";
 import { ALLOWED_TONFEST_EVENT_UUIDS } from "@/constants";
-import ordersDB from "@/server/db/orders.db";
+import ordersDB from "@/db/modules/orders.db";
 import { is_local_env } from "@/server/utils/evnutils";
 import { CallBackTaskFunctionType } from "@/db/schema/callbackTasks";
 

@@ -1,0 +1,1 @@
+ALTER TABLE "token_campaign_claim_onion" ALTER COLUMN "ton_proof" SET DATA TYPE text;

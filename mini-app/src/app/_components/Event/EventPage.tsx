@@ -1,6 +1,5 @@
 "use client";
 
-import { Page } from "konsta/react";
 import EventPageLoadingSkeleton from "../../events/[hash]/loading";
 import { EventDataProvider } from "./EventDataProvider";
 import { useEventData } from "./eventPageContext";
@@ -28,10 +27,10 @@ export const EventDataPage = ({ eventHash }: { eventHash: string }) => {
   }, [setTheme]);
 
   return (
-    <Page>
+    <div className="bg-cn-background">
       <EventDataProvider eventHash={eventHash}>
         <EventDataQueryState />
       </EventDataProvider>
-    </Page>
+    </div>
   );
 };

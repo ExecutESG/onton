@@ -126,10 +126,22 @@ export const ErrorState: FC<ErrorStateProps> = ({ errorCode }) => {
         </div>
       </CustomCard>
       <div className="flex flex-col gap-3">
-        <CustomButton onClick={primaryHandler}>{buttonTextPrimary}</CustomButton>
+        <CustomButton
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            primaryHandler();
+          }}
+        >
+          {buttonTextPrimary}
+        </CustomButton>
         <CustomButton
           variant="outline"
-          onClick={secondaryHandler}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            secondaryHandler();
+          }}
         >
           {buttonTextSecondary}
         </CustomButton>

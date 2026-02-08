@@ -1,6 +1,7 @@
 import { logger } from "@/server/utils/logger";
 import { db } from "@/db/db";
 import { eventPayment } from "@/db/schema/eventPayment";
+import { eventTokens } from "@/db/schema/eventTokens";
 import { events } from "@/db/schema/events";
 import { and, count, eq, isNotNull, lt, or, sql } from "drizzle-orm";
 import { orders } from "@/db/schema/orders";
@@ -17,6 +18,7 @@ export const sendPaymentReminder = async () => {
     .select()
     .from(eventPayment)
     .innerJoin(events, eq(eventPayment.event_uuid, events.event_uuid))
+    .innerJoin(eventTokens, eq(eventPayment.token_id, eventTokens.token_id))
     .where(
       and(
         eq(eventPayment.organizer_payment_status, "not_payed"),
@@ -29,8 +31,9 @@ export const sendPaymentReminder = async () => {
   for (const event of events_need_of_remind) {
     const title = event.events.title;
     const recipient_address = event.event_payment_info.recipient_address;
-    const payment_type = event.event_payment_info.payment_type;
-    const payment_type_emojis = payment_type == "TON" ? "🔹" : "💲";
+    const paymentToken = event.event_tokens;
+    const payment_type = paymentToken.symbol;
+    const payment_type_emojis = paymentToken.is_native ? "🔹" : "💲";
 
     logger.log("event_payment_reminder", event.events.event_uuid);
     const totalAmount = await db

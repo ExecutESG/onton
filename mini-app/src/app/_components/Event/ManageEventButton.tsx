@@ -1,10 +1,10 @@
-import { useRouter } from "next/navigation";
-import { useEventData } from "./eventPageContext";
-import { Pencil } from "lucide-react";
 import { useUserStore } from "@/context/store/user.store";
 import { canUserManageEvent } from "@/lib/userRolesUtils";
+import { Pencil } from "lucide-react";
+import { useRouter } from "next/navigation";
 import CustomButton from "../Button/CustomButton";
 import CustomCard from "../atoms/cards/CustomCard";
+import { useEventData } from "./eventPageContext";
 
 export const ManageEventButton = () => {
   const { eventData, eventHash } = useEventData();
@@ -25,7 +25,7 @@ export const ManageEventButton = () => {
   return (
     <CustomCard defaultPadding>
       <CustomButton
-        onClick={() => {
+        onClick={(e) => {
           router.push(`/events/${eventHash}/manage`);
         }}
         variant="outline"

@@ -31,6 +31,15 @@ export { addTelegramBotVisitor } from "./visitors";
 // Re-export onton settings
 export { upsertPlay2winFeatured, getPlay2winFeatured, fetchOntonSetting, setBanner } from "./ontonSettings";
 
+// Re-export polls
+export {
+  getPollRow,
+  markPollSentFailed,
+  markPollSentSuccess,
+} from "./polls";
+// Re-export invite links
+export { getOrCreateSingleInviteLinkForUserAndChat } from "./inviteLink";
+
 // Re-export event registrants
 export { getEventTickets, getApprovedRegistrants } from "./eventRegistrants";
 

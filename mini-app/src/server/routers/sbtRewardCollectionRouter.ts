@@ -5,7 +5,7 @@ import {
   fetchAllSBTRewardCollections,
   fetchSBTRewardCollectionsByHubID,
   fetchSBTRewardCollectionById,
-} from "@/server/db/SBTRewardCollection.db";
+} from "@/db/modules/SBTRewardCollection.db";
 
 export const sbtRewardCollectionRouter = router({
   getAllRewardCollections: publicProcedure.query(async () => {

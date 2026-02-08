@@ -1,7 +1,7 @@
 import { events } from "@/db/schema/events";
+import { eventTokens } from "@/db/schema/eventTokens";
 import { InferSelectModel } from "drizzle-orm";
 import { index, integer, pgEnum, pgTable, real, serial, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
-import { paymentTypes } from "../enum";
 
 export const organizerPaymentStatus = pgEnum("organizer_payment_status", ["not_payed", "payed_to_organizer", "refunded"]);
 
@@ -13,9 +13,11 @@ export const eventPayment = pgTable(
   {
     id: serial("id").primaryKey(),
     event_uuid: uuid("event_uuid").references(() => events.event_uuid),
+    token_id: integer("token_id")
+      .references(() => eventTokens.token_id)
+      .notNull(),
 
     /* -------------------------- Payment Core Columns -------------------------- */
-    payment_type: paymentTypes("payment_type").notNull(),
     price: real("price").notNull(),
     recipient_address: text("recipient_address").notNull(),
     bought_capacity: integer("bought_capacity").notNull(),
@@ -41,5 +43,4 @@ export const eventPayment = pgTable(
 );
 
 export type EventPaymentSelectType = InferSelectModel<typeof eventPayment>;
-export type EventPaymentType = (typeof paymentTypes.enumValues)[number];
 export type EventTicketType = (typeof ticketTypes)[number];

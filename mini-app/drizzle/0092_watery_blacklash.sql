@@ -1,0 +1,2 @@
+ALTER TABLE "nft_collection_snapshot" ADD COLUMN "claim_status" "claim_status" DEFAULT 'not_claimed' NOT NULL;--> statement-breakpoint
+ALTER TABLE "nft_api_collections" DROP COLUMN IF EXISTS "claim_status";

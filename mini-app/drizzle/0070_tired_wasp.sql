@@ -1,0 +1,1 @@
+ALTER TABLE "token_campaign_nft_items" ADD COLUMN "burn_trx_hash" text;

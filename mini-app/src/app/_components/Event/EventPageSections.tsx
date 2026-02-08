@@ -86,6 +86,21 @@ const EventLink = React.memo(() => {
 });
 EventLink.displayName = "EventLink";
 
+const EventCategory = React.memo(() => {
+  const { eventData } = useEventData();
+  if (!eventData.data?.category_id) return null;
+
+  return (
+    <EventKeyValue
+      variant="link"
+      label="Category"
+      href={"/search?" + new URLSearchParams({ selected_category: eventData.data.category_id.toString() }).toString()}
+      value={eventData.data.category.name}
+    />
+  );
+});
+EventCategory.displayName = "EventWebsiteLink";
+
 const EventWebsiteLink = React.memo(() => {
   const { eventData } = useEventData();
   if (!eventData.data?.website) return null;
@@ -98,7 +113,7 @@ const EventWebsiteLink = React.memo(() => {
     />
   );
 });
-EventWebsiteLink.displayName = "EventWebsiteLink";
+EventCategory.displayName = "EventWebsiteLink";
 
 const EventTicketPrice = React.memo(() => {
   return (
@@ -179,6 +194,7 @@ const EventAttributes = React.memo(() => {
       <EventTicketPrice />
       <EventDatesComponent />
       <EventWebsiteLink />
+      <EventCategory />
     </div>
   );
 });
@@ -281,7 +297,10 @@ const OrganizerCard = React.memo(() => {
       <List className="!mb-0 !-mt-2">
         <ListItem
           className="cursor-pointer"
-          onClick={() => router.push(`/channels/${eventData.data?.owner}/`)}
+          onClick={(e) => {
+            e.preventDefault();
+            router.push(`/channels/${eventData.data?.owner}/`);
+          }}
           title={
             <Typography
               variant="headline"
@@ -341,7 +360,10 @@ const SbtCollectionLink = React.memo(() => {
     >
       <Block
         className="!mt-0 mb-4 cursor-pointer"
-        onClick={() => window.open(`https://getgems.io/collection/${collectionAddress}`, "_blank")}
+        onClick={(e) => {
+          e.preventDefault();
+          window.open(`https://getgems.io/collection/${collectionAddress}`, "_blank");
+        }}
       >
         <div className="w-full flex gap-2 items-stretch bg-brand-fill-bg/10 p-2 rounded-lg">
           {eventData.data?.tsRewardImage && (
@@ -404,9 +426,9 @@ const MainButtonHandler = React.memo(() => {
       return (
         <MainButton
           text="Check In"
-          onClick={() =>
-            router.push(`/events/${eventData.data?.event_uuid}/registrant/${eventData.data?.registrant_uuid}/qr`)
-          }
+          onClick={() => {
+            router.push(`/events/${eventData.data?.event_uuid}/registrant/${eventData.data?.registrant_uuid}/qr`);
+          }}
         />
       );
     }
@@ -440,10 +462,12 @@ const EventPassword = React.memo(() => {
   const isOnlineEvent = eventData.data?.participationType === "online";
   const isEventActive = isStarted && isNotEnded;
   const userCompletedTasks =
-    (["approved", "checkedin"].includes(eventData.data?.registrant_status!) || !eventData.data?.has_registration) &&
+    (["approved", "checkedin"].includes(eventData.data?.registrant_status as string) || !eventData.data?.has_registration) &&
     user?.wallet_address;
 
   if (!((userCompletedTasks && !hasEnteredPassword && isEventActive && isOnlineEvent) || !user?.wallet_address)) return null;
+
+  if (eventData.data?.has_registration) return null;
 
   return (
     <CustomCard
@@ -492,7 +516,12 @@ export const EventSections = () => {
   const { eventData } = useEventData();
 
   return (
-    <div className="flex flex-col gap-3 p-4">
+    <div
+      className="flex flex-col gap-3 p-4"
+      style={{
+        paddingBottom: "calc(var(--tg-safe-area-inset-bottom) + 4rem)",
+      }}
+    >
       <EventHeader />
       <EventDescription />
       <OnionBanner />

@@ -1,10 +1,10 @@
 "use client";
 
-import { BsLink45Deg } from "react-icons/bs";
-import Link from "next/link";
 import Labels from "@/app/_components/atoms/labels/index";
 import useWebApp from "@/hooks/useWebApp";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
+import { BsLink45Deg } from "react-icons/bs";
 
 const normalizeURL2 = (url: string) => {
   // remove protocol from the url, remove www if any, keep the rest of it, limit to 20 characters
@@ -23,7 +23,9 @@ const WebsiteLink = ({ location, className }: Props) => {
   return (
     <Link
       href={"#"}
-      onClick={() => webApp?.openLink(location)}
+      onClick={() => {
+        webApp?.openLink(location);
+      }}
       className={cn(
         "flex items-center justify-center bg-gray-700 text-gray-200 hover:bg-gray-600 hover:text-gray-100 active:bg-gray-800 active:text-gray-300 px-4 py-3 rounded-xl w-full",
         className

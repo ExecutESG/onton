@@ -32,7 +32,9 @@ const QrCodeButton = ({
       )}
       variant={"secondary"}
       disabled={!initData || requestSendQRCodeMutation.isLoading || !activity_id || !!hidden}
-      onClick={async () => {
+      onClick={async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
         if (!initData) return;
         await requestSendQRCodeMutation.mutateAsync({
           url,

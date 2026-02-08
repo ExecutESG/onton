@@ -9,7 +9,9 @@ export type DataStatusProps = {
   description?: ReactNode;
   size?: keyof typeof ANIMATION_SIZES;
   className?: string;
-  canvasWrapperClassName?: string
+  canvasWrapperClassName?: string;
+  // Action Button
+  actionButton?: ReactNode;
 };
 
 export const DATA_STATUS_ANIMATIONS = {
@@ -21,8 +23,11 @@ export const DATA_STATUS_ANIMATIONS = {
   pending: "https://storage.onton.live/ontonimage/pending_duck.lottie",
   sent: "https://storage.onton.live/ontonimage/send-flying-paper-dart.lottie",
   searching: "https://storage.onton.live/ontonimage/duck-searching.json",
+  search_list: "https://storage.onton.live/ontonimage/search_list_duck.json",
   blocked: "https://storage.onton.live/ontonimage/tea_drinking_green_frog.json",
   map_looking: "https://storage.onton.live/ontonimage/duck_looking_at_map.json",
+  archive_duck: "https://storage.onton.live/ontonimage/archive_duck.json",
+  temp_unavailable: "https://storage.onton.live/ontonimage/constructin.json",
 } as const;
 
 export const ANIMATION_SIZES = {
@@ -33,7 +38,7 @@ export const ANIMATION_SIZES = {
 
 export default function DataStatus(props: DataStatusProps) {
   return (
-    <div className={cn("flex flex-col items-center mx-auto", props.className)}>
+    <div className={cn("flex flex-col items-center mx-auto gap-4 max-w-96", props.className)}>
       <DotLottieReact
         loop
         autoplay
@@ -48,10 +53,25 @@ export default function DataStatus(props: DataStatusProps) {
         height={ANIMATION_SIZES[props.size] || ANIMATION_SIZES.md}
         // @ts-expect-error
         width={ANIMATION_SIZES[props.size] || ANIMATION_SIZES.md}
-        className={cn("mx-auto mb-3", props.canvasWrapperClassName)}
+        className={cn("mx-auto", props.canvasWrapperClassName)}
       />
-      <h4 className="block text-[20px] font-semibold mb-3">{props.title}</h4>
-      <Typography className="w-[248px] text-center">{props.description}</Typography>
+      <div className="flex flex-col items-center px-4 flex-1 gap-2 text-center">
+        <Typography
+          variant="title3"
+          bold
+          className="text-balance"
+        >
+          {props.title}
+        </Typography>
+        <Typography
+          variant="subheadline1"
+          weight="medium"
+        >
+          {props.description}
+        </Typography>
+      </div>
+      {/* Action Button */}
+      {props.actionButton}
     </div>
   );
 }

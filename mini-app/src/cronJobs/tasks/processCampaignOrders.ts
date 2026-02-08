@@ -1,12 +1,12 @@
 import { db } from "@/db/db";
-import { tokenCampaignOrdersDB } from "@/server/db/tokenCampaignOrders.db";
-import { tokenCampaignUserSpinsDB } from "@/server/db/tokenCampaignUserSpins.db";
+import { tokenCampaignOrdersDB } from "@/db/modules/tokenCampaignOrders.db";
+import { tokenCampaignUserSpinsDB } from "@/db/modules/tokenCampaignUserSpins.db";
 import { TokenCampaignOrdersStatus } from "@/db/schema/tokenCampaignOrders";
 import { logger } from "@/server/utils/logger";
 import { sendLogNotification } from "@/lib/tgBot";
-import { usersDB } from "@/server/db/users";
-import { tokenCampaignSpinPackagesDB } from "@/server/db/tokenCampaignSpinPackages.db";
-import { is_mainnet } from "@/server/routers/services/tonCenter";
+import { usersDB } from "@/db/modules/users.db";
+import { tokenCampaignSpinPackagesDB } from "@/db/modules/tokenCampaignSpinPackages.db";
+import { is_mainnet } from "@/services/tonCenter";
 import { attemptSendTelegramWithRetries } from "@/cronJobs/helper/attemptSendTelegramWithRetries";
 
 /**

@@ -15,7 +15,7 @@ export const typographyVariants = cva("break-words", {
       subheadline2: "text-sm font-normal leading-[18px]",
       caption1: "text-xs font-light leading-[16px]",
       caption2: "text-[11px] font-normal leading-[13px]",
-      footnote: "text-[13px] font-normal leading-[18px]",
+      footnote: "text-[13px] font-normal leading-[18px] tracking-[-0.08px]",
     },
     weight: {
       thin: "font-thin", // font-weight: 100

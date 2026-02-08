@@ -1,9 +1,10 @@
-import { pgTable, bigserial, bigint, smallint, timestamp, boolean, index, uniqueIndex, pgEnum } from "drizzle-orm/pg-core";
-import { InferSelectModel } from "drizzle-orm";
 import { users } from "@/db/schema";
-
+import { InferSelectModel } from "drizzle-orm";
+import { bigint, bigserial, boolean, index, pgEnum, pgTable, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { decimal } from "drizzle-orm/pg-core/columns/numeric";
+export const userScoreItemArray = ["event", "task", "organize_event", "game"] as const;
 // Define ENUM types
-export const userScoreItem = pgEnum("user_score_item_type", ["event", "task"]);
+export const userScoreItem = pgEnum("user_score_item_type", userScoreItemArray);
 
 export const activityTypesArray = [
   "free_online_event",
@@ -11,6 +12,23 @@ export const activityTypesArray = [
   "paid_online_event",
   "paid_offline_event",
   "join_onton",
+  "join_onton_affiliate",
+  "free_play2win",
+  "paid_play2win",
+  "x_connect",
+  "github_connect",
+  "linked_in_connect",
+  "start_bot",
+  "open_mini_app",
+  "x_view_post",
+  "x_retweet",
+  "tg_join_channel",
+  "tg_join_group",
+  "tg_post_view",
+  "tg_access_location",
+  "google_connect",
+  "outlook_connect",
+  "web_visit",
 ] as const;
 export const usersScoreActivity = pgEnum("users_score_activity_type", activityTypesArray);
 
@@ -23,7 +41,7 @@ export const usersScore = pgTable(
       .notNull()
       .references(() => users.user_id),
     activityType: usersScoreActivity("activity_type"),
-    point: smallint("point"),
+    point: decimal("point", { precision: 20, scale: 6 }),
     active: boolean("active"),
     itemId: bigint("item_id", { mode: "number" }),
     itemType: userScoreItem("item_type"),

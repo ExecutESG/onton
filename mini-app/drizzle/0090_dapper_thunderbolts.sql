@@ -1,0 +1,1 @@
+ALTER TYPE "user_score_item_type" ADD VALUE 'game';

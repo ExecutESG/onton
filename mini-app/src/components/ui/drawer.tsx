@@ -4,10 +4,10 @@ import * as React from "react";
 import { Drawer as DrawerPrimitive } from "vaul";
 
 import { cn } from "@/lib/utils";
-import { X } from "lucide-react";
-import { Button, Sheet } from "konsta/react";
-import { createPortal } from "react-dom";
 import { useSheetStackStore } from "@/zustand/sheet-stack.store";
+import { Button, Sheet } from "konsta/react";
+import { X } from "lucide-react";
+import { createPortal } from "react-dom";
 
 const Drawer = ({ shouldScaleBackground = false, ...props }: React.ComponentProps<typeof DrawerPrimitive.Root>) => (
   <DrawerPrimitive.Root
@@ -146,11 +146,20 @@ export const KSheet = (props: KSheeProps) => {
         (typeof props.trigger === "function" ? (
           props.trigger(open, setOpen)
         ) : (
-          <Button onClick={() => setOpen(true)}>{props.trigger || "Open"}</Button>
+          <Button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setOpen(true);
+            }}
+          >
+            {props.trigger || "Open"}
+          </Button>
         ))}
       {createPortal(
         <Sheet
-          onBackdropClick={() => {
+          onBackdropClick={(e) => {
+            e.preventDefault();
             props.onOpenChange?.(false);
             setOpen(false);
           }}

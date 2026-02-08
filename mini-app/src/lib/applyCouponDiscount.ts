@@ -1,6 +1,6 @@
 import { logger } from "@/server/utils/logger";
-import { couponItemsDB } from "@/server/db/couponItems.db";
-import { couponDefinitionsDB } from "@/server/db/couponDefinitions.db";
+import { couponItemsDB } from "@/db/modules/couponItems.db";
+import { couponDefinitionsDB } from "@/db/modules/couponDefinitions.db";
 
 export async function applyCouponDiscount(
   couponCode: string | undefined | null,

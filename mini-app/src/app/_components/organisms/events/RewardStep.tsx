@@ -66,7 +66,7 @@ export const RewardStep = () => {
   });
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+    e?.preventDefault();
     if (!formRef.current) return;
 
     const formData = new FormData(formRef.current);

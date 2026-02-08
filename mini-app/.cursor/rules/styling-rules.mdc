@@ -1,0 +1,6 @@
+---
+description: Styling rules for CSS and tailwind on react components
+globs: 
+alwaysApply: false
+---
+- do not use margin instead try to use padding on parrent element or flex or grid with a consistant gap

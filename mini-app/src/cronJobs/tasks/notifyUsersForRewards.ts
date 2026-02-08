@@ -1,7 +1,7 @@
 import { sleep } from "@/utils";
-import eventDB from "@/server/db/events";
-import telegramService from "@/server/routers/services/telegramService";
-import rewardDB from "@/server/db/rewards.db";
+import eventDB from "@/db/modules/events.db";
+import telegramService from "@/services/telegramService";
+import rewardDB from "@/db/modules/rewards.db";
 import { logger } from "@/server/utils/logger";
 import { getErrorMessages } from "@/lib/error";
 import { RewardVisitorTypePartial } from "@/db/schema/rewards";

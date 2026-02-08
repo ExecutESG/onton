@@ -1,10 +1,10 @@
 // LazyLoadVideo.tsx
 "use client";
 import Image from "next/image";
-import LoadingIcon from "react-loading";
 import React, { useState } from "react";
-import { useInView } from "react-intersection-observer";
 import { FaSquareCheck } from "react-icons/fa6";
+import { useInView } from "react-intersection-observer";
+import LoadingIcon from "react-loading";
 interface LazyLoadVideoProps {
   src: string;
   hubName: string;
@@ -14,21 +14,17 @@ interface LazyLoadVideoProps {
   onClick: () => void;
 }
 
-const LazyLoadVideo: React.FC<LazyLoadVideoProps> = ({
-  src,
-  hubName,
-  collectionId,
-  coverImage,
-  selected,
-  onClick,
-}) => {
+const LazyLoadVideo: React.FC<LazyLoadVideoProps> = ({ src, hubName, collectionId, coverImage, selected, onClick }) => {
   const { ref, inView } = useInView({ triggerOnce: true, threshold: 0.5 });
   const [isLoading, setIsLoading] = useState(true);
 
   return (
     <div
       ref={ref}
-      onClick={onClick}
+      onClick={(e) => {
+        e.preventDefault();
+        onClick();
+      }}
       className={`p-2 rounded-lg cursor-pointer transition-shadow ${selected ? "font-bold" : "font-light"}`}
     >
       <div className="flex items-center justify-center mt-2 space-x-1">
@@ -64,9 +60,7 @@ const LazyLoadVideo: React.FC<LazyLoadVideoProps> = ({
             src={coverImage}
             alt={`${hubName} cover`}
             fill
-            className={`object-cover rounded-lg transition-opacity duration-500 ${
-              isLoading ? "opacity-0" : "opacity-100"
-            }`}
+            className={`object-cover rounded-lg transition-opacity duration-500 ${isLoading ? "opacity-0" : "opacity-100"}`}
             onLoadingComplete={() => setIsLoading(false)}
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           />

@@ -1,6 +1,6 @@
 import { Address } from "@ton/core";
 import { z } from "zod";
-import { ticketTypes } from "./db/schema";
+import { EventCategoryRow, ticketTypes } from "./db/schema";
 
 export type OntonEvent = {
   eventUuid: string;
@@ -23,6 +23,7 @@ export type OntonEvent = {
   city?: string;
   country?: string;
   participationType?: string;
+  category?: EventCategoryRow;
 };
 
 export type InputField = {
@@ -153,7 +154,7 @@ export const PaidEventSchema = z
   .object({
     has_payment: z.boolean({ required_error: "payment status is required" }).optional().default(false),
     payment_recipient_address: z.string({ required_error: "recipient address is required" }).optional().default(""),
-    payment_type: z.enum(["USDT", "TON", "STAR"], { required_error: "payment type is required" }).optional(),
+    token_id: z.number({ required_error: "token is required" }).int().positive().optional(),
     payment_amount: z.number({ required_error: "payment amount is required" }).optional(),
     has_nft: z.boolean({ required_error: "NFT status is required" }).optional().default(false),
     nft_title: z.string({ required_error: "NFT title is required" }).optional().default(""),
@@ -182,12 +183,12 @@ export const PaidEventSchema = z
         }
       }
 
-      // Validate that `payment_type` is present
-      if (!data.payment_type)
+      // Validate that a payment token is present
+      if (!data.token_id)
         ctx.addIssue({
           code: "custom",
-          path: ["payment_type"],
-          message: "Payment type is required.",
+          path: ["token_id"],
+          message: "Payment token is required.",
         });
 
       // Validate that `payment_amount` is present and greater than 0
@@ -268,7 +269,11 @@ export const EventDataSchema = z
 
     /* ------------------------------- Paid Event Creation ------------------------------- */
     paid_event: PaidEventSchema.optional(),
-    /* ------------------------------- Paid Event Creation ------------------------------- */
+    /* -------------------------- Event Category ------------------------- */
+    category_id: z
+      .number({ required_error: "category_id is required" }) // mandatory
+      .int()
+      .positive(),
   })
   .superRefine((data, ctx) => {
     // Validate secret_phrase is required for non-paid events
@@ -350,7 +355,8 @@ export const UpdateEventDataSchema = z.object({
 
   /* ------------------------------- Paid Event Update ------------------------------- */
   paid_event: PaidEventSchema.optional(),
-  /* ------------------------------- Paid Event Update ------------------------------- */
+  /* -------------------------- Event Category ------------------------- */
+  category_id: z.number({ required_error: "category_id is required" }).int().positive(),
 });
 
 export const EventRegisterSchema = z.object({
@@ -502,3 +508,13 @@ export interface Channel {
   org_image: string | null;
   hosted_event_count?: number | null;
 }
+
+type OptionalKeys<T> = {
+  [K in keyof T]?: T[K];
+};
+
+export type MergeWithOptional<A, B> = OptionalKeys<Omit<A, keyof B>> &
+  OptionalKeys<Omit<B, keyof A>> &
+  Pick<A, keyof A & keyof B>;
+
+export type TonProofSavedSession = { token: string; proof: string };

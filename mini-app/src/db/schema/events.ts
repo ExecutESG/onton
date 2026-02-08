@@ -1,4 +1,4 @@
-import { eventParticipationType, giataCity } from "@/db/schema";
+import { eventCategories, eventParticipationType, giataCity } from "@/db/schema";
 import { users } from "@/db/schema/users";
 import { InferSelectModel } from "drizzle-orm";
 import {
@@ -7,6 +7,7 @@ import {
   index,
   integer,
   json,
+  pgEnum,
   pgTable,
   serial,
   text,
@@ -14,6 +15,8 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+
+export const raffleKindEnum = pgEnum("raffle_kind", ["ton", "merch"]);
 
 export const events = pgTable(
   "events",
@@ -30,7 +33,8 @@ export const events = pgTable(
     description: text("description").notNull(),
     image_url: text("image_url").notNull(),
     wallet_address: text("wallet_address"),
-
+    giveaway_wallet_address: text("giveaway_wallet_address"),
+    raffleKind: raffleKindEnum("raffle_kind"),
     society_hub: text("society_hub"),
     society_hub_id: text("society_hub_id"),
     activity_id: integer("activity_id"),
@@ -62,7 +66,7 @@ export const events = pgTable(
     capacity: integer("capacity"),
     has_waiting_list: boolean("has_waiting_list").default(false),
     /* ------------------------- // Event Registration > ------------------------ */
-
+    category_id: integer("category_id").references(() => eventCategories.category_id),
     /* ------------------------------- Paid Event ------------------------------- */
     has_payment: boolean("has_payment").notNull().default(false),
     /* ------------------------------- Paid Event ------------------------------- */
@@ -89,7 +93,10 @@ export const events = pgTable(
     participationTypeIdx: index("events_participation_type_idx").on(table.participationType),
     event_uuid_unique: uniqueIndex().on(table.event_uuid),
     moderationMessageIdIndex: index("events_moderation_message_id_idx").on(table.moderationMessageId),
+    categoryIdIdx: index("events_category_id_idx").on(table.category_id),
+    giveaway_wallet_address_idx: index("events_giveaway_wallet_address_idx").on(table.giveaway_wallet_address),
   })
 );
 
 export type EventRow = InferSelectModel<typeof events>;
+export type RaffleKindType = EventRow["raffleKind"];

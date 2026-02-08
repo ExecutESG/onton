@@ -1,6 +1,5 @@
 "use client";
 
-import { Block, Page } from "konsta/react";
 import { useParams, useRouter } from "next/navigation";
 // svg icons
 import coOrganizerIcon from "./co-organizers.svg";
@@ -61,9 +60,9 @@ export default function ManageIndexPage() {
   const hasAdminOrOrganizerAccess = CheckAdminOrOrganizer(user?.role);
   // The main “Manage” page
   return (
-    <Page>
+    <div>
       {/* Show an EventCard with the event data */}
-      <div className="bg-white rounded-2lg mx-4 mt-4 pb-3">
+      <div className="bg-white rounded-2lg mx-4 my-4 pb-3">
         <EventCard
           event={{
             eventUuid: eventData.event_uuid,
@@ -78,7 +77,7 @@ export default function ManageIndexPage() {
             hasApproval: eventData.has_approval,
             hasPayment: eventData.has_payment,
             hasRegistration: eventData.has_registration,
-            paymentType: eventData.payment_details.payment_type,
+            paymentType: eventData.payment_details.token?.symbol ?? "",
             ticketPrice: eventData.payment_details.price,
           }}
           afterTitle={
@@ -108,7 +107,7 @@ export default function ManageIndexPage() {
           <div className="grid xs:grid-cols-2 gap-3 mx-3 mt-3">
             {eventData.participationType === "online" ? (
               <CustomButton
-                onClick={async () => {
+                onClick={async (e) => {
                   if (eventData.event_uuid) {
                     requestSendQRCode.mutateAsync({
                       url: `https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME}/event?startapp=${eventData.event_uuid}`,
@@ -151,7 +150,7 @@ export default function ManageIndexPage() {
       </div>
 
       {/* Action Cards for each sub-route */}
-      <Block className="-mx-4 !my-0">
+      <div className="px-4 !my-0 flex flex-col gap-4">
         {eventData.has_payment && canEditEvent && (
           <>
             <ActionCard
@@ -213,7 +212,17 @@ export default function ManageIndexPage() {
             ]}
           />
         )}
-      </Block>
-    </Page>
+
+        {hasAdminOrOrganizerAccess && (
+          <ActionCard
+            onClick={() => router.push(`/events/${eventData.event_uuid}/manage/raffle-setup`)}
+            iconSrc={coOrganizerIcon}
+            title="Raffles"
+            subtitle="Set up and manage raffles"
+            footerTexts={[]}
+          />
+        )}
+      </div>
+    </div>
   );
 }

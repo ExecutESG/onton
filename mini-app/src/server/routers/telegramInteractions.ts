@@ -4,9 +4,9 @@ import {
   initDataProtectedProcedure,
 } from "@/server/trpc";
 import { z } from "zod";
-import eventDB, { getEventByUuid } from "@/server/db/events";
+import eventDB, { getEventByUuid } from "@/db/modules/events.db";
 import { logger } from "@/server/utils/logger";
-import telegramService from "@/server/routers/services/telegramService";
+import telegramService from "@/services/telegramService";
 import { TRPCError } from "@trpc/server";
 import { router } from "@/server/trpc";
 import { db } from "@/db/db";
@@ -14,19 +14,19 @@ import { eventRegistrants } from "@/db/schema/eventRegistrants";
 import { users } from "@/db/schema/users";
 import { and, eq, or } from "drizzle-orm";
 import Papa from "papaparse";
-import { selectVisitorsByEventUuid } from "@/server/db/visitors";
-import { VisitorsWithDynamicFields } from "@/server/db/dynamicType/VisitorsWithDynamicFields";
+import { selectVisitorsByEventUuid } from "@/db/modules/visitors.db";
+import { VisitorsWithDynamicFields } from "@/db/modules/dynamicType/VisitorsWithDynamicFields";
 import axios from "axios";
 import { getSBTClaimedStatus } from "@/lib/ton-society-api";
-import { usersDB } from "@/server/db/users";
+import { usersDB } from "@/db/modules/users.db";
 import couponSchema from "@/zodSchema/couponSchema";
-import { couponDefinitionsDB } from "@/server/db/couponDefinitions.db";
-import { couponItemsDB } from "@/server/db/couponItems.db";
+import { couponDefinitionsDB } from "@/db/modules/couponDefinitions.db";
+import { couponItemsDB } from "@/db/modules/couponItems.db";
 import { convertSvgToJpegBuffer } from "@/lib/convertSvgToJpegBuffer";
-import { tournamentsDB } from "@/server/db/tournaments.db";
+import { tournamentsDB } from "@/db/modules/tournaments.db";
 import { fromNano } from "@ton/core";
-import { sumSpinCountByAffiliateHash, tokenCampaignOrdersDB } from "@/server/db/tokenCampaignOrders.db";
-import { affiliateLinksDB, getAffiliateLinkForOnionCampaign } from "@/server/db/affiliateLinks.db";
+import { sumSpinCountByAffiliateHash, tokenCampaignOrdersDB } from "@/db/modules/tokenCampaignOrders.db";
+import { affiliateLinksDB, getAffiliateLinkForOnionCampaign } from "@/db/modules/affiliateLinks.db";
 
 const requestShareEvent = initDataProtectedProcedure
   .input(

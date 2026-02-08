@@ -1,22 +1,8 @@
 /**
- * Converts a USD amount to USDT token amount by multiplying it by 10^6 (USDT has 6 decimal places)
- *
- * @param {number} usd - The amount in USD (can be decimal)
- * @returns {bigint} The amount in USDT's smallest unit (6 decimal places)
- *
- * @example
- * // Convert 5.5 USD to USDT amount
- * const usdtAmount = calculateUsdtAmount(5.5);
- * console.log(usdtAmount); // 5500000n
- *
- * @example
- * // Convert 1 USD to USDT amount
- * const usdtAmount = calculateUsdtAmount(1);
- * console.log(usdtAmount); // 1000000n
- *
- * @remarks
- * - The function rounds the result to handle floating point precision
- * - Uses BigInt to handle large numbers without precision loss
- * - USDT operates with 6 decimal places, hence multiplication by 10^6
+ * Converts a human-readable token amount into its smallest unit using the token decimals.
+ * Handles floating-point rounding before casting to bigint to avoid precision issues.
  */
-export const calculateUsdtAmount = (usd: number): bigint => BigInt(Math.round(usd * 1_000_000));
+export const toTokenUnits = (amount: number, decimals: number): bigint => {
+  const factor = 10 ** Math.max(decimals, 0);
+  return BigInt(Math.round(amount * factor));
+};

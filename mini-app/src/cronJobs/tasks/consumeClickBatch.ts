@@ -1,7 +1,7 @@
 import { getRedisClient } from "@/lib/redisClient";
 import { redisTools } from "@/lib/redisTools";
 import { logger } from "@/server/utils/logger";
-import { affiliateLinksDB } from "@/server/db/affiliateLinks.db";
+import { affiliateLinksDB } from "@/db/modules/affiliateLinks.db";
 import { db } from "@/db/db";
 import { affiliateClick } from "@/db/schema";
 import { EnqueuedClick } from "@/types/EnqueuedClick";

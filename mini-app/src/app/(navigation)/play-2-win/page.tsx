@@ -1,11 +1,10 @@
 "use client";
 
-import { Banner } from "@/app/(landing-pages)/genesis-onions/_components/Banner";
-import { Play2WinGenesisBanner } from "@/app/(landing-pages)/play2win-genesis/_components/Play2WinGenesisBanner";
 import CustomCard from "@/app/_components/atoms/cards/CustomCard";
 import { FloatingBadge } from "@/app/_components/Badge/FloatingBadge";
 import CustomButton from "@/app/_components/Button/CustomButton";
 import CustomSwiper from "@/app/_components/CustomSwiper";
+import FeaturedBanners from "@/app/_components/FeaturedBanners";
 import FilterIcon from "@/app/_components/icons/filter-icon";
 import DataStatus from "@/app/_components/molecules/alerts/DataStatus";
 import { TournamentTimeRemaining } from "@/app/_components/Tournament/TournamentRemainingTime";
@@ -38,7 +37,9 @@ const TournamentSlide: React.FC<TournamentCardProps> = ({ tournament }) => {
         key={tournament.id}
         width={220}
         height={220}
-        onClick={() => {
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
           router.push(`/play-2-win/${tournament.id}`);
         }}
         className="w-[220px] h-[220px] rounded-md hover:cursor-pointer"
@@ -66,8 +67,7 @@ const Play2WinFeatured = () => {
 
   return (
     <>
-      <Banner className="mb-3" />
-      <Play2WinGenesisBanner />
+      <FeaturedBanners />
       <Typography variant="title2">Featured Contests</Typography>
       <div>
         <CustomSwiper>
@@ -133,7 +133,10 @@ const TournamentFilter: React.FC<{
             return (
               <DropdownMenuItem
                 key={o}
-                onClick={() => setSelected(o)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setSelected(o);
+                }}
                 className={cn("flex justify-between items-center px-0", selected === o && "text-primary")}
               >
                 <Typography
@@ -187,7 +190,10 @@ const TournamentFilter: React.FC<{
             return (
               <DropdownMenuItem
                 key={game.id}
-                onClick={() => setSelectedGame(game.id)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setSelectedGame(game.id);
+                }}
                 className={cn("flex justify-between items-center px-0", selectedGame === game.id && "text-primary")}
               >
                 <Typography
@@ -257,7 +263,9 @@ const DiscoverTournaments: React.FC = () => {
               {(selectedGame !== -1 || sortSelected !== "timeRemaining") && (
                 <CustomButton
                   variant="outline"
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     setSelectedGame(-1);
                     setSortSelected("timeRemaining");
                   }}
@@ -326,10 +334,10 @@ const DiscoverTournaments: React.FC = () => {
  */
 const PlayToWin: React.FC = () => {
   return (
-    <>
+    <div className="flex flex-col gap-2">
       <Play2WinFeatured />
       <DiscoverTournaments />
-    </>
+    </div>
   );
 };
 

@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { NotificationItemType, NotificationStatus, NotificationType } from "@/db/schema";
 import useNotificationStore from "@/zustand/useNotificationStore";
-import { NotificationType, NotificationStatus, NotificationItemType } from "@/db/schema";
-import { List, ListItem, Badge, Dialog, Button } from "konsta/react";
+import { Badge, Button, Dialog, List, ListItem } from "konsta/react";
+import React, { useEffect, useState } from "react";
 
 type OrganizerNotification = {
   notificationId: string;
@@ -143,7 +143,14 @@ const OrganizerNotificationHandler: React.FC = () => {
       </List>
 
       <div style={{ marginTop: "1rem", textAlign: "right" }}>
-        <Button onClick={handleCloseDialog}>Close</Button>
+        <Button
+          onClick={(e) => {
+            e.preventDefault();
+            handleCloseDialog();
+          }}
+        >
+          Close
+        </Button>
       </div>
     </Dialog>
   );

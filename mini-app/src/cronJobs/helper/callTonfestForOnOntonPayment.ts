@@ -1,13 +1,15 @@
 import { callTaskImmediate } from "@/lib/callTaskImmediate";
-import { usersDB } from "@/server/db/users";
+import { usersDB } from "@/db/modules/users.db";
 import { OrderRow } from "@/db/schema/orders";
+import eventTokensDB from "@/db/modules/eventTokens.db";
 import { logger } from "@/server/utils/logger";
-import eventDB from "@/server/db/events";
+import eventDB from "@/db/modules/events.db";
 import { ALLOWED_TONFEST_EVENT_UUIDS } from "@/constants";
 
 export const callTonfestForOnOntonPayment = async (ordr: OrderRow, eventUuid: string) => {
   // Only proceed if order.payment_type is not "STAR"
-  if (ordr.payment_type === "STAR" || !ALLOWED_TONFEST_EVENT_UUIDS.includes(eventUuid)) return;
+  const token = await eventTokensDB.getTokenById(Number(ordr.token_id));
+  if (!token || token.symbol === "STAR" || !ALLOWED_TONFEST_EVENT_UUIDS.includes(eventUuid)) return;
 
   logger.log(`call callTonfestForOnOntonPayment`);
   const eventData = await eventDB.fetchEventByUuid(eventUuid);
@@ -23,7 +25,7 @@ export const callTonfestForOnOntonPayment = async (ordr: OrderRow, eventUuid: st
     ownerWallet: ordr.owner_address,
     eventUuid: ordr.event_uuid,
     amount: ordr.total_price, // or any actual TON amount
-    paymentType: ordr.payment_type, // "STAR"
+    paymentType: token.symbol,
   };
 
   // (a) Actually call TonFest once

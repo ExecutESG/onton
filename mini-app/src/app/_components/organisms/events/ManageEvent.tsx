@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useEffect, useLayoutEffect, useState } from "react";
-import { useParams } from "next/navigation";
 import { Block } from "konsta/react";
+import { useParams } from "next/navigation";
+import { useEffect, useLayoutEffect, useState } from "react";
 
 import { type RouterOutput } from "@/server";
 
@@ -13,10 +13,10 @@ import { useSectionStore } from "@/zustand/useSectionStore";
 import { useCreateEventStore } from "@/zustand/createEventStore";
 
 // The 4-step components
-import { GeneralStep } from "./GeneralStep";
-import { TimePlaceStep } from "./TimePlaceStep";
 import RegistrationStep from "../../Event/steps/EventRegistration";
+import { GeneralStep } from "./GeneralStep";
 import { RewardStep } from "./RewardStep";
+import { TimePlaceStep } from "./TimePlaceStep";
 
 type ManageEventProps = {
   event?: RouterOutput["events"]["getEvent"];
@@ -72,6 +72,7 @@ function ManageEvent({ event }: ManageEventProps) {
           start_date: event.start_date || undefined,
           end_date: event.end_date || undefined,
           location: event.location || undefined,
+          category_id: event.category_id || undefined,
           // @ts-ignore
           society_hub: event.society_hub
             ? {
@@ -91,11 +92,11 @@ function ManageEvent({ event }: ManageEventProps) {
           has_waiting_list: Boolean(event.has_waiting_list),
           // Payment
           paid_event: {
-            payment_type: event.payment_details?.payment_type,
+            token_id: event.payment_details?.token_id,
             payment_recipient_address: event.payment_details?.recipient_address,
             nft_description: event.payment_details?.description || undefined,
             nft_title: event.payment_details?.title || undefined,
-            has_payment: Boolean(event.payment_details?.payment_type),
+            has_payment: Boolean(event.payment_details?.token_id),
             payment_amount: event.payment_details?.price,
             nft_image_url: event.payment_details?.ticketImage || undefined,
             bought_capacity: event.payment_details?.bought_capacity,
@@ -149,4 +150,3 @@ function ManageEvent({ event }: ManageEventProps) {
 }
 
 export default ManageEvent;
-

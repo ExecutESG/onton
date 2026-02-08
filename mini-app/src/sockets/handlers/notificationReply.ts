@@ -1,21 +1,21 @@
 import { z } from "zod";
-import { notificationsDB } from "@/server/db/notifications.db";
+import { notificationsDB } from "@/db/modules/notifications.db";
 import { NotificationStatus } from "@/db/schema";
-import { eventPoaResultsDB } from "@/server/db/eventPoaResults.db";
-import { eventPoaTriggersDB } from "@/server/db/eventPoaTriggers.db";
+import { eventPoaResultsDB } from "@/db/modules/eventPoaResults.db";
+import { eventPoaTriggersDB } from "@/db/modules/eventPoaTriggers.db";
 import { NOTIFICATION_TIMEOUT_MARGIN, PASSWORD_RETRY_LIMIT } from "@/sockets/constants";
 import { validateNotificationReply } from "@/sockets/helpers/validateNotificationReply";
-import { getEventById } from "@/server/db/events";
-import { eventRegistrantsDB } from "@/server/db/eventRegistrants.db";
-import eventFieldsDB from "@/server/db/eventFields.db";
+import { getEventById } from "@/db/modules/events.db";
+import { eventRegistrantsDB } from "@/db/modules/eventRegistrants.db";
+import eventFieldsDB from "@/db/modules/eventFields.db";
 import bcryptLib from "@/lib/bcrypt";
-import userEventFieldsDB from "@/server/db/userEventFields.db";
+import userEventFieldsDB from "@/db/modules/userEventFields.db";
 import { logger } from "@/server/utils/logger";
 
 import { getCache, setCache, deleteCache, cacheKeys } from "@/lib/redisTools";
 import { Server } from "socket.io";
-import visitorsDB from "@/server/db/visitors";
-import rewardDB from "@/server/db/rewards.db";
+import visitorsDB from "@/db/modules/visitors.db";
+import rewardDB from "@/db/modules/rewards.db";
 
 type CallbackFunction = (response: { status: string; message: string }) => void;
 

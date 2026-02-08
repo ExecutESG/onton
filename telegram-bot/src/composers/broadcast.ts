@@ -1,521 +1,245 @@
-import { Composer, InlineKeyboard, InputFile } from "grammy";
+// broadcastComposer.ts — rewritten end‑to‑end
+
+import { Composer, InlineKeyboard } from "grammy";
+import { MessageEntity } from "grammy/types";
 import { MyContext } from "../types/MyContext";
 import {
   isUserAdmin,
   getEvent,
   getEventTickets,
-  createAffiliateLinks,
+  getOrCreateSingleInviteLinkForUserAndChat,
 } from "../db/db";
+import {
+  createBroadcastMessage,
+  bulkInsertBroadcastUsers,
+} from "../db/broadcast";
 import { parse } from "csv-parse/sync";
 import axios from "axios";
 import { isNewCommand } from "../helpers/isNewCommand";
 import { logger } from "../utils/logger";
-import { sleep } from "../utils/utils";
-import { additionalRecipients } from "../constants";
-import { Readable } from "stream";
-import { pool } from "../db/pool"; // for manual queries
+import { checkBotIsAdmin, extractInviteChatIds } from "../utils/utils";
+import { AFFILIATE_PLACEHOLDERS } from "../constants";
+import { getOrCreateSingleAffiliateLink } from "../db/affiliateLinks";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Utils — entity → HTML conversion (for rich links, bold, etc.)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const htmlEscape = (s: string) =>
+    s.replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+
+function entityOpen(e: MessageEntity, raw: string): string {
+  switch (e.type) {
+    case "bold": return "<b>";
+    case "italic": return "<i>";
+    case "underline": return "<u>";
+    case "strikethrough": return "<s>";
+    case "code": return "<code>";
+    case "pre": return "<pre>";
+    case "text_link": return `<a href=\"${htmlEscape(e.url!)}\">`;
+    case "url": {
+      const urlText = raw.substr(e.offset, e.length);
+      return `<a href=\"${htmlEscape(urlText)}\">`;
+    }
+    default: return "";
+  }
+}
+function entityClose(e: MessageEntity): string {
+  switch (e.type) {
+    case "bold": return "</b>";
+    case "italic": return "</i>";
+    case "underline": return "</u>";
+    case "strikethrough": return "</s>";
+    case "code": return "</code>";
+    case "pre": return "</pre>";
+    case "text_link":
+    case "url": return "</a>";
+    default: return "";
+  }
+}
+
+function toHtml(text: string, entities?: readonly MessageEntity[]): string {
+  if (!entities?.length) return htmlEscape(text);
+  const segs: string[] = [];
+  let cursor = 0;
+
+  // Telegram ensures entities are non‑overlapping but not strictly ordered
+  for (const e of [...entities].sort((a, b) => a.offset - b.offset)) {
+    if (e.offset > cursor) segs.push(htmlEscape(text.slice(cursor, e.offset)));
+    segs.push(entityOpen(e, text));
+    segs.push(htmlEscape(text.slice(e.offset, e.offset + e.length)));
+    segs.push(entityClose(e));
+    cursor = e.offset + e.length;
+  }
+  segs.push(htmlEscape(text.slice(cursor)));
+  return segs.join("");
+}
+
+function extractHtml(msg: MyContext["message"]): string | null {
+  if (!msg) return null;
+  if ("text" in msg && msg.text !== undefined) return toHtml(msg.text, msg.entities);
+  if ("caption" in msg && msg.caption !== undefined) return toHtml(msg.caption, msg.caption_entities);
+  return null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Composer
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const broadcastComposer = new Composer<MyContext>();
 
-// Placeholders you want to handle
-const PLACEHOLDERS = [
-  "{onion1-special-affiliations}",
-  "{onion1-campaign}",
-];
-
-/* -------------------------------------------------------------------------- */
-/*    1) generateBroadcastGroupTitle => used to set a common group_title      */
-
-/* -------------------------------------------------------------------------- */
-function generateBroadcastGroupTitle(): string {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-  const hh = String(now.getHours()).padStart(2, "0");
-  const mm = String(now.getMinutes()).padStart(2, "0");
-  const ss = String(now.getSeconds()).padStart(2, "0");
-  return `broad-cast-${y}${m}${d}${hh}${mm}${ss}`;
-}
-
-/* -------------------------------------------------------------------------- */
-/*  2) getOrCreateSingleAffiliateLink => checks if link exists; if not, make  */
-
-/* -------------------------------------------------------------------------- */
-async function getOrCreateSingleAffiliateLink(
-  userId: number,
-  itemType: string,
-  baseTitle: string,
-  groupTitle: string,
-) {
-  const client = await pool.connect();
-  try {
-    // 1) Check if a link already exists for this user & itemType with item_id=0
-    const sqlCheck = `
-        SELECT id, link_hash, title, group_title
-        FROM affiliate_links
-        WHERE "item_type" = $1
-          AND "Item_id" = 0
-          AND "affiliator_user_id" = $2
-        LIMIT 1
-    `;
-    const resCheck = await client.query(sqlCheck, [itemType, userId]);
-    if (resCheck.rowCount > 0) {
-      // Found an existing link => optionally update group_title
-      const existingLink = resCheck.rows[0];
-      // If you always want to override group_title with the current broadcast groupTitle, do:
-      if (existingLink.group_title !== groupTitle) {
-        await client.query(
-          "UPDATE affiliate_links SET \"group_title\"=$1 WHERE \"id\"=$2",
-          [groupTitle, existingLink.id],
-        );
-      }
-      return {
-        id: existingLink.id,
-        link_hash: existingLink.link_hash,
-        title: existingLink.title,
-        group_title: groupTitle,
-      };
-    }
-
-    // 2) If not found => create a new link via createAffiliateLinks (count=1)
-    // But we can't do that inside the same client query easily. We'll just do it outside:
-  } finally {
-    client.release();
-  }
-
-  // 3) Create a new link (with eventId=0, itemType, userId, baseTitle)
-  const creation = await createAffiliateLinks({
-    eventId: 0,        // dummy event
-    userId: userId,
-    itemType,
-    baseTitle,
-    count: 1,          // just one link
-  });
-  const newLink = creation.links[0];
-
-  // 4) Update group_title
-  const client2 = await pool.connect();
-  try {
-    await client2.query(
-      "UPDATE affiliate_links SET \"group_title\"=$1 WHERE \"id\"=$2",
-      [groupTitle, newLink.id],
-    );
-  } finally {
-    client2.release();
-  }
-
-  // Return updated link
-  return {
-    id: newLink.id,
-    link_hash: newLink.link_hash,
-    title: newLink.title,
-    group_title: groupTitle,
-  };
-}
-
-/* -------------------------------------------------------------------------- */
-/*                 /broadcast Command => choose event or csv                 */
-/* -------------------------------------------------------------------------- */
+// Entry — /broadcast
 broadcastComposer.command("broadcast", async (ctx) => {
-  const { isAdmin } = await isUserAdmin(ctx.from?.id.toString() || "");
+  const { isAdmin } = await isUserAdmin(String(ctx.from?.id ?? ""));
   if (!isAdmin) return;
 
-  // Reset session
-  ctx.session.broadcastStep = "chooseTarget";
-  ctx.session.broadcastType = undefined;
-  ctx.session.broadcastEventUuid = undefined;
-  ctx.session.broadcastEventTitle = undefined;
-  ctx.session.broadcastUserIds = [];
-  ctx.session.broadcastCsvUserIds = [];
+  ctx.session = {
+    broadcastStep: "chooseTarget",
+    broadcastType: undefined,
+    broadcastEventUuid: undefined,
+    broadcastEventTitle: undefined,
+    broadcastUserIds: [],
+  } as any;
 
   const kb = new InlineKeyboard()
-    .text("Event Participants", "bc_event")
-    .text("Custom CSV", "bc_csv");
+      .text("Event Participants", "bc_event")
+      .text("Custom CSV", "bc_csv");
 
   await ctx.reply("Who do you want to broadcast to?", { reply_markup: kb });
 });
 
-/* -------------------------------------------------------------------------- */
-/*             3) Inline buttons => "event" or "csv"                         */
-/* -------------------------------------------------------------------------- */
+// Callback router
 broadcastComposer.on("callback_query:data", async (ctx, next) => {
-  if (ctx.session.broadcastStep !== "chooseTarget") {
-    return next();
-  }
+  if (ctx.session.broadcastStep !== "chooseTarget") return next();
   await ctx.answerCallbackQuery();
 
-  const choice = ctx.callbackQuery.data;
-  if (choice === "bc_event") {
-    ctx.session.broadcastType = "event";
-    ctx.session.broadcastStep = "askEventUuid";
-    await ctx.reply("Please send the Event UUID (36 characters).");
-    return;
-  }
-
-  if (choice === "bc_csv") {
-    ctx.session.broadcastType = "csv";
-    ctx.session.broadcastStep = "askCsv";
-    await ctx.reply("Please upload your CSV file now (one user_id per line).");
-    return;
+  switch (ctx.callbackQuery.data) {
+    case "bc_event":
+      ctx.session.broadcastType = "event";
+      ctx.session.broadcastStep = "askEventUuid";
+      return ctx.reply("Please send the Event UUID (36 characters).");
+    case "bc_csv":
+      ctx.session.broadcastType = "csv";
+      ctx.session.broadcastStep = "askCsv";
+      return ctx.reply("Please upload your CSV file now (one user_id per line).");
   }
 });
 
-/* -------------------------------------------------------------------------- */
-/*        4) Next message => event UUID or CSV => then askBroadcast          */
-/* -------------------------------------------------------------------------- */
+// Message router
 broadcastComposer.on("message", async (ctx, next) => {
   if (isNewCommand(ctx)) {
-    ctx.session = {};
+    ctx.session = {} as any;
     return next();
   }
-
-  const step = ctx.session.broadcastStep;
-
-  if (step === "askEventUuid" && ctx.message?.text) {
-    return handleEventUuid(ctx);
+  switch (ctx.session.broadcastStep) {
+    case "askEventUuid":
+      if (ctx.message?.text) return handleEventUuid(ctx);
+      break;
+    case "askCsv":
+      if (ctx.message?.document) return handleCsvUpload(ctx);
+      break;
+    case "askBroadcast":
+      return handleBroadcastMessage(ctx);
   }
-
-  if (step === "askCsv" && ctx.message?.document) {
-    return handleCsvUpload(ctx);
-  }
-
-  // step=askBroadcast => next message is the broadcast content
-  if (step === "askBroadcast") {
-    return handleBroadcastMessage(ctx);
-  }
-
   return next();
 });
 
-/* -------------------------------------------------------------------------- */
-/*     handleEventUuid => fetch participants, store user IDs, askBroadcast   */
+// ─────────────────────────────────────────────────────────────────────────────
+// Step handlers
+// ─────────────────────────────────────────────────────────────────────────────
 
-/* -------------------------------------------------------------------------- */
 async function handleEventUuid(ctx: MyContext) {
-  const uuidCandidate = ctx.message?.text?.trim();
-  if (!uuidCandidate) return;
+  const uuid = ctx.message?.text?.trim();
+  if (!uuid) return;
+  if (uuid.length !== 36) return ctx.reply("Event UUID must be 36 characters. Try again or /cancel.");
 
-  if (uuidCandidate.length !== 36) {
-    await ctx.reply("Event UUID must be 36 characters. Try again or /cancel.");
-    return;
-  }
+  const eventRow = await getEvent(uuid);
+  if (!eventRow) return ctx.reply("Event not found. Check the UUID and try again.");
 
-  const eventRow = await getEvent(uuidCandidate);
-  if (!eventRow) {
-    await ctx.reply("Event not found. Check the UUID and try again.");
-    return;
-  }
-
-  const tickets = await getEventTickets(uuidCandidate);
+  const tickets = await getEventTickets(uuid);
   if (!tickets?.length) {
-    await ctx.reply(
-      `No participants found for event "${eventRow.title}". Nothing to broadcast.`,
-    );
     ctx.session.broadcastStep = "done";
-    return;
+    return ctx.reply(`No participants found for \"${eventRow.title}\".`);
   }
 
-  ctx.session.broadcastEventUuid = uuidCandidate;
-  ctx.session.broadcastEventTitle = eventRow.title;
-  ctx.session.broadcastUserIds = tickets.map((t) => String(t.user_id));
+  Object.assign(ctx.session, {
+    broadcastEventUuid: uuid,
+    broadcastEventTitle: eventRow.title,
+    broadcastUserIds: tickets.map((t) => String(t.user_id)),
+    broadcastStep: "askBroadcast",
+  });
 
-  ctx.session.broadcastStep = "askBroadcast";
-  await ctx.reply(
-    `✅ Event "${eventRow.title}" found with ${tickets.length} participant(s).\n` +
-    "Now send any message (text, photo, video, etc.) you want to broadcast (no placeholder replacements).",
-  );
+  await ctx.reply(`✅ Event \"${eventRow.title}\" found with ${tickets.length} participant(s).\nNow send any message (text, photo, video, etc.) you want to broadcast.`);
 }
 
-/* -------------------------------------------------------------------------- */
-/*                handleCsvUpload => parse CSV into user IDs                 */
-
-/* -------------------------------------------------------------------------- */
 async function handleCsvUpload(ctx: MyContext) {
   const doc = ctx.message?.document;
-  if (!doc) {
-    await ctx.reply("No file found. Please upload a CSV.");
-    return;
-  }
-  if (!doc.file_name?.endsWith(".csv")) {
-    await ctx.reply("Please upload a file ending with .csv.");
-    return;
-  }
+  if (!doc) return ctx.reply("No file found. Please upload a CSV.");
+  if (!doc.file_name?.endsWith(".csv")) return ctx.reply("File must end with .csv.");
 
-  const fileInfo = await ctx.api.getFile(doc.file_id);
-  if (!fileInfo.file_path) {
-    await ctx.reply("Unable to retrieve file path from Telegram.");
-    return;
-  }
+  const { file_path } = await ctx.api.getFile(doc.file_id);
+  if (!file_path) return ctx.reply("Unable to retrieve file path from Telegram.");
 
-  const url = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${fileInfo.file_path}`;
   try {
+    const url = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${file_path}`;
     const res = await axios.get<ArrayBuffer>(url, { responseType: "arraybuffer" });
-    const buffer = Buffer.from(res.data);
-
-    // Each line => user_id
-    const rows = parse(buffer.toString("utf-8"), { skip_empty_lines: true });
-    const userIds: string[] = rows.map((r: string[]) => r[0]?.trim()).filter(Boolean);
-
+    const rows = parse(Buffer.from(res.data).toString("utf-8"), { skip_empty_lines: true });
+    const userIds = rows.map((r: string[]) => r[0]?.trim()).filter(Boolean);
     if (!userIds.length) {
-      await ctx.reply("No user IDs found in the CSV. Flow canceled.");
       ctx.session.broadcastStep = "done";
-      return;
+      return ctx.reply("No user IDs found in the CSV. Flow canceled.");
     }
-
-    ctx.session.broadcastUserIds = userIds;
-    ctx.session.broadcastStep = "askBroadcast";
-    await ctx.reply(
-      `✅ CSV parsed. Found ${userIds.length} user(s).\n` +
-      "Now send any message (text, photo, video, etc.) you want to broadcast.\n" +
-      "Placeholders {onion1-special-affiliations} and {onion1-campaign} will be replaced with existing or new custom links (unique per user).",
-    );
-  } catch (err) {
-    await ctx.reply(`Error parsing CSV: ${err}`);
-    ctx.session.broadcastStep = "done";
-  }
-}
-
-/* -------------------------------------------------------------------------- */
-/*     handleBroadcastMessage => final step => send to user IDs, track errors */
-
-/* -------------------------------------------------------------------------- */
-async function handleBroadcastMessage(ctx: MyContext) {
-  const userIds = ctx.session.broadcastUserIds;
-  if (!userIds?.length) {
-    await ctx.reply("No valid user IDs to broadcast. Flow ended.");
-    ctx.session.broadcastStep = "done";
-    return;
-  }
-
-  if (ctx.session.broadcastType === "event") {
-    await handleEventBroadcast(ctx, userIds);
-  } else {
-    await handleCsvBroadcastWithPlaceholders(ctx, userIds);
-  }
-
-  ctx.session.broadcastStep = "done";
-}
-
-/* -------------------------------------------------------------------------- */
-/*              handleEventBroadcast => copyMessage no placeholders          */
-
-/* -------------------------------------------------------------------------- */
-async function handleEventBroadcast(ctx: MyContext, userIds: string[]) {
-  const sourceChatId = ctx.chat?.id;
-  const sourceMessageId = ctx.message?.message_id;
-  if (!sourceChatId || !sourceMessageId) {
-    await ctx.reply("Unable to read the message ID or chat ID. Flow ended.");
-    return;
-  }
-
-  await ctx.reply(`Broadcasting this message to ${userIds.length} users...`);
-
-  const errors: { user_id: string; error: string }[] = [];
-  let successCount = 0;
-
-  for (const userId of userIds) {
-    try {
-      await ctx.api.copyMessage(userId, sourceChatId, sourceMessageId);
-      successCount++;
-    } catch (err: any) {
-      logger.warn(`Failed to send to user ${userId}: ${err}`);
-      errors.push({ user_id: userId, error: String(err) });
-    }
-    await sleep(100);
-  }
-
-  await finalizeBroadcast(ctx, sourceChatId, sourceMessageId, errors, successCount);
-}
-
-/* -------------------------------------------------------------------------- */
-/*        handleCsvBroadcastWithPlaceholders => parse text/caption           */
-
-/* -------------------------------------------------------------------------- */
-async function handleCsvBroadcastWithPlaceholders(ctx: MyContext, userIds: string[]) {
-  const msg = ctx.message;
-  const sourceChatId = msg.chat?.id;
-  const sourceMessageId = msg.message_id;
-  if (!sourceChatId || !sourceMessageId) {
-    await ctx.reply("Unable to read the message or chat ID. Flow ended.");
-    return;
-  }
-
-  await ctx.reply(`Broadcasting (with placeholder checks) to ${userIds.length} users...`);
-
-  const errors: { user_id: string; error: string }[] = [];
-  let successCount = 0;
-
-  // Determine message type
-  const isText = Boolean(msg.text);
-  const isPhoto = Boolean(msg.photo);
-  const isVideo = Boolean(msg.video);
-  const caption = msg.caption || "";
-  const baseText = isText ? msg.text! : caption;
-
-  // Single groupTitle for entire broadcast
-  const broadcastGroupTitle = generateBroadcastGroupTitle();
-
-  for (const userId of userIds) {
-    let replacedText = await replacePlaceholdersAndReuseLink(
-      baseText,
-      userId,
-      broadcastGroupTitle,
-    );
-
-    try {
-      if (isText) {
-        await ctx.api.sendMessage(userId, replacedText, { parse_mode: "HTML" });
-      } else if (isPhoto && msg.photo) {
-        const largest = msg.photo[msg.photo.length - 1];
-        await ctx.api.sendPhoto(userId, largest.file_id, {
-          caption: replacedText,
-          parse_mode: "HTML",
-        });
-      } else if (isVideo && msg.video) {
-        await ctx.api.sendVideo(userId, msg.video.file_id, {
-          caption: replacedText,
-          parse_mode: "HTML",
-        });
-      } else {
-        // fallback for other media
-        await ctx.api.copyMessage(userId, sourceChatId, sourceMessageId);
-      }
-      successCount++;
-    } catch (err: any) {
-      logger.warn(`Failed to send to user ${userId}: ${err}`);
-      errors.push({ user_id: userId, error: String(err) });
-    }
-    await sleep(100);
-  }
-
-  await finalizeBroadcast(ctx, sourceChatId, sourceMessageId, errors, successCount);
-}
-
-/* -------------------------------------------------------------------------- */
-/*           finalizeBroadcast => handle summary, CSV, notify admins         */
-
-/* -------------------------------------------------------------------------- */
-async function finalizeBroadcast(
-  ctx: MyContext,
-  sourceChatId: number,
-  sourceMsgId: number,
-  errors: { user_id: string; error: string }[],
-  successCount: number,
-) {
-  await ctx.reply(`✅ Broadcast complete. Sent to ${successCount} user(s).`);
-  if (errors.length === 0) {
-    await ctx.reply("No errors occurred during the broadcast!");
-    await notifyAdmins(ctx, sourceChatId, sourceMsgId, null, successCount);
-  } else {
-    const header = "user_id,error";
-    const csvRows = errors.map((e) => `${e.user_id},${escapeCsv(e.error)}`);
-    const finalCsvString = [header, ...csvRows].join("\n");
-
-    const fileName = "broadcast_errors.csv";
-    const fileStream = Readable.from(finalCsvString);
-    const inputFile = new InputFile(fileStream, fileName);
-
-    const docMsg = await ctx.replyWithDocument(inputFile, {
-      caption: `There were ${errors.length} errors. See details in the CSV.`,
+    Object.assign(ctx.session, {
+      broadcastUserIds: userIds,
+      broadcastStep: "askBroadcast",
     });
-
-    await notifyAdmins(ctx, sourceChatId, sourceMsgId, docMsg.document?.file_id, successCount);
+    await ctx.reply(`✅ CSV parsed. Found ${userIds.length} user(s).\nNow send any message (text, photo, video, etc.) you want to broadcast.`);
+  } catch (e) {
+    ctx.session.broadcastStep = "done";
+    await ctx.reply(`Error parsing CSV: ${String(e)}`);
   }
 }
 
-/* -------------------------------------------------------------------------- */
-/*     notifyAdmins => forward the original broadcast + any error CSV        */
+async function handleBroadcastMessage(ctx: MyContext) {
+  const { broadcastUserIds: userIds, broadcastType } = ctx.session;
+  if (!userIds?.length) {
+    ctx.session.broadcastStep = "done";
+    return ctx.reply("No valid user IDs to broadcast.");
+  }
 
-/* -------------------------------------------------------------------------- */
-async function notifyAdmins(
-  ctx: MyContext,
-  broadcastSourceChatId: number,
-  broadcastSourceMsgId: number,
-  errorCsvFileId: string | null | undefined,
-  successCount: number,
-) {
-  const summaryText = `Broadcast summary:\n- Success count: ${successCount}\n`;
-
-  for (const adminId of additionalRecipients) {
-    try {
-      await ctx.api.copyMessage(adminId, broadcastSourceChatId, broadcastSourceMsgId, {
-        caption: "This was the broadcasted message (original).",
-      });
-    } catch (err) {
-      logger.warn(`Could not forward broadcast to admin ${adminId}: ${err}`);
-    }
-
-    // summary
-    try {
-      await ctx.api.sendMessage(adminId, summaryText);
-    } catch (err) {
-      logger.warn(`Could not send summary to admin ${adminId}: ${err}`);
-    }
-
-    // CSV if any
-    if (errorCsvFileId) {
-      try {
-        await ctx.api.sendDocument(adminId, errorCsvFileId, {
-          caption: "Broadcast encountered errors. See CSV.",
-        });
-      } catch (err) {
-        logger.warn(`Could not send CSV to admin ${adminId}: ${err}`);
+  // CSV admin‑rights check for every {invite:<chatId>} placeholder
+  if (broadcastType === "csv") {
+    const html = extractHtml(ctx.message!);
+    const placeholderChatIds = extractInviteChatIds(html ?? "");
+    for (const chatId of placeholderChatIds) {
+      if (!(await checkBotIsAdmin(ctx.api, chatId))) {
+        ctx.session.broadcastStep = "done";
+        return ctx.reply(`❌ Bot is NOT admin in chat ${chatId}.`);
       }
     }
   }
-}
 
-/* -------------------------------------------------------------------------- */
-/* replacePlaceholdersAndReuseLink => for each placeholder, get existing link */
-/* or create new if not found. Then replace text with that link.             */
-
-/* -------------------------------------------------------------------------- */
-async function replacePlaceholdersAndReuseLink(
-  baseText: string,
-  userIdStr: string,
-  broadcastGroupTitle: string,
-): Promise<string> {
-  let newText = baseText;
-  for (const ph of PLACEHOLDERS) {
-    if (!newText.includes(ph)) continue; // skip if placeholder not present
-
-    const itemType = ph.replace(/[{}]/g, "");
-    const userIdNum = parseInt(userIdStr, 10) || 0;
-    const baseTitle = `broadcast-${itemType}-${userIdStr}`;
-
-    try {
-      // 1) Check if link exists => else create
-      const linkRow = await getOrCreateSingleAffiliateLink(
-        userIdNum,
-        itemType,
-        baseTitle,
-        broadcastGroupTitle,
-      );
-
-      // 2) Build final URL
-      const finalLinkUrl = `https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME}/event?startapp=campaign-aff-${linkRow.link_hash}`;
-
-      // 3) Replace
-      newText = newText.replace(ph, finalLinkUrl);
-    } catch (err) {
-      logger.error(`Error reusing/creating link for user ${userIdStr} & ph=${ph}: ${err}`);
-      newText = newText.replace(ph, "[LINK_ERROR]");
-    }
+  /* persist broadcast */
+  try {
+    const messageHtml = extractHtml(ctx.message!);
+    const broadcastId = await createBroadcastMessage({
+      broadcaster_id: ctx.from!.id,
+      source_chat_id: ctx.chat!.id,
+      source_message_id: ctx.message!.message_id,
+      broadcast_type: broadcastType as "event" | "csv",
+      event_uuid: ctx.session.broadcastEventUuid ?? null,
+      title: ctx.session.broadcastEventTitle ?? "(custom list)",
+      message_text: messageHtml,
+    });
+    await bulkInsertBroadcastUsers(broadcastId, userIds);
+    ctx.session.broadcastStep = "done";
+    await ctx.reply(`✅ Broadcast queued! ${userIds.length} user(s) will receive the message shortly.`);
+  } catch (e) {
+    ctx.session.broadcastStep = "done";
+    logger.error(`broadcastComposer: DB error: ${e}`);
+    await ctx.reply(`❌ Failed to queue the broadcast. ${String(e)}`);
   }
-
-  return newText;
-}
-
-/* -------------------------------------------------------------------------- */
-/*                     Utility => escape CSV fields                          */
-
-/* -------------------------------------------------------------------------- */
-function escapeCsv(str: string): string {
-  if (!str) return "";
-  let s = str.replace(/"/g, "\"\"");
-  if (/[,"]/.test(s)) {
-    s = `"${s}"`;
-  }
-  return s;
 }

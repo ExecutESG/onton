@@ -3,7 +3,9 @@ import { user_custom_flags } from "@/db/schema/user_custom_flags";
 import { and, eq } from "drizzle-orm";
 import { verify } from "jsonwebtoken";
 import { cookies } from "next/headers";
-
+import { TRPCError } from "@trpc/server";
+import { AuthToken, verifyToken } from "@/server/utils/jwt";
+import type { FastifyRequest } from "fastify";
 export function getAuthenticatedUser(): [number, null] | [null, Response] {
   const userToken = cookies().get("token");
 
@@ -76,4 +78,13 @@ export async function getAuthenticatedUserApi(req: Request): Promise<[number, nu
   } catch (err) {
     return [null, Response.json({ error: "Something went wrong" }, { status: 500 })];
   }
+}
+export async function walletFromHeader(headers: Headers): Promise<AuthToken> {
+  const raw = headers.get("x-session-jwt");
+  if (!raw) throw new TRPCError({ code: "UNPROCESSABLE_CONTENT", message: "missing token" });
+
+  const payload = await verifyToken(raw);
+  if (!payload) throw new TRPCError({ code: "UNPROCESSABLE_CONTENT", message: "bad token" });
+
+  return payload as AuthToken;
 }

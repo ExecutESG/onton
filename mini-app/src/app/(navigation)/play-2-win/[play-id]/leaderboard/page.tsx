@@ -25,12 +25,7 @@ interface LeaderboardProps {
   participants: Participant[];
 }
 
-const Leaderboard: React.FC<LeaderboardProps> = ({
-  bestScore = 121,
-  timesPlayed = 2,
-  position = "1: 2",
-  participants = [],
-}) => {
+const Leaderboard: React.FC<LeaderboardProps> = ({ participants = [] }) => {
   const topThreeParticipants = participants.slice(0, 3);
   const remainingParticipants = participants.slice(3);
 
@@ -67,9 +62,9 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                 return (
                   <div
                     key={participant.id}
-                    className="flex flex-col items-center isolate relative"
+                    className="flex flex-col items-center isolate relative min-w-0 flex-1"
                   >
-                    {isWinner && <div className="-top-4 z-10 absolute -rotate-[35deg] left-1 text-2xl">👑</div>}
+                    {isWinner && <div className="-top-3.5 z-10 absolute -rotate-[35deg] left-3 text-2xl">👑</div>}
 
                     <div
                       className={cn(
@@ -85,7 +80,13 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                       />
                     </div>
 
-                    <Typography variant="footnote">{participant.name}</Typography>
+                    <Typography
+                      variant="footnote"
+                      truncate
+                      className="w-full text-center"
+                    >
+                      {participant.name}
+                    </Typography>
 
                     <div
                       className={cn(
@@ -111,9 +112,9 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
             {remainingParticipants.map((participant) => (
               <div
                 key={participant.id}
-                className="flex items-center justify-between"
+                className="flex items-center justify-between gap-4"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 min-w-0">
                   <Typography
                     variant="footnote"
                     weight="medium"
@@ -123,7 +124,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                     <sup>th</sup>
                   </Typography>
 
-                  <div className="w-8 h-8 rounded-full overflow-hidden">
+                  <div className="min-w-8 min-h-8 rounded-full overflow-hidden">
                     <Image
                       src={participant.avatar || "/template-images/user-placeholder.png"}
                       alt={participant.name}
@@ -136,6 +137,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                   <Typography
                     variant="body"
                     weight="medium"
+                    truncate
                   >
                     {participant.name}
                   </Typography>

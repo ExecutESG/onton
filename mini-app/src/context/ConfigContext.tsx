@@ -4,24 +4,36 @@ import { ErrorState } from "@/app/_components/ErrorState";
 import { trpc } from "@/app/_trpc/client";
 import React, { createContext, useContext } from "react";
 
-type ConfigContextType = {
+// Export ConfigContextType
+export type ConfigContextType = {
   [key: string]: string | null;
 };
 
 const ConfigContext = createContext<ConfigContextType | undefined>(undefined);
 
 const emptyObject = {};
-export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { data, error } = trpc.config.getConfig.useQuery();
 
-  if (error) {
+// Add testConfig to ConfigProviderProps
+interface ConfigProviderProps {
+  children: React.ReactNode;
+  testConfig?: ConfigContextType; // Optional testConfig prop
+}
+
+export const ConfigProvider: React.FC<ConfigProviderProps> = ({ children, testConfig }) => {
+  const { data, error } = trpc.config.getConfig.useQuery(undefined, {
+    enabled: !testConfig, // Disable hook if testConfig is provided
+  });
+
+  if (error && !testConfig) {
     console.error("Failed to fetch config:", error);
     if (error?.data?.code === "FORBIDDEN") {
       return <ErrorState errorCode="banned" />;
     }
   }
 
-  return <ConfigContext.Provider value={data?.config || emptyObject}>{children}</ConfigContext.Provider>;
+  const configValue = testConfig || data?.config || emptyObject;
+
+  return <ConfigContext.Provider value={configValue}>{children}</ConfigContext.Provider>;
 };
 
 export const useConfig = (): ConfigContextType => {

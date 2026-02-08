@@ -2,11 +2,10 @@
 import CustomCard from "@/app/_components/atoms/cards/CustomCard";
 import Divider from "@/components/Divider";
 import { Skeleton } from "@mui/material";
-import { Page } from "konsta/react";
 
 const LoadingSkeleton = () => {
   return (
-    <Page>
+    <div>
       <div className="flex flex-col gap-4 p-4">
         {/* Event Header Skeleton */}
         <CustomCard defaultPadding>
@@ -80,7 +79,7 @@ const LoadingSkeleton = () => {
           </div>
         </CustomCard>
       </div>
-    </Page>
+    </div>
   );
 };
 

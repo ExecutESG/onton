@@ -2,7 +2,7 @@ import { db } from "@/db/db";
 import { events } from "@/db/schema/events";
 import { eventPayment } from "@/db/schema/eventPayment";
 import { eq, and, isNull, isNotNull, not, desc } from "drizzle-orm";
-import eventDB from "@/server/db/events";
+import eventDB from "@/db/modules/events.db";
 import { logger } from "@/server/utils/logger";
 import { getFullActivityDetails } from "@/lib/ton-society-api";
 import { sleep } from "@/utils";

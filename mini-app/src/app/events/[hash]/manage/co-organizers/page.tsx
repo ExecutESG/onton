@@ -1,20 +1,20 @@
 "use client";
 
-import Typography from "@/components/Typography";
-import styles from "./co-organizers.module.css";
-import Image from "next/image";
-import placeholderImage from "./placeholder.svg";
+import { trpc } from "@/app/_trpc/client";
+import channelAvatar from "@/components/icons/channel-avatar.svg";
 import LoadableImage from "@/components/LoadableImage";
-import { List as KonstaList, Button, Checkbox, Page, Popup, ListItem, Radio } from "konsta/react";
+import { OntonInput } from "@/components/OntonInput";
+import Typography from "@/components/Typography";
+import { useGetEvent } from "@/hooks/events.hooks";
+import { UserRolesBulkUpsertInput } from "@/types/ActiveUserRole.types";
+import { TRPCClientError } from "@trpc/client";
+import { Button, Checkbox, List as KonstaList, ListItem, Page, Popup, Radio } from "konsta/react";
+import Image from "next/image";
+import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { trpc } from "@/app/_trpc/client";
-import { OntonInput } from "@/components/OntonInput";
-import { useGetEvent } from "@/hooks/events.hooks";
-import { useParams } from "next/navigation";
-import { UserRolesBulkUpsertInput } from "@/types/ActiveUserRole.types";
-import channelAvatar from "@/components/icons/channel-avatar.svg";
-import { TRPCClientError } from '@trpc/client';
+import styles from "./co-organizers.module.css";
+import placeholderImage from "./placeholder.svg";
 
 export default function CoOrganizersPage() {
   const { hash } = useParams() as { hash?: string };
@@ -31,11 +31,10 @@ export default function CoOrganizersPage() {
     setAcl(data);
   }, [data]);
 
-  const {mutateAsync, isLoading } = useMutateAcl();
+  const { mutateAsync, isLoading } = useMutateAcl();
 
   const syncServer = async (newAcl: UserRolesBulkUpsertInput[]) => {
-    if (!eventData?.event_id)
-      return;
+    if (!eventData?.event_id) return;
 
     try {
       const shavedAcl = newAcl.map(({ status, userId, username, role }) => ({
@@ -49,7 +48,7 @@ export default function CoOrganizersPage() {
       toast.success("Updates saved.");
     } catch (err) {
       if (err instanceof TRPCClientError) {
-        if (err.data?.code === 'NOT_FOUND') {
+        if (err.data?.code === "NOT_FOUND") {
           toast.error(err?.message || "User not found.");
           return;
         }
@@ -70,28 +69,31 @@ export default function CoOrganizersPage() {
   const [addPopupOpen, setAddPopupOpen] = useState(false);
 
   const onAdd = async (username: string, role: "admin" | "checkin_officer") => {
-    const exists = !!acl.find(item => item.username === username.trim() && item.role === role);
-     if(exists) {
-       toast.error(`${username} is already added as ${role}`);
-       return
-     }
+    const exists = !!acl.find((item) => item.username === username.trim() && item.role === role);
+    if (exists) {
+      toast.error(`${username} is already added as ${role}`);
+      return;
+    }
 
-    const newAcl = [...acl , {
-      userId: 0,
-      username: username.trim(),
-      role,
-      photo_url: null,
-      status: "active" as const,
-      itemType: "event" as const ,
-      itemId: eventData?.event_id ?? 0,
-    }];
+    const newAcl = [
+      ...acl,
+      {
+        userId: 0,
+        username: username.trim(),
+        role,
+        photo_url: null,
+        status: "active" as const,
+        itemType: "event" as const,
+        itemId: eventData?.event_id ?? 0,
+      },
+    ];
     await syncServer(newAcl);
     setAddPopupOpen(false);
-  }
+  };
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-[#EFEFF4]">
-      <div className='grow overflow-y-auto p-4'>
+      <div className="grow overflow-y-auto p-4">
         <Typography
           className="mb-5"
           variant="title3"
@@ -109,12 +111,15 @@ export default function CoOrganizersPage() {
             />
           )}
         </div>
-
       </div>
       <div className={styles.footer}>
         <Button
           className="py-6 rounded-[10px]"
-          onClick={() => setAddPopupOpen(true)}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setAddPopupOpen(true);
+          }}
         >
           Add Co-organizer
         </Button>
@@ -141,7 +146,7 @@ function AddPopup({ open, onAdd, isSaving, onClose }: AddPopupProps) {
   const [role, setRole] = useState<"admin" | "checkin_officer">("checkin_officer");
 
   const handleAdd = () => {
-    onAdd(username.startsWith('@') ? username.substring(1) : username, role);
+    onAdd(username.startsWith("@") ? username.substring(1) : username, role);
   };
   return (
     <Popup opened={open}>
@@ -167,7 +172,7 @@ function AddPopup({ open, onAdd, isSaving, onClose }: AddPopupProps) {
         <KonstaList
           strongIos
           outlineIos
-          className='-mx-3'
+          className="-mx-3"
         >
           <ListItem
             label
@@ -197,7 +202,11 @@ function AddPopup({ open, onAdd, isSaving, onClose }: AddPopupProps) {
         <div className={styles.addFooter}>
           <Button
             className="py-6 mb-3 rounded-[10px]"
-            onClick={handleAdd}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleAdd();
+            }}
             disabled={isSaving}
           >
             Save
@@ -205,7 +214,11 @@ function AddPopup({ open, onAdd, isSaving, onClose }: AddPopupProps) {
           <Button
             outline
             className="py-5.5 rounded-[10px]"
-            onClick={onClose}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onClose();
+            }}
           >
             Cancel
           </Button>
@@ -229,7 +242,8 @@ function EmptyList() {
           <Typography
             variant="subheadline2"
             bold
-            className='mb-2'>
+            className="mb-2"
+          >
             No one added as Co-Organizer!
           </Typography>
           <Typography
@@ -303,7 +317,7 @@ function CoOrganizerCard({ data, onChange }: CoOrganizerCardProps) {
       <div className={styles["listItem-data"]}>
         <div className="text-[18px] font-medium">{data.username}</div>
         <div className={data.role === "admin" ? styles["listItem-role--admin"] : styles["listItem-role--officer"]}>
-          {data.role === 'admin' ? 'Admin' : 'Check-in Officer'}
+          {data.role === "admin" ? "Admin" : "Check-in Officer"}
         </div>
       </div>
       <div className={styles["listItem-checkbox"]}>

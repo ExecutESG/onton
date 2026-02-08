@@ -1,6 +1,6 @@
 import { publicProcedure, router } from "../trpc";
 import { z } from "zod";
-import { getEventTicketById } from "@/server/db/eventTickets";
+import { getEventTicketById } from "@/db/modules/eventTickets.db";
 import { TRPCError } from "@trpc/server";
 
 export const eventTicketRouter = router({

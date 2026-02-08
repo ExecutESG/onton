@@ -18,10 +18,26 @@ export async function middleware(req: NextRequest) {
       const isTournament = tgAppStartParam.startsWith("tournaments_");
       const isTab = tgAppStartParam.startsWith("tab_");
       const isCampaign = tgAppStartParam.startsWith("campaign");
+      const isOntonJoinAffiliate = tgAppStartParam.startsWith("join-");
 
       if (isOrganizerProfile) {
         console.log("redirecting to organizer profile");
         return NextResponse.redirect(new URL(`/channels/${tgAppStartParam.replace("channels_", "")}`, req.nextUrl.origin));
+      }
+
+      if (tgAppStartParam && tgAppStartParam.includes("-merch-raffle-")) {
+        const [eventUuid, raffleUuid] = tgAppStartParam.split("-merch-raffle-");
+        if (eventUuid && raffleUuid) {
+          return NextResponse.redirect(new URL(`/events/${eventUuid}/merch-raffle/${raffleUuid}`, req.nextUrl.origin));
+        }
+        // fallthrough → malformed, continue with other rules
+      }
+      if (tgAppStartParam && tgAppStartParam.includes("-raffle-")) {
+        const [eventUuid, raffleUuid] = tgAppStartParam.split("-raffle-");
+        if (eventUuid && raffleUuid) {
+          return NextResponse.redirect(new URL(`/events/${eventUuid}/raffle-ui/${raffleUuid}`, req.nextUrl.origin));
+        }
+        // fallthrough → malformed, continue with other rules
       }
 
       if (isTab) {
@@ -35,8 +51,21 @@ export async function middleware(req: NextRequest) {
             return NextResponse.redirect(new URL(`/channels`, req.nextUrl.origin));
           case "campaign":
             return NextResponse.redirect(new URL(`/genesis-onions/`, req.nextUrl.origin));
-          case "play2win_campaign":
-            return NextResponse.redirect(new URL(`/play2win-genesis/`, req.nextUrl.origin));
+          case "onion-snapshot":
+            return NextResponse.redirect(new URL(`/onion-snapshot/`, req.nextUrl.origin));
+          case "snapshot_claim":
+            return NextResponse.redirect(new URL(`/onion-snapshot/claim-points`, req.nextUrl.origin));
+          case "launch_partner":
+            return NextResponse.redirect(new URL(`/my/partner/onion-affiliate`, req.nextUrl.origin));
+          case "quest":
+            return NextResponse.redirect(new URL(`/my/quest/`, req.nextUrl.origin));
+          case "sample":
+            return NextResponse.redirect(new URL(`/sample/`, req.nextUrl.origin));
+          case "task_sample":
+            return NextResponse.redirect(new URL(`/task-sample/`, req.nextUrl.origin));
+          case "claim_sample":
+            return NextResponse.redirect(new URL(`/claim-sample/`, req.nextUrl.origin));
+
           default:
             return NextResponse.redirect(new URL(`/`, req.nextUrl.origin));
         }
@@ -57,6 +86,10 @@ export async function middleware(req: NextRequest) {
         url.searchParams.set("affiliate", affiliateId);
         console.log("redirecting to affiliate", url.searchParams);
 
+        return NextResponse.redirect(url);
+      }
+      if (isOntonJoinAffiliate) {
+        const url = new URL(`/`, req.nextUrl.origin);
         return NextResponse.redirect(url);
       }
       if (isEdit) {

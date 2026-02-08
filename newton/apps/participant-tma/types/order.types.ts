@@ -1,5 +1,13 @@
 export type OrderType = "nft_mint" | "event_creation" | "event_capacity_increment";
-export type PaymentType = "TON" | "USDT";
+
+export type PaymentToken = {
+  token_id: number;
+  symbol: string;
+  decimals: number;
+  master_address?: string | null;
+  is_native?: boolean | null;
+  logo_url?: string | null;
+};
 export type OrderState = "completed" | "new" | "confirming" | "processing" | "cancelled" | "failed";
 
 export type GetOrderResponse = {
@@ -26,7 +34,8 @@ export type GetOrderResponse = {
   created_at: Date | null;
   updatedAt: Date | null;
   updatedBy: string;
-  payment_type: PaymentType;
+  payment_type?: string;
+  token?: PaymentToken;
   uuid: string;
   state: OrderState;
   order_type: OrderType;

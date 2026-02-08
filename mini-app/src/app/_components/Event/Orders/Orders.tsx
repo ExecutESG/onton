@@ -101,7 +101,15 @@ const EventOrders = () => {
                   {renderOrderDescription(order)}
                 </p>
                 {order.state === "new" && (
-                  <Button onClick={() => handlePayment(order)}>{wallet?.account.address ? "Pay" : "Connect Wallet"}</Button>
+                  <Button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handlePayment(order);
+                    }}
+                  >
+                    {wallet?.account.address ? "Pay" : "Connect Wallet"}
+                  </Button>
                 )}
               </div>
             }

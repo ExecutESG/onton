@@ -1,13 +1,13 @@
 import { MAIN_TG_CHANNEL_ID, MAIN_TG_CHAT_ID } from "@/constants";
 import { cacheKeys, cacheLvl, redisTools } from "@/lib/redisTools";
-import { usersDB } from "@/server/db/users";
-import rewardService, { createUserRewardSBT } from "@/server/routers/services/rewardsService";
+import { usersDB } from "@/db/modules/users.db";
+import rewardService, { createUserRewardSBT } from "@/services/rewardsService";
 import { validateMiniAppData } from "@/utils";
 import { tgSafeCall } from "@/utils/tgSafeCall";
 import { TRPCError } from "@trpc/server";
 import { Bot } from "grammy";
 import { z } from "zod";
-import { fetchOntonSettings } from "../db/ontoSetting";
+import { fetchOntonSettings } from "@/db/modules/ontoSetting";
 import { adminOrganizerProtectedProcedure, initDataProtectedProcedure, publicProcedure, router } from "../trpc";
 
 export const usersRouter = router({

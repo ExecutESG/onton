@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
-import tgService from "@/server/routers/services/telegramService";
+import tgService from "@/services/telegramService";
 import { redisTools } from "@/lib/redisTools";
-import { selectUserByUsername } from "@/server/db/users";
+import { selectUserByUsername } from "@/db/modules/users.db";
 
 // Define error codes for consistent error responses
 const ERROR_CODES = {

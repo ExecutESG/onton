@@ -1,5 +1,5 @@
 #!/bin/sh
-
+set -e
 # Start Minio server in the background
 minio server /data --address ":${MINIO_PORT}" --console-address ":${MINIO_DASHBOARD_PORT}" &
 MINIO_PID=$!

@@ -1,21 +1,14 @@
 "use client";
 
 import { KButton } from "@/components/ui/button";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
-import { Check, ChevronsUpDown } from "lucide-react";
-import React, { useState, useEffect, useRef } from "react";
-import { FiAlertCircle } from "react-icons/fi";
-import { Block, Preloader, Sheet } from "konsta/react";
-import { createPortal } from "react-dom";
 import { CommandLoading } from "cmdk";
+import { Block, Preloader, Sheet } from "konsta/react";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { FiAlertCircle } from "react-icons/fi";
 
 interface ComboboxDrawerProps {
   options?: { value: string; label: string }[];
@@ -91,7 +84,11 @@ export function ComboboxDrawer({
         })}
         // @ts-expect-error
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setOpen(true);
+        }}
         disabled={disabled}
       >
         {/* Show the selected value label, or the searchPlaceholder */}
@@ -140,12 +137,7 @@ export function ComboboxDrawer({
                                 handleSelect(currentValue); // Call handleSelect to update value
                               }}
                             >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  value === option.value ? "opacity-100" : "opacity-0"
-                                )}
-                              />
+                              <Check className={cn("mr-2 h-4 w-4", value === option.value ? "opacity-100" : "opacity-0")} />
                               {option.label}
                             </CommandItem>
                           ))}
@@ -160,7 +152,11 @@ export function ComboboxDrawer({
             {/* Close button at the bottom */}
             <KButton
               className="w-full"
-              onClick={() => setOpen(false)} // Set the drawer state to close
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setOpen(false);
+              }} // Set the drawer state to close
             >
               X Close
             </KButton>

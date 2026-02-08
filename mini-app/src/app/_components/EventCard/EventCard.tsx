@@ -8,6 +8,7 @@ import { type ForwardedRef } from "react";
 import Typography from "@/components/Typography";
 import { Badge } from "@/components/ui/badge";
 import useWebApp from "@/hooks/useWebApp";
+import { formatTime } from "@/lib/DateAndTime";
 import { cn } from "@/utils";
 import { PiLinkSimple } from "react-icons/pi";
 import CustomCard from "../atoms/cards/CustomCard";
@@ -89,8 +90,9 @@ function EventCard({ event, afterTitle, timeOnly, noClick }: EventCardProps, ref
   const isOnline = participationType === "online";
 
   // Determine currency for ticket price
-  const validCurrencies = ["USDT", "TON"];
-  const currency = validCurrencies.includes(paymentType?.toUpperCase()) ? paymentType?.toUpperCase() : "";
+  const normalizedPaymentType = paymentType?.toString().toUpperCase();
+  const currency =
+    normalizedPaymentType && !["FREE", "UNKNOWN", ""].includes(normalizedPaymentType) ? normalizedPaymentType : "";
 
   const handleEventClick = () => {
     // If noClick prop is set, do nothing
@@ -107,15 +109,6 @@ function EventCard({ event, afterTitle, timeOnly, noClick }: EventCardProps, ref
 
   const start = new Date(startDate * 1000);
   const end = new Date(endDate * 1000);
-
-  // Helper to format time without seconds and using lowercase am/pm
-  const formatTime = (date: Date) => {
-    let hours = date.getHours();
-    const minutes = date.getMinutes();
-    const period = hours >= 12 ? "pm" : "am";
-    hours = hours % 12 || 12;
-    return minutes === 0 ? `${hours}${period}` : `${hours}:${minutes < 10 ? "0" : ""}${minutes}${period}`;
-  };
 
   // Build the date part
   const startMonth = start.toLocaleString("en-US", { month: "short" });
@@ -140,7 +133,10 @@ function EventCard({ event, afterTitle, timeOnly, noClick }: EventCardProps, ref
 
   return (
     <div
-      onClick={handleEventClick}
+      onClick={(e) => {
+        e.preventDefault();
+        handleEventClick();
+      }}
       className={cn(!noClick && "cursor-pointer")}
     >
       <CustomCard className="p-2">

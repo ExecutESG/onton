@@ -1,10 +1,7 @@
-import React, { useCallback, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-// adjust these imports as needed
-// adjust as needed
 import ButtonPOA from "@/app/_components/atoms/buttons/ButtonPOA";
 import OrganizerNotificationHandler from "@/app/_components/OrganizerNotificationHandler";
 import { trpc } from "@/app/_trpc/client";
+import Typography from "@/components/Typography";
 import { KButton } from "@/components/ui/button";
 import StatusChip from "@/components/ui/status-chips";
 import { EventTriggerType } from "@/db/enum";
@@ -18,8 +15,11 @@ import { cva } from "class-variance-authority";
 import { Block, BlockFooter, BlockHeader, BlockTitle, Checkbox, List, ListItem, Sheet } from "konsta/react";
 import { Check, FileUser, Filter, Pencil, X } from "lucide-react";
 import { useParams } from "next/navigation";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import QrCodeButton from "../atoms/buttons/QrCodeButton";
+import CustomButton from "../Button/CustomButton";
 import DataStatus from "../molecules/alerts/DataStatus";
+import CustomSheet from "../Sheet/CustomSheet";
 import ScanRegistrantQRCode from "./ScanRegistrantQRCode";
 
 interface CustomListItemProps {
@@ -221,29 +221,34 @@ const CustomListItem: React.FC<CustomListItemProps> = ({
         after={afterContent}
         footer={footerContent}
       />
-      {createPortal(
-        <Sheet
-          onBackdropClick={() => setShowRegistrantInfo(null)}
-          opened={Boolean(showRegistrantInfo)}
-          className={cn("!overflow-hidden min-h-screen w-full", { hidden: !Boolean(showRegistrantInfo) })}
-        >
-          <BlockTitle>Registrant Info</BlockTitle>
-          <List className="!pe-2">
+      <CustomSheet
+        title="Registrant Info"
+        onClose={() => setShowRegistrantInfo(null)}
+        opened={Boolean(showRegistrantInfo)}
+      >
+        <div className="flex flex-col gap-2">
+          <ul className="flex flex-col gap-1">
             {registrantInfo &&
               Object.entries(registrantInfo).map(([key, value], idx) => (
-                <ListItem
-                  key={idx}
-                  title={<div className="capitalize">{key.split("_").join(" ")}</div>}
-                  subtitle={value || <p className="text-cn-muted-foreground">Not Provided</p>}
-                />
+                <li key={idx}>
+                  <div className="capitalize">
+                    <Typography variant="callout">{key.split("_").join(" ")}</Typography>
+                  </div>
+                  <div className="font-light">{value || <p className="text-cn-muted-foreground">Not Provided</p>}</div>
+                </li>
               ))}
-          </List>
-          <BlockFooter>
-            <KButton onClick={() => setShowRegistrantInfo(null)}>Close</KButton>
-          </BlockFooter>
-        </Sheet>,
-        document.body
-      )}
+          </ul>
+          <CustomButton
+            variant="secondary"
+            size="md"
+            onClick={(e) => {
+              setShowRegistrantInfo(null);
+            }}
+          >
+            Close
+          </CustomButton>
+        </div>
+      </CustomSheet>
     </>
   );
 };
@@ -279,7 +284,9 @@ const Button: React.FC<ButtonProps> = ({ variant, icon, label, onClick, isLoadin
       className={cn(variantStyles({ variant, className }))}
       tonal
       small
-      onClick={onClick}
+      onClick={(e) => {
+        onClick?.();
+      }}
       disabled={isLoading}
     >
       {icon && <span>{icon}</span>}
@@ -446,7 +453,9 @@ const RegistrationGuestList = () => {
         <span>Guest List</span>
         <div className="flex gap-3 items-center">
           <Filter
-            onClick={openFilterSheet}
+            onClick={(e) => {
+              openFilterSheet();
+            }}
             className={cn(
               "rounded cursor-pointer",
               filters.length ? "text-primary bg-primary/10" : "text-cn-muted-foreground"
@@ -523,12 +532,24 @@ const RegistrationGuestList = () => {
           {filters.length > 0 && (
             <KButton
               clear
-              onClick={removeFilters}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                removeFilters();
+              }}
             >
               Clear Filters
             </KButton>
           )}
-          <KButton onClick={applyFilters}>Apply</KButton>
+          <KButton
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              applyFilters();
+            }}
+          >
+            Apply
+          </KButton>
         </BlockFooter>
       </Sheet>
 

@@ -17,7 +17,6 @@ import useWebApp from "@/hooks/useWebApp";
 import { getDiffValueAndSuffix } from "@/lib/time.utils";
 import { Skeleton } from "@mui/material";
 import { fromNano } from "@ton/core";
-import { Page } from "konsta/react";
 import { useRouter } from "next/navigation";
 import React from "react";
 import { FaAngleRight } from "react-icons/fa6";
@@ -137,7 +136,7 @@ const TournamentHeader = React.memo(() => {
           size="md"
           icon={<PrizeCupIcon />}
           fontSize={"subheadline1"}
-          onClick={() => {
+          onClick={(e) => {
             router.push(`/play-2-win/${tournament.data?.id}/leaderboard`);
           }}
         >
@@ -160,7 +159,10 @@ const OrganizerCard = React.memo(() => {
   return (
     <CustomCard title="Organizer">
       <div
-        onClick={() => router.push(`/channels/${tournament.data?.organizer?.user_id}/`)}
+        onClick={(e) => {
+          e.preventDefault();
+          router.push(`/channels/${tournament.data?.organizer?.user_id}/`);
+        }}
         className="flex items-center justify-between cursor-pointer p-4 pt-0"
       >
         <div className="flex items-center gap-3">
@@ -206,7 +208,7 @@ const Play2WinPage: React.FC<{
   const webapp = useWebApp();
 
   return (
-    <Page>
+    <div>
       {tournament.isError && <ErrorState errorCode="event_not_found" />}
 
       {tournament.isLoading ? (
@@ -299,7 +301,7 @@ const Play2WinPage: React.FC<{
           />
         </div>
       )}
-    </Page>
+    </div>
   );
 };
 

@@ -1,33 +1,31 @@
+import { StoreEventData } from "@/zustand/createEventStore";
 import { z } from "zod";
 import { dataValidationSchema } from "../dataValidationSchema";
-import { StoreEventData } from "@/zustand/createEventStore";
 
 export const generalStepDataSchema = z.object({
-  title: z
-    .string({ required_error: "Please enter a title" })
-    .min(5, { message: "Title must be at least 5 characters" }),
+  title: z.string({ required_error: "Please enter a title" }).min(5, { message: "Title must be at least 5 characters" }),
   subtitle: z
     .string({ required_error: "Please enter a subtitle" })
     .min(1, { message: "Subtitle must be at least 1 characters" }),
   description: z
     .string({ required_error: "Please enter a description" })
     .min(20, { message: "Description must be at least 20 character" }),
-  image_url: z
-    .string({ required_error: "Please select an image" })
-    .url({ message: "Please select a valid image" }),
+  image_url: z.string({ required_error: "Please select an image" }).url({ message: "Please select a valid image" }),
   hub: z.string({ required_error: "Please select a hub" }).min(1, { message: "Please select a hub" }),
+  category_id: z.number({ required_error: "Please select a category" }),
 });
 
-export function rewardStepValidation(isPaid: boolean, hasRegistration:boolean, editing: boolean) {
+export function rewardStepValidation(isPaid: boolean, hasRegistration: boolean, editing: boolean) {
   return z.object({
-    secret_phrase: isPaid || hasRegistration
-      ? z.string().optional() // Not required when the event is paid
-      : editing
-        ? z.string().optional()
-        : z
-            .string()
-            .min(4, { message: "Password must be at least 4 characters" })
-            .max(60, { message: "Password must be less than 60 characters" }),
+    secret_phrase:
+      isPaid || hasRegistration
+        ? z.string().optional() // Not required when the event is paid
+        : editing
+          ? z.string().optional()
+          : z
+              .string()
+              .min(4, { message: "Password must be at least 4 characters" })
+              .max(60, { message: "Password must be less than 60 characters" }),
     ts_reward_url: editing
       ? z.string().url({ message: "Please select a valid reward image URL" }).optional()
       : z.string().url({ message: "Please select a valid reward image URL" }),
@@ -36,7 +34,6 @@ export function rewardStepValidation(isPaid: boolean, hasRegistration:boolean, e
       : z.string().url({ message: "Please select a valid reward video URL" }),
   });
 }
-
 
 export function timeplaceStepValidation(
   editOptions: { eventHash?: string } | undefined,

@@ -1,21 +1,21 @@
 "use client";
-import Typography from "@/components/Typography";
-import { Button, Preloader } from "konsta/react";
-import Image from "next/image";
-import cameraIcon from "./camera.svg";
-import xPlatformIcon from "@/app/_components/channels/xplatform.svg";
 import telegramIcon from "@/app/_components/channels/telegram.svg";
-import { useState } from "react";
-import { cn } from "@/utils";
+import xPlatformIcon from "@/app/_components/channels/xplatform.svg";
 import { trpc } from "@/app/_trpc/client";
-import { Channel } from "@/types";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { useFormik } from "formik";
 import LoadableImage from "@/components/LoadableImage";
+import { OntonExpandableInput, OntonInput } from "@/components/OntonInput";
+import Typography from "@/components/Typography";
 import channelAvatar from "@/components/icons/channel-avatar.svg";
 import { getErrorMessages } from "@/lib/error";
-import { OntonExpandableInput, OntonInput } from "@/components/OntonInput";
+import { Channel } from "@/types";
+import { cn } from "@/utils";
+import { useFormik } from "formik";
+import { Button, Preloader } from "konsta/react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { toast } from "sonner";
+import cameraIcon from "./camera.svg";
 
 const xLinkDefault = "https://x.com/";
 
@@ -239,14 +239,22 @@ export default function EditForm({ data }: { data: Channel }) {
         <div className="mt-4 pt-2 -mx-4 px-3 shadow-[0px_-1px_4px_0px_#0000001A]">
           <Button
             className="py-5 mb-3 !rounded-[10px]"
-            onClick={() => handleSubmit()}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleSubmit();
+            }}
             disabled={isSubmitting}
           >
             Save Changes
           </Button>
           <button
             type="button"
-            onClick={goBack}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              goBack();
+            }}
             className="w-full rounded-[10px] px-4 py-2 border-2 border-[#007AFF] text-[#007aff] font-semibold uppercase text-sm"
           >
             Discard

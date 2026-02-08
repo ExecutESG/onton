@@ -1,32 +1,34 @@
 "use client";
-import React, { useState, useEffect } from "react";
-import { toast } from "sonner";
+
 import { trpc } from "@/app/_trpc/client";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import useTransferPayment from "./useTransferPayment";
 
 interface PaymentFlowProps {
   orderId: number;
   walletAddress?: string;
-  finalPrice: number; // in TON or USD
+  finalPrice: number;
   onSuccess?: () => void;
   onCancel?: () => void;
   orderUuid: string;
 }
 
 /**
- * The statuses that mean the order is done (either success or canceled/failed).
- * Adjust if your system has different final states.
+ * Statuses that mean the order is done (success or canceled/failed).
+ * Adjust these as needed for your system.
  */
 const FINAL_STATUSES = ["completed", "cancel", "failed"];
 
 /**
  * PaymentFlow:
- * 1) Polls order state from `getOrder`.
- * 2) On "Pay" click:
- *    - sets order status => "confirming" via `updateOrderStatusConfirmCancel`.
- *    - calls `useTransferPayment` to do the Ton transaction.
- *    - if user cancels or fails, sets order status => "cancel".
- * 3) Continues polling until we see a final status (completed/cancel/failed).
+ * 1) Fetches and polls an order from `getOrder`.
+ * 2) On "Pay," we:
+ *    - Insert a "pending" transaction (addTransaction) in DB.
+ *    - Update order => "confirming".
+ *    - Send the Ton transaction.
+ *    - If user cancels, set order => "cancelled".
+ * 3) Continues polling until we see the order status as completed/cancel/failed.
  */
 export default function PaymentFlow({
   orderId,
@@ -37,52 +39,42 @@ export default function PaymentFlow({
   onCancel,
 }: PaymentFlowProps) {
   const [isPaying, setIsPaying] = useState(false);
+
+  // TRPC queries & mutations
+  const { data: order, refetch } = trpc.campaign.getOrder.useQuery({ orderId }, { enabled: true });
+  const updateStatusMutation = trpc.campaign.updateOrderStatusConfirmCancel.useMutation({
+    onSuccess: () => refetch(),
+    onError: (error) => toast.error(error.message),
+  });
+  const addTransactionMutation = trpc.campaign.addTransaction.useMutation();
+
+  // Transfer logic hook
   const transfer = useTransferPayment();
 
-  // 1) Query the order
-  const { data: order, refetch } = trpc.campaign.getOrder.useQuery({ orderId }, { enabled: true });
-
-  // 2) Local polling logic
+  // 1) Poll if order is not final
   useEffect(() => {
     if (!order) return;
+    if (FINAL_STATUSES.includes(order.status)) return;
 
-    let intervalId: NodeJS.Timeout | null = null;
-
-    // If the order is NOT final, poll every 2 seconds
-    if (!FINAL_STATUSES.includes(order.status)) {
-      intervalId = setInterval(() => refetch(), 2000);
-    }
-
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
+    const intervalId = setInterval(() => refetch(), 2000);
+    return () => clearInterval(intervalId);
   }, [order, refetch]);
 
-  // 3) If order is final, call onSuccess / onCancel
+  // 2) If order is final, invoke onSuccess/onCancel
   useEffect(() => {
     if (!order) return;
-    if (FINAL_STATUSES.includes(order.status)) {
-      if (order.status === "completed") {
-        toast.success(`Order #${order.id} status: ${order.status} (Payment Success)`);
-        onSuccess?.();
-      } else {
-        toast.error(`Order #${order.id} status: ${order.status} (Payment Canceled/Failed)`);
-        onCancel?.();
-      }
+    if (!FINAL_STATUSES.includes(order.status)) return;
+
+    if (order.status === "completed") {
+      toast.success(`Order #${order.id} status: ${order.status} (Payment Success)`);
+      onSuccess?.();
+    } else {
+      toast.error(`Order #${order.id} status: ${order.status} (Canceled/Failed)`);
+      onCancel?.();
     }
   }, [order, onSuccess, onCancel]);
 
-  // 4) Mutation to set the status => "confirming" or "cancel"
-  const updateStatusMutation = trpc.campaign.updateOrderStatusConfirmCancel.useMutation({
-    onSuccess() {
-      refetch(); // Re-fetch to see updated status
-    },
-    onError(error) {
-      toast.error(error.message);
-    },
-  });
-
-  // 5) Payment function
+  // 3) Payment function
   async function handlePay() {
     if (!walletAddress) {
       toast.error("No destination address!");
@@ -91,50 +83,60 @@ export default function PaymentFlow({
     try {
       setIsPaying(true);
 
-      // (A) First, set order => "confirming"
-      await updateStatusMutation.mutateAsync({ orderId, status: "confirming" });
-      console.log(`Order #${orderId} status set to "confirming" with comment: "OnionCampaign=${orderUuid}"`);
-      // (B) Then do the TonConnect transfer
-      await transfer(walletAddress, finalPrice, "TON", { comment: `OnionCampaign=${orderUuid}` });
-      toast.success("Transaction broadcasted! We'll keep checking the order status...");
+      // (A) Insert a "pending" transaction record in the DB
+      const pendingTx = await addTransactionMutation.mutateAsync({
+        orderId,
+        walletAddress,
+        finalPrice,
+      });
+      console.log("Created transaction row:", pendingTx);
 
-      // (C) Rely on cron job or on-chain to set final status => "processing" or "completed"
-      // Polling will pick up changes. No immediate status update here.
+      // (B) Then set order => "confirming"
+      await updateStatusMutation.mutateAsync({ orderId, status: "confirming" });
+      console.log(`Order #${orderId} => "confirming" (OnionCampaign=${orderUuid})`);
+
+      // (C) Next, send the Ton transaction
+      await transfer(walletAddress, finalPrice, "TON", { comment: `OnionCampaign=${orderUuid}` });
+      toast.success("Transaction broadcasted! Polling order status...");
+
+      // (D) The cron job or on-chain logic will set final status => "completed" or "failed"
     } catch (error) {
       console.error("Payment error:", error);
       toast.error("Transaction canceled or failed!");
 
-      // (D) If error, set the order => "cancel"
+      // (E) If error => mark order => "cancelled"
       await updateStatusMutation.mutateAsync({ orderId, status: "cancelled" });
-
       onCancel?.();
     } finally {
       setIsPaying(false);
-      await refetch();
+      refetch();
     }
   }
 
-  // 6) Rendering
+  // 4) Rendering
   if (!order) {
     return <p className="text-gray-600">Fetching order info…</p>;
   }
 
-  const { status } = order;
-  const isFinal = FINAL_STATUSES.includes(status);
+  const isFinal = FINAL_STATUSES.includes(order.status);
 
   return (
     <div>
       {isFinal ? (
         <div>
-          {status === "completed" ? (
-            <p className="text-green-600">Payment was successful! Current status: {status}</p>
+          {order.status === "completed" ? (
+            <p className="text-green-600">Payment was successful! Current status: {order.status}</p>
           ) : (
-            <p className="text-red-600">Payment canceled or failed. Current status: {status}</p>
+            <p className="text-red-600">Payment canceled or failed. Current status: {order.status}</p>
           )}
         </div>
       ) : (
         <button
-          onClick={handlePay}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handlePay();
+          }}
           className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
           disabled={isPaying}
         >
@@ -143,7 +145,7 @@ export default function PaymentFlow({
       )}
 
       <p className="mt-2 text-gray-600">
-        Order Status: <strong>{status}</strong>
+        Order Status: <strong>{order.status}</strong>
       </p>
     </div>
   );

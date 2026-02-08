@@ -1,12 +1,12 @@
 import { logger } from "@/server/utils/logger";
 // DB & Models
-import eventDB from "@/server/db/events";
-import rewardDB from "@/server/db/rewards.db";
+import eventDB from "@/db/modules/events.db";
+import rewardDB from "@/db/modules/rewards.db";
 // Helpers
 import { extendEndDateIfNeeded, processRewardsBatch, revertEndDateIfNeeded } from "@/cronJobs/helper/createRewards.helpers";
 // Types
 import { RewardVisitorTypePartial } from "@/db/schema/rewards";
-import eventPaymentDB from "@/server/db/eventPayment.db";
+import eventPaymentDB from "@/db/modules/eventPayment.db";
 
 // ---------------------------------------------------------------------
 // MAIN: createRewards

@@ -50,10 +50,20 @@ const ScanRegistrantQRCode: React.FC<ScanRegistrantQRCodeProps> = ({ children })
   }
 
   return children ? (
-    <div onClick={handleOnClick}>{children}</div>
+    <div
+      onClick={() => {
+        handleOnClick();
+      }}
+    >
+      {children}
+    </div>
   ) : (
     <ScanLine
-      onClick={handleOnClick}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        handleOnClick();
+      }}
       className="text-primary bg-primary/10 rounded"
     />
   );

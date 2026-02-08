@@ -196,7 +196,11 @@ const VisitorsTable: FC<VisitorsTableProps> = ({ event_uuid, handleVisitorsExpor
                 <Button
                   variant="link"
                   className="ml-auto flex items-center text-xs py-0 px-0 no-underline hover:no-underline"
-                  onClick={handleVisitorsExport}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleVisitorsExport();
+                  }}
                 >
                   <FaCloudDownloadAlt className="mr-2" /> Download All
                 </Button>

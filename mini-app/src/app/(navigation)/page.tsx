@@ -13,13 +13,11 @@ import CustomCard from "../_components/atoms/cards/CustomCard";
 import DataStatus from "../_components/molecules/alerts/DataStatus";
 import { trpc } from "../_trpc/client";
 
-import { Banner } from "../(landing-pages)/genesis-onions/_components/Banner";
-import { cn } from "@/utils";
-import { useMemo } from "react";
-import { Play2WinGenesisBanner } from "../(landing-pages)/play2win-genesis/_components/Play2WinGenesisBanner";
 import CustomSwiper from "../_components/CustomSwiper";
 import EventsTimeline from "../_components/Event/EventsTImeline";
 import EventCardSkeleton from "../_components/EventCard/EventCardSkeleton";
+import FeaturedBanners from "../_components/FeaturedBanners";
+import { Banner } from "@/app/(landing-pages)/genesis-onions/_components/Banner";
 
 export default function Home() {
   return (
@@ -28,9 +26,8 @@ export default function Home() {
         <div className="w-full pb-3">
           <SearchBar />
         </div>
-
-        <Banner className="mt-3 mb-4" />
-        <Play2WinGenesisBanner className="w-full mb-4" />
+        <Banner />
+        <FeaturedBanners className="mb-4" />
 
         <div className=" flex-grow">
           <div className="flex-grow flex flex-col gap-6">
@@ -215,6 +212,8 @@ const OngoingEvents = () => {
     }
   );
 
+  if (ongoingEvents.isSuccess && ongoingEvents.data?.totalCount === 0) return null;
+
   return (
     <div className="flex flex-col gap-2">
       <div className="w-full pb-2 flex justify-between items-center">
@@ -308,6 +307,11 @@ const UpcomingEvents = () => {
         </div>
       </div>
     );
+  }
+
+  // if there were zero events don't show anything
+  if (upcomingEvents.data?.totalCount === 0) {
+    return null;
   }
 
   return (

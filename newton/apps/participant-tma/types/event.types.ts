@@ -1,4 +1,4 @@
-import { PaymentType } from "./order.types";
+import { PaymentToken } from "./order.types";
 
 export interface OrganizerType {
   user_id: number;
@@ -14,6 +14,14 @@ export interface OrganizerType {
   hosted_event_count: number;
 }
 
+export interface EventCategoryType {
+  category_id: number;
+  name: string;
+  description?: string;
+  icon_url?: string;
+  sort_order?: number;
+  enabled: boolean;
+}
 export interface EventDataOnlyType {
   website?: {
     label: string;
@@ -30,7 +38,8 @@ export interface EventDataOnlyType {
     ticketImage: string;
     count: number;
     collectionAddress: string | null;
-    payment_type: PaymentType;
+    payment_type?: string;
+    token?: PaymentToken;
   };
   event_id: number;
   event_uuid: string;
@@ -56,6 +65,7 @@ export interface EventDataOnlyType {
   created_at: string;
   accessRoles: Array<{ user_id: number; role: string }> | undefined;
   hasActiveCoupon: boolean;
+  category?: EventCategoryType;
 }
 
 export interface EventType extends EventDataOnlyType {

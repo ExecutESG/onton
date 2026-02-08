@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { type NextRequest } from "next/server";
 import { getAuthenticatedUser } from "@/server/auth";
-import tonCenter from "@/server/routers/services/tonCenter";
+import tonCenter from "@/services/tonCenter";
 import { decodePayloadToken, verifyToken } from "@/server/utils/jwt";
 import { logger } from "@/server/utils/logger";
 const updateTicketSchema = z.object({
@@ -152,7 +152,7 @@ export async function PUT(req: NextRequest, { params }: { params: { nftaddress: 
       await trx.update(nftItems).set({ owner: userId }).where(eq(nftItems.nft_address, nft_address)).execute();
     });
 
-    // await db.update(eventRegistrants).set(
+    // await modules.update(eventRegistrants).set(
     //   {
     //     status : "rejected",
 
@@ -163,7 +163,7 @@ export async function PUT(req: NextRequest, { params }: { params: { nftaddress: 
     //     eq(eventRegistrants.user_id , order_data[0].orders.user_id),
     //   )
     // )
-    // await db
+    // await modules
     //   .update(tickets)
     //   .set({
     //     telegram: parsedData.data.data.telegram,

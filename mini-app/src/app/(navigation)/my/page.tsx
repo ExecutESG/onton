@@ -9,6 +9,8 @@ import Typography from "@/components/Typography";
 import channelAvatar from "@/components/icons/channel-avatar.svg";
 import FabPlusIcon from "@/components/icons/plus-icon";
 import solarCupOutline from "@/components/icons/solar-cup-outline.svg";
+import OnionLogo from "@/components/icons/onion-logo.svg";
+import questLogo from "@/components/icons/quest-flag.svg";
 // import { ALLOWED_USER_TO_TEST } from "@/constants";
 import { useUserStore } from "@/context/store/user.store";
 import { Channel } from "@/types";
@@ -22,7 +24,7 @@ import { useEffect } from "react";
 import { toast } from "sonner";
 import PaymentCard from "./PaymentCard";
 import calendarStarIcon from "./calendar-star.svg";
-
+import { TbBowFilled } from "react-icons/tb";
 export default function ProfilePage() {
   const { user } = useUserStore();
   const hasWallet = !!useTonAddress();
@@ -45,7 +47,9 @@ export default function ProfilePage() {
     <div className="relative isolate">
       {hasEventOrganizer ? <InlineChannelCard data={user} /> : <OrganizerProgress step={hasWallet ? 2 : 1} />}
       <ActionCard
-        onClick={() => router.push("/my/participated")}
+        onClick={(e) => {
+          router.push("/my/participated");
+        }}
         iconSrc={ticketIcon}
         title="Participated"
         subtitle="Your Activity"
@@ -57,7 +61,7 @@ export default function ProfilePage() {
         ]}
       />
       <ActionCard
-        onClick={() => {
+        onClick={(e) => {
           if (!hasEventOrganizer) {
             toast.error("Only organizers can host events");
             return;
@@ -73,26 +77,56 @@ export default function ProfilePage() {
             : { items: "Become an organizer first" },
         ]}
       />
-
       <ActionCard
-        onClick={() => {
+        onClick={(e) => {
+          router.push("/my/quest");
+        }}
+        iconSrc={questLogo}
+        title="Quest"
+        subtitle="Complete Quests and earn rewards"
+        footerTexts={[]}
+      />
+      <ActionCard
+        onClick={(e) => {
           router.push("/my/points/");
         }}
         iconSrc={solarCupOutline}
         title="My Points"
         subtitle="You Acheived"
-        footerTexts={[{ items: "Points", count: totalPoints || 0 }]}
+        footerTexts={[{ items: "Points", count: Number(totalPoints) || 0 }]}
       />
+      <ActionCard
+        onClick={(e) => {
+          router.push("/onion-snapshot/claim-points");
+        }}
+        iconSrc={OnionLogo}
+        title="My Onions"
+        subtitle="check your onions"
+        footerTexts={[]}
+      />
+
+      {/*<ActionCard*/}
+      {/*  onClick={(e) => {*/}
+      {/*    router.push("/my/partner/onion-affiliate");*/}
+      {/*  }}*/}
+      {/*  iconSrc={solarCupOutline}*/}
+      {/*  title="Onion Partnership Dashboard"*/}
+      {/*  subtitle=""*/}
+      {/*  footerTexts={[]}*/}
+      {/*/>*/}
 
       <ConnectWalletCard />
       <PaymentCard visible={!hasEventOrganizer && hasWallet} />
 
       {hasEventOrganizer && (
         <div
-          className="fixed text-primary drop-shadow rounded-full right-8 bottom-16 z-50 cursor-pointer"
-          onClick={() => {
+          className="fixed text-primary drop-shadow rounded-full right-4 pt-1 z-50 cursor-pointer"
+          onClick={(e) => {
             setSection("event_setup_form_general_step");
             router.push("/events/create");
+          }}
+          style={{
+            bottom: `calc(90px + var(--tg-safe-area-inset-bottom))`,
           }}
         >
           <FabPlusIcon />
@@ -109,7 +143,7 @@ function InlineChannelCard({ data }: { data: Channel | undefined }) {
   return (
     <Card
       className="!m-0 w-full cursor-pointer"
-      onClick={() => {
+      onClick={(e) => {
         router.push(`/my/edit`);
       }}
     >

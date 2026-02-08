@@ -1,61 +1,73 @@
 import { UploadImageFile } from "@/components/ui/upload-file";
 import { UploadVideoFile } from "@/components/ui/upload-video-file";
+import { trpc } from "@/app/_trpc/client";
 import { cn } from "@/utils";
 import { useCreateEventStore } from "@/zustand/createEventStore";
 import { ListInput, ListItem, Segmented, SegmentedButton, Toggle } from "konsta/react";
-import { useState } from "react";
-import { SiTether, SiTon } from "react-icons/si";
+import { useEffect, useState } from "react";
 import ListLayout from "../../atoms/cards/ListLayout";
 
 function NFTPayment() {
-  const { payment, changePaymentType, isEdit } = useCreateEventStore((state) => ({
+  const { payment, changePaymentToken, isEdit, tokenError, setPaidInfoErrors } = useCreateEventStore((state) => ({
     payment: state.eventData?.paid_event,
-    changePaymentType: state.changePaymentType,
+    changePaymentToken: state.changePaymentToken,
     isEdit: Boolean(state.edit?.eventHash),
+    tokenError: state.paid_info_errors.token_id,
+    setPaidInfoErrors: state.setPaidInfoErrors,
   }));
+  const tokensQuery = trpc.events.listPaymentTokens.useQuery();
+  const tokens = tokensQuery.data ?? [];
+  const selectedToken = tokens.find((token) => token.token_id === payment.token_id);
+
+  useEffect(() => {
+    if (!isEdit && !payment.token_id && tokens.length > 0) {
+      changePaymentToken(tokens[0].token_id);
+    }
+  }, [changePaymentToken, isEdit, payment.token_id, tokens]);
+
+  const handleChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const tokenId = Number(event.target.value);
+    changePaymentToken(tokenId);
+    setPaidInfoErrors("token_id", []);
+  };
 
   return (
     <ListItem
-      title="Payment Type"
+      title="Payment Token"
       footer={
         <>
-          <p>Your ticket payment method, users will pay either TON or ton USDT.</p>
-          <Segmented strong>
-            <SegmentedButton
-              strong
-              onClick={(e) => {
-                e.preventDefault();
-                !isEdit && changePaymentType("USDT");
-              }}
-              active={payment.payment_type === "USDT"}
-              itemType="button"
-            >
-              <p
-                className={cn("flex gap-1 items-center text-cn-muted-foreground", {
-                  "text-green-600 font-extrabold": payment.payment_type === "USDT",
-                })}
+          <p>Select which token attendees will use to pay for tickets.</p>
+          <ListInput
+            outline
+            dropdown
+            disabled={tokensQuery.isLoading || isEdit || tokens.length === 0}
+            name="payment_token"
+            type="select"
+            value={selectedToken?.token_id ?? ""}
+            onChange={handleChange}
+            placeholder="Select token"
+            error={tokenError?.[0]}
+          >
+            {!selectedToken && (
+              <option value="" disabled>
+                {tokensQuery.isLoading ? "Loading tokens..." : "Select token"}
+              </option>
+            )}
+            {tokens.length === 0 && !tokensQuery.isLoading && (
+              <option value="" disabled>
+                No tokens available
+              </option>
+            )}
+            {tokens.map((token) => (
+              <option
+                key={token.token_id}
+                value={token.token_id}
+                className="text-black"
               >
-                <span>USDT</span> <SiTether />
-              </p>
-            </SegmentedButton>
-            <SegmentedButton
-              strong
-              active={payment.payment_type === "TON"}
-              onClick={(e) => {
-                e.preventDefault();
-                !isEdit && changePaymentType("TON");
-              }}
-              itemType="button"
-            >
-              <p
-                className={cn("flex gap-1 items-center text-cn-muted-foreground", {
-                  "text-sky-600 font-extrabold": payment.payment_type === "TON",
-                })}
-              >
-                <span>TON</span> <SiTon />
-              </p>
-            </SegmentedButton>
-          </Segmented>
+                {token.symbol}
+              </option>
+            ))}
+          </ListInput>
         </>
       }
     />
@@ -69,6 +81,10 @@ function PaymentAmount() {
     paid_info_errors: state.paid_info_errors,
     setPaidInfoErrors: state.setPaidInfoErrors,
   }));
+  const tokensQuery = trpc.events.listPaymentTokens.useQuery();
+  const tokens = tokensQuery.data ?? [];
+  const selectedToken = tokens.find((token) => token.token_id === payment.token_id);
+  const tokenSymbol = selectedToken?.symbol ?? "token";
 
   const [inputError, setInputError] = useState("");
 
@@ -79,7 +95,7 @@ function PaymentAmount() {
       title="Price"
       pattern="[+\-]?(?:0|[1-9]\d*)(?:\.\d{1,3})?"
       inputMode="decimal" // Allows decimals on mobile devices
-      placeholder={`Payment amount in ${payment.payment_type}`}
+      placeholder={`Payment amount in ${tokenSymbol}`}
       value={payment.payment_amount?.toString() || ""} // Display as a string
       onChange={paymentAmountInputHandler}
       onBlur={paymentAmountInputHandler}

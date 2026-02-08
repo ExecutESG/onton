@@ -1,0 +1,1 @@
+ALTER TABLE "token_campaign_nft_collections" ADD COLUMN "collection_meta_data" jsonb;

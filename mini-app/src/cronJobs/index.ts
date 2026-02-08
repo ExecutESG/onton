@@ -22,6 +22,19 @@ import { processCampaignAffiliateSpins } from "@/cronJobs/tasks/processCampaignA
 import { updateAllUserWalletBalances } from "@/cronJobs/tasks/updateAllUserWalletBalances";
 import { syncOngoingTournamentsLeaderboard } from "@/cronJobs/tasks/syncOngoingTournamentsLeaderboard";
 import { checkAndEnrollUserInPlay2WinCampaign } from "@/cronJobs/tasks/checkAndEnrollUserInPlay2WinCampaign";
+import { mintNftForUserSpins } from "@/cronJobs/tasks/mintNftsForUserSpins";
+import { deployMissingCampaignCollections } from "@/cronJobs/tasks/deployMissingCampaignCollections";
+import { checkMinterTransactions } from "@/cronJobs/tasks/checkNFTTransactions";
+import { mintPlatinumNftForMergedNFTS } from "@/cronJobs/tasks/mintPlatinumNftForMergedNFTS";
+import { burnMergedNfts } from "@/cronJobs/tasks/burnMergedNfts";
+import { deployNFTApiCollections } from "@/cronJobs/tasks/deployNFTApiCollections";
+import { mintNFTApiCollections } from "@/cronJobs/tasks/mintNFTApiCollections";
+import { runCollectionSnapshot } from "@/cronJobs/tasks/runCollectionSnapshot";
+import { syncPlay2WinScores } from "@/cronJobs/tasks/syncPlay2WinScores";
+import { sendPendingPromoCodes } from "@/cronJobs/tasks/promoCron";
+import { createWalletsForUpcomingEvents } from "@/cronJobs/tasks/createEventWallets";
+import { distributeRafflesTon } from "@/cronJobs/tasks/distributeRaffleTon";
+import { sendAllPendingPrizeNotifications } from "@/cronJobs/tasks/sendAllPendingPrizeNotifications";
 
 const cronJobs = {
   CheckTransactions,
@@ -47,6 +60,19 @@ const cronJobs = {
   updateAllUserWalletBalances,
   syncOngoingTournamentsLeaderboard,
   checkAndEnrollUserInPlay2WinCampaign,
+  mintNftForUserSpins,
+  deployMissingCampaignCollections,
+  checkMinterTransactions,
+  mintPlatinumNftForMergedNFTS,
+  burnMergedNfts,
+  deployNFTApiCollections,
+  mintNFTApiCollections,
+  runCollectionSnapshot,
+  syncPlay2WinScores,
+  sendPendingPromoCodes,
+  createWalletsForUpcomingEvents,
+  distributeRafflesTon,
+  sendAllPendingPrizeNotifications,
 };
 export { cronJobRunner };
 export default cronJobs;

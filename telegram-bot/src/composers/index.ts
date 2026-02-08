@@ -10,11 +10,13 @@ import helpComposer from "./helpComposer"
 import { play2winFeatured } from "./play2winfetured"
 import { sbtdistComposer } from "./sbtdistComposer"
 import { tournamentComposer } from "./tournamentComposer"
+import {pollComposer} from "./pollComposer";
 
 // join other composers here
 export const mainComposer = new Composer();
 
 mainComposer.use(broadcastComposer);
+mainComposer.use(pollComposer);
 mainComposer.use(sbtdistComposer);
 mainComposer.use(affiliateComposer);
 mainComposer.use(groupComposer);

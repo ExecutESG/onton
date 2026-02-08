@@ -74,3 +74,4 @@ mini-app/.env.sentry-build-plugin
 mini-app/bun.lock
 
 *storybook.log
+.windsurf

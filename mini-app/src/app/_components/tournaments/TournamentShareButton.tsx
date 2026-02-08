@@ -35,7 +35,11 @@ export default function TournamentShareButton({ tournamentId }: TournamentShareP
   return (
     <button
       className="w-8 h-8 bg-[#efeff4] rounded-md p-2 flex col-start-12 items-center justify-center"
-      onClick={share}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        share();
+      }}
       disabled={shareTournamentMutation.isLoading}
       title="Share this tournament"
     >

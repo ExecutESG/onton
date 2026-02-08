@@ -1,4 +1,5 @@
 import { Play2WinCampaignType } from "@/db/schema/play2winCampaigns";
+import { is_local_env, is_prod_env } from "@/server/utils/evnutils";
 
 export const gmtTimeZones = [
   "GMT",
@@ -727,3 +728,65 @@ export const PLAY2WIN_CAMPAIGN_MIN_DATE = new Date("2025-04-18T00:00:00Z");
 export const PLAY2WIN_CAMPAIGN_TARGET_GAME_ID = 1;
 export const PLAY2WIN_DEFAULT_CAMPAIGN_TYPE: Play2WinCampaignType = "genesis_onion";
 export const PLAY2WIN_DEFAULT_MIN_POINTS = 1500;
+
+export const ONION_RAW_COLLECTION_ADDRESS = "0:826678a6c2e4ca8addef714c05ec9476ea22eed5fea8b005c05ad60d4bd73e43";
+
+// onionConversion
+export const POINTS_PER_ONION = 2;
+
+export const NFT_POINTS: Record<"platinum" | "gold" | "silver" | "bronze", number> = {
+  platinum: 15419,
+  gold: 5140,
+  silver: 3084,
+  bronze: 2056,
+};
+
+export const toOnionFromPoints = (pts: number) => pts * POINTS_PER_ONION;
+
+export const SNAPSHOT_DATE = is_local_env() ? new Date("2025-05-29 20:50:30.7+00") : new Date("2025-05-30 21:00:00.009+00");
+
+export const TON_PROOF_STORAGE_KEY = "onton-mini-app-proof-auth";
+export const PROOF_PAYLOAD_TTL_MS = 1_000 * 60 * 60 * 24 * 7; // 1 week
+export const WalletNetCHAIN_MAP: Record<number | string, "-239" | "-3"> = {
+  0: "-239",
+  "-239": "-239",
+  "-3": "-3",
+};
+
+/* TON-denominated constants that BOTH front- & back-end import.
+ * Keep them in **TON**, not nano-TON, so the browser can consume them.
+ */
+
+/* 1️⃣  pull‐in BigInt typings without touching tsconfig.json */
+/// <reference lib="esnext.bigint" />
+
+/* 1 TON = 1 000 000 000 nano-TON */
+export const TON_IN_NANO = BigInt("1000000000");
+
+/* paginator */
+export const CHUNK_SIZE_RAFFLE = 254;
+
+/* fee budget (nano-TON, all bigint) */
+export const EXT_FEE_NANO = BigInt("55000000"); // 0.055 TON
+export const INT_FEE_NANO = BigInt("20000000"); // 0.02 TON
+export const SAFETY_FLOOR_NANO = BigInt("10000000"); // 0.01 TON
+export const DEPLOY_FEE_NANO = BigInt("60000000"); // 0.06 TON
+// Extra cushion added to funding check to avoid edge equality issues
+export const STATE_FLIP_BUFFER_NANO = BigInt("10000000"); // 0.01 TON
+export const JETTON_TRANSFER_TON = BigInt("550000000"); // 0.55 TON per transfer call
+export const JETTON_FORWARD_TON = BigInt("50000000"); // 0.05 TON forwarded to recipient
+export const JETTON_WALLET_DEPLOY_TON = BigInt("50000000"); // 0.05 TON to deploy recipient wallet
+
+/* helpers */
+export const nanoToTon = (nano: bigint) => Number(nano) / 1e9; // → float TON
+export const tonToNano = (ton: number) => BigInt(Math.round(ton * 1e9)); // → bigint nano
+
+export const PARTNER_HASH_SEARCH_PARAM_KEY = "affp"; // ?affp=<hash>
+export const PARTNER_HASH_LOCAL_KEY = "fairlaunch_partner_aff"; // localStorage key
+/* fixed cap for the partner launch */
+export const PARTNER_ONION_CAP = 3000000;
+export const TBOOK_FAIRLAUNCH_MINIAPP_URL = "https://engage.tbook.com/fair-launch/onion";
+
+export const ORGANIZER_PROMOTE_PRICE = 1; // TON
+export const NFT_EVENT_PRICE = 1; // TON
+export const CSBT_EVENT_PRICE = 1; // TON

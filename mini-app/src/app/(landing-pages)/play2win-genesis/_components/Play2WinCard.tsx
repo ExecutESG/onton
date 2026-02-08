@@ -17,7 +17,10 @@ const Play2WinCard: React.FC = () => {
   return (
     <div className="flex flex-col gap-2 w-full">
       <Play2WinGenesisButton
-        onClick={handleClick}
+        onClick={(e) => {
+          e.preventDefault();
+          handleClick();
+        }}
         disabled={contest.noGame || clicked}
       >
         Play Game

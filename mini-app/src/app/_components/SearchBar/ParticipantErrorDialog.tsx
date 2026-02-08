@@ -1,15 +1,14 @@
 "use client";
-import React from "react";
 import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogFooter,
-  AlertDialogTitle,
   AlertDialogDescription,
-  // AlertDialogCancel,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import React from "react";
 
 interface ParticipantErrorDialogProps {
   open: boolean;
@@ -34,7 +33,15 @@ const ParticipantErrorDialog: React.FC<ParticipantErrorDialogProps> = ({ open, o
         </AlertDialogHeader>
         <AlertDialogFooter>
           {/*<AlertDialogCancel onClick={onClose}>Close</AlertDialogCancel>*/}
-          <AlertDialogAction onClick={onConfirm}>Ok</AlertDialogAction>
+          <AlertDialogAction
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onConfirm();
+            }}
+          >
+            Ok
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

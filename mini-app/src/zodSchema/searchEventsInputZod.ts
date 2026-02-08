@@ -20,6 +20,7 @@ const searchEventsInputZod = z.object({
       user_id: z.number().optional(),
       role: z.enum(["organizer", "admin"]).optional(),
       eventStatus: z.enum(eventStatusValues).optional(),
+      category_id: z.array(z.number()).optional(),
     })
     .optional(),
   sortBy: z

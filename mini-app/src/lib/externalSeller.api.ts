@@ -1,14 +1,14 @@
 import { z } from "zod";
 import { logger } from "@/server/utils/logger";
-import eventDB from "@/server/db/events";
+import eventDB from "@/db/modules/events.db";
 import { eventRegistrants, orders } from "@/db/schema";
 import { db } from "@/db/db";
-import ordersDB from "@/server/db/orders.db";
-import { usersDB } from "@/server/db/users";
+import ordersDB from "@/db/modules/orders.db";
+import { usersDB } from "@/db/modules/users.db";
 import { OrderTypeValues } from "@/db/schema/orders";
-import rewardService from "@/server/routers/services/rewardsService";
-import { PaymentTypes } from "@/db/enum";
-import rewardDB from "@/server/db/rewards.db";
+import rewardService from "@/services/rewardsService";
+import rewardDB from "@/db/modules/rewards.db";
+import eventTokensDB from "@/db/modules/eventTokens.db";
 import { and, eq } from "drizzle-orm";
 import { is_local_env } from "@/server/utils/evnutils";
 import { ALLOWED_TONFEST_EVENT_UUIDS } from "@/constants";
@@ -20,7 +20,7 @@ const verifiedAsPaidSchema = z.object({
   telegramUserId: z.number(),
   telegramUsername: z.string().min(1),
   eventUuid: z.string().uuid(),
-  paymentType: z.enum(["STAR", "TON", "USDT"]),
+  paymentTokenSymbol: z.string().min(1),
   paymentAmount: z.number().default(0),
 });
 
@@ -63,7 +63,9 @@ const parseAndValidateRequest = async (request: Request) => {
       },
     };
   }
-  return parseResult.data; // { telegramUserId, telegramUsername, eventUuid, paymentType, paymentAmount }
+  const data = parseResult.data;
+  data.paymentTokenSymbol = data.paymentTokenSymbol.toUpperCase();
+  return data; // { telegramUserId, telegramUsername, eventUuid, paymentTokenSymbol, paymentAmount }
 };
 
 /**
@@ -151,7 +153,7 @@ const fetchPaymentInfoAndCheckSoldOut = async (eventUuid: string, eventData: any
     };
   }
 
-  return orderType;
+  return { eventPaymentInfo, orderType };
 };
 
 /**
@@ -242,7 +244,7 @@ const createOrderAndRegistrant = async (
   eventUuid: string,
   telegramUserId: number,
   paymentAmount: number,
-  paymentType: PaymentTypes,
+  paymentTokenId: number,
   orderType: OrderTypeValues,
   telegramUsername: string
 ) => {
@@ -256,7 +258,7 @@ const createOrderAndRegistrant = async (
           event_uuid: eventUuid,
           user_id: telegramUserId,
           total_price: paymentAmount,
-          payment_type: paymentType, // e.g., "STAR", "TON", or "USDT"
+          token_id: paymentTokenId,
           state: "completed",
           order_type: orderType,
           utm_source: null,

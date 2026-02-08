@@ -1,0 +1,1 @@
+ALTER TABLE "token_campaign_merge_transactions" ADD COLUMN "user_id" bigint;

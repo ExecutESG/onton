@@ -1,5 +1,5 @@
-import eventDB from "@/server/db/events";
-import moderationLogDB from "@/server/db/moderationLogger.db";
+import eventDB from "@/db/modules/events.db";
+import moderationLogDB from "@/db/modules/moderationLogger.db";
 import { tgBotModerationMenu } from "@/moderationBot/menu";
 import { getNoticeEmoji } from "@/moderationBot/helpers";
 import { InputFile } from "grammy";

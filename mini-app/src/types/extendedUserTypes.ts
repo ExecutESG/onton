@@ -1,8 +1,8 @@
 import { InferSelectModel } from "drizzle-orm";
 import { users } from "@/db/schema/users";
-import { userRolesDB } from "@/server/db/userRoles.db";
+import { userRolesDB } from "@/db/modules/userRoles.db";
 
-export  interface InitUserData {
+export interface InitUserData {
   user: {
     id: number;
     username: string;

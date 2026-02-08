@@ -4,15 +4,16 @@ import { eventPayment } from "@/db/schema/eventPayment";
 import { events } from "@/db/schema/events";
 import { eq } from "drizzle-orm";
 import { logger } from "@/server/utils/logger";
-import eventDB from "@/server/db/events";
+import eventDB from "@/db/modules/events.db";
 import { registerActivity } from "@/lib/ton-society-api";
 import type { OrderRow } from "@/db/schema/orders";
 import type { EventRow } from "@/db/schema/events";
 import type { EventPaymentSelectType } from "@/db/schema/eventPayment";
 import { buildEventDraft } from "@/cronJobs/helper/buildEventDraft";
-import ordersDB from "@/server/db/orders.db";
-import eventPaymentDB from "@/server/db/eventPayment.db";
+import ordersDB from "@/db/modules/orders.db";
+import eventPaymentDB from "@/db/modules/eventPayment.db";
 import { handleTicketType } from "@/cronJobs/helper/handleTicketType";
+import { isAxiosError } from "axios";
 
 /**
  * Main entry for your cron job:
@@ -80,7 +81,16 @@ async function processOrderCreation(order: OrderRow) {
     // Update DB in a transaction
     await updateDatabaseRecords(order, event, paymentInfo, mainEventActivityId, collectionAddress, ticketActivityId);
   } catch (error) {
-    logger.error(`event_creation_error ${error}`);
+    if (isAxiosError(error)) {
+      logger.error("event_creation_error", {
+        message: error.message,
+        status: error.response?.status,
+        response: error.response?.data,
+        headers: error.response?.headers,
+      });
+    } else {
+      logger.error("event_creation_error", error);
+    }
   }
 }
 

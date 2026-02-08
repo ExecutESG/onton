@@ -34,7 +34,7 @@ async function MainCronJob() {
   if (is_prod_env()) {
     new CronJob("0 4 * * * *", cronJobs.syncSbtCollectionsForEvents, null, true); // has been disabled because of high rate limit usage
     new CronJob(
-      "0 */1 * * *", // (cronTime) =>  every hour
+      "*/60 * * * *", // (cronTime) =>  every hour
       cronJobs.CheckSbtStatus, // (onTick)   => function to run
       null, // (onComplete) => no special callback after job
       true, // (start) => start immediately

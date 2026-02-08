@@ -1,5 +1,5 @@
 // app/api/ton-auth/generate-payload/route.ts
-import { TonProofService } from "@/server/routers/services/ton-proof-service";
+import { TonProofService } from "@/services/ton-proof-service";
 import { createPayloadToken } from "@/server/utils/jwt";
 import { NextResponse } from "next/server";
 // Ensure you have these constants properly set up in a constants file or environment variables

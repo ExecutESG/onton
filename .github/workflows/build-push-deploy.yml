@@ -146,6 +146,7 @@ jobs:
           declare -A services=(
             ["participant-tma"]="newton/apps/participant-tma"
             ["mini-app-sbt-worker"]="mini-app"
+            ["mini-app-nft-api-worker"]="mini-app"
             ["mini-app-ordinary-worker"]="mini-app"
             ["mini-app-reward-worker"]="mini-app"
             ["mini-app"]="mini-app"
@@ -558,6 +559,10 @@ jobs:
           
                 echo "Updating $branch_name_mini-app-sbt-worker"
                 docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force $branch_name\_\mini-app-sbt-worker
+                
+                echo "Updating $branch_name_mini-app-nft-api-worker"
+                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force $branch_name\_\mini-app-nft-api-worker
+          
           
                 echo "Updating $branch_name_mini-app-ordinary-worker"
                 docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force $branch_name\_\mini-app-ordinary-worker

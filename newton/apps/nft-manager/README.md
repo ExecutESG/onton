@@ -12,7 +12,7 @@ $ yarn install
 ## Running the app
 
 ```bash
-$ docker-compose -f docker-compose.db.yml up -d
+$ docker-compose -f docker-compose.modules.yml up -d
 $ docker-compose -f docker-compose.redis.yml up -d
 $ docker-compose -f docker-compose.minio.yml up -d
 ```

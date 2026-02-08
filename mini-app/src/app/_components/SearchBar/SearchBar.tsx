@@ -18,6 +18,8 @@ import parseSearchParams, { allParticipationTypes } from "@/app/search/parseSear
 import { useDebouncedCallback } from "@mantine/hooks";
 import { noop } from "lodash";
 import { SearchIcon } from "lucide-react";
+import CategorySelectorDrawer from "./CategorySelectorDrawer";
+import { EventCategoryRow } from "@/db/schema/eventCategories";
 
 /** TypeScript types from your Zod schema */
 type SearchEventsInput = z.infer<typeof searchEventsInputZod>;
@@ -34,6 +36,7 @@ const buildQueryParams = (newVals: ReturnType<typeof parseSearchParams>) => {
     query: newVals.search,
     participationType: pType,
     selectedHubs: newVals.filter.society_hub_id.join(","),
+    selectedCategories: newVals.filter.category_id.join(","),
     sortBy: newVals.sortBy,
     eventStatus: newVals.filter.eventStatus,
   });
@@ -75,13 +78,29 @@ function SearchBar() {
         participationType: allParticipationTypes,
         society_hub_id: hubs.map((h) => h.id).map(Number),
         eventStatus: "all" as const,
+        category_id: [],
       },
     }),
     [hubs]
   );
 
   const [localFilters, setLocalFilters] = useState<ReturnType<typeof parseSearchParams>>(defaultFilters);
+  const [isCategoryDrawerOpen, setIsCategoryDrawerOpen] = useState(false);
 
+  // Suppose you have `categories` from a TRPC query: `trpc.eventCategories.getAll.useQuery()`
+  const { data: categories } = trpc.events.getCategories.useQuery();
+
+  const selectedCategoryIds = localFilters.filter.category_id;
+
+  let categoryText = "All";
+  if (categories && selectedCategoryIds.length > 0 && selectedCategoryIds.length !== categories.length) {
+    categoryText = selectedCategoryIds
+      // Because selectedCategoryIds are numeric strings, parse as Number
+      .map((catId) => categories.find((c) => c.category_id === Number(catId))?.name)
+      .filter(Boolean)
+      .join(", ");
+  }
+  console.log("Categories:", categories, "Selected IDs:", selectedCategoryIds, "Text:", categoryText);
   useEffect(() => {
     setLocalFilters(parsedSearchParams);
   }, [parsedSearchParams]);
@@ -218,11 +237,13 @@ function SearchBar() {
         <MainFilterDrawer
           hubText={hubText}
           setIsEventTypeDrawerOpen={setIsEventTypeDrawerOpen}
+          categoryText={categoryText}
           setIsHubDrawerOpen={setIsHubDrawerOpen}
           resetFilters={resetFilters}
           applyFilters={() => applyFilters(localFilters)}
           participationType={localFilters.filter.participationType}
           sortBy={localFilters.sortBy}
+          setIsCategoryDrawerOpen={setIsCategoryDrawerOpen}
           setSortBy={(newSort: SortBy) =>
             setLocalFilters((prev) => ({
               ...prev,
@@ -258,7 +279,23 @@ function SearchBar() {
         setSelectedHubs={setSelectedHubsArray}
         hubs={hubs}
       />
-
+      <CategorySelectorDrawer
+        isOpen={isCategoryDrawerOpen}
+        onOpenChange={setIsCategoryDrawerOpen}
+        categories={categories}
+        selectedCategories={selectedCategoryIds.map(String)}
+        setSelectedCategories={(categoryIds) => {
+          // If user unselects all, fallback to "all categories" if desired,
+          // or let it be empty array (meaning no categories).
+          setLocalFilters((prev) => ({
+            ...prev,
+            filter: {
+              ...prev.filter,
+              category_id: categoryIds.map(Number),
+            },
+          }));
+        }}
+      />
       {/* If user tries removing both 'online' + 'in_person' */}
       <ParticipantErrorDialog
         open={showDialogParticipantError}

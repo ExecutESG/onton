@@ -8,6 +8,7 @@ export type GeneralFormErrors = {
   has_registration?: string[];
   has_approval?: string[];
   capacity?: string[];
+  category_id?: string[];
 };
 
 export type TimePlaceFormErorrs = {

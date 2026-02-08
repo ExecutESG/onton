@@ -248,7 +248,7 @@ export const tasksRouter = router({
     // 2) Prepare data
     const affiliateDataForBot = {
       linkHash,
-      imageUrl: "https://mohammad-storage.toncloud.observer/campaign/photo_2025-04-01_08-41-17.jpg",
+      imageUrl: "https://dev-storage.dev.onton.live/campaign/photo_2025-04-01_08-41-17.jpg",
       // any other fields, e.g. totalSpins or totalPurchase if relevant
     };
 

@@ -554,7 +554,7 @@ export const requestShareAffiliateOnionCampaign = initDataProtectedProcedure.mut
       linkHash,
       totalSpins,
       // Your fixed image:
-      imageUrl: "https://mohammad-storage.toncloud.observer/campaign/photo_2025-04-01_08-41-17.jpg",
+      imageUrl: "https://dev-storage.dev.onton.live/campaign/photo_2025-04-01_08-41-17.jpg",
     };
 
     // 5) Call telegramService to share

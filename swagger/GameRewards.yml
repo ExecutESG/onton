@@ -6,7 +6,7 @@ info:
 servers:
   - url: https://staging-app.toncloud.observer/api/v1
     description: Staging server
-  - url: https://dev-app.toncloud.observer/api/v1
+  - url: https://dev-app.dev.onton.live/api/v1
     description: Development server
   - url: https://app.onton.live/api/v1
     description: Production server

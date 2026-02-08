@@ -9,7 +9,7 @@ info:
 servers:
   - url: https://staging-app.toncloud.observer
     description: Staging server
-  - url: https://dev-app.toncloud.observer
+  - url: https://dev-app.dev.onton.live
     description: Development server
   - url: https://app.onton.live
     description: Production server

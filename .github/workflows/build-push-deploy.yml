@@ -417,18 +417,11 @@ jobs:
           ssh_ip="${SSH_IP}"
           ssh_port="${SSH_PORT}"
           services_to_build=${{ needs.determine-services.outputs.services_to_build }}   
-          echo "create network"
-          docker network create --driver overlay --attachable onton-network-$branch_name || true
-          echo "changed services: $services_to_build"
-          echo "Deploying services to branch: $branch_name"
-          if [ -z "$ssh_ip" ]; then
-            echo "Error: SSH IP not found."
-            exit 1
-          fi
-
           echo "Connecting to server and creating branch directory..."
           ssh -o StrictHostKeyChecking=no -p "$ssh_port" tonont@$ssh_ip << EOF
             mkdir -p /home/tonont/$branch_name
+            echo "Creating network if not exists..."
+            docker network create --driver overlay --attachable onton-network-$branch_name || true
           EOF
 
           echo "Copying files to server..."

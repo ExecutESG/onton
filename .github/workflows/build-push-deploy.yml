@@ -9,6 +9,7 @@ on:
       #      - 'client-web-panel/**'
       - 'devops/**'
       - 'docker-compose-server.yml'
+      - 'docker-compose-server-dev.yml'
       - 'mini-app/**'
       - 'newton/**'
       - 'telegram-bot/**'

@@ -400,12 +400,20 @@ jobs:
           if [[ "$branch_name" == "dev" ]]; then
             echo "SSH_IP=${{ secrets.SSH_DEV_IP }}" >> $GITHUB_ENV
             echo "SSH_PORT=${{ secrets.SSH_DEV_PORT }}" >> $GITHUB_ENV
-          elif [[ "$branch_name" == "main" ]]; then
             echo "SSH_IP=${{ secrets.SSH_MAIN_IP }}" >> $GITHUB_ENV
             echo "SSH_PORT=${{ secrets.SSH_MAIN_PORT }}" >> $GITHUB_ENV
+            echo "COMPOSE_FILE=docker-compose-server.yml" >> $GITHUB_ENV
           else
             echo "Error: Unknown branch name, unable to set SSH credentials."
             exit 1
+          fi
+
+      - name: Set up Compose File Variable
+        run: |
+          if [[ "${{ github.ref_name }}" == "dev" ]]; then
+            echo "COMPOSE_FILE=docker-compose-server-dev.yml" >> $GITHUB_ENV
+          else
+            echo "COMPOSE_FILE=docker-compose-server.yml" >> $GITHUB_ENV
           fi
 
       - name: Deploy Changed Services
@@ -426,7 +434,7 @@ jobs:
           EOF
 
           echo "Copying files to server..."
-          scp  -P "$ssh_port"  -r -o StrictHostKeyChecking=no  docker-compose-server.yml .env docker-compose-server.volume.dev.yml docker-compose-server.override.dev.yml .dockerignore swagger devops tonont@$ssh_ip:/home/tonont/$branch_name
+          scp  -P "$ssh_port"  -r -o StrictHostKeyChecking=no  docker-compose-server.yml docker-compose-server-dev.yml .env docker-compose-server.volume.dev.yml docker-compose-server.override.dev.yml .dockerignore swagger devops tonont@$ssh_ip:/home/tonont/$branch_name
           
           
           # Remove brackets and convert to space-separated string
@@ -519,10 +527,10 @@ jobs:
             # Create network if it doesn't exist (on the server)
             docker network ls | grep -q "onton-network-$branch_name" || docker network create --driver overlay --attachable "onton-network-$branch_name" || true
 
-            echo "Deploying Docker stack for $branch_name..."
+            echo "Deploying Docker stack for $branch_name using $COMPOSE_FILE..."
             # Temporarily disable errexit for the capture
             set +o errexit
-            deploy_output=\$(docker stack deploy --with-registry-auth -c docker-compose-server.yml $branch_name 2>&1)
+            deploy_output=\$(docker stack deploy --with-registry-auth -c $COMPOSE_FILE $branch_name 2>&1)
             deploy_status=\$?
             set -o errexit
           

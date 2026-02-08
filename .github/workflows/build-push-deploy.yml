@@ -421,7 +421,7 @@ jobs:
           ssh -o StrictHostKeyChecking=no -p "$ssh_port" tonont@$ssh_ip << EOF
             mkdir -p /home/tonont/$branch_name
             echo "Creating network if not exists..."
-            docker network create --driver overlay --attachable onton-network-$branch_name || true
+
           EOF
 
           echo "Copying files to server..."
@@ -515,10 +515,22 @@ jobs:
                 echo "Ensure node has label 'stage.$branch_name=true' set manually."
                 # Do not exit 1, allow deployment to proceed
             fi
+            # Create network if it doesn't exist (on the server)
+            docker network ls | grep -q "onton-network-$branch_name" || docker network create --driver overlay --attachable "onton-network-$branch_name" || true
+
             echo "Deploying Docker stack for $branch_name..."
+            # Temporarily disable errexit for the capture
+            set +o errexit
             deploy_output=\$(docker stack deploy --with-registry-auth -c docker-compose-server.yml $branch_name 2>&1)
+            deploy_status=\$?
+            set -o errexit
           
             echo "\$deploy_output"
+
+            if [ \$deploy_status -ne 0 ]; then
+                echo "Error: Deployment failed with exit code \$deploy_status."
+                exit 1
+            fi
             if echo "\$deploy_output" | grep -q "could not be accessed on a registry"; then
               echo "Error: Registry access issue detected during deployment."
               exit 1

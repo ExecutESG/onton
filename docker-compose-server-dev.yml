@@ -576,8 +576,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 3000M
-          cpus: "2.0"
+          memory: 512M
+          cpus: "0.2"
       mode: global
       update_config:
         failure_action: rollback

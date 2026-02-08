@@ -299,9 +299,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 3000M
-          cpus: "2.0"
-      replicas: ${SYS_MINI_APP_REPLICAS:-2}
+          memory: 1024M
+          cpus: "0.5"
+      replicas: 1
       update_config:
         failure_action: rollback
         order: start-first
@@ -532,8 +532,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 2000M
-          cpus: "1.0"
+          memory: 512M
+          cpus: "0.2"
       mode: global
       update_config:
         failure_action: rollback
@@ -624,12 +624,12 @@ services:
     deploy:
       resources:
         limits:
-          memory: 5000M
-          cpus: "2.0"
+          memory: 512M
+          cpus: "0.2"
         reservations:
-          memory: 3000M
-          cpus: "1.0"
-      replicas: 5
+          memory: 256M
+          cpus: "0.1"
+      replicas: 1
       update_config:
         failure_action: rollback
         order: start-first
@@ -672,9 +672,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 3000M
-          cpus: "2.0"
-      replicas: "${SYS_PARTICIPANT_TMA_REPLICAS-1}"
+          memory: 512M
+          cpus: "0.2"
+      replicas: 1
       update_config:
         failure_action: rollback
         order: start-first
@@ -707,9 +707,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 2000M
-          cpus: "1.0"
-      replicas: "${SYS_WEB_SITE_REPLICAS-1}"
+          memory: 256M
+          cpus: "0.1"
+      replicas: 1
       update_config:
         failure_action: rollback
         order: start-first

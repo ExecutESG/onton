@@ -483,8 +483,8 @@ jobs:
                   export CADDYFILE_PATH="/home/tonont/caddy/tmp/$branch_name.caddyfile"
                   sh devops/generate-caddyfile-by-address.sh
                   mv /home/tonont/caddy/tmp/$branch_name.caddyfile /home/tonont/caddy/$branch_name.caddyfile
-                  docker stack deploy --with-registry-auth -c ./devops/caddyServer/docker-compose-caddy.yml $branch_name
-                  docker service update --force ${branch_name}_caddy
+                  docker stack deploy --with-registry-auth -c ./devops/caddyServer/docker-compose-caddy.yml ${branch_name}-caddy
+                  docker service update --force ${branch_name}-caddy_caddy
                   echo "Services deployed caddy successfully."
               fi
             done
@@ -555,41 +555,41 @@ jobs:
             for service in \$services; do
               echo "Processing service: \$service"
               if [ "\$service" == "caddy" ]; then
-                echo "docker service update --force $branch_name\_caddy"
-                docker service update --force $branch_name\_caddy
+                echo "docker service update --force ${branch_name}-caddy_caddy"
+                docker service update --force ${branch_name}-caddy_caddy
               elif [ "\$service" == "mini-app" ]; then
                 echo "Special handling for mini-app service"
                 echo "Updating $branch_name_mini-app"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force $branch_name\_\mini-app
+                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force ${branch_name}_mini-app
           
                 echo "Updating $branch_name_mini-app-notification-socket"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force $branch_name\_\mini-app-notification-socket
+                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force ${branch_name}_mini-app-notification-socket
           
                 echo "Updating $branch_name_mini-app-poa-worker"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force $branch_name\_\mini-app-poa-worker
+                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force ${branch_name}_mini-app-poa-worker
           
                 echo "Updating $branch_name_mini-app-sbt-worker"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force $branch_name\_\mini-app-sbt-worker
+                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force ${branch_name}_mini-app-sbt-worker
                 
                 echo "Updating $branch_name_mini-app-nft-api-worker"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force $branch_name\_\mini-app-nft-api-worker
+                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force ${branch_name}_mini-app-nft-api-worker
           
           
                 echo "Updating $branch_name_mini-app-ordinary-worker"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force $branch_name\_\mini-app-ordinary-worker
+                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force ${branch_name}_mini-app-ordinary-worker
           
                 echo "Updating $branch_name_mini-app-reward-worker"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force $branch_name\_\mini-app-reward-worker
+                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force ${branch_name}_mini-app-reward-worker
           
                 echo "Updating $branch_name_mini-app-moderation-bot"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force $branch_name\_\mini-app-moderation-bot
+                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force ${branch_name}_mini-app-moderation-bot
               else
-                echo "docker service update --force $branch_name\_\$service"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2  --force $branch_name\_\$service
+                echo "docker service update --force $branch_name\_$service"
+                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2  --force $branch_name\_$service
               fi
             done
             # bidar kardane fluentd :))
-            docker service update --update-failure-action rollback --update-max-failure-ratio 0.5 --force $branch_name\_fluentd
+            docker service update --update-failure-action rollback --update-max-failure-ratio 0.5 --force ${branch_name}_fluentd
             echo "Services deployed successfully."         
           EOF
 

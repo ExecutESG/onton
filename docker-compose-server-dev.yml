@@ -175,7 +175,7 @@ services:
       - onton-network
 
   caddy:
-    image: ${REGISTRY_URL}/${GITHUB_REPO}/caddy:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/caddy:${BRANCH_NAME}-latest
     hostname: caddy
     ports:
       - "80:80"
@@ -200,7 +200,7 @@ services:
     volumes:
       - caddy_data:/data
       - caddy_config:/config
-      - /home/tonont/caddy/:/etc/caddy/
+      - /home/tonont/caddy/${BRANCH_NAME}.caddyfile:/etc/caddy/Caddyfile
       - ./devops/cert/:/certs
     networks:
       - onton-network

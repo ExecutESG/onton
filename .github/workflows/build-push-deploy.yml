@@ -476,9 +476,8 @@ jobs:
                   set +o allexport
                   source /home/tonont/$branch_name/.env
                   chmod +x devops/generate-caddyfile-by-address.sh
-                  rm -f /home/tonont/caddy/tmp/$branch_name/Caddyfile
-                  mkdir -p /home/tonont/caddy/tmp/$branch_name/
-                  mkdir -p /home/tonont/caddy/Caddyfile
+                   rm -rf /home/tonont/caddy/Caddyfile
+                   mkdir -p /home/tonont/caddy/tmp/
           
                   export CADDYFILE_PATH="/home/tonont/caddy/tmp/$branch_name.caddyfile"
                   sh devops/generate-caddyfile-by-address.sh

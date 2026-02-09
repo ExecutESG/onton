@@ -437,7 +437,7 @@ jobs:
           EOF
 
           echo "Copying files to server..."
-          scp  -P "$ssh_port"  -r -o StrictHostKeyChecking=no  docker-compose-server.yml docker-compose-server-dev.yml .env docker-compose-server.volume.dev.yml docker-compose-server.override.dev.yml .dockerignore swagger devops tonont@$ssh_ip:/home/tonont/$branch_name
+          scp  -P "$ssh_port"  -r -o StrictHostKeyChecking=no  docker-compose-server.yml docker-compose-server-dev.yml .env docker-compose-server.volume.dev.yml .dockerignore swagger devops tonont@$ssh_ip:/home/tonont/$branch_name
           
           
           # Remove brackets and convert to space-separated string

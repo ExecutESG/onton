@@ -49,7 +49,7 @@ jobs:
             ["participant-tma"]="newton/apps/participant-tma"
             ["telegram-bot"]="telegram-bot"
             ["website"]="website"
-            ["caddy"]="devops/caddy"
+            ["caddy"]="devops"
             ["swagger-ui"]="swagger"
           )
           # If Trigger-full-build.txt has changed, add all services

@@ -52,6 +52,8 @@ jobs:
             ["mini-app-ordinary-worker"]="mini-app"
             ["mini-app-reward-worker"]="mini-app"
             ["mini-app-poa-worker"]="mini-app"
+            ["mini-app-notification-socket"]="mini-app"
+            ["mini-app-moderation-bot"]="mini-app"
             ["telegram-bot"]="telegram-bot"
             ["website"]="website"
             ["caddy"]="devops"

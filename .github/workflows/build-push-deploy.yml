@@ -47,6 +47,11 @@ jobs:
           declare -A service_dirs=(
             ["mini-app"]="mini-app"
             ["participant-tma"]="newton/apps/participant-tma"
+            ["mini-app-sbt-worker"]="mini-app"
+            ["mini-app-nft-api-worker"]="mini-app"
+            ["mini-app-ordinary-worker"]="mini-app"
+            ["mini-app-reward-worker"]="mini-app"
+            ["mini-app-poa-worker"]="mini-app"
             ["telegram-bot"]="telegram-bot"
             ["website"]="website"
             ["caddy"]="devops"

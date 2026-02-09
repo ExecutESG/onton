@@ -445,6 +445,7 @@ jobs:
           # Remove brackets and convert to space-separated string
           services=$(echo "$services_to_build" | tr -d '[]"' | tr ',' ' ')
           echo "Formatted services to build: $services"  # Debug output        
+          ssh -p "${ssh_port}" -o StrictHostKeyChecking=no tonont@$ssh_ip "curl -X GET -H \"Authorization: Bearer $ONTON_CORE_KEY\" http://65.109.205.239:3000/env?stage_name=${{ github.ref_name }}-onton" | sed 's/\"//g' > .env
           ssh -p "$ssh_port" -o StrictHostKeyChecking=no tonont@$ssh_ip << EOF
             whoami
             echo "Loading environment variables..."

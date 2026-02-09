@@ -1,1 +1,0 @@
-Clean trigger after manual stack removal to resolve service mode conflicts.

@@ -28,7 +28,7 @@ if [ ! -f "$TELEGRAM_BOT_TOKEN_FILE" ]; then
 fi
 
 TELEGRAM_BOT_TOKEN=$(<"$TELEGRAM_BOT_TOKEN_FILE")
-TELEGRAM_CHAT_ID="-1002363792519"  # Replace with your chat ID
+TELEGRAM_CHAT_ID="-1003715829795"  # Replace with your chat ID
 
 # Redirect all output to a log file
 exec > >(tee -i "$LOG_FILE") 2>&1

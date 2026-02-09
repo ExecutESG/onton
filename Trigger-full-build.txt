@@ -1,1 +1,1 @@
-Force full rebuild and deploy to restore Caddy stack and unified networking.
+Clean trigger after manual stack removal to resolve service mode conflicts.

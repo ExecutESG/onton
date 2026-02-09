@@ -374,18 +374,18 @@ jobs:
           vars_json="${ALLMYVARS}"
           
           echo "$secrets_json" | jq -r --arg prefix "$prefix" \
-            'to_entries[] | select(.key | startswith($prefix)) | "\(.key[$prefix | length:])=\(.value)"' >> $env_file
+            'to_entries[] | select(.key | startswith($prefix)) | "\(.key[$prefix | length:])=\"\(.value)\""' >> $env_file
           
           echo "$vars_json" | jq -r --arg prefix "$prefix" \
-            'to_entries[] | select(.key | startswith($prefix)) | "\(.key[$prefix | length:])=\(.value)"' >> $env_file
+            'to_entries[] | select(.key | startswith($prefix)) | "\(.key[$prefix | length:])=\"\(.value)\""' >> $env_file
           
           # Add branch name as env also
-          echo "BRANCH_NAME=$branch_name" >> $env_file
+          echo "BRANCH_NAME=\"$branch_name\"" >> $env_file
           # Add github repo as env also
-          echo "GITHUB_REPO=$github_repo" >> $env_file
+          echo "GITHUB_REPO=\"$github_repo\"" >> $env_file
           # Add the GitHub Container Registry PAT to the env file
-          echo "CR_PAT=${CR_PAT}" >> $env_file
-          echo "REGISTRY_URL=ghcr.io" >> $env_file
+          echo "CR_PAT=\"${CR_PAT}\"" >> $env_file
+          echo "REGISTRY_URL=\"ghcr.io\"" >> $env_file
           
           echo "Environment variables script generated successfully."
 

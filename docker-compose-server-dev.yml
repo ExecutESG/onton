@@ -1,809 +1,304 @@
-x-common-extra-hosts: &default-extra-hosts
-  extra_hosts:
-    - host.docker.internal:host-gateway
+version: '3.8'
 
 x-common-env: &common-env
-  ACME_AGREE: ${ACME_AGREE}
-  BOT_TOKEN: ${BOT_TOKEN}
-  CLIENT_WEB_DOMAIN: ${CLIENT_WEB_DOMAIN}
+  ENV: ${ENV}
+  NODE_ENV: ${NODE_ENV}
+  NEXT_PUBLIC_ENV: ${NEXT_PUBLIC_ENV}
+  BRANCH_NAME: ${BRANCH_NAME}
   DATABASE_URL: ${DATABASE_URL}
   DATABASE_URL_NFT_MANAGER: ${DATABASE_URL_NFT_MANAGER}
-  ENV: ${ENV}
-  GOLANG_SERVER_PORT: ${GOLANG_SERVER_PORT}
-  IP_CLAMAV: ${IP_CLAMAV}
-  IP_CLIENT_WEB: ${IP_CLIENT_WEB}
-  IP_METABASE: ${IP_METABASE}
-  IP_MINI_APP: ${IP_MINI_APP}
-  IP_MINIO: ${IP_MINIO}
-  IP_PARTICIPANT_TMA: ${IP_PARTICIPANT_TMA}
-  IP_PGADMIN: ${IP_PGADMIN}
-  IP_RANGE_BASE: ${IP_RANGE_BASE}
-  IP_SWAGGER_UI: ${IP_SWAGGER_UI}
-  IP_TELEGRAM_BOT: ${IP_TELEGRAM_BOT}
-  IP_WEBSITE: ${IP_WEBSITE}
-  IP_NFT_MANAGER: ${IP_NFT_MANAGER}
-  LOCAL_DOMAIN: ${LOCAL_DOMAIN}
-  METABASE_DOMAIN: ${METABASE_DOMAIN}
-  MINI_APP_DOMAIN: ${MINI_APP_DOMAIN}
-  MINI_APP_PORT: ${MINI_APP_PORT}
-  MINIO_COLLECTION_BUCKET: ${MINIO_COLLECTION_BUCKET}
-  MINIO_DASHBOARD_PORT: ${MINIO_DASHBOARD_PORT}
-  MINIO_DOC_BUCKET: ${MINIO_DOC_BUCKET}
-  MINIO_DOC_DEFAULT_BUCKET: ${MINIO_DOC_DEFAULT_BUCKET}
-  MINIO_ENDPOINT: ${MINIO_ENDPOINT}
-  MINIO_IMAGE_BUCKET: ${MINIO_IMAGE_BUCKET}
-  MINIO_ITEM_BUCKET: ${MINIO_ITEM_BUCKET}
-  MINIO_PORT: ${MINIO_PORT}
-  MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL}
-  MINIO_REGION_NAME: ${MINIO_REGION_NAME}
-  MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-  MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-  MINIO_SBT_COLLECTIONS_BUCKET: ${MINIO_SBT_COLLECTIONS_BUCKET}
-  MINIO_STORAGE_ADMIN_DOMAIN: ${MINIO_STORAGE_ADMIN_DOMAIN}
-  MINIO_STORAGE_DOMAIN: ${MINIO_STORAGE_DOMAIN}
-  MINIO_VIDEO_BUCKET: ${MINIO_VIDEO_BUCKET}
-  MONITORING_DOMAIN: ${MONITORING_DOMAIN}
-  NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
-  NEXT_PUBLIC_APP_BASE_URL: ${NEXT_PUBLIC_APP_BASE_URL}
-  NEXT_PUBLIC_GTM: ${NEXT_PUBLIC_GTM}
-  NEXT_PUBLIC_BOT_USERNAME: ${NEXT_PUBLIC_BOT_USERNAME}
-  NODE_ENV: ${NODE_ENV}
-  NODE_TLS_REJECT_UNAUTHORIZED: ${NODE_TLS_REJECT_UNAUTHORIZED}
-  ONTON_API_KEY: ${ONTON_API_KEY}
-  ONTON_DOMAIN: ${ONTON_DOMAIN}
-  PARTICIPANT_TMA_PORT: ${PARTICIPANT_TMA_PORT}
-  PGADMIN_DOMAIN: ${PGADMIN_DOMAIN}
-  PORT_CLIENT_WEB: ${PORT_CLIENT_WEB}
-  CLAMAV_PORT: ${CLAMAV_PORT}
-  PORT_METABASE: ${PORT_METABASE}
-  PORT_PGADMIN: ${PORT_PGADMIN}
-  PORT_WEB_SITE: ${PORT_WEB_SITE}
-  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-  POSTGRES_PORT: ${POSTGRES_PORT}
-  POSTGRES_USER: ${POSTGRES_USER}
-  IP_RABBITMQ: ${IP_RABBITMQ}
-  NFT_MANAGER_PORT: ${NFT_MANAGER_PORT}
-  RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
-  RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
-  RABBITMQ_DOMAIN: ${RABBITMQ_DOMAIN}
-  RABBITMQ_MANAGEMENT_PORT: ${RABBITMQ_MANAGEMENT_PORT}
-  RABBITMQ_NODE_PORT: ${RABBITMQ_NODE_PORT}
-  KIBANA_PORT: ${KIBANA_PORT}
-  REDIS_DATABASES: ${REDIS_DATABASES}
-  REDIS_HOST: ${IP_REDIS}
-  IP_REDIS: ${IP_REDIS}
-  REDIS_PASSWORD: ${REDIS_PASSWORD}
-  REDIS_PORT: ${REDIS_PORT}
-  TELEGRAM_BOT_PORT: ${TELEGRAM_BOT_PORT}
-  TG_NOTIFICATION_CHANELL: ${TG_NOTIFICATION_CHANELL}
-  TONAPI_API_KEY: ${TONAPI_API_KEY}
-  TON_CENTER_TOKEN: ${TON_CENTER_TOKEN}
-  TON_CENTER_ENDPOINT: ${TON_CENTER_ENDPOINT}
-  DOCKER_CONFIG: "/run/secrets/registry-onton-config"
-  MINI_APP_SOCKET_DOMAIN: ${MINI_APP_SOCKET_DOMAIN}
-  NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL}
-  IP_SOCKET: ${IP_SOCKET}
-  SOCKET_PORT: ${SOCKET_PORT}
-  JWT_SECRET_SOCKET: ${JWT_SECRET_SOCKET}
-  ONTON_API_SECRET: ${ONTON_API_SECRET}
-  SWAGGER_UI_DOMAIN: ${SWAGGER_UI_DOMAIN}
-  SWAGGER_UI_PORT: ${SWAGGER_UI_PORT}
-  EVENT_WALLET_ENC_KEY: ${EVENT_WALLET_ENC_KEY}
+  REDIS_URL: ${REDIS_URL}
+  TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+  SOCIETY_HUB_API_KEY: ${SOCIETY_HUB_API_KEY}
+  SOCIETY_HUB_ADMIN_CHAT_ID: ${SOCIETY_HUB_ADMIN_CHAT_ID}
+  SOCIETY_HUB_CHAT_ID: ${SOCIETY_HUB_CHAT_ID}
+
+x-default-extra-hosts: &default-extra-hosts
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+
 services:
-  fluentd:
-    image: fluent/fluentd:v1.14-1
-    hostname: fluentd
-    networks:
-      - onton-network
-    ports:
-      - "24224:24224"
-      - "24224:24224/udp"
-    deploy:
-      mode: global
-      restart_policy:
-        condition: on-failure
-
-  minio:
-    hostname: minio
-    image: minio/minio
-    depends_on:
-      - fluentd
-    networks:
-      - onton-network
-    ports:
-      - "${MINIO_PORT}:${MINIO_PORT}"
-      - "${MINIO_DASHBOARD_PORT}:${MINIO_DASHBOARD_PORT}"
-    deploy:
-      resources:
-        limits:
-          memory: 8000M
-          cpus: "3.0"
-      mode: global
-      update_config:
-        failure_action: rollback
-        order: stop-first
-        parallelism: 1
-      placement:
-        constraints:
-          - node.role == manager
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 20
-        window: 300s
-    volumes:
-      - minio_data:/data
-      - ./devops/minio-init.sh:/usr/bin/entrypoint.sh # Mount the script into the container
-    entrypoint: [ "/usr/bin/entrypoint.sh" ] # Use the custom entrypoint script
-    environment:
-      <<: *common-env
-    logging:
-      driver: "fluentd"
-      options:
-        fluentd-address: "127.0.0.1:24224"
-        tag: "docker.${BRANCH_NAME}-minio"
-        #fluentd-async-connect: "true"
-
-  postgres:
-    hostname: postgres
-    image: postgres:16.3-alpine3.20
-    depends_on:
-      - fluentd
-    ports:
-      - "${POSTGRES_PORT}:${POSTGRES_PORT}"
-    deploy:
-      resources:
-        limits:
-          memory: 2048M
-          cpus: "1.0"
-      mode: global
-      update_config:
-        failure_action: rollback
-        order: stop-first
-        parallelism: 1
-      placement:
-        constraints:
-          - node.role == manager
-      restart_policy:
-        condition: on-failure
-        delay: 15s
-        window: 30s
-    stop_grace_period: 120s
-    stop_signal: SIGTERM
-    environment:
-      <<: *common-env
-    command: >
-      postgres -p ${POSTGRES_PORT} -c max_connections=500 -c shared_buffers=8GB -c effective_cache_size=24GB -c maintenance_work_mem=2GB -c work_mem=32MB -c checkpoint_completion_target=0.9 -c wal_buffers=16MB -c log_min_duration_statement=2000     -c log_destination=stderr              -c logging_collector=off             -c log_statement=none
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - onton-network
-    #    healthcheck:
-    #      test: ["CMD-SHELL", "sh -c 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -h localhost -p ${POSTGRES_PORT} '"]
-    #      interval: 30s
-    #      timeout: 5s
-    #      start_period: 20s
-    logging:
-      driver: "fluentd"
-      options:
-        fluentd-address: "127.0.0.1:24224"
-        tag: "docker.${BRANCH_NAME}-postgres"
-        #fluentd-async-connect: "true"
-
-
-  redis:
-    image: redis:7.4.1-bookworm
-    hostname: redis
-    volumes:
-      - redis_data:/data
-    depends_on:
-      - fluentd
-    ports:
-      - "${REDIS_PORT}:${REDIS_PORT}"
-    command: redis-server  --port ${REDIS_PORT}
-    deploy:
-      resources:
-        limits:
-          memory: 3000M
-          cpus: "2.0"
-      mode: global
-      update_config:
-        failure_action: rollback
-        order: stop-first
-        parallelism: 1
-      placement:
-        constraints:
-          - node.role == manager
-      restart_policy:
-        condition: on-failure
-        delay: 10s
-        max_attempts: 20
-        window: 30s
-    stop_signal: SIGTERM
-    stop_grace_period: 30s
-    environment:
-      <<: *common-env
-    networks:
-      - onton-network
-    #    healthcheck:
-    #      test: ["CMD-SHELL", "redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT}  ping | grep PONG "]
-    #      interval: 30s
-    #      timeout: 5s
-    #      start_period: 5s
-    logging:
-      driver: "fluentd"
-      options:
-        fluentd-address: "127.0.0.1:24224"
-        tag: "docker.${BRANCH_NAME}-redis"
-        #fluentd-async-connect: "true"
-
-  pgadmin:
-    image: dpage/pgadmin4
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
-      PGADMIN_LISTEN_PORT: ${PORT_PGADMIN}
-    depends_on:
-      - postgres
-    ports:
-      - "${PORT_PGADMIN}:${PORT_PGADMIN}"
-    networks:
-      - onton-network
-    volumes:
-      - pgadmin:/var/lib/pgadmin
-
-  telegram-bot:
-    image: ${REGISTRY_URL}/${GITHUB_REPO}/telegram-bot:${BRANCH_NAME}-latest
-    hostname: telegram-bot
-    deploy:
-      resources:
-        limits:
-          memory: 3000M
-          cpus: "2.0"
-      mode: global
-      update_config:
-        failure_action: rollback
-        order: stop-first
-        parallelism: 1
-      placement:
-        constraints:
-          - node.role == manager
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 20
-        window: 300s
-    environment:
-      <<: *common-env
-    depends_on:
-      - postgres
-      - fluentd
-      - redis
-    secrets:
-      - registry-onton-config
-    networks:
-      - onton-network
-    logging:
-      driver: "fluentd"
-      options:
-        fluentd-address: "127.0.0.1:24224"
-        tag: "docker.${BRANCH_NAME}-telegram-bot"
-        #fluentd-async-connect: "true"
-
   mini-app:
+    image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
     hostname: mini-app
-    image: ${REGISTRY_URL}/${GITHUB_REPO}/mini-app:${BRANCH_NAME}-latest
     ports:
       - "${MINI_APP_PORT}:${MINI_APP_PORT}"
     <<: *default-extra-hosts
     deploy:
       resources:
         limits:
-          memory: 1024M
+          memory: 1G
           cpus: "0.5"
       replicas: 1
-      update_config:
-        failure_action: rollback
-        order: start-first
-      restart_policy:
-        condition: any
-        delay: 3s
-    stop_grace_period: 10s
-    stop_signal: SIGTERM
     environment:
       <<: *common-env
-      TON_SOCIETY_API_KEY: ${TON_SOCIETY_API_KEY}
-      TON_SOCIETY_BASE_URL: ${TON_SOCIETY_BASE_URL}
-      TWITTER_CLIENT_ID: ${TWITTER_CLIENT_ID}
-      TWITTER_CLIENT_SECRET: ${TWITTER_CLIENT_SECRET}
-      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
-      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
-      LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID}
-      LINKEDIN_CLIENT_SECRET: ${LINKEDIN_CLIENT_SECRET}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-      MS_CLIENT_ID: ${MS_CLIENT_ID}
-      MS_CLIENT_SECRET: ${MS_CLIENT_SECRET}
-
-    depends_on:
-      - postgres
-      - redis
-      - minio
-      - fluentd
-    volumes:
-      - drizzle_data:/app/drizzle
     networks:
       - onton-network
-    secrets:
-      - registry-onton-config
-    healthcheck:
-      test: [ "CMD-SHELL", "curl  http://localhost:${MINI_APP_PORT}/api/client/v1/public/ping | grep -q pong " ]
-      interval: 15s
-      timeout: 10s
-      start_period: 15s
-    logging:
-      driver: "fluentd"
-      options:
-        fluentd-address: "127.0.0.1:24224"
-        tag: "docker.${BRANCH_NAME}-mini-app"
-        #fluentd-async-connect: "true"
 
-  mini-app-sbt-worker:
-    hostname: mini-app-sbt-worker
-    image: ${REGISTRY_URL}/${GITHUB_REPO}/mini-app:${BRANCH_NAME}-latest
+  telegram-bot:
+    image: ghcr.io/executesg/onton/telegram-bot:${BRANCH_NAME}-latest
+    hostname: telegram-bot
     <<: *default-extra-hosts
     deploy:
+      mode: global
       resources:
         limits:
-          memory: 2000M
-          cpus: "2.0"
-      mode: global
-      update_config:
-        failure_action: rollback
-        order: stop-first
-      restart_policy:
-        condition: on-failure
-        delay: 10s
-        max_attempts: 20
-        window: 300s
-    stop_grace_period: 10s
-    stop_signal: SIGTERM
+          memory: 1G
+          cpus: "0.5"
     environment:
       <<: *common-env
-      MNEMONIC: ${MNEMONIC}
-      TON_SOCIETY_API_KEY: ${TON_SOCIETY_API_KEY}
-      TON_SOCIETY_BASE_URL: ${TON_SOCIETY_BASE_URL}
-    depends_on:
-      - postgres
-      - redis
-      - minio
-      - fluentd
-    volumes:
-      - drizzle_data_cron:/app/drizzle
     networks:
       - onton-network
-    command: [ "yarn", "run", "start-cron-payment" ]
-    secrets:
-      - registry-onton-config
-    logging:
-      driver: "fluentd"
-      options:
-        fluentd-address: "127.0.0.1:24224"
-        tag: "docker.${BRANCH_NAME}-mini-app-sbt-worker"
-        #fluentd-async-connect: "true"
-
-  mini-app-nft-api-worker:
-    hostname: mini-app-nft-api-worker
-    image: ${REGISTRY_URL}/${GITHUB_REPO}/mini-app:${BRANCH_NAME}-latest
-    <<: *default-extra-hosts
-    deploy:
-      resources:
-        limits:
-          memory: 2000M
-          cpus: "2.0"
-      mode: global
-      update_config:
-        failure_action: rollback
-        order: stop-first
-      restart_policy:
-        condition: on-failure
-        delay: 30s
-        max_attempts: 20
-        window: 300s
-    stop_grace_period: 30s
-    stop_signal: SIGTERM
-    environment:
-      <<: *common-env
-      MNEMONIC: ${MNEMONIC}
-      TON_SOCIETY_API_KEY: ${TON_SOCIETY_API_KEY}
-      TON_SOCIETY_BASE_URL: ${TON_SOCIETY_BASE_URL}
-    depends_on:
-      - postgres
-      - redis
-      - minio
-      - fluentd
-    volumes:
-      - drizzle_data_cron:/app/drizzle
-    networks:
-      - onton-network
-    command: [ "yarn", "run", "start-cron-nft-api" ]
-    secrets:
-      - registry-onton-config
-    logging:
-      driver: "fluentd"
-      options:
-        fluentd-address: "127.0.0.1:24224"
-        tag: "docker.${BRANCH_NAME}-mini-app-nft-api-worker"
-        #fluentd-async-connect: "true"
-
-
-  mini-app-reward-worker:
-    hostname: mini-app-reward-worker
-    image: ${REGISTRY_URL}/${GITHUB_REPO}/mini-app:${BRANCH_NAME}-latest
-    <<: *default-extra-hosts
-    deploy:
-      resources:
-        limits:
-          memory: 2000M
-          cpus: "2.0"
-      mode: global
-      update_config:
-        failure_action: rollback
-        order: stop-first
-      restart_policy:
-        condition: on-failure
-        delay: 10s
-        max_attempts: 20
-        window: 300s
-    stop_grace_period: 10s
-    stop_signal: SIGTERM
-    environment:
-      <<: *common-env
-      MNEMONIC: ${MNEMONIC}
-      TON_SOCIETY_API_KEY: ${TON_SOCIETY_API_KEY}
-      TON_SOCIETY_BASE_URL: ${TON_SOCIETY_BASE_URL}
-    depends_on:
-      - postgres
-      - redis
-      - minio
-      - fluentd
-    volumes:
-      - drizzle_data_cron:/app/drizzle
-    networks:
-      - onton-network
-    command: [ "yarn", "run", "start-cron-reward" ]
-    secrets:
-      - registry-onton-config
-    logging:
-      driver: "fluentd"
-      options:
-        fluentd-address: "127.0.0.1:24224"
-        tag: "docker.${BRANCH_NAME}-mini-app-reward-worker"
-        #fluentd-async-connect: "true"
 
   mini-app-ordinary-worker:
+    image: ghcr.io/executesg/onton/mini-app-ordinary-worker:${BRANCH_NAME}-latest
     hostname: mini-app-ordinary-worker
-    image: ${REGISTRY_URL}/${GITHUB_REPO}/mini-app:${BRANCH_NAME}-latest
-    <<: *default-extra-hosts
-    deploy:
-      resources:
-        limits:
-          memory: 2000M
-          cpus: "2.0"
-      mode: global
-      update_config:
-        failure_action: rollback
-        order: stop-first
-      restart_policy:
-        condition: on-failure
-        delay: 10s
-        max_attempts: 20
-        window: 300s
-    stop_grace_period: 10s
-    stop_signal: SIGTERM
-    environment:
-      <<: *common-env
-      MNEMONIC: ${MNEMONIC}
-      TON_SOCIETY_API_KEY: ${TON_SOCIETY_API_KEY}
-      TON_SOCIETY_BASE_URL: ${TON_SOCIETY_BASE_URL}
-    depends_on:
-      - postgres
-      - redis
-      - minio
-      - fluentd
-    volumes:
-      - drizzle_data_cron:/app/drizzle
-    networks:
-      - onton-network
-    command: [ "yarn", "run", "start-cron-ordinary" ]
-    secrets:
-      - registry-onton-config
-    logging:
-      driver: "fluentd"
-      options:
-        fluentd-address: "127.0.0.1:24224"
-        tag: "docker.${BRANCH_NAME}-mini-app-ordinary-worker"
-        #fluentd-async-connect: "true"
-
-  mini-app-moderation-bot:
-    hostname: mini-app-moderation-bot
-    image: ${REGISTRY_URL}/${GITHUB_REPO}/mini-app:${BRANCH_NAME}-latest
     <<: *default-extra-hosts
     deploy:
       resources:
         limits:
           memory: 512M
           cpus: "0.2"
-      mode: global
-      update_config:
-        failure_action: rollback
-        order: stop-first
-      restart_policy:
-        condition: on-failure
-        delay: 10s
-        max_attempts: 20
-        window: 40s
-    stop_grace_period: 10s
-    stop_signal: SIGTERM
+      replicas: 1
     environment:
       <<: *common-env
-      MNEMONIC: ${MNEMONIC}
-      TON_SOCIETY_API_KEY: ${TON_SOCIETY_API_KEY}
-      TON_SOCIETY_BASE_URL: ${TON_SOCIETY_BASE_URL}
-    depends_on:
-      - postgres
-      - redis
-      - minio
-      - fluentd
-    volumes:
-      - drizzle_data_cron:/app/drizzle
     networks:
       - onton-network
-    command: [ "yarn", "run", "start:moderation" ]
-    secrets:
-      - registry-onton-config
-    logging:
-      driver: "fluentd"
-      options:
-        fluentd-address: "127.0.0.1:24224"
-        tag: "docker.${BRANCH_NAME}-mini-app-moderation-bot"
-        #fluentd-async-connect: "true"
+
+  mini-app-reward-worker:
+    image: ghcr.io/executesg/onton/mini-app-reward-worker:${BRANCH_NAME}-latest
+    hostname: mini-app-reward-worker
+    <<: *default-extra-hosts
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.2"
+      replicas: 1
+    environment:
+      <<: *common-env
+    networks:
+      - onton-network
 
   mini-app-poa-worker:
+    image: ghcr.io/executesg/onton/mini-app-poa-worker:${BRANCH_NAME}-latest
     hostname: mini-app-poa-worker
-    image: ${REGISTRY_URL}/${GITHUB_REPO}/mini-app:${BRANCH_NAME}-latest
     <<: *default-extra-hosts
     deploy:
       resources:
         limits:
           memory: 512M
           cpus: "0.2"
-      mode: global
-      update_config:
-        failure_action: rollback
-        order: stop-first
-        parallelism: 1
-      placement:
-        constraints:
-          - node.role == manager
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-    stop_grace_period: 10s
-    stop_signal: SIGTERM
+      replicas: 1
     environment:
       <<: *common-env
-      TON_SOCIETY_API_KEY: ${TON_SOCIETY_API_KEY}
-      TON_SOCIETY_BASE_URL: ${TON_SOCIETY_BASE_URL}
-    depends_on:
-      - postgres
-      - redis
-      - minio
-      - rabbitmq
-      - fluentd
-    volumes:
-      - drizzle_data_cron:/app/drizzle
     networks:
       - onton-network
-    command: [ "yarn", "run", "start:poa" ]
-    secrets:
-      - registry-onton-config
-    logging:
-      driver: "fluentd"
-      options:
-        fluentd-address: "127.0.0.1:24224"
-        tag: "docker.${BRANCH_NAME}-mini-app-poa-worker"
-        #fluentd-async-connect: "true"
+
+  mini-app-sbt-worker:
+    image: ghcr.io/executesg/onton/mini-app-sbt-worker:${BRANCH_NAME}-latest
+    hostname: mini-app-sbt-worker
+    <<: *default-extra-hosts
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.2"
+      replicas: 1
+    environment:
+      <<: *common-env
+    networks:
+      - onton-network
+
+  mini-app-nft-api-worker:
+    image: ghcr.io/executesg/onton/mini-app-nft-api-worker:${BRANCH_NAME}-latest
+    hostname: mini-app-nft-api-worker
+    <<: *default-extra-hosts
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.2"
+      replicas: 1
+    environment:
+      <<: *common-env
+    networks:
+      - onton-network
+
+  mini-app-moderation-bot:
+    image: ghcr.io/executesg/onton/mini-app-moderation-bot:${BRANCH_NAME}-latest
+    hostname: mini-app-moderation-bot
+    <<: *default-extra-hosts
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.2"
+      replicas: 1
+    environment:
+      <<: *common-env
+    networks:
+      - onton-network
 
   mini-app-notification-socket:
+    image: ghcr.io/executesg/onton/mini-app-notification-socket:${BRANCH_NAME}-latest
     hostname: mini-app-notification-socket
-    image: ${REGISTRY_URL}/${GITHUB_REPO}/mini-app:${BRANCH_NAME}-latest
-    <<: *default-extra-hosts
     ports:
       - "${SOCKET_PORT}:${SOCKET_PORT}"
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: "0.2"
-        reservations:
-          memory: 256M
-          cpus: "0.1"
-      replicas: 1
-      update_config:
-        failure_action: rollback
-        order: start-first
-      restart_policy:
-        condition: any
-        delay: 20s
-    stop_grace_period: 10s
-    stop_signal: SIGTERM
-    environment:
-      <<: *common-env
-      TON_SOCIETY_API_KEY: ${TON_SOCIETY_API_KEY}
-      TON_SOCIETY_BASE_URL: ${TON_SOCIETY_BASE_URL}
-    depends_on:
-      - postgres
-      - redis
-      - minio
-      - rabbitmq
-      - mini-app-poa-worker
-      - fluentd
-    volumes:
-      - drizzle_data_cron:/app/drizzle
-    networks:
-      - onton-network
-    command: [ "yarn", "run", "start:socket" ]
-    secrets:
-      - registry-onton-config
-    logging:
-      driver: "fluentd"
-      options:
-        fluentd-address: "127.0.0.1:24224"
-        tag: "docker.${BRANCH_NAME}-mini-app-notification-socket"
-        #fluentd-async-connect: "true"
-
-
-  participant-tma:
-    hostname: participant-tma
-    image: ${REGISTRY_URL}/${GITHUB_REPO}/participant-tma:${BRANCH_NAME}-latest
-    ports:
-      - "${PARTICIPANT_TMA_PORT}:${PARTICIPANT_TMA_PORT}"
+    <<: *default-extra-hosts
     deploy:
       resources:
         limits:
           memory: 512M
           cpus: "0.2"
       replicas: 1
-      update_config:
-        failure_action: rollback
-        order: start-first
-      restart_policy:
-        condition: any
-        delay: 3s
-    depends_on:
-      - mini-app
-      - fluentd
     environment:
       <<: *common-env
     networks:
       - onton-network
-    secrets:
-      - registry-onton-config
-    logging:
-      driver: "fluentd"
-      options:
-        fluentd-address: "127.0.0.1:24224"
-        tag: "docker.${BRANCH_NAME}-participant-tma"
-        #fluentd-async-connect: "true"
 
   website:
+    image: ghcr.io/executesg/onton/website:${BRANCH_NAME}-latest
     hostname: website
-    image: ${REGISTRY_URL}/${GITHUB_REPO}/website:${BRANCH_NAME}-latest
     ports:
       - "${PORT_WEB_SITE}:${PORT_WEB_SITE}"
+    <<: *default-extra-hosts
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "0.5"
+      replicas: 1
+    environment:
+      <<: *common-env
+    networks:
+      - onton-network
+
+  caddy:
+    image: ${REGISTRY_URL}/${GITHUB_REPO}/caddy:main-latest
+    hostname: caddy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    extra_hosts:
+      - host.docker.internal:host-gateway
     depends_on:
       - fluentd
     deploy:
       resources:
         limits:
-          memory: 256M
-          cpus: "0.1"
-      replicas: 1
+          memory: 6000M
+          cpus: '4.0'
+      mode: global
       update_config:
         failure_action: rollback
         order: start-first
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 20
-        window: 300s
-    environment:
-      <<: *common-env
+      placement:
+        constraints:
+          - node.role == manager
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+      - /home/tonont/caddy/:/etc/caddy/
+      - ./devops/cert/:/certs
     networks:
       - onton-network
-    logging:
-      driver: "fluentd"
-      options:
-        fluentd-address: "127.0.0.1:24224"
-        tag: "docker.${BRANCH_NAME}-website"
-        #fluentd-async-connect: "true"
-
-  rabbitmq:
-    image: "rabbitmq:4.0.4-management-alpine"
-    hostname: rabbitmq
-    ports:
-      - "${RABBITMQ_MANAGEMENT_PORT}:15672"
-      - "${RABBITMQ_NODE_PORT}:${RABBITMQ_NODE_PORT}"
     environment:
-      RABBITMQ_DEFAULT_USER: "${RABBITMQ_DEFAULT_USER}"
-      RABBITMQ_DEFAULT_PASS: "${RABBITMQ_DEFAULT_PASS}"
-      RABBITMQ_NODE_PORT: "${RABBITMQ_NODE_PORT}"
+      <<: *common-env
+      USE_CLOUDFLARE: ${USE_CLOUDFLARE}
+      CLOUDFLARE_EMAIL: ${CLOUDFLARE_EMAIL:-}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
+      CLOUDFLARE_EMAIL_MAIN: ${CLOUDFLARE_EMAIL_MAIN:-}
+      CLOUDFLARE_API_TOKEN_MAIN: ${CLOUDFLARE_API_TOKEN_MAIN:-}
+    secrets:
+      - registry-onton-config
+
+  registry:
+    image: registry:latest
+    hostname: registry
+    environment:
+      REGISTRY_AUTH: htpasswd
+      REGISTRY_AUTH_HTPASSWD_REALM: Registry Realm
+      REGISTRY_AUTH_HTPASSWD_PATH: /auth/registry.password
+      REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY: /data
+      SHOW_CONTENT_DIGEST: "true"
+      REGISTRY_STORAGE_DELETE_ENABLED: "true"
     volumes:
-      - rabbitmq_data:/var/lib/rabbitmq # Persist data
-    depends_on:
-      - fluentd
+      - /home/tonont/registry/registry.password:/auth/registry.password
+      - registry_data:/data
     deploy:
       mode: global
       resources:
         limits:
-          memory: 2048M
-          cpus: "1.0"
-        reservations:
-          memory: 512M
-          cpus: "0.2"
-      restart_policy:
-        condition: on-failure
-        delay: 15s
-        max_attempts: 5
-        window: 30s
-      update_config:
-        parallelism: 1
-        delay: 10s
-        failure_action: rollback
-        order: stop-first
-      placement:
-        constraints:
-          - node.role == manager
-    stop_grace_period: 30s
-    stop_signal: SIGTERM
+          memory: 4000M
+          cpus: '2.0'
     networks:
       - onton-network
-    tty: true
-    logging:
-      driver: "fluentd"
-      options:
-        fluentd-address: "127.0.0.1:24224"
-        tag: "docker.${BRANCH_NAME}-rabbitmq"
-        #fluentd-async-connect: "true"
 
-        #  client-web:
-        #    hostname: client-web
-        #    <<: *default-extra-hosts
-        #    image: ${REGISTRY_URL}/${GITHUB_REPO}/client-web:${BRANCH_NAME}-latest
-        #    ports:
-        #      - "${PORT_CLIENT_WEB}:${PORT_CLIENT_WEB}"
-        #    environment:
-        #      NEXT_PUBLIC_BACKEND_URL_CLIENT: ${NEXT_PUBLIC_BACKEND_URL_CLIENT}
-        #      CLIENT_API_JWT_SECRET: ${CLIENT_API_JWT_SECRET}
-        #      CLIENT_API_FIXED_KEY: ${CLIENT_API_FIXED_KEY}
-        #      CLIENT_API_FIXED_USER: ${CLIENT_API_FIXED_USER}
-        #      CLIENT_API_FIXED_ORGANIZER: ${CLIENT_API_FIXED_ORGANIZER}
-        #      PORT_CLIENT_WEB: ${PORT_CLIENT_WEB}
-        #    networks:
-        #      - onton-network
-        #    logging:
-        #        driver: "fluentd"
-        #        options:
-        #            syslog-address: "logstash:5044"
-        #            tag: "docker.${BRANCH_NAME}-client-web"
-        #            #fluentd-async-connect: "true"
+  registry-ui:
+    image: joxit/docker-registry-ui:latest
+    hostname: registry-ui
+    environment:
+      REGISTRY_TITLE: "ONTON Docker Registry UI"
+      NGINX_PROXY_PASS_URL: "http://registry:5000"
+      DELETE_IMAGES: "true"
+    networks:
+      - onton-network
 
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.0.0
+    hostname: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: '2.0'
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - onton-network
+
+  fluentd:
+    image: fluent/fluentd:v1.18-debian-1
+    hostname: fluentd
+    user: root
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.2'
+    ports:
+      - "24224:24224"
+      - "24224:24224/udp"
+    volumes:
+      - ./devops/fluent/fluent.conf:/fluentd/etc/fluent.conf
+    entrypoint: >
+      /bin/sh -c "
+      apt-get update -y &&
+      apt-get install curl -y &&
+      gem install fluent-plugin-concat &&
+      gem install fluent-plugin-elasticsearch  &&
+      gem install fluent-plugin-prometheus &&
+      gem install fluent-plugin-prometheus-pull &&
+      fluentd -c /fluentd/etc/fluent.conf -v
+      "
+    environment:
+      FLUENT_ELASTICSEARCH_HOST: elasticsearch
+      FLUENT_ELASTICSEARCH_PORT: 9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - onton-network
 
   swagger-ui:
     image: swaggerapi/swagger-ui
     hostname: swagger-ui
-    # Adjust the port mapping to your preference
     ports:
       - "${SWAGGER_UI_PORT}:8080"
     environment:
@@ -815,27 +310,13 @@ services:
       - ./swagger/NFTApi.yml:/usr/share/nginx/html/swagger/NFTApi.yaml
       - ./swagger/swagger-initializer.js:/usr/share/nginx/html/swagger-initializer.js
       - ./swagger/custom.css:/usr/share/nginx/html/swagger/custom.css
-      - ./swagger/home.html:/usr/share/nginx/html/swagger/home.html
-      - ./swagger/index.html:/usr/share/nginx/html/swagger/index.html
     networks:
       - onton-network
     deploy:
-      mode: replicated
       replicas: 1
       placement:
         constraints:
           - node.role == manager
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 5
-        window: 30s
-    logging:
-      driver: "fluentd"
-      options:
-        fluentd-address: "127.0.0.1:24224"
-        tag: "docker.${BRANCH_NAME}-swagger-ui"
-        #fluentd-async-connect: "true"
 
 networks:
   onton-network:
@@ -844,24 +325,25 @@ networks:
     external: true
 
 volumes:
-  pgadmin:
-    name: "${STAGE_NAME}_pgadmin"
+  caddy_data:
+    name: "${BRANCH_NAME}_caddy_data"
+  caddy_config:
+    name: "${BRANCH_NAME}_caddy_config"
+  registry_data:
+    name: "${BRANCH_NAME}_registry_data"
+  elasticsearch_data:
+    name: "${BRANCH_NAME}_elasticsearch_data"
   minio_data:
-    driver: local
-    name: "${STAGE_NAME}_minio_data"
+    name: "${BRANCH_NAME}_minio_data"
   postgres_data:
-    driver: local
-    name: "${STAGE_NAME}_postgres_data"
+    name: "${BRANCH_NAME}_postgres_data"
   redis_data:
-    driver: local
-    name: "${STAGE_NAME}_redis_data"
+    name: "${BRANCH_NAME}_redis_data"
   drizzle_data:
-    name: "${STAGE_NAME}_drizzle_data"
+    name: "${BRANCH_NAME}_drizzle_data"
   drizzle_data_cron:
-    name: "${STAGE_NAME}_drizzle_data_cron"
-  rabbitmq_data:
-    driver: local
-    name: "${STAGE_NAME}_rabbitmq_data"
+    name: "${BRANCH_NAME}_drizzle_data_cron"
+
 secrets:
   registry-onton-config:
     external: true

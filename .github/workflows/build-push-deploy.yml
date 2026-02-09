@@ -483,9 +483,7 @@ jobs:
                   export CADDYFILE_PATH="/home/tonont/caddy/tmp/$branch_name.caddyfile"
                   sh devops/generate-caddyfile-by-address.sh
                   mv /home/tonont/caddy/tmp/$branch_name.caddyfile /home/tonont/caddy/$branch_name.caddyfile
-                  docker stack deploy --with-registry-auth -c ./devops/caddyServer/docker-compose-caddy.yml ${branch_name}-caddy
-                  docker service update --force ${branch_name}-caddy_caddy
-                  echo "Services deployed caddy successfully."
+                  echo "Caddyfile generated successfully."
               fi
             done
           EOF
@@ -555,8 +553,8 @@ jobs:
             for service in \$services; do
               echo "Processing service: \$service"
               if [ "\$service" == "caddy" ]; then
-                echo "docker service update --force ${branch_name}-caddy_caddy"
-                docker service update --force ${branch_name}-caddy_caddy
+                echo "docker service update --force ${branch_name}_caddy"
+                docker service update --force ${branch_name}_caddy
               elif [ "\$service" == "mini-app" ]; then
                 echo "Special handling for mini-app service"
                 echo "Updating $branch_name_mini-app"

@@ -374,18 +374,18 @@ jobs:
           vars_json="${ALLMYVARS}"
           
           echo "$secrets_json" | jq -r --arg prefix "$prefix" \
-            'to_entries[] | select(.key | startswith($prefix)) | "\(.key[$prefix | length:])=\"\(.value)\""' >> $env_file
+            'to_entries[] | select(.key | startswith($prefix)) | "\(.key[$prefix | length:])=\(.value | @sh)"' >> $env_file
           
           echo "$vars_json" | jq -r --arg prefix "$prefix" \
-            'to_entries[] | select(.key | startswith($prefix)) | "\(.key[$prefix | length:])=\"\(.value)\""' >> $env_file
+            'to_entries[] | select(.key | startswith($prefix)) | "\(.key[$prefix | length:])=\(.value | @sh)"' >> $env_file
           
           # Add branch name as env also
-          echo "BRANCH_NAME=\"$branch_name\"" >> $env_file
+          echo "BRANCH_NAME=$branch_name" >> $env_file
           # Add github repo as env also
-          echo "GITHUB_REPO=\"$github_repo\"" >> $env_file
+          echo "GITHUB_REPO=$github_repo" >> $env_file
           # Add the GitHub Container Registry PAT to the env file
-          echo "CR_PAT=\"${CR_PAT}\"" >> $env_file
-          echo "REGISTRY_URL=\"ghcr.io\"" >> $env_file
+          echo "CR_PAT=${CR_PAT}" >> $env_file
+          echo "REGISTRY_URL=ghcr.io" >> $env_file
           
           echo "Environment variables script generated successfully."
 
@@ -420,7 +420,6 @@ jobs:
           fi
 
       - name: Deploy Changed Services
-        continue-on-error: true
         env:
           CR_PAT: ${{ secrets.CR_PAT }}
         run: |
@@ -445,10 +444,15 @@ jobs:
           services=$(echo "$services_to_build" | tr -d '[]"' | tr ',' ' ')
           echo "Formatted services to build: $services"  # Debug output        
           ssh -p "$ssh_port" -o StrictHostKeyChecking=no tonont@$ssh_ip << EOF
+            set -o errexit
+            set -o pipefail
             whoami
-            echo "Loading environment variables..."
+            echo "Moving to branch directory..."
             cd /home/tonont/$branch_name
+            echo "Loading environment variables..."
+            set -a
             source .env
+            set +a
             echo "******Logging into GitHub Container Registry..."
             if [ -z "$CR_PAT" ]; then
               echo "CR_PAT is not set or is empty. Please add CR_PAT to GitHub Secrets."; exit 1;
@@ -476,7 +480,7 @@ jobs:
                   set +o allexport
                   source /home/tonont/$branch_name/.env
                   chmod +x devops/generate-caddyfile-by-address.sh
-                   rm -f Caddyfile
+                   rm -f /home/tonont/$branch_name/Caddyfile
                    export CADDYFILE_PATH="/home/tonont/$branch_name/Caddyfile"
                    sh devops/generate-caddyfile-by-address.sh
                    echo "Caddyfile generated successfully."
@@ -488,16 +492,13 @@ jobs:
           ssh  -p "$ssh_port" -o StrictHostKeyChecking=no tonont@$ssh_ip << EOF
             set -o errexit
             set -o pipefail
-            echo "Listing files in branch directory..."     
-          
+            echo "Moving to branch directory..."
             cd /home/tonont/$branch_name
             ls -la
-            echo "Sourcing .env file..."
-            set -o allexport
+            echo "Sourcing .env file with auto-export..."
+            set -a
             source .env
-            set +o allexport
-            cd /home/tonont/$branch_name
-            source /home/tonont/$branch_name/.env
+            set +a
             chmod +x devops/generate-caddyfile.sh
             chmod +x devops/minio-init.sh
             echo "Updating Docker node label for stage $branch_name..."

@@ -379,6 +379,9 @@ jobs:
           echo "$vars_json" | jq -r --arg prefix "$prefix" \
             'to_entries[] | select(.key | startswith($prefix)) | "\(.key[$prefix | length:])=\(.value | @sh)"' >> $env_file
           
+          # Strip quotes from numeric values to prevent Docker Swarm port mapping errors
+          sed -i "s/'\([0-9]*\)'/\1/g" $env_file
+          
           # Add branch name as env also
           echo "BRANCH_NAME=$branch_name" >> $env_file
           # Add github repo as env also

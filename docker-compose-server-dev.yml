@@ -47,6 +47,9 @@ services:
           cpus: "0.5"
     environment:
       <<: *common-env
+      BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      ONTON_API_SECRET: ${ONTON_API_SECRET:-}
+      NEXT_PUBLIC_APP_BASE_URL: https://${MINI_APP_DOMAIN}
     networks:
       - onton-network
 

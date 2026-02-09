@@ -421,6 +421,7 @@ jobs:
           fi
 
       - name: Deploy Changed Services
+        continue-on-error: true
         env:
           CR_PAT: ${{ secrets.CR_PAT }}
         run: |

@@ -200,7 +200,7 @@ services:
     volumes:
       - caddy_data:/data
       - caddy_config:/config
-      - /home/tonont/caddy/${BRANCH_NAME}.caddyfile:/etc/caddy/Caddyfile
+      - /home/tonont/caddy/dev.caddyfile:/etc/caddy/Caddyfile
       - ./devops/cert/:/certs
     networks:
       - onton-network

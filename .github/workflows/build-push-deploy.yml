@@ -476,13 +476,10 @@ jobs:
                   set +o allexport
                   source /home/tonont/$branch_name/.env
                   chmod +x devops/generate-caddyfile-by-address.sh
-                   rm -rf /home/tonont/caddy/Caddyfile
-                   mkdir -p /home/tonont/caddy/tmp/
-          
-                  export CADDYFILE_PATH="/home/tonont/caddy/tmp/$branch_name.caddyfile"
-                  sh devops/generate-caddyfile-by-address.sh
-                  mv /home/tonont/caddy/tmp/$branch_name.caddyfile /home/tonont/caddy/$branch_name.caddyfile
-                  echo "Caddyfile generated successfully."
+                   rm -f Caddyfile
+                   export CADDYFILE_PATH="/home/tonont/$branch_name/Caddyfile"
+                   sh devops/generate-caddyfile-by-address.sh
+                   echo "Caddyfile generated successfully."
               fi
             done
           EOF

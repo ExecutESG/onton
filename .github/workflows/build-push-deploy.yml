@@ -584,8 +584,8 @@ jobs:
                 echo "Updating $branch_name_mini-app-moderation-bot"
                 docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force ${branch_name}_mini-app-moderation-bot
               else
-                echo "docker service update --force ${branch_name}_${service}"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2  --force ${branch_name}_${service}
+                echo "docker service update --force ${branch_name}_\${service}"
+                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2  --force ${branch_name}_\${service}
               fi
             done
             # bidar kardane fluentd :))

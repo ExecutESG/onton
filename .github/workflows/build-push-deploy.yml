@@ -373,20 +373,19 @@ jobs:
           secrets_json="${ALLMYSECRETS}"
           vars_json="${ALLMYVARS}"
           
-          # Parse the JSON and filter the variables with the appropriate prefix, removing the prefix when writing to the env file
           echo "$secrets_json" | jq -r --arg prefix "$prefix" \
-            'to_entries[] | select(.key | startswith($prefix)) | "\(.key[$prefix | length:])=\"\(.value)\""' >> $env_file
+            'to_entries[] | select(.key | startswith($prefix)) | "\(.key[$prefix | length:])=\(.value)"' >> $env_file
           
           echo "$vars_json" | jq -r --arg prefix "$prefix" \
-            'to_entries[] | select(.key | startswith($prefix)) | "\(.key[$prefix | length:])=\"\(.value)\""' >> $env_file
+            'to_entries[] | select(.key | startswith($prefix)) | "\(.key[$prefix | length:])=\(.value)"' >> $env_file
           
           # Add branch name as env also
-          echo "BRANCH_NAME=\"$branch_name\"" >> $env_file
+          echo "BRANCH_NAME=$branch_name" >> $env_file
           # Add github repo as env also
-          echo "GITHUB_REPO=\"$github_repo\"" >> $env_file
+          echo "GITHUB_REPO=$github_repo" >> $env_file
           # Add the GitHub Container Registry PAT to the env file
-          echo "CR_PAT=\"${CR_PAT}\"" >> $env_file
-          echo "REGISTRY_URL=\"ghcr.io\"" >> $env_file
+          echo "CR_PAT=${CR_PAT}" >> $env_file
+          echo "REGISTRY_URL=ghcr.io" >> $env_file
           
           echo "Environment variables script generated successfully."
 
@@ -445,7 +444,6 @@ jobs:
           # Remove brackets and convert to space-separated string
           services=$(echo "$services_to_build" | tr -d '[]"' | tr ',' ' ')
           echo "Formatted services to build: $services"  # Debug output        
-          ssh -p "${ssh_port}" -o StrictHostKeyChecking=no tonont@$ssh_ip "curl -X GET -H \"Authorization: Bearer $ONTON_CORE_KEY\" http://65.109.205.239:3000/env?stage_name=${{ github.ref_name }}-onton" | sed 's/\"//g' > .env
           ssh -p "$ssh_port" -o StrictHostKeyChecking=no tonont@$ssh_ip << EOF
             whoami
             echo "Loading environment variables..."

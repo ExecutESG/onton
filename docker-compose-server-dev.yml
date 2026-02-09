@@ -175,7 +175,7 @@ services:
       - onton-network
 
   caddy:
-    image: ${REGISTRY_URL}/${GITHUB_REPO}/caddy:main-latest
+    image: ${REGISTRY_URL}/${GITHUB_REPO}/caddy:${BRANCH_NAME}-latest
     hostname: caddy
     ports:
       - "80:80"

@@ -88,9 +88,9 @@ const requestExportFile = evntManagerPP.mutation(async (opts) => {
   if (eventData?.has_registration) {
     const condition = eventData.has_payment
       ? and(
-          or(eq(eventRegistrants.status, "approved"), eq(eventRegistrants.status, "checkedin")),
-          eq(eventRegistrants.event_uuid, event_uuid)
-        )
+        or(eq(eventRegistrants.status, "approved"), eq(eventRegistrants.status, "checkedin")),
+        eq(eventRegistrants.event_uuid, event_uuid)
+      )
       : eq(eventRegistrants.event_uuid, event_uuid);
 
     const result = await db
@@ -554,7 +554,7 @@ export const requestShareAffiliateOnionCampaign = initDataProtectedProcedure.mut
       linkHash,
       totalSpins,
       // Your fixed image:
-      imageUrl: "https://mohammad-storage.toncloud.observer/campaign/photo_2025-04-01_08-41-17.jpg",
+      imageUrl: `${process.env.NEXT_PUBLIC_STORAGE_DOMAIN}/campaign/photo_2025-04-01_08-41-17.jpg`,
     };
 
     // 5) Call telegramService to share

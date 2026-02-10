@@ -4,9 +4,8 @@ info:
   description: API for rewarding users based on specific events. The event must be ongoing; otherwise, the reward cannot be created.
   version: 1.0.0
 servers:
-  - url: https://staging-app.toncloud.observer/api/v1
-    description: Staging server
-  - url: https://dev-app.toncloud.observer/api/v1
+servers:
+  - url: https://dev-app.dev.onton.live/api/v1
     description: Development server
   - url: https://app.onton.live/api/v1
     description: Production server

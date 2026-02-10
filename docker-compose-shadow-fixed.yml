@@ -1,0 +1,223 @@
+version: '3.8'
+
+x-common-env: &common-env
+  environment:
+    - POSTGRES_USER=${POSTGRES_USER}
+    - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    - POSTGRES_DB=${POSTGRES_DB}
+    - DATABASE_URL=${DATABASE_URL}
+    - DATABASE_URL_NFT_MANAGER=${DATABASE_URL_NFT_MANAGER}
+    - REDIS_URL=${REDIS_URL}
+    - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+    - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+    - MINIO_ENDPOINT=${MINIO_ENDPOINT}
+    - MINIO_PORT=${MINIO_PORT}
+    - NEXT_PUBLIC_MINIO_ENDPOINT=${NEXT_PUBLIC_MINIO_ENDPOINT}
+    - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+    - TELEGRAM_LOG_CHANNEL_ID=${TELEGRAM_LOG_CHANNEL_ID}
+    - SOCIETY_HUB_CHAT_ID=${SOCIETY_HUB_CHAT_ID}
+    - SOCIETY_HUB_ADMIN_CHAT_ID=${SOCIETY_HUB_ADMIN_CHAT_ID}
+    - ONTON_API_SECRET=${ONTON_API_SECRET}
+    - PORT_WEB_SITE=${PORT_WEB_SITE}
+    - NEXT_PUBLIC_APP_BASE_URL=${NEXT_PUBLIC_APP_BASE_URL}
+    - NEXT_PUBLIC_BOT_USERNAME=${NEXT_PUBLIC_BOT_USERNAME}
+    - NEXT_PUBLIC_ENV=${NEXT_PUBLIC_ENV}
+    - BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+
+x-default-extra-hosts: &default-extra-hosts
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+
+services:
+  mini-app:
+    # image: ghcr.io/executesg/onton/mini-app:main-latest
+    image: onton-mini-app:shadow-prod
+    build:
+      context: ./mini-app
+      dockerfile: Dockerfile
+      target: production
+      args:
+        ENV: ${NEXT_PUBLIC_ENV}
+        NEXT_PUBLIC_ENV: ${NEXT_PUBLIC_ENV}
+        DATABASE_URL: ${DATABASE_URL}
+        POSTGRES_USER: ${POSTGRES_USER}
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        NEXT_PUBLIC_APP_BASE_URL: ${NEXT_PUBLIC_APP_BASE_URL}
+        NEXT_PUBLIC_BOT_USERNAME: ${NEXT_PUBLIC_BOT_USERNAME}
+        NEXT_PUBLIC_MINIO_ENDPOINT: ${NEXT_PUBLIC_MINIO_ENDPOINT}
+        NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL}
+        ONTON_API_SECRET: ${ONTON_API_SECRET}
+        MINI_APP_PORT: 3000
+    hostname: mini-app
+    <<: [*default-extra-hosts, *common-env]
+    ports:
+      - "3000:3000"
+    deploy:
+      mode: replicated
+      replicas: 1
+    networks:
+      - onton-network
+
+  telegram-bot:
+
+    image: onton-telegram-bot:shadow-prod
+    build:
+      context: ./telegram-bot
+      dockerfile: Dockerfile.shadow
+      target: production
+    hostname: telegram-bot
+    <<: [*default-extra-hosts, *common-env]
+    deploy:
+      mode: replicated
+      replicas: 1
+    networks:
+      - onton-network
+
+  participant-tma:
+    image: onton-participant-tma:shadow-prod
+    build:
+      context: ./newton
+      dockerfile: ./apps/participant-tma/Dockerfile
+      target: production
+      args:
+        ENV: ${NEXT_PUBLIC_ENV}
+        NEXT_PUBLIC_ENV: ${NEXT_PUBLIC_ENV}
+        NEXT_PUBLIC_APP_BASE_URL: ${NEXT_PUBLIC_APP_BASE_URL}
+        NEXT_PUBLIC_BOT_USERNAME: ${NEXT_PUBLIC_BOT_USERNAME}
+        ONTON_API_SECRET: ${ONTON_API_SECRET}
+        PARTICIPANT_TMA_PORT: 3004
+        BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+        ONTON_API_KEY: ${ONTON_API_KEY}
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
+        NFT_MANAGER_PORT: 3005
+        MINI_APP_DOMAIN: ${MINI_APP_DOMAIN}
+        MINI_APP_PORT: 3000
+        NODE_TLS_REJECT_UNAUTHORIZED: 0
+    hostname: participant-tma
+    <<: [*default-extra-hosts, *common-env]
+    environment:
+      - PARTICIPANT_TMA_PORT=3004
+      - NEXT_PUBLIC_APP_BASE_URL=${NEXT_PUBLIC_APP_BASE_URL}
+      - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
+      - ONTON_API_KEY=${ONTON_API_KEY}
+    deploy:
+      mode: replicated
+      replicas: 1
+    networks:
+      - onton-network
+
+  mini-app-ordinary-worker:
+    image: onton-mini-app:shadow-local
+    hostname: mini-app-ordinary-worker
+    command: ["yarn", "worker:ordinary"]
+    <<: [*default-extra-hosts, *common-env]
+    deploy:
+      mode: replicated
+      replicas: 0
+    networks:
+      - onton-network
+
+  website:
+    image: ghcr.io/executesg/onton/website:main-latest
+    hostname: website
+    <<: *default-extra-hosts
+    environment:
+      - PORT=3003
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_URL_NFT_MANAGER=${DATABASE_URL_NFT_MANAGER}
+      - REDIS_URL=${REDIS_URL}
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT}
+      - MINIO_PORT=${MINIO_PORT}
+      - NEXT_PUBLIC_MINIO_ENDPOINT=${NEXT_PUBLIC_MINIO_ENDPOINT}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_LOG_CHANNEL_ID=${TELEGRAM_LOG_CHANNEL_ID}
+      - SOCIETY_HUB_CHAT_ID=${SOCIETY_HUB_CHAT_ID}
+      - SOCIETY_HUB_ADMIN_CHAT_ID=${SOCIETY_HUB_ADMIN_CHAT_ID}
+      - ONTON_API_SECRET=${ONTON_API_SECRET}
+      - PORT_WEB_SITE=${PORT_WEB_SITE}
+      - NEXT_PUBLIC_APP_BASE_URL=${NEXT_PUBLIC_APP_BASE_URL}
+      - NEXT_PUBLIC_BOT_USERNAME=${NEXT_PUBLIC_BOT_USERNAME}
+      - NEXT_PUBLIC_ENV=${NEXT_PUBLIC_ENV}
+      - BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+    ports:
+      - "3003:3003"
+    deploy:
+      mode: replicated
+      replicas: 1
+    networks:
+      - onton-network
+
+  caddy:
+    image: ghcr.io/executesg/onton/caddy:main-latest
+    hostname: caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - ONTON_DOMAIN=${ONTON_DOMAIN:-dev.onton.live}
+      - EMAIL=admin@onton.live
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+      - ./shadow-caddyfile-fixed:/etc/caddy/Caddyfile
+    networks:
+      - onton-network
+    deploy:
+      mode: global
+
+  postgres:
+    image: postgres:16-alpine
+    hostname: postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - onton-network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+
+  redis:
+    image: redis:7-alpine
+    hostname: redis
+    volumes:
+      - redis_data:/data
+    networks:
+      - onton-network
+
+  minio:
+    image: minio/minio:latest
+    hostname: minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio_data:/data
+    networks:
+      - onton-network
+
+networks:
+  onton-network:
+    name: onton-shadow-network
+    driver: overlay
+    attachable: true
+
+volumes:
+  caddy_data:
+  caddy_config:
+  postgres_data:
+  redis_data:
+  minio_data:

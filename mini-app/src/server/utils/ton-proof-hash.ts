@@ -17,13 +17,12 @@ export const ALLOWED_DOMAINS = [
   "t.me",
   "onton.tg",
   "onton.live",
-  "dev.onton.live",
-  "dev-app.dev.onton.live",
-  "mohammad-app.toncloud.observer",
+
   "tonkeeper.app",
   "tonkeeper.com",
   "tonhub.com",
   "mytonwallet.app",
+  ...(process.env.NEXT_PUBLIC_ALLOWED_DOMAINS?.split(",") || []),
 ];
 export const VALID_AGE_SEC = 3600 + 600; // 600-second TTL
 

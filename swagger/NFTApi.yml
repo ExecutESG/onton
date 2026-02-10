@@ -14,8 +14,6 @@ info:
   version: "1.0.0"
 
 servers:
-  - url: https://staging-app.toncloud.observer/api/nft
-    description: Staging server
   - url: http://host.docker.internal:3000/api/nft
     description: Local server
   - url: https://dev-app.dev.onton.live/api/nft

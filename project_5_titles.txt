@@ -1,0 +1,178 @@
+Buy ticket is not shown in ptma
+Add vip guest list - api + guestList
+Update event error
+Event Not found when connecting telegram wallet
+feature/WebPannel-for-Desktop-checkIn
+Future/event side agenda sbt map
+Main Slide Should not go to gateway side events page
+[QA] TON Hub selection doesn't work
+Password input shows incorrect immidietly after entering a letter
+Setup Virtual Machin On staging server For automated test
+Event tag is wrong (free), it's a paid event
+Replace claim reward link open to use openTelegramLink
+Update Database for Countries and Cities Display
+review on docker compose
+Bugs and Problems in the Ticket Purchasing Process
+Failed to update event
+Negative event duration
+Store nft collection of paid event separated bucket
+use minio with correct MIME
+Claim SBT reward for Offline Paid event participants
+Theme Fix legacy app (Event Page)
+Fix upload custom sbt image issue
+organizers must enter password everytime they want to edit the event
+resolve the hub problem on stage
+Event password should have some limit (such as min or Max)
+re-implement file upload and make it secure - event creation image
+Removing Unused code + npm packages + logs
+Unifiying all env variable
+USE sentry.io TO MONITOR CLIENT SIDE ERRORS
+Upload image wrong highlight
+piad event link not opened on stage
+Make next image secure and limited to our sources
+Add redis caching  - use is for most rated query
+Docker MultiStage for miniapp
+Internal error in create new event
+move all related query to Tables module
+Main Button Fails to Appear After Closing Filters Window by Clicking Outside the Area
+Add an option for organizers to customize SBTs during event creation
+Remove Bugs from Production
+make deployment script avoid building unchaged services
+Location for older events was entered into the URL field on Stage
+Incomplete Event Display After Applying Filters in "My Events"
+make a hot fix for editing event date on prod
+First implemention Of automated deployment
+Event password leak fixing
+Database Replication
+Fixing the back button
+Update date problem in event edit interface
+Improve UXUI based on User journey
+implement referral program system
+add  badge info on guest list api
+SBT Types (Video, GIF)
+Problem in CSV guest list for Paid Events
+Make ongoing event list order random - Home page
+Agenda for gateway event 
+Re-implemention SBT Reward cron
+Side events
+Add Api route - dealroom refresh data
+[QA] Ongoing event is not shown in the Ongoing tab
+Create a paid event for one side event of gateway
+[QA] Upcoming event not displayed in My Events
+Kernel Update
+[QA] Wrong NFT address
+Move the event images in other bucket than nft
+Fix event image ratio - free event
+Change Dimension of pictures on upload
+feature/Check-in-Client-API
+After "reset filters" upcoming event is empty
+Sentry.io - add user data and environment tag to errors
+Calendar integration - Free Event
+Cron Job and Create Reward link improvements
+Add Version control error to avoid show something went wrong error to outdated telegram version
+show free event page design improvment
+Fix: show default image when event image not loaded
+[QA] Failed to update event
+[QA] Incorrect title in uploading reward image
+[QA] Claim Reward not working
+[QA] Connect wallet issue on event page
+AddVisitor Fix (update after closing issue)
+NFT ownership transfer verification
+implement incentive system for organizers
+Problems with buying NFT Tickets
+Moving Old event image from telegra to our storage
+Ambiguous warning
+[QA] iOS - Problem paying with the keyboard open
+[QA] Select TON hub issue
+[QA] Location is missing for in-person events
+implement User management system
+Event Participation approval
+ONChain NFT ownership Check-in during check-in process
+Ticket NFT metadata change after check-in
+Send Automated Event post on Telegram Channel
+Open Onton for all event organizers
+Event Registration
+Make specific Local docker compose to made Onboarding Easy
+Participants leaderboard
+Event activity -Show somethign went wrong error
+TS API Refactor + error handeling
+add multi language module next i18 on miniapp
+disable sentry on development env
+choose a test platform for multiple devices
+[QA] When clicked on "reset filters" you see all checkboxes are inactive
+[QA] No active checkbox should disable the done button
+Landing site redirect to mini-app if user enter by mobile
+check every insert update to avoid writing null string as null in NFT database
+Participant Data Capture-Pending for TS
+Repay users for Paid Registrations
+Detect Users have blocked the bot - Deleted Accounts
+Get link or QR code is not shown when the event is created for the first time
+Update events bad ux and bugs
+remove event description from logs #hotfix
+separate web server process and cron jobs
+Fix duplicate nfts
+Create a paid event for bootcamp event and documentation 
+Bot Admins improvments
+Refresh Getgems NFT metadata
+[Dev] Telegram-Bot Event Soft-Delete Command
+Improve Telegram Channel Logs
+Update Dev With Stage
+When opening a paid event, it requires a refresh
+[QA] Change text on QR code screen
+Stage Fixes of 7 oct 
+Wallet showing undefiend on miniapp
+[QA] TMA Title
+Explanation about the description
+Update tonconnect dependencies
+nft minter, balance notifier and not fail tickets when balance is not enough
+Claim Reward Ownership
+[QA] No active checkbox should disable the filter button
+Add landing website to services
+Telegram Bot Broadcast
+Reminder that SBT file is not mandatory
+Improved scanning flow
+Closing an event returns to the main screen
+Ongoing events sort is not correct
+[QA] Opening app from "open bot" lead to error
+[QA] The standard poster is not displayed on the event page
+softfix cron job --> stage
+Better Logs for cron mini app
+MasterKey For Events
+Session Expired
+Update ton dependencies 
+Review web app init data + show event page  + something went Wrong error
+[QA] Events disappeared from Search tab - by clicking on tabs
+[QA] Share button missing
+improvment of share event bot message message
+something went wrong | case 3 : new user click on shared event
+[QA] Edit event not working in some cases
+[QA] Password field disappears after event editing
+[QA] Claim reward without a connected wallet
+After an error in creating an event, "create new event" button is gone
+[QA] Share button create a poster that have no link to share
+[QA] Space in url
+[QA] Password case insensitive hint
+[QA] share from more menu send a wrong url
+Make a cli tool for manual miniting for users
+Duplicate ticket insertion after ticket mint
+Clear faulty data and add constraints
+Disconnect or Change wallet on free events
+Fix Mystery Event data in tickets table
+Fix NFT manager duplicate minting
+Add Nft Manager testnet
+Event Register
+Hotfix Share Event Message TimeZone
+Move Telegraph images to Minio
+Github Actions
+Register Event Frontend
+Calendar integration
+Show Event CTA (Button instead of event link)
+Manual Task From October
+Move Sever to new Cloud
+SBT CronJob Use event start date and event end date
+Hire & onboard new frontend developer
+Instant Role Change
+Create Group with topics for notificatinos
+Selected TON Hub Resets to Default
+Empty guest list for event with approvals
+campaign merge nft << Staging 

@@ -7,8 +7,11 @@ info:
     It requires an API key (or `Authorization` header) to authenticate the request.
 
 servers:
-  - url: https://staging-app.toncloud.observer
-    description: Staging server
+servers:
+  - url: https://dev-app.dev.onton.live
+    description: Development server
+  - url: https://app.onton.live
+    description: Production server
   - url: https://dev-app.dev.onton.live
     description: Development server
   - url: https://app.onton.live

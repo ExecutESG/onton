@@ -40,7 +40,7 @@ services:
     hostname: telegram-bot
     <<: *default-extra-hosts
     deploy:
-      mode: global
+      replicas: 1
       resources:
         limits:
           memory: 1G

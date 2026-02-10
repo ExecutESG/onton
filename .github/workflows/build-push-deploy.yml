@@ -8,6 +8,7 @@ on:
     paths:
       #      - 'client-web-panel/**'
       - 'devops/**'
+      - 'Caddyfile'
       - 'docker-compose-server.yml'
       - 'docker-compose-server-dev.yml'
       - 'mini-app/**'

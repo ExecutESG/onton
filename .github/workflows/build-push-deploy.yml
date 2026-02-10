@@ -552,7 +552,7 @@ jobs:
             echo "Deploying Docker stack for $branch_name using $COMPOSE_FILE..."
             # Temporarily disable errexit for the capture
             set +o errexit
-            deploy_output=\$(docker stack deploy --with-registry-auth -c $COMPOSE_FILE $branch_name 2>&1)
+            deploy_output=\$(docker stack deploy --with-registry-auth -c \$COMPOSE_FILE onton 2>&1)
             deploy_status=\$?
             set -o errexit
           
@@ -573,37 +573,37 @@ jobs:
             for service in \$services; do
               echo "Processing service: \$service"
               if [ "\$service" == "caddy" ]; then
-                echo "docker service update --force ${branch_name}_caddy"
-                docker service update --force ${branch_name}_caddy
+                echo "docker service update --force onton_caddy"
+                docker service update --force onton_caddy
               elif [ "\$service" == "mini-app" ]; then
                 echo "Special handling for mini-app service"
-                echo "Updating $branch_name_mini-app"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force ${branch_name}_mini-app
+                echo "Updating onton_mini-app"
+                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force onton_mini-app
           
-                echo "Updating $branch_name_mini-app-notification-socket"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force ${branch_name}_mini-app-notification-socket
+                echo "Updating onton_mini-app-notification-socket"
+                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force onton_mini-app-notification-socket
           
-                echo "Updating $branch_name_mini-app-poa-worker"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force ${branch_name}_mini-app-poa-worker
+                echo "Updating onton_mini-app-poa-worker"
+                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force onton_mini-app-poa-worker
           
-                echo "Updating $branch_name_mini-app-sbt-worker"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force ${branch_name}_mini-app-sbt-worker
+                echo "Updating onton_mini-app-sbt-worker"
+                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force onton_mini-app-sbt-worker
                 
-                echo "Updating $branch_name_mini-app-nft-api-worker"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force ${branch_name}_mini-app-nft-api-worker
+                echo "Updating onton_mini-app-nft-api-worker"
+                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force onton_mini-app-nft-api-worker
           
           
-                echo "Updating $branch_name_mini-app-ordinary-worker"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force ${branch_name}_mini-app-ordinary-worker
+                echo "Updating onton_mini-app-ordinary-worker"
+                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force onton_mini-app-ordinary-worker
           
-                echo "Updating $branch_name_mini-app-reward-worker"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force ${branch_name}_mini-app-reward-worker
+                echo "Updating onton_mini-app-reward-worker"
+                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force onton_mini-app-reward-worker
           
-                echo "Updating $branch_name_mini-app-moderation-bot"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force ${branch_name}_mini-app-moderation-bot
+                echo "Updating onton_mini-app-moderation-bot"
+                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force onton_mini-app-moderation-bot
               else
-                echo "docker service update --force ${branch_name}_\${service}"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2  --force ${branch_name}_\${service}
+                echo "docker service update --force onton_\${service}"
+                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2  --force onton_\${service}
               fi
             done
             # bidar kardane fluentd :))

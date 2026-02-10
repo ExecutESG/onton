@@ -1,0 +1,20 @@
+{
+    email mahdifarimani@gmail.com
+}
+
+dev.onton.live {
+    reverse_proxy website:3003
+}
+
+app.dev.onton.live {
+    reverse_proxy /ptma* participant-tma:3004
+    reverse_proxy mini-app:3000
+}
+
+minio.dev.onton.live {
+    reverse_proxy minio:9000
+}
+
+files.dev.onton.live {
+    reverse_proxy minio:9000
+}

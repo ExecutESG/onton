@@ -552,7 +552,7 @@ jobs:
             echo "Deploying Docker stack for $branch_name using $COMPOSE_FILE..."
             # Temporarily disable errexit for the capture
             set +o errexit
-            deploy_output=\$(docker stack deploy --with-registry-auth -c \$COMPOSE_FILE onton 2>&1)
+            deploy_output=\$(docker stack deploy --with-registry-auth -c $COMPOSE_FILE onton 2>&1)
             deploy_status=\$?
             set -o errexit
           

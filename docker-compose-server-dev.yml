@@ -12,6 +12,8 @@ x-common-env: &common-env
   SOCIETY_HUB_API_KEY: ${SOCIETY_HUB_API_KEY}
   SOCIETY_HUB_ADMIN_CHAT_ID: ${SOCIETY_HUB_ADMIN_CHAT_ID}
   SOCIETY_HUB_CHAT_ID: ${SOCIETY_HUB_CHAT_ID}
+  ONTON_API_KEY: ${ONTON_API_KEY}
+  NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
 
 x-default-extra-hosts: &default-extra-hosts
   extra_hosts:
@@ -32,6 +34,27 @@ services:
       replicas: 1
     environment:
       <<: *common-env
+      NEXT_PUBLIC_APP_BASE_URL: https://${MINI_APP_DOMAIN}
+      PORT: 3000
+    networks:
+      - onton-network
+
+  participant-tma:
+    image: ghcr.io/executesg/onton/participant-tma:${BRANCH_NAME}-latest
+    hostname: participant-tma
+    ports:
+      - "${PARTICIPANT_TMA_PORT-3001}:3000"
+    <<: *default-extra-hosts
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "0.5"
+      replicas: 1
+    environment:
+      <<: *common-env
+      NEXT_PUBLIC_APP_BASE_URL: https://${MINI_APP_DOMAIN}
+      PORT: 3000
     networks:
       - onton-network
 

@@ -547,7 +547,7 @@ jobs:
                 # Do not exit 1, allow deployment to proceed
             fi
             # Create network if it doesn't exist (on the server)
-            docker network ls | grep -q "onton-network-$branch_name" || docker network create --driver overlay --attachable "onton-network-$branch_name" || true
+            docker network ls | grep -q "onton-shadow-network" || docker network create --driver overlay --attachable "onton-shadow-network" || true
 
             echo "Deploying Docker stack for $branch_name using $COMPOSE_FILE..."
             # Temporarily disable errexit for the capture
@@ -606,7 +606,7 @@ jobs:
               fi
             done
             # bidar kardane fluentd :))
-            docker service update --update-failure-action rollback --update-max-failure-ratio 0.5 --force ${branch_name}_fluentd
+            docker service update --update-failure-action rollback --update-max-failure-ratio 0.5 --force onton_fluentd
             echo "Services deployed successfully."         
           EOF
 

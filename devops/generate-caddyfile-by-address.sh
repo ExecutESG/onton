@@ -59,6 +59,20 @@ fi
 : "${PROXY_MINI_APP:=mini-app}"
 : "${PROXY_CLIENT_WEB:=client-web}"
 
+# Force service names for reliability in Swarm (overriding IP_RANGE_BASE/host.docker.internal)
+PROXY_WEBSITE="website"
+PROXY_MINI_APP="mini-app"
+PROXY_CLIENT_WEB="client-web"
+PROXY_SWAGGER_UI="swagger-ui"
+# Keep others as-is or default?
+# RabbitMQ and others might need similar treatment if they are services.
+PROXY_RABBITMQ="rabbitmq"
+PROXY_METABASE="metabase"
+PROXY_MINIO="minio"
+PROXY_PGADMIN="pgadmin"
+PROXY_SOCKET="mini-app-notification-socket"
+
+
 # Define log configuration
 LOG_CONFIG="log {
     output stdout

@@ -54,6 +54,11 @@ else
     PROXY_SWAGGER_UI=${IP_SWAGGER_UI}
 fi
 
+# Default to service names if IPs are empty (Docker Swarm DNS)
+: "${PROXY_WEBSITE:=website}"
+: "${PROXY_MINI_APP:=mini-app}"
+: "${PROXY_CLIENT_WEB:=client-web}"
+
 # Define log configuration
 LOG_CONFIG="log {
     output stdout
@@ -143,9 +148,9 @@ ${ONTON_DOMAIN} {
 #    }
 
     # Reverse proxy for all other paths to Next.js
-#    handle {
-#        reverse_proxy ${PROXY_WEBSITE}:${PORT_WEB_SITE}
-#    }
+    handle {
+        reverse_proxy ${PROXY_WEBSITE}:${PORT_WEB_SITE}
+    }
 }
 
 

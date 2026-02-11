@@ -563,8 +563,7 @@ jobs:
                 exit 1
             fi
             if echo "\$deploy_output" | grep -q "could not be accessed on a registry"; then
-              echo "Error: Registry access issue detected during deployment."
-              exit 1
+              echo "Warning: Registry access issue detected. This is expected for public images (e.g., elasticsearch, swagger-ui). Proceeding..."
             fi
             echo "Forcing update of services..."
             services=\$(echo "$services_to_build" | tr -d '[]"' | tr ',' ' ')

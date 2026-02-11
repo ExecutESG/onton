@@ -250,7 +250,7 @@ services:
       - onton-network
 
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:9.0.0
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.1
     hostname: elasticsearch
     environment:
       - discovery.type=single-node
@@ -300,7 +300,7 @@ services:
       - onton-network
 
   swagger-ui:
-    image: ghcr.io/executesg/onton/swagger-ui:${BRANCH_NAME}-latest
+    image: swaggerapi/swagger-ui:v5.11.0
     hostname: swagger-ui
     ports:
       - "${SWAGGER_UI_PORT}:8080"

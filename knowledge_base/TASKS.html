@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ONTON Prioritized Tasks (Q2 2026)</title>
+    <style>
+        :root {
+            --primary-color: #007AFF;
+            --bg-color: #F5F5F7;
+            --card-bg: #FFFFFF;
+            --text-primary: #1C1C1E;
+            --text-secondary: #8E8E93;
+            --border-radius: 12px;
+            --priority-high: #FF3B30;
+            --priority-med: #FF9500;
+            --priority-low: #34C759;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 2rem;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        p.subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .section {
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid #E5E5EA;
+            padding-bottom: 1rem;
+        }
+
+        .section-icon {
+            font-size: 1.5rem;
+            margin-right: 0.75rem;
+        }
+
+        h2 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+
+        .task-list {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .task-card {
+            display: grid;
+            grid-template-columns: 80px 1fr 100px;
+            gap: 1rem;
+            align-items: start;
+            padding: 1rem;
+            border: 1px solid #E5E5EA;
+            border-radius: 8px;
+            transition: transform 0.2s ease;
+        }
+
+        .task-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--primary-color);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.6rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            text-align: center;
+        }
+
+        .badge.high {
+            background-color: rgba(255, 59, 48, 0.1);
+            color: var(--priority-high);
+        }
+
+        .badge.med {
+            background-color: rgba(255, 149, 0, 0.1);
+            color: var(--priority-med);
+        }
+
+        .badge.low {
+            background-color: rgba(52, 199, 89, 0.1);
+            color: var(--priority-low);
+        }
+
+        .task-content h3 {
+            margin: 0 0 0.25rem 0;
+            font-size: 1.1rem;
+        }
+
+        .task-content p {
+            margin: 0;
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+        }
+
+        .effort {
+            text-align: right;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .roadmap {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .month-col {
+            background: #F2F2F7;
+            padding: 1rem;
+            border-radius: 8px;
+        }
+
+        .month-col h3 {
+            margin-top: 0;
+            color: var(--primary-color);
+        }
+
+        @media (max-width: 600px) {
+            .task-card {
+                grid-template-columns: 1fr;
+                gap: 0.5rem;
+            }
+
+            .badge {
+                width: fit-content;
+            }
+
+            .effort {
+                text-align: left;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <header>
+            <h1>ONTON Tasks Q2 2026</h1>
+            <p class="subtitle">Prioritized Technical Roadmap based on Business Impact</p>
+        </header>
+
+        <!-- Objective 1 -->
+        <div class="section">
+            <div class="section-header">
+                <span class="section-icon">🚨</span>
+                <h2>Critical Path (Stability)</h2>
+            </div>
+            <div class="task-list">
+                <div class="task-card">
+                    <span class="badge high">High</span>
+                    <div class="task-content">
+                        <h3>Refactor `events.ts` Router</h3>
+                        <p>Split 42KB+ file into `EventService` and `EventController`. Needed to prevent Single Point of
+                            Failure.</p>
+                    </div>
+                    <div class="effort">5 Days</div>
+                </div>
+                <div class="task-card">
+                    <span class="badge high">High</span>
+                    <div class="task-content">
+                        <h3>Migrate Payment Polling</h3>
+                        <p>Move from Cron jobs to RabbitMQ (`amqplib`) events for instant ticket minting at scale.</p>
+                    </div>
+                    <div class="effort">3 Days</div>
+                </div>
+                <div class="task-card">
+                    <span class="badge high">High</span>
+                    <div class="task-content">
+                        <h3>Integration Test Suite (Payments)</h3>
+                        <p>Vitest coverage for Create Order -> Payment Webhook -> Mint NFT.</p>
+                    </div>
+                    <div class="effort">4 Days</div>
+                </div>
+                <div class="task-card">
+                    <span class="badge med">Med</span>
+                    <div class="task-content">
+                        <h3>Centralize RBAC Logic</h3>
+                        <p>Create `AccessControlService` to manage "Organizer Pro" permissions cleanly.</p>
+                    </div>
+                    <div class="effort">2 Days</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Objective 2 -->
+        <div class="section">
+            <div class="section-header">
+                <span class="section-icon">🍏</span>
+                <h2>Low-Hanging Fruit (Organizers)</h2>
+            </div>
+            <div class="task-list">
+                <div class="task-card">
+                    <span class="badge high">High</span>
+                    <div class="task-content">
+                        <h3>"Duplicate Event" Button</h3>
+                        <p>Simple router addition to reduce friction for recurring hosts.</p>
+                    </div>
+                    <div class="effort">0.5 Days</div>
+                </div>
+                <div class="task-card">
+                    <span class="badge med">Med</span>
+                    <div class="task-content">
+                        <h3>Organizer Analytics Dashboard</h3>
+                        <p>Frontend views for "Total Ticket Sales" and "Page Views".</p>
+                    </div>
+                    <div class="effort">2 Days</div>
+                </div>
+                <div class="task-card">
+                    <span class="badge low">Low</span>
+                    <div class="task-content">
+                        <h3>Direct Telegram Broadcast</h3>
+                        <p>Expose `admin.composer.ts` logic to allow organizers to message attendees.</p>
+                    </div>
+                    <div class="effort">1.5 Days</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Objective 3 -->
+        <div class="section">
+            <div class="section-header">
+                <span class="section-icon">🚀</span>
+                <h2>Growth & Traffic</h2>
+            </div>
+            <div class="task-list">
+                <div class="task-card">
+                    <span class="badge high">High</span>
+                    <div class="task-content">
+                        <h3>Hybrid Auth Implementation</h3>
+                        <p>Enable Google/Email login linked to Telegram for Unified Web Platform.</p>
+                    </div>
+                    <div class="effort">5 Days</div>
+                </div>
+                <div class="task-card">
+                    <span class="badge high">High</span>
+                    <div class="task-content">
+                        <h3>SEO-Optimized Event Pages</h3>
+                        <p>Server-side rendering (SSR) of event details with OpenGraph tags.</p>
+                    </div>
+                    <div class="effort">3 Days</div>
+                </div>
+                <div class="task-card">
+                    <span class="badge med">Med</span>
+                    <div class="task-content">
+                        <h3>Affiliate "Share-to-Earn" UI</h3>
+                        <p>UI to generate referral links and track ONION rewards.</p>
+                    </div>
+                    <div class="effort">2 Days</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Objective 4 -->
+        <div class="section">
+            <div class="section-header">
+                <span class="section-icon">🗳️</span>
+                <h2>Governance System</h2>
+            </div>
+            <div class="task-list">
+                <div class="task-card">
+                    <span class="badge med">Med</span>
+                    <div class="task-content">
+                        <h3>Snapshot.org Integration Strategy</h3>
+                        <p>Research off-chain Snapshot vs. on-chain voting implementation.</p>
+                    </div>
+                    <div class="effort">1 Day</div>
+                </div>
+                <div class="task-card">
+                    <span class="badge low">Low</span>
+                    <div class="task-content">
+                        <h3>In-App Voting UI</h3>
+                        <p>Display active proposals and capture wallet-signed votes.</p>
+                    </div>
+                    <div class="effort">3 Days</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Timeline -->
+        <div class="section">
+            <div class="section-header">
+                <span class="section-icon">📅</span>
+                <h2>Execution Plan</h2>
+            </div>
+            <div class="roadmap">
+                <div class="month-col">
+                    <h3>Month 1</h3>
+                    <ul>
+                        <li>Refactors (Router)</li>
+                        <li>Duplicate Event</li>
+                        <li>Analytics Dashboard</li>
+                    </ul>
+                </div>
+                <div class="month-col">
+                    <h3>Month 2</h3>
+                    <ul>
+                        <li>Hybrid Auth</li>
+                        <li>SEO Pages</li>
+                        <li>Payment Queue Migration</li>
+                    </ul>
+                </div>
+                <div class="month-col">
+                    <h3>Month 3</h3>
+                    <ul>
+                        <li>Governance UI</li>
+                        <li>Affiliate System Polish</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</body>
+
+</html>

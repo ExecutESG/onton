@@ -3,6 +3,8 @@ import { usersDB } from "@/db/modules/users.db";
 import { logger } from "@/server/utils/logger";
 import { TRPCError } from "@trpc/server";
 import { cookies } from "next/headers";
+import { getAuthenticatedUserApi } from "@/server/auth";
+import { selectUserById } from "@/db/modules/users.db";
 
 export async function createContext({ req }: { req: Request }) {
   // get user from init data passed as authorization header
@@ -46,7 +48,31 @@ export async function createContext({ req }: { req: Request }) {
     return null;
   }
 
-  const user = await getUserFromHeader();
+  // Helper to get user via API Key (Fallback if initData is missing)
+  async function getUserFromApiKey() {
+    const [userId, _err] = await getAuthenticatedUserApi(req);
+
+    if (userId) {
+      const user = await selectUserById(userId);
+      if (user) {
+        // Ensure user is not banned
+        if (user.role === "ban") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "user is banned",
+          });
+        }
+        return user;
+      }
+    }
+    return null;
+  }
+
+  let user = await getUserFromHeader();
+
+  if (!user) {
+    user = await getUserFromApiKey();
+  }
 
   return {
     req, // ← important!  (Fastify/Next Request – whatever you pass in)

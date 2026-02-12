@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Affiliate & Referral System</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+            background-color: #f9f9f9;
+        }
+
+        h1,
+        h2,
+        h3 {
+            color: #2c3e50;
+            margin-top: 2rem;
+        }
+
+        h1 {
+            border-bottom: 2px solid #eaeaea;
+            padding-bottom: 0.5rem;
+        }
+
+        .mermaid {
+            text-align: center;
+            margin: 2rem 0;
+        }
+
+        a {
+            color: #0366d6;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({ startOnLoad: true, theme: 'default' });</script>
+</head>
+
+<body>
+
+    <a href="onton_core_interactions.html">← Back to Core Interactions Map</a>
+
+    <h1>Affiliate & Referral System</h1>
+    <p>The ONTON Affiliate System allows users to earn rewards and track performance through unique referral links. It
+        supports both general platform growth and specific campaigns like the Fairlaunch.</p>
+
+    <h2>1. Referral Types</h2>
+
+    <h3>A. User Referral (Platform Growth)</h3>
+    <ul>
+        <li><strong>Mechanism:</strong> Telegram Start Parameter (<code>t.me/ontonbot?start=join-HASH</code>).</li>
+        <li><strong>Tracking:</strong>
+            <ul>
+                <li>When a new user launches the bot with a <code>join-HASH</code> param, the system looks up the
+                    affiliate link.</li>
+                <li>The new user is linked to the referrer in the <code>users</code> table (or similar tracking table).
+                </li>
+                <li><strong>Code:</strong> <code>src/server/context.ts</code> parses <code>join-HASH</code> during the
+                    <code>createContext</code> user sync.</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h3>B. Event Promotion (Ticket Sales)</h3>
+    <ul>
+        <li><strong>Mechanism:</strong> <code>utm_source</code> tracking on Orders.</li>
+        <li><strong>Tracking:</strong>
+            <ul>
+                <li>When a user buys a ticket, the <code>utm_source</code> (Affiliate Hash) is saved in the
+                    <code>orders</code> table.</li>
+                <li>Upon successful NFT minting, <code>MintNFTForPaidOrders.ts</code> calls
+                    <code>affiliateLinksDB.incrementAffiliatePurchase</code>.</li>
+                <li>This increments the success count for that specific affiliate link.</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h3>C. Fairlaunch Partnership (Campaigns)</h3>
+    <ul>
+        <li><strong>Context:</strong> Special campaign for token sales (e.g., $ONION).</li>
+        <li><strong>Worker:</strong> <code>affiliateRouter.ts</code> -> <code>getFairlaunchAffiliate</code>.</li>
+        <li><strong>Tracking:</strong>
+            <ul>
+                <li>Tracks rich data: <code>usdtAmount</code>, <code>onionAmount</code>, <code>walletAddress</code>.
+                </li>
+                <li>Data is stored in <code>partnershipAffiliatePurchases</code>.</li>
+                <li><strong>UI:</strong> Users can see a detailed dashboard with their total sales and global campaign
+                    progress.</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h2>2. Data Structure</h2>
+
+    <h3>Core Table: <code>affiliateLinks</code></h3>
+    <ul>
+        <li><code>id</code>: Unique ID.</li>
+        <li><code>user_id</code>: The referrer.</li>
+        <li><code>linkHash</code>: The unique code (e.g., <code>8xyz123</code>).</li>
+        <li><code>type</code>: Type of link (e.g., <code>fairlaunch-partnership</code>, <code>standard</code>).</li>
+        <li><code>purchase_count</code>: Simple counter for ticket sales.</li>
+    </ul>
+
+    <h2>3. Flow Diagram (Ticket Sale Referral)</h2>
+
+    <div class="mermaid">
+        sequenceDiagram
+        participant Ref as Referrer
+        participant Buyer as User
+        participant API as ONTON API
+        participant DB as PostgreSQL
+        participant Worker as Mint Worker
+
+        Ref->>API: Generate Link (Hash)
+        API-->>Ref: t.me/bot?start=join-HASH
+
+        Ref->>Buyer: Shares Link
+        Buyer->>API: Opens Bot (Context Sync)
+        API->>DB: Link User to Referrer (Optional)
+
+        Buyer->>API: Buys Ticket (Order created with utm_source=HASH)
+
+        note right of Worker: Payment Success
+        Worker->>DB: Update Order -> Completed
+        Worker->>DB: incrementAffiliatePurchase(HASH)
+
+        Ref->>API: Check Dashboard
+        API-->>Ref: Show Updated Sales Count
+    </div>
+
+</body>
+
+</html>

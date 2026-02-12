@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Onboarding & Authentication</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+            background-color: #f9f9f9;
+        }
+
+        h1,
+        h2,
+        h3 {
+            color: #2c3e50;
+            margin-top: 2rem;
+        }
+
+        h1 {
+            border-bottom: 2px solid #eaeaea;
+            padding-bottom: 0.5rem;
+        }
+
+        pre {
+            background-color: #f6f8fa;
+            padding: 1rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            border: 1px solid #e1e4e8;
+        }
+
+        code {
+            background-color: #f0f0f0;
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+
+        .mermaid {
+            text-align: center;
+            margin: 2rem 0;
+        }
+
+        a {
+            color: #0366d6;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({ startOnLoad: true, theme: 'default' });</script>
+</head>
+
+<body>
+
+    <a href="onton_core_interactions.html">← Back to Core Interactions Map</a>
+
+    <h1>User Onboarding & Authentication</h1>
+    <p>The ONTON platform uses a seamless, "login-less" onboarding experience driven by Telegram's native authentication
+        data.</p>
+
+    <h2>1. Authentication Flow</h2>
+    <p>Authentication is handled automatically when a user opens the Mini App.</p>
+
+    <h3>1.1 Telegram InitData</h3>
+    <p>When the Mini App launches, Telegram provides an <code>initData</code> string containing signed user information
+        (ID, Username, Photo URL).</p>
+
+    <h3>1.2 Backend Validation</h3>
+    <p>The frontend sends this <code>initData</code> in the <code>Authorization</code> header with every tRPC request.
+    </p>
+    <ul>
+        <li><strong>File:</strong> <code>src/server/context.ts</code></li>
+        <li><strong>Process:</strong>
+            <ol>
+                <li>Extract <code>Authorization</code> header.</li>
+                <li>Validate signature using the Bot Token (via <code>validateMiniAppData</code>).</li>
+                <li><strong>Upsert User:</strong> If valid, the system calls <code>usersDB.insertUser</code>. This
+                    ensures that <em>every</em> authenticated request corresponds to a valid user record in the
+                    database.</li>
+                <li><strong>Affiliate Check:</strong> If <code>start_param</code> is present (e.g.,
+                    <code>join-123</code>), it links the user to an affiliate.</li>
+            </ol>
+        </li>
+    </ul>
+
+    <h2>2. Wallet Connection</h2>
+    <p>After authentication, users can connect their TON Wallet (e.g., Tonkeeper) to enable interactions like buying
+        tickets or receiving rewards.</p>
+    <ul>
+        <li><strong>Frontend:</strong> Uses <code>TON Connect</code> UI kit.</li>
+        <li><strong>Backend Procedure:</strong> <code>users.addWallet</code></li>
+        <li><strong>File:</strong> <code>src/server/routers/users.ts</code></li>
+        <li><strong>Logic:</strong>
+            <ul>
+                <li>User connects wallet on frontend.</li>
+                <li>Frontend sends wallet address to backend.</li>
+                <li>Backend updates the <code>wallet</code> field in the <code>users</code> table.</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h2>3. Data Flow Diagram</h2>
+
+    <div class="mermaid">
+        sequenceDiagram
+        participant User
+        participant Telegram
+        participant Frontend as Mini App UI
+        participant Backend as tRPC Server
+        participant DB as PostgreSQL
+
+        User->>Telegram: Open Mini App
+        Telegram->>Frontend: Provide initData (Signed)
+
+        Frontend->>Backend: API Request + Auth Header (initData)
+
+        note right of Backend: src/server/context.ts
+        Backend->>Backend: Validate Signature
+        Backend->>DB: Upsert User (Create if new)
+        DB-->>Backend: User Record
+        Backend-->>Frontend: Response (Authorized)
+
+        User->>Frontend: Connect Wallet (TON Connect)
+        Frontend->>Backend: Mutation: users.addWallet(address)
+        Backend->>DB: Update User Wallet
+        DB-->>Backend: Success
+    </div>
+
+    <h2>4. Key Database Fields</h2>
+    <ul>
+        <li><strong><code>user_id</code></strong> (BigInt): Telegram User ID (Primary Key).</li>
+        <li><strong><code>username</code></strong>: Telegram Handle.</li>
+        <li><strong><code>wallet</code></strong>: Connected TON Wallet Address.</li>
+        <li><strong><code>role</code></strong>: <code>user</code>, <code>organizer</code>, or <code>admin</code>.</li>
+    </ul>
+
+    <h2>5. Security Note</h2>
+    <p>Top-level protection is enforced by <code>initDataProtectedProcedure</code> in <code>trpc.ts</code>, which
+        ensures that <code>ctx.user</code> is always populated and valid before executing business logic.</p>
+
+</body>
+
+</html>

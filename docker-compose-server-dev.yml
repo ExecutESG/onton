@@ -36,6 +36,10 @@ services:
       <<: *common-env
       NEXT_PUBLIC_APP_BASE_URL: https://${MINI_APP_DOMAIN}
       PORT: 3000
+      # Critical for internal connection
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_HOST: ${IP_REDIS}
+      IP_REDIS: ${IP_REDIS}
     networks:
       - onton-network
 

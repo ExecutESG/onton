@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "init:minio:local": "dotenv -e ../.env -- cross-var tsx ./src/scripts/initMinio.ts",
+    "test:api": "vitest run",
     "init:minio:server": "tsx ./src/scripts/initMinio.ts",
     "dev": "yarn run init:minio:local && NODE_OPTIONS='--inspect' dotenv -e ../.env -- cross-var node --inspect ./node_modules/next/dist/bin/next dev --port %MINI_APP_PORT%",
     "test-env": "dotenv -e ../.env -- cross-var  echo %MINI_APP_PORT%",

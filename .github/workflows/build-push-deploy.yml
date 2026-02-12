@@ -453,20 +453,20 @@ jobs:
           ssh_port="${SSH_PORT}"
           services_to_build=${{ needs.determine-services.outputs.services_to_build }}   
           echo "Connecting to server and creating branch directory..."
-          ssh -o StrictHostKeyChecking=no -p "$ssh_port" tonont@$ssh_ip << EOF
+          ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=5 -p "$ssh_port" tonont@$ssh_ip << EOF
             mkdir -p /home/tonont/$branch_name
             echo "Creating network if not exists..."
 
           EOF
 
           echo "Copying files to server..."
-          scp  -P "$ssh_port"  -r -o StrictHostKeyChecking=no  docker-compose-server.yml docker-compose-server-dev.yml .env docker-compose-server.volume.dev.yml .dockerignore swagger devops tonont@$ssh_ip:/home/tonont/$branch_name
+          scp -P "$ssh_port" -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=5 -r docker-compose-server.yml docker-compose-server-dev.yml .env docker-compose-server.volume.dev.yml .dockerignore swagger devops tonont@$ssh_ip:/home/tonont/$branch_name
           
           
           # Remove brackets and convert to space-separated string
           services=$(echo "$services_to_build" | tr -d '[]"' | tr ',' ' ')
           echo "Formatted services to build: $services"  # Debug output        
-          ssh -p "$ssh_port" -o StrictHostKeyChecking=no tonont@$ssh_ip << EOF
+          ssh -p "$ssh_port" -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=5 tonont@$ssh_ip << EOF
             set -o errexit
             set -o pipefail
             whoami
@@ -512,7 +512,7 @@ jobs:
           EOF
           echo "Exporting all environment variables with branch-specific prefix..."
           
-          ssh  -p "$ssh_port" -o StrictHostKeyChecking=no tonont@$ssh_ip << EOF
+          ssh -p "$ssh_port" -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=5 tonont@$ssh_ip << EOF
             set -o errexit
             set -o pipefail
             echo "Moving to branch directory..."

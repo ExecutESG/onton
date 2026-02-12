@@ -75,3 +75,9 @@ mini-app/bun.lock
 
 *storybook.log
 .windsurf
+
+Misc/
+deploy_key
+deploy_key.pub
+id_rsa_onton_dev
+id_rsa_onton_dev.pub

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ONTON Developer Guide</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+            background-color: #f9f9f9;
+        }
+
+        h1,
+        h2,
+        h3 {
+            color: #2c3e50;
+            margin-top: 2rem;
+        }
+
+        h1 {
+            border-bottom: 2px solid #eaeaea;
+            padding-bottom: 0.5rem;
+        }
+
+        code {
+            background-color: #f1f1f1;
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+            font-size: 0.9em;
+        }
+
+        pre {
+            background-color: #f6f8fa;
+            padding: 1rem;
+            border-radius: 6px;
+            overflow-x: auto;
+        }
+
+        pre code {
+            background-color: transparent;
+            padding: 0;
+        }
+
+        .mermaid {
+            text-align: center;
+            margin: 2rem 0;
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        a {
+            color: #0366d6;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .alert {
+            background-color: #e1f5fe;
+            border-left: 4px solid #0288d1;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({ startOnLoad: true, theme: 'default' });</script>
+</head>
+
+<body>
+
+    <h1>ONTON Platform Developer Guide</h1>
+    <p>Welcome to the ONTON engineering team! This guide will help you set up your environment, understand the codebase
+        structure, and contribute effectively.</p>
+
+    <h2>1. Quick Start (Onboarding)</h2>
+
+    <h3>Prerequisites</h3>
+    <ul>
+        <li><strong>Node.js</strong>: v20+ (managed via nvm recommended)</li>
+        <li><strong>Package Manager</strong>: <code>yarn</code> (v1.22.x)</li>
+        <li><strong>Docker</strong>: Required for local database and services.</li>
+    </ul>
+
+    <h3>Setup Steps</h3>
+    <ol>
+        <li>
+            <strong>Clone the Repository</strong>:
+            <pre><code>git clone https://github.com/YourOrg/ontonbot.git
+cd ontonbot</code></pre>
+        </li>
+        <li>
+            <strong>Install Dependencies</strong>:
+            <pre><code># Install root dependencies (if any)
+yarn install
+
+# Install Mini App dependencies
+cd mini-app
+yarn install</code></pre>
+        </li>
+        <li>
+            <strong>Environment Variables</strong>:
+            <ul>
+                <li>Copy <code>.env.example</code> to <code>.env</code> in <code>mini-app/</code>.</li>
+                <li><em>Ask the lead developer for the required secrets (e.g., specific Bot Token, TON Wallet
+                        Seed).</em></li>
+            </ul>
+        </li>
+        <li>
+            <strong>Start Local Infrastructure</strong>:
+            <p>Spin up PostgreSQL, Redis, and MinIO:</p>
+            <pre><code># From root directory
+docker-compose -f docker-compose.yml up -d</code></pre>
+        </li>
+        <li>
+            <strong>Run Database Migrations</strong>:
+            <pre><code>cd mini-app
+yarn run db:up</code></pre>
+        </li>
+        <li>
+            <strong>Start Development Server</strong>:
+            <pre><code># In mini-app directory
+yarn run dev</code></pre>
+            <p>The app should be running at <code>http://localhost:3000</code>.</p>
+        </li>
+    </ol>
+
+    <hr>
+
+    <h2>2. Architecture Overview</h2>
+    <p>ONTON is built on a <strong>T3 Stack-inspired architecture</strong> (Next.js + tRPC + Drizzle).</p>
+
+    <h3>High-Level Diagram</h3>
+    <div class="mermaid">
+        graph TD
+        User((User)) -->|Browser/Telegram| MiniApp[Mini App (Next.js)]
+        User -->|Chat| Bot[Telegram Bot (Grammy)]
+
+        subgraph "Backend Services"
+        MiniApp -->|tRPC via HTTP| API[API Server]
+        API -->|Query| DB[(PostgreSQL)]
+        API -->|Cache| Redis[(Redis)]
+        API -->|Task Queue| RMQ[RabbitMQ]
+        end
+
+        subgraph "Background Workers"
+        RMQ -->|Consume| Workers[Worker Service]
+        Workers -->|Mint/Verify| TON[TON Blockchain]
+        Cron[Cron Scheduler] -->|Trigger| API
+        end
+    </div>
+
+    <hr>
+
+    <h2>3. Where Logic Lives</h2>
+    <p>Understanding <em>where</em> to put your code is key to maintaining a clean codebase.</p>
+
+    <h3>A. Frontend UI (<code>src/app/</code>)</h3>
+    <ul>
+        <li><strong>Pages:</strong> <code>src/app/(navigation)/...</code></li>
+        <li><strong>Components:</strong> <code>src/components/</code> (Reusable UI elements).</li>
+        <li><strong>State:</strong> <code>src/zustand/</code> (Global client state stores).</li>
+        <li><strong>Rule:</strong> Keep logic here strictly to <em>presentation</em> and <em>interaction</em>. Avoid
+            complex business rules.</li>
+    </ul>
+
+    <h3>B. Business Logic (<code>src/server/routers/</code>)</h3>
+    <ul>
+        <li><strong>tRPC Routers:</strong> This is where the core logic resides.
+            <ul>
+                <li><code>src/server/routers/events.ts</code>: Event creation, updating, validation.</li>
+                <li><code>src/server/routers/orders.ts</code>: Ticket purchase flows.</li>
+                <li><code>src/server/routers/users.ts</code>: User profile management.</li>
+            </ul>
+        </li>
+        <li><strong>Rule:</strong> Validate input using Zod schemas here. Call helpers/services for complex operations.
+        </li>
+    </ul>
+
+    <h3>C. Data Access (<code>src/db/</code>)</h3>
+    <ul>
+        <li><strong>Schema:</strong> <code>src/db/schema/</code> (Drizzle definitions).</li>
+        <li><strong>Access Modules:</strong> <code>src/db/modules/</code> (Helper functions for common DB queries).</li>
+        <li><strong>Rule:</strong> Do not write raw SQL in routers if a helper exists.</li>
+    </ul>
+
+    <h3>D. Background Jobs (<code>src/workers/</code> & <code>src/cronJobs/</code>)</h3>
+    <ul>
+        <li>Use this for long-running tasks:
+            <ul>
+                <li>Minting NFTs.</li>
+                <li>Sending mass notifications.</li>
+                <li>Checking blockchain transaction status.</li>
+            </ul>
+        </li>
+    </ul>
+
+    <hr>
+
+    <h2>4. Contributing Checklist</h2>
+    <p>Before opening a Pull Request (PR):</p>
+    <ol>
+        <li><strong>Run Tests:</strong> <code>yarn test</code> (or specific test suites relevant to your changes).</li>
+        <li><strong>Lint Code:</strong> <code>yarn lint</code>.</li>
+        <li><strong>Format Code:</strong> <code>yarn format</code> (Prettier).</li>
+        <li><strong>Check Types:</strong> <code>yarn type:check</code> (TypeScript validation).</li>
+    </ol>
+
+    <p><em>Happy Coding!</em></p>
+
+</body>
+
+</html>

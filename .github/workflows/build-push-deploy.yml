@@ -41,11 +41,24 @@ jobs:
       - name: Determine Services to Build
         id: determine-services
         env:
-          TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT: ${{ secrets.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT }}
-          TELEGRAM_CHAT_ID_FOR_DEPLOYMENT: ${{ secrets.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT }}
+          TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT: ${{ secrets.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT || vars.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT }}
+          TELEGRAM_CHAT_ID_FOR_DEPLOYMENT: ${{ secrets.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT || vars.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT }}
         run: |
           echo "Determining services that have changed..."
-          changed_files=$(git diff --name-only "${{ github.event.before }}" "${{ github.sha }}")
+          
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            git fetch origin ${{ github.base_ref }}
+            changed_files=$(git diff --name-only "origin/${{ github.base_ref }}" "${{ github.sha }}")
+          else
+            BEFORE="${{ github.event.before }}"
+            AFTER="${{ github.sha }}"
+            if [ -z "$BEFORE" ] || [ "$BEFORE" == "0000000000000000000000000000000000000000" ]; then
+               # New branch or forced push, fallback to diffing against previous commit
+               changed_files=$(git diff --name-only HEAD~1 HEAD) 
+            else
+               changed_files=$(git diff --name-only "$BEFORE" "$AFTER")
+            fi
+          fi
           echo "Changed files: $changed_files"
           declare -a services_to_build=()
           # Define service directory mappings
@@ -126,8 +139,8 @@ jobs:
     steps:
       - name: Send Telegram Message - Build Start
         env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT || vars.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT || vars.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT }}
         run: |
           if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
             echo "Error: Telegram deployment bot vars are not set or are empty."
@@ -298,8 +311,8 @@ jobs:
       - name: Send Telegram Message - Build Success
         if: success()
         env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT || vars.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT || vars.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT }}
         run: |
           if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
             echo "Error: Telegram vars are not set or are empty."
@@ -318,8 +331,8 @@ jobs:
         if: failure()
         continue-on-error: true
         env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT || vars.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT || vars.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT }}
         run: |
 
           if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
@@ -622,8 +635,8 @@ jobs:
         if: success()
         continue-on-error: true
         env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT || vars.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT || vars.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT }}
         run: |
           if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
             echo "Error: Telegram vars are not set or are empty."
@@ -641,8 +654,8 @@ jobs:
       - name: Send Telegram Message - Deployment Failure
         if: failure()
         env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT || vars.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT || vars.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT }}
         run: |
           if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
             echo "Error: Telegram vars are not set or are empty."

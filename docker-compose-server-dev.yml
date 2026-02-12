@@ -47,7 +47,7 @@ services:
     image: ghcr.io/executesg/onton/participant-tma:${BRANCH_NAME}-latest
     hostname: participant-tma
     ports:
-      - "${PARTICIPANT_TMA_PORT-3001}:3000"
+      - "${PARTICIPANT_TMA_PORT-3001}:3001"
     <<: *default-extra-hosts
     deploy:
       resources:

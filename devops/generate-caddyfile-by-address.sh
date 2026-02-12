@@ -82,10 +82,18 @@ LOG_CONFIG="log {
 # Generate Caddyfile
 echo "
 
+# Hardcoded block for app.dev.onton.live to ensure SSL/Proxy always works regardless of MINI_APP_DOMAIN value
+app.dev.onton.live {
+    ${TLS_CONFIG}
+    ${LOG_CONFIG}
+    reverse_proxy /ptma* http://${PROXY_PARTICIPANT_TMA}:3001
+    reverse_proxy http://${PROXY_MINI_APP}:${MINI_APP_PORT}
+}
+
 ${MINI_APP_DOMAIN} {
     ${TLS_CONFIG}
     ${LOG_CONFIG}
-    reverse_proxy /ptma* http://${PROXY_PARTICIPANT_TMA}:${PARTICIPANT_TMA_PORT}
+    reverse_proxy /ptma* http://${PROXY_PARTICIPANT_TMA}:3001
     reverse_proxy /swagger* http://${PROXY_SWAGGER_UI}:${SWAGGER_UI_PORT}
     reverse_proxy http://${PROXY_MINI_APP}:${MINI_APP_PORT}
 }

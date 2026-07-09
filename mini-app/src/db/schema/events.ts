@@ -22,7 +22,7 @@ export const events = pgTable(
   "events",
   {
     event_id: serial("event_id").primaryKey(),
-    event_uuid: uuid("event_uuid").notNull(),
+    event_uuid: uuid("event_uuid").notNull().unique(),
 
     enabled: boolean("enabled").default(true),
     hidden: boolean("hidden").default(false),

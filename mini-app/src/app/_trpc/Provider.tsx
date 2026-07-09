@@ -10,7 +10,8 @@ import { observable } from "@trpc/server/observable";
 const initDataExpirationAlert = () => {
   sessionStorage.removeItem("telegram:initParams");
 
-  if (window.Telegram?.WebApp) {
+  const hasTelegramContext = typeof window !== "undefined" && !!window.Telegram?.WebApp?.initData;
+  if (hasTelegramContext && window.Telegram?.WebApp) {
     if (!window.Telegram.WebApp?.isVersionAtLeast("6.0")) {
       console.error("Telegram WebApp version is lower than 6.0");
       alert("Your Telegram version is too old. Please update the app.");

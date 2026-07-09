@@ -82,6 +82,7 @@ x-common-env: &common-env
   SWAGGER_UI_PORT: ${SWAGGER_UI_PORT}
   USE_CLOUDFLARE: ${USE_CLOUDFLARE}
   CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN}
+  EVENT_WALLET_ENC_KEY: ${EVENT_WALLET_ENC_KEY}
 
 services:
   caddy:
@@ -142,7 +143,7 @@ services:
     image: postgres:16.3-alpine3.20
     restart: unless-stopped
     ports:
-      - "${POSTGRES_PORT}:5432"
+      - "127.0.0.1:${POSTGRES_PORT}:5432"
     profiles:
       - front-end-development
       - expecting-mini-app
@@ -164,13 +165,13 @@ services:
     volumes:
       - ./data/redis_data:/data
     ports:
-      - "${REDIS_PORT}:${REDIS_PORT}"
+      - "127.0.0.1:${REDIS_PORT}:${REDIS_PORT}"
     profiles:
       - front-end-development
       - expecting-mini-app
       - minimal
       - full
-    command: redis-server --save "" --appendonly no
+    command: redis-server --save "" --appendonly no --requirepass ${REDIS_PASSWORD}
     environment:
       <<: *common-env
     networks:
@@ -295,9 +296,8 @@ services:
     volumes:
       - ./data/drizzle_data:/app/drizzle
     networks:
-      onton-network:
-        ipv4_address: "${IP_MINI_APP_CRON}"
-    command: [ "yarn", "run", "start-cron" ]
+      - onton-network
+    command: [ "yarn", "run", "start-cron-nft-api" ]
 
   mini-app-reward-worker:
     hostname: mini-app-reward-worker
@@ -320,8 +320,7 @@ services:
     volumes:
       - ./data/drizzle_data:/app/drizzle
     networks:
-      onton-network:
-        ipv4_address: "${IP_MINI_APP_CRON}"
+      - onton-network
     command: [ "yarn", "run", "start-cron-reward" ]
 
   mini-app-ordinary-worker:
@@ -345,8 +344,7 @@ services:
     volumes:
       - ./data/drizzle_data:/app/drizzle
     networks:
-      onton-network:
-        ipv4_address: "${IP_MINI_APP_CRON}"
+      - onton-network
     command: [ "yarn", "run", "start-cron-ordinary" ]
 
   mini-app-moderation-bot:
@@ -580,8 +578,7 @@ services:
     depends_on:
       - caddy
     networks:
-      onton-network:
-        ipv4_address: "${IP_SWAGGER_UI}"
+      - onton-network
 
 networks:
   onton-network:

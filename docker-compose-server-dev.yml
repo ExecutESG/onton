@@ -24,7 +24,7 @@ services:
     image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
     hostname: mini-app
     ports:
-      - "${MINI_APP_PORT}:${MINI_APP_PORT}"
+      - "127.0.0.1:${MINI_APP_PORT}:${MINI_APP_PORT}"
     <<: *default-extra-hosts
     deploy:
       resources:
@@ -47,7 +47,7 @@ services:
     image: ghcr.io/executesg/onton/participant-tma:${BRANCH_NAME}-latest
     hostname: participant-tma
     ports:
-      - "${PARTICIPANT_TMA_PORT-3001}:3001"
+      - "127.0.0.1:${PARTICIPANT_TMA_PORT-3001}:3001"
     <<: *default-extra-hosts
     deploy:
       resources:
@@ -174,7 +174,7 @@ services:
     image: ghcr.io/executesg/onton/mini-app-notification-socket:${BRANCH_NAME}-latest
     hostname: mini-app-notification-socket
     ports:
-      - "${SOCKET_PORT}:${SOCKET_PORT}"
+      - "127.0.0.1:${SOCKET_PORT}:${SOCKET_PORT}"
     <<: *default-extra-hosts
     deploy:
       resources:
@@ -191,7 +191,7 @@ services:
     image: ghcr.io/executesg/onton/website:${BRANCH_NAME}-latest
     hostname: website
     ports:
-      - "${PORT_WEB_SITE}:${PORT_WEB_SITE}"
+      - "127.0.0.1:${PORT_WEB_SITE}:${PORT_WEB_SITE}"
     <<: *default-extra-hosts
     deploy:
       resources:
@@ -305,8 +305,8 @@ services:
           memory: 512M
           cpus: '0.2'
     ports:
-      - "24224:24224"
-      - "24224:24224/udp"
+      - "127.0.0.1:24224:24224"
+      - "127.0.0.1:24224:24224/udp"
     volumes:
       - ./devops/fluent/fluent.conf:/fluentd/etc/fluent.conf
     entrypoint: >
@@ -331,7 +331,7 @@ services:
     image: swaggerapi/swagger-ui:v5.11.0
     hostname: swagger-ui
     ports:
-      - "${SWAGGER_UI_PORT}:8080"
+      - "127.0.0.1:${SWAGGER_UI_PORT}:8080"
     environment:
       <<: *common-env
       SWAGGER_JSON: "/swagger.yaml"

@@ -13,6 +13,7 @@ import UserSaver from "./_components/UserSaver";
 import WebAppProvider from "./_components/WebAppProvider";
 import TRPCAPIProvider from "./_trpc/Provider";
 import ThemeSetter from "./themeSetter";
+import WebLoginSheet from "./_components/auth/WebLoginSheet";
 
 // NOTE: don't remove these
 // const TELEMETREE_API_KEY = "ffdf302a-c23a-417d-932d-b82b46573742";
@@ -49,6 +50,7 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
                       </NotificationProvider>
                     </ThemeSetter>
                     <Toaster />
+                    <WebLoginSheet />
                     {/*</TwaAnalyticsProvider>*/}
                   </ConfigProvider>
                 </NavigationHistoryProvider>

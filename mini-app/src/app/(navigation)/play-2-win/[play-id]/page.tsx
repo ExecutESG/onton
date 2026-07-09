@@ -8,7 +8,7 @@ import { ErrorState } from "@/app/_components/ErrorState";
 import PrizeCupIcon from "@/app/_components/icons/prize-cup";
 import EventKeyValue from "@/app/_components/organisms/events/EventKewValue";
 import { TournamentTimeRemaining } from "@/app/_components/Tournament/TournamentRemainingTime";
-import TournamentShareButton from "@/app/_components/tournaments/TournamentShareButton";
+import TournamentShareButton from "@/app/_components/Tournaments/TournamentShareButton";
 import Divider from "@/components/Divider";
 import LoadableImage from "@/components/LoadableImage";
 import Typography from "@/components/Typography";

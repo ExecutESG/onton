@@ -14,7 +14,7 @@ export const tickets = pgTable(
     telegram: text("telegram"),
     company: text("company"),
     position: text("position"),
-    order_uuid: text("order_uuid").references(() => orders.uuid),
+    order_uuid: uuid("order_uuid").references(() => orders.uuid),
     status: ticketStatus("status"),
     nftAddress: text("nft_address"),
     event_uuid: uuid("event_uuid").references(() => events.event_uuid),

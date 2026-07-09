@@ -1,4 +1,4 @@
-import { pgTable, bigint, boolean, varchar, date, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, bigint, bigserial, boolean, varchar, date, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { pgEnum } from "drizzle-orm/pg-core";
 import { InferSelectModel, sql } from "drizzle-orm";
 
@@ -14,8 +14,7 @@ export const affiliateItemType = pgEnum("affiliate_item_type", [
 export const affiliateLinks = pgTable(
   "affiliate_links",
   {
-    id: bigint("id", { mode: "number" }).primaryKey().default(sql`nextval
-        ('affiliate_links_id_seq'::regclass)`),
+    id: bigserial("id", { mode: "number" }).primaryKey(),
     itemId: bigint("Item_id", { mode: "number" }).notNull(),
     itemType: affiliateItemType("item_type").notNull(),
     creatorUserId: bigint("creator_user_id", { mode: "number" }).notNull(),

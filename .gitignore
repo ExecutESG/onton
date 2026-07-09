@@ -81,3 +81,6 @@ deploy_key
 deploy_key.pub
 id_rsa_onton_dev
 id_rsa_onton_dev.pub
+prod.env
+.env.shadow
+

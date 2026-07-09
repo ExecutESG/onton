@@ -10,8 +10,7 @@ export const ontoSetting = pgTable(
     protected: boolean("protected").default(true),
   },
   (table) => ({
-    pk: primaryKey({ columns: [table.env, table.var] }),
-    pkWithCustomName: primaryKey({
+    pk: primaryKey({
       columns: [table.env, table.var],
       name: "onto_setting_pk",
     }),

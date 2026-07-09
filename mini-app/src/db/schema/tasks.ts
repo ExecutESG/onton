@@ -45,8 +45,8 @@ export const tasks = pgTable("tasks", {
   closeDate: date("close_date"),
 
   // Time range
-  openTime: time("open_time", { precision: 0, withTimezone: false }),
-  closeTime: time("close_time", { precision: 0, withTimezone: false }),
+  openTime: time("open_time", { withTimezone: false }),
+  closeTime: time("close_time", { withTimezone: false }),
 
   // Period / repetition
   period: taskPeriodEnum("period").notNull().default("none"),

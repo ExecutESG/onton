@@ -111,8 +111,8 @@ services:
     networks:
       - onton-network
     ports:
-      - "${MINIO_PORT}:${MINIO_PORT}"
-      - "${MINIO_DASHBOARD_PORT}:${MINIO_DASHBOARD_PORT}"
+      - "127.0.0.1:${MINIO_PORT}:${MINIO_PORT}"
+      - "127.0.0.1:${MINIO_DASHBOARD_PORT}:${MINIO_DASHBOARD_PORT}"
     deploy:
       resources:
         limits:
@@ -150,7 +150,7 @@ services:
     depends_on:
       - fluentd
     ports:
-      - "${POSTGRES_PORT}:${POSTGRES_PORT}"
+      - "127.0.0.1:${POSTGRES_PORT}:${POSTGRES_PORT}"
     deploy:
       resources:
         limits:
@@ -199,8 +199,8 @@ services:
     depends_on:
       - fluentd
     ports:
-      - "${REDIS_PORT}:${REDIS_PORT}"
-    command: redis-server  --port ${REDIS_PORT}
+      - "127.0.0.1:${REDIS_PORT}:${REDIS_PORT}"
+    command: redis-server  --port ${REDIS_PORT} --requirepass ${REDIS_PASSWORD}
     deploy:
       resources:
         limits:
@@ -246,7 +246,7 @@ services:
     depends_on:
       - postgres
     ports:
-      - "${PORT_PGADMIN}:${PORT_PGADMIN}"
+      - "127.0.0.1:${PORT_PGADMIN}:${PORT_PGADMIN}"
     networks:
       - onton-network
     volumes:
@@ -733,7 +733,7 @@ services:
     image: metabase/metabase:v0.50.18.3
     hostname: metabase
     ports:
-      - "${PORT_METABASE}:3000"
+      - "127.0.0.1:${PORT_METABASE}:3000"
     deploy:
       resources:
         limits:
@@ -785,8 +785,8 @@ services:
     image: "rabbitmq:4.0.4-management-alpine"
     hostname: rabbitmq
     ports:
-      - "${RABBITMQ_MANAGEMENT_PORT}:15672"
-      - "${RABBITMQ_NODE_PORT}:${RABBITMQ_NODE_PORT}"
+      - "127.0.0.1:${RABBITMQ_MANAGEMENT_PORT}:15672"
+      - "127.0.0.1:${RABBITMQ_NODE_PORT}:${RABBITMQ_NODE_PORT}"
     environment:
       RABBITMQ_DEFAULT_USER: "${RABBITMQ_DEFAULT_USER}"
       RABBITMQ_DEFAULT_PASS: "${RABBITMQ_DEFAULT_PASS}"
@@ -857,7 +857,7 @@ services:
     hostname: swagger-ui
     # Adjust the port mapping to your preference
     ports:
-      - "${SWAGGER_UI_PORT}:8080"
+      - "127.0.0.1:${SWAGGER_UI_PORT}:8080"
     environment:
       <<: *common-env
       SWAGGER_JSON: "/swagger.yaml"

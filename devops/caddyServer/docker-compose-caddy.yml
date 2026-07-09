@@ -149,8 +149,8 @@ services:
         order: start-first
         failure_action: rollback
     ports:
-      - "24224:24224"
-      - "24224:24224/udp"
+      - "127.0.0.1:24224:24224"
+      - "127.0.0.1:24224:24224/udp"
     volumes:
       - ../fluent/fluent.conf:/fluentd/etc/fluent.conf
     entrypoint: >
@@ -166,6 +166,7 @@ services:
     environment:
       FLUENT_ELASTICSEARCH_HOST: elasticsearch
       FLUENT_ELASTICSEARCH_PORT: 9200
+      FLUENT_ELASTICSEARCH_USER: elastic
     depends_on:
       - elasticsearch
     networks:
@@ -185,7 +186,7 @@ services:
       restart_policy:
         condition: on-failure
     ports:
-      - "5601:5601"
+      - "127.0.0.1:5601:5601"
     networks:
       - onton-network
 

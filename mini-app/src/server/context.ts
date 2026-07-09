@@ -5,6 +5,7 @@ import { TRPCError } from "@trpc/server";
 import { cookies } from "next/headers";
 import { getAuthenticatedUserApi } from "@/server/auth";
 import { selectUserById } from "@/db/modules/users.db";
+import { verifyToken } from "@/server/utils/jwt";
 
 export async function createContext({ req }: { req: Request }) {
   // get user from init data passed as authorization header
@@ -48,6 +49,33 @@ export async function createContext({ req }: { req: Request }) {
     return null;
   }
 
+  // get user from web cookie session
+  async function getUserFromWebSession() {
+    try {
+      const cookieStore = cookies();
+      const sessionCookie = cookieStore.get("onton_session");
+      if (sessionCookie?.value) {
+        const payload = await verifyToken(sessionCookie.value);
+        if (payload && typeof payload.userId === "number") {
+          const user = await selectUserById(payload.userId);
+          if (user) {
+            if (user.role === "ban") {
+              throw new TRPCError({
+                code: "FORBIDDEN",
+                message: "user is banned",
+              });
+            }
+            return user;
+          }
+        }
+      }
+    } catch (err) {
+      if (err instanceof TRPCError) throw err;
+      logger.error("Error in getUserFromWebSession: ", err);
+    }
+    return null;
+  }
+
   // Helper to get user via API Key (Fallback if initData is missing)
   async function getUserFromApiKey() {
     const [userId, _err] = await getAuthenticatedUserApi(req);
@@ -69,6 +97,10 @@ export async function createContext({ req }: { req: Request }) {
   }
 
   let user = await getUserFromHeader();
+
+  if (!user) {
+    user = await getUserFromWebSession();
+  }
 
   if (!user) {
     user = await getUserFromApiKey();

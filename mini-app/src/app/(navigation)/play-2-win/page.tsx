@@ -8,7 +8,7 @@ import FeaturedBanners from "@/app/_components/FeaturedBanners";
 import FilterIcon from "@/app/_components/icons/filter-icon";
 import DataStatus from "@/app/_components/molecules/alerts/DataStatus";
 import { TournamentTimeRemaining } from "@/app/_components/Tournament/TournamentRemainingTime";
-import TournamentCard from "@/app/_components/Tournaments/TournamentCard";
+import TournamentCard from "@/app/_components/tournaments/TournamentCard";
 import { trpc } from "@/app/_trpc/client";
 import Divider from "@/components/Divider";
 import LoadableImage from "@/components/LoadableImage";

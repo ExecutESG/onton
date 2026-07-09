@@ -8,7 +8,7 @@ import { useConfig } from "@/context/ConfigContext";
 import { Skeleton } from "@mui/material";
 import { ChevronRightIcon } from "lucide-react";
 import Link from "next/link";
-import TournamentCard from "../_components/Tournaments/TournamentCard";
+import TournamentCard from "../_components/tournaments/TournamentCard";
 import CustomCard from "../_components/atoms/cards/CustomCard";
 import DataStatus from "../_components/molecules/alerts/DataStatus";
 import { trpc } from "../_trpc/client";

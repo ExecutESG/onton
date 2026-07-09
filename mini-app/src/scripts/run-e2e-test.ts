@@ -26,8 +26,9 @@ async function run() {
   console.log("Navigating to http://localhost:3000...");
   await page.goto("http://localhost:3000", { timeout: 120000 });
 
-  console.log("Waiting for page load...");
-  await page.waitForTimeout(3000); // Wait for page to compile/load
+  console.log("Waiting for Login button in sidebar to become visible...");
+  const loginBtn = page.locator('.hidden.md\\:flex').getByText('Login');
+  await loginBtn.waitFor({ state: 'visible', timeout: 60000 });
 
   // 1. Desktop View Screenshot
   const desktopScreenshot = path.join(artifactsDir, "screenshot_desktop.png");
@@ -36,7 +37,6 @@ async function run() {
 
   // 2. Click Login button in sidebar
   console.log("Clicking Login in sidebar...");
-  const loginBtn = page.locator('.hidden.md\\:flex').getByText('Login');
   await loginBtn.click();
   await page.waitForTimeout(1000);
 
@@ -66,7 +66,9 @@ async function run() {
 
   console.log("Navigating to http://localhost:3000 on mobile...");
   await mobilePage.goto("http://localhost:3000", { timeout: 120000 });
-  await mobilePage.waitForTimeout(2000);
+  console.log("Waiting for Login button in bottom navigation to become visible...");
+  const mobileLoginBtn = mobilePage.locator('.fixed.left-0.bottom-0').getByText('Login');
+  await mobileLoginBtn.waitFor({ state: 'visible', timeout: 60000 });
 
   // 4. Mobile View Screenshot
   const mobileScreenshot = path.join(artifactsDir, "screenshot_mobile.png");
@@ -75,7 +77,6 @@ async function run() {
 
   // 5. Click Login in bottom nav
   console.log("Clicking Login in mobile bottom navigation...");
-  const mobileLoginBtn = mobilePage.locator('.fixed.left-0.bottom-0').getByText('Login');
   await mobileLoginBtn.click();
   await mobilePage.waitForTimeout(1000);
 

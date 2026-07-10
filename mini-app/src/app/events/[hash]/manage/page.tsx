@@ -25,7 +25,8 @@ import useWebApp from "@/hooks/useWebApp";
 import { canUserEditEvent, canUserPerformRole, CheckAdminOrOrganizer } from "@/lib/userRolesUtils";
 import { wait } from "@/lib/utils";
 import { useSectionStore } from "@/zustand/useSectionStore";
-import { EllipsisVertical, Pen, QrCode, ScanLine } from "lucide-react";
+import { EllipsisVertical, Pen, QrCode, ScanLine, ShieldAlert } from "lucide-react";
+import LoginRequired from "@/app/_components/auth/LoginRequired";
 
 export default function ManageIndexPage() {
   const webApp = useWebApp();
@@ -38,6 +39,10 @@ export default function ManageIndexPage() {
 
   const { user } = useUserStore();
   const requestSendQRCode = trpc.telegramInteractions.requestSendQRCode.useMutation();
+
+  if (!user) {
+    return <LoginRequired />;
+  }
 
   if (isError) {
     return <div>something went wrong</div>;
@@ -58,6 +63,26 @@ export default function ManageIndexPage() {
   });
 
   const hasAdminOrOrganizerAccess = CheckAdminOrOrganizer(user?.role);
+
+  const hasAnyAccess = canEditEvent || guestListAccess || hasAdminOrOrganizerAccess;
+
+  if (!hasAnyAccess) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] p-6 text-center max-w-sm mx-auto">
+        <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center text-red-600 mb-6">
+          <ShieldAlert className="w-8 h-8" />
+        </div>
+
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+          Access Denied
+        </h2>
+        
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+          You do not have administrative permissions to manage this event. Please contact the owner if you need access.
+        </p>
+      </div>
+    );
+  }
   // The main “Manage” page
   return (
     <div>

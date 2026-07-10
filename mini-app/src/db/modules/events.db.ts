@@ -301,7 +301,7 @@ export const getOrganizerEvents = async (
 
 export const getEventsWithFilters = async (
   params: z.infer<typeof searchEventsInputZod>,
-  user_id: number
+  user_id?: number
 ): Promise<{ eventsData: any[]; rowsCount: number }> => {
   const { limit = 10, cursor = 0, search, filter, sortBy = "default", useCache = false } = params;
   const roundMinutesInMs = 60; // don't touch this fucking value it will break the cache or made unexpected results
@@ -369,10 +369,13 @@ export const getEventsWithFilters = async (
   }
 
   // Apply hidden condition
-  if (user_id)
+  if (user_id) {
     conditions.push(
       sql`(${event_details_search_list.hidden} = ${false} or ${event_details_search_list.organizerUserId} = ${user_id})`
     );
+  } else {
+    conditions.push(eq(event_details_search_list.hidden, false));
+  }
 
   // Apply organizer_user_id filter
   if (filter?.organizer_user_id) {

@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { tournamentsDB } from "@/db/modules/tournaments.db";
 import { usersDB } from "@/db/modules/users.db";
-import { initDataProtectedProcedure, router } from "../trpc";
+import { initDataProtectedProcedure, publicProcedure, router } from "../trpc";
 
 import { PLAY2WIN_CAMPAIGN_MIN_DATE, PLAY2WIN_CAMPAIGN_TARGET_GAME_ID, PLAY2WIN_DEFAULT_CAMPAIGN_TYPE } from "@/constants";
 import { db } from "@/db/db";
@@ -178,7 +178,7 @@ export const tournamentsRouter = router({
         nextCursor,
       };
     }),
-  getFeaturedTournaments: initDataProtectedProcedure.query(async () => {
+  getFeaturedTournaments: publicProcedure.query(async () => {
     const { config } = await fetchOntonSettings();
     const play2winFeaturedEvents = config?.["play-2-win-featured"];
 

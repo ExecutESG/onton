@@ -15,6 +15,8 @@ import useWebApp from "@/hooks/useWebApp";
 import { useDebouncedState } from "@mantine/hooks";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useUserStore } from "@/context/store/user.store";
+import LoginRequired from "@/app/_components/auth/LoginRequired";
 
 /**
  * MyParticipatedEventsPage displays events and contests you’ve joined. 🤝
@@ -22,11 +24,16 @@ import { useMemo, useState } from "react";
  * @returns JSX.Element
  */
 export default function MyParticipatedEventsPage() {
+  const { user } = useUserStore();
   const webApp = useWebApp();
-  const userId = webApp?.initDataUnsafe?.user?.id;
+  const userId = webApp?.initDataUnsafe?.user?.id || user?.user_id;
   const [eventsSearch, setEventsSearch] = useDebouncedState("", 500);
   const [contestsSearch, setContestsSearch] = useDebouncedState("", 500);
   const [activeTab, setActiveTab] = useState("events");
+
+  if (!user) {
+    return <LoginRequired />;
+  }
 
   const eventsInfinite = trpc.events.getEventsWithFiltersInfinite.useInfiniteQuery(
     {

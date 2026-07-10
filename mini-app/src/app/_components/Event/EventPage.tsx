@@ -9,10 +9,10 @@ import { useTheme } from "next-themes";
 import { useEffect } from "react";
 
 const EventDataQueryState = () => {
-  const { eventData, initData } = useEventData();
+  const { eventData } = useEventData();
 
   switch (true) {
-    case eventData.isLoading || !initData:
+    case eventData.isLoading:
       return <EventPageLoadingSkeleton />;
     default:
       return <EventSections />;

@@ -41,19 +41,19 @@ export const EventPasswordAndWalletInput = () => {
 
   useEffect(() => {
     // if user had wallet we do not want to save it
-    if (!user?.wallet_address && tonWalletAddress && initData) {
+    if (!user?.wallet_address && tonWalletAddress && (initData || user)) {
       addWalletMutation.mutate({
         wallet: tonWalletAddress,
       });
     }
-  }, [user?.wallet_address, tonWalletAddress, initData, addWalletMutation]);
+  }, [user?.wallet_address, tonWalletAddress, initData, user, addWalletMutation]);
 
   const submitPassword: FormEventHandler<HTMLFormElement> = (e) => {
     e.preventDefault();
     // Get password field in the form
     const formData = new FormData(e.currentTarget);
     const password = formData.get("event_password") as string;
-    if (initData && eventPasswordField && eventPasswordField.event_id) {
+    if ((initData || user) && eventPasswordField && eventPasswordField.event_id) {
       if (password) {
         upsertUserEventFieldMutation.mutate({
           field_id: eventPasswordField.id,

@@ -26,7 +26,7 @@ export const EventDataProvider = ({ children, eventHash }: { children: React.Rea
           event_hash: eventHash,
         },
       ],
-      enabled: Boolean(eventHash), // Run the query only if initData is present and initialized
+      enabled: Boolean(eventHash) && !!currentUser.user, // Run the query only if user is logged in
     }
   );
 

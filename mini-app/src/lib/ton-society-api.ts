@@ -8,6 +8,7 @@ import { HubsResponse, SocietyHub } from "@/types";
 import { redisTools } from "@/lib/redisTools";
 import { configDotenv } from "dotenv";
 import { logger } from "@/server/utils/logger";
+import { hardCodedHubs } from "@/constants";
 
 configDotenv();
 // ton society client to send http requests to https://ton-society.github.io/sbt-platform
@@ -182,16 +183,11 @@ export async function getHubs(): Promise<SocietyHub[]> {
       return transformedHubs;
     }
 
-    // If response is invalid:
-    throw new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: "Failed to fetch hubs data",
-    });
+    logger.error("Invalid status response from hubs api: " + response.status + ", falling back to hardcoded hubs");
+    return hardCodedHubs;
   } catch (error) {
-    throw new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: "Failed to fetch hubs data",
-    });
+    logger.error("Failed to fetch hubs data, falling back to hardcoded hubs", error);
+    return hardCodedHubs;
   }
 }
 

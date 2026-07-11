@@ -351,29 +351,29 @@ services:
 
 networks:
   onton-network:
-    name: onton-shadow-network
+    name: onton-dev-network
     driver: overlay
     external: true
 
 volumes:
   caddy_data:
-    name: "onton_caddy_data"
+    name: "onton_dev_caddy_data"
   caddy_config:
-    name: "onton_caddy_config"
+    name: "onton_dev_caddy_config"
   registry_data:
-    name: "onton_registry_data"
+    name: "onton_dev_registry_data"
   elasticsearch_data:
-    name: "onton_elasticsearch_data"
+    name: "onton_dev_elasticsearch_data"
   minio_data:
-    name: "onton_minio_data"
+    name: "onton_dev_minio_data"
   postgres_data:
-    name: "onton_postgres_data"
+    name: "onton_dev_postgres_data"
   redis_data:
-    name: "onton_redis_data"
+    name: "onton_dev_redis_data"
   drizzle_data:
-    name: "onton_drizzle_data"
+    name: "onton_dev_drizzle_data"
   drizzle_data_cron:
-    name: "onton_drizzle_data_cron"
+    name: "onton_dev_drizzle_data_cron"
 
 secrets:
   registry-onton-config:

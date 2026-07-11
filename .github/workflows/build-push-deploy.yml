@@ -455,6 +455,14 @@ jobs:
             echo "COMPOSE_FILE=docker-compose-server.yml" >> $GITHUB_ENV
           fi
 
+      - name: Set up Stack Name
+        run: |
+          if [[ "${{ github.ref_name }}" == "dev" ]]; then
+            echo "STACK_NAME=onton-dev" >> $GITHUB_ENV
+          else
+            echo "STACK_NAME=onton" >> $GITHUB_ENV
+          fi
+
       - name: Deploy Changed Services
         env:
           CR_PAT: ${{ secrets.CR_PAT }}
@@ -560,12 +568,16 @@ jobs:
                 # Do not exit 1, allow deployment to proceed
             fi
             # Create network if it doesn't exist (on the server)
-            docker network ls | grep -q "onton-shadow-network" || docker network create --driver overlay --attachable "onton-shadow-network" || true
+            if [[ "$branch_name" == "dev" ]]; then
+              docker network ls | grep -q "onton-dev-network" || docker network create --driver overlay --attachable "onton-dev-network" || true
+            else
+              docker network ls | grep -q "onton-shadow-network" || docker network create --driver overlay --attachable "onton-shadow-network" || true
+            fi
 
             echo "Deploying Docker stack for $branch_name using $COMPOSE_FILE..."
             # Temporarily disable errexit for the capture
             set +o errexit
-            deploy_output=\$(docker stack deploy --with-registry-auth -c $COMPOSE_FILE onton 2>&1)
+            deploy_output=\$(docker stack deploy --with-registry-auth -c $COMPOSE_FILE $STACK_NAME 2>&1)
             deploy_status=\$?
             set -o errexit
           
@@ -585,41 +597,41 @@ jobs:
             for service in \$services; do
               echo "Processing service: \$service"
               if [ "\$service" == "caddy" ]; then
-                echo "docker service update --force onton_caddy"
-                docker service update --force onton_caddy
+                echo "docker service update --force ${STACK_NAME}_caddy"
+                docker service update --force ${STACK_NAME}_caddy
               elif [ "\$service" == "mini-app" ]; then
                 echo "Special handling for mini-app service"
-                echo "Updating onton_mini-app"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force onton_mini-app
+                echo "Updating ${STACK_NAME}_mini-app"
+                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force ${STACK_NAME}_mini-app
           
-                echo "Updating onton_mini-app-notification-socket"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force onton_mini-app-notification-socket
+                echo "Updating ${STACK_NAME}_mini-app-notification-socket"
+                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force ${STACK_NAME}_mini-app-notification-socket
           
-                echo "Updating onton_mini-app-poa-worker"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force onton_mini-app-poa-worker
+                echo "Updating ${STACK_NAME}_mini-app-poa-worker"
+                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force ${STACK_NAME}_mini-app-poa-worker
           
-                echo "Updating onton_mini-app-sbt-worker"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force onton_mini-app-sbt-worker
+                echo "Updating ${STACK_NAME}_mini-app-sbt-worker"
+                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force ${STACK_NAME}_mini-app-sbt-worker
                 
-                echo "Updating onton_mini-app-nft-api-worker"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force onton_mini-app-nft-api-worker
+                echo "Updating ${STACK_NAME}_mini-app-nft-api-worker"
+                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force ${STACK_NAME}_mini-app-nft-api-worker
           
           
-                echo "Updating onton_mini-app-ordinary-worker"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force onton_mini-app-ordinary-worker
+                echo "Updating ${STACK_NAME}_mini-app-ordinary-worker"
+                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force ${STACK_NAME}_mini-app-ordinary-worker
           
-                echo "Updating onton_mini-app-reward-worker"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force onton_mini-app-reward-worker
+                echo "Updating ${STACK_NAME}_mini-app-reward-worker"
+                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force ${STACK_NAME}_mini-app-reward-worker
           
-                echo "Updating onton_mini-app-moderation-bot"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force onton_mini-app-moderation-bot
+                echo "Updating ${STACK_NAME}_mini-app-moderation-bot"
+                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force ${STACK_NAME}_mini-app-moderation-bot
               else
-                echo "docker service update --force onton_\${service}"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2  --force onton_\${service}
+                echo "docker service update --force ${STACK_NAME}_\${service}"
+                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2  --force ${STACK_NAME}_\${service}
               fi
             done
             # bidar kardane fluentd :))
-            docker service update --update-failure-action rollback --update-max-failure-ratio 0.5 --force onton_fluentd
+            docker service update --update-failure-action rollback --update-max-failure-ratio 0.5 --force ${STACK_NAME}_fluentd
             echo "Services deployed successfully."         
           EOF
 

@@ -20,6 +20,95 @@ x-default-extra-hosts: &default-extra-hosts
     - "host.docker.internal:host-gateway"
 
 services:
+  postgres:
+    hostname: postgres
+    image: postgres:16-alpine
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT}:5432"
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: "2.0"
+      mode: global
+      update_config:
+        failure_action: rollback
+        order: stop-first
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 15s
+        window: 30s
+    stop_grace_period: 120s
+    stop_signal: SIGTERM
+    environment:
+      <<: *common-env
+    command: >
+      postgres -c max_connections=200 -c shared_buffers=1GB -c effective_cache_size=3GB -c maintenance_work_mem=512MB -c work_mem=16MB
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - onton-network
+
+  redis:
+    image: redis:7-alpine
+    hostname: redis
+    volumes:
+      - redis_data:/data
+    ports:
+      - "127.0.0.1:${REDIS_PORT}:${REDIS_PORT}"
+    command: redis-server --port ${REDIS_PORT}
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+      mode: global
+      update_config:
+        failure_action: rollback
+        order: stop-first
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+    networks:
+      - onton-network
+
+  minio:
+    hostname: minio
+    image: minio/minio:latest
+    ports:
+      - "127.0.0.1:${MINIO_PORT}:${MINIO_PORT}"
+      - "127.0.0.1:${MINIO_DASHBOARD_PORT}:${MINIO_DASHBOARD_PORT}"
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.0"
+      mode: global
+      update_config:
+        failure_action: rollback
+        order: stop-first
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_DOMAIN: ${MINIO_STORAGE_DOMAIN}
+    command: server /data --console-address ":${MINIO_DASHBOARD_PORT}" --address ":${MINIO_PORT}"
+    volumes:
+      - minio_data:/data
+    networks:
+      - onton-network
+
   mini-app:
     image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
     hostname: mini-app
@@ -365,11 +454,11 @@ volumes:
   elasticsearch_data:
     name: "onton_dev_elasticsearch_data"
   minio_data:
-    name: "onton_dev_minio_data"
+    name: "onton_minio_data"
   postgres_data:
-    name: "onton_dev_postgres_data"
+    name: "onton_postgres_data"
   redis_data:
-    name: "onton_dev_redis_data"
+    name: "onton_redis_data"
   drizzle_data:
     name: "onton_dev_drizzle_data"
   drizzle_data_cron:

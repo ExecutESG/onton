@@ -26,6 +26,7 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
+  # Deployed: 2026-07-11 - Stack separation (onton-dev)
 
 jobs:
   determine-services:

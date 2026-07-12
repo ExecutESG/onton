@@ -299,6 +299,30 @@ services:
       - onton-network
     command: [ "yarn", "run", "start-cron-nft-api" ]
 
+  mini-app-payment-worker:
+    hostname: mini-app-payment-worker
+    container_name: ${ENV}-mini-app-payment-worker
+    build:
+      context: ./mini-app
+      target: production
+      args:
+        <<: *common-env
+    restart: "unless-stopped"
+    stop_grace_period: 10s
+    stop_signal: SIGTERM
+    profiles:
+      - full
+    environment:
+      <<: *common-env
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./data/drizzle_data:/app/drizzle
+    networks:
+      - onton-network
+    command: [ "yarn", "run", "start-cron-payment" ]
+
   mini-app-reward-worker:
     hostname: mini-app-reward-worker
     container_name: ${ENV}-mini-app-reward-worker
@@ -476,6 +500,7 @@ services:
       - /dev/urandom:/dev/random:ro
     environment:
       MB_DB_TYPE: postgres
+      MB_DB_HOST: postgres
       MB_DB_DBNAME: ${POSTGRES_METABASE_DB}
       MB_DB_PORT: ${POSTGRES_PORT}
       MB_DB_USER: ${POSTGRES_USER}

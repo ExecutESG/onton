@@ -609,9 +609,9 @@ export const isDevStage = process.env.ENV === "development" || process.env.NODE_
 export const PLACEHOLDER_IMAGE = "https://storage.onton.live/ontonimage/test_image.png";
 export const PLACEHOLDER_VIDEO = "https://storage.onton.live/ontonvideo/event/dCsiY_1731355946593_event_video.mp4";
 
-export const UPLOAD_IMAGE_RATE_LIMIT = { window: 60, max: 2 };
-export const UPLOAD_VIDEO_RATE_LIMIT = { window: 60, max: 5 };
-export const EVENT_PASSWORD_RATE_LIMIT = { window: 60, max: 3 };
+export const UPLOAD_IMAGE_RATE_LIMIT = { window: 60, max: 20 };
+export const UPLOAD_VIDEO_RATE_LIMIT = { window: 60, max: 10 };
+export const EVENT_PASSWORD_RATE_LIMIT = { window: 60, max: 10 };
 export const NonVerifiedHubsIds = ["12", "33"];
 export const hardCodedHubs = [
   {

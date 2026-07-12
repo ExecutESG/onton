@@ -22,10 +22,13 @@ export async function GET() {
     }
 
     // Read the file content
-    const fileContent = await readFile(filePath, "utf-8");
-
-    // Replace \n with ||
-    const commitDetail = fileContent.replace(/\n/g, "   ||  ");
+    let commitDetail = "unknown";
+    try {
+      const fileContent = await readFile(filePath, "utf-8");
+      commitDetail = fileContent.replace(/\n/g, "   ||  ");
+    } catch (e) {
+      // Gracefully handle missing commit_details.txt file (e.g., in dev/staging/incomplete builds)
+    }
 
     return NextResponse.json({
       success: true,

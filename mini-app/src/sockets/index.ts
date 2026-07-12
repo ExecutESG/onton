@@ -27,7 +27,9 @@ const SOCKET_PORT = Number(process.env.SOCKET_PORT);
     }
 
     // Redis clients for the adapter
-    const pubClient = createClient({ url: `redis://${IP_REDIS}:${REDIS_PORT}` });
+    const redisPassword = process.env.REDIS_PASSWORD;
+    const authString = redisPassword ? `:${redisPassword}@` : "";
+    const pubClient = createClient({ url: `redis://${authString}${IP_REDIS}:${REDIS_PORT}` });
     const subClient = pubClient.duplicate();
 
     await pubClient.connect();

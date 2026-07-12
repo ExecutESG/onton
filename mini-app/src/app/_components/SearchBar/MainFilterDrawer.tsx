@@ -145,10 +145,7 @@ const MainFilterDrawer: React.FC<MainFilterDrawerProps> = ({
                 orientation="vertical"
                 value={filter || "all"}
                 onValueChange={(value) => {
-                  if (value === "all") {
-                    setFilter(undefined);
-                  }
-                  setFilter(value as (typeof eventStatusValues)[number]);
+                  setFilter(value === "all" ? undefined : (value as (typeof eventStatusValues)[number]));
                 }}
               >
                 <label className="flex justify-between items-center border-b-[1px] pb-2">

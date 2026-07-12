@@ -556,7 +556,7 @@ export const EventSections = () => {
 
   return (
     <div
-      className="flex flex-col gap-3 p-4"
+      className="flex flex-col gap-3 p-4 mx-auto max-w-xl w-full md:rounded-2xl md:shadow-md md:border md:border-gray-200 dark:md:border-gray-800 md:bg-white"
       style={{
         paddingBottom: "calc(var(--tg-safe-area-inset-bottom) + 4rem)",
       }}

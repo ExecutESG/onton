@@ -27,7 +27,7 @@ export const EventDataPage = ({ eventHash }: { eventHash: string }) => {
   }, [setTheme]);
 
   return (
-    <div className="bg-cn-background">
+    <div className="bg-cn-background min-h-screen md:py-6">
       <EventDataProvider eventHash={eventHash}>
         <EventDataQueryState />
       </EventDataProvider>

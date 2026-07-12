@@ -61,10 +61,10 @@ export default function Search() {
 
   return (
     <Block
-      className="bg-[#EFEFF4] min-h-screen py-3"
+      className="bg-[#EFEFF4] min-h-screen py-3 md:py-6"
       margin="0"
     >
-      <div className="flex flex-col">
+      <div className="flex flex-col mx-auto max-w-xl w-full md:shadow-md md:border md:border-gray-200 dark:md:border-gray-800 md:bg-white md:p-4 md:rounded-2xl">
         {/* Sticky top bar with SearchBar & TabTriggers */}
         <div className="w-full pb-3">
           <SearchBar />

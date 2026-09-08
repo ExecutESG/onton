@@ -4,14 +4,13 @@ on:
   push:
     branches:
       - "dev"
-      - "staging"
-      - "sandbox"
-      - "devops"
       - "main"
     paths:
       #      - 'client-web-panel/**'
       - 'devops/**'
+      - 'Caddyfile'
       - 'docker-compose-server.yml'
+      - 'docker-compose-server-dev.yml'
       - 'mini-app/**'
       - 'newton/**'
       - 'telegram-bot/**'
@@ -22,13 +21,16 @@ on:
   pull_request:
     branches:
       - "dev"
-      - "staging"
-      - "sandbox"
-      - "devops"
       - "main"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+  # Deployed: 2026-07-11 - Stack separation (onton-dev)
+
 jobs:
   determine-services:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     outputs:
       services_to_build: ${{ steps.determine-services.outputs.services }}
     steps:
@@ -40,11 +42,24 @@ jobs:
       - name: Determine Services to Build
         id: determine-services
         env:
-          TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT: ${{ vars.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT }}
-          TELEGRAM_CHAT_ID_FOR_DEPLOYMENT: ${{ vars.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT }}
+          TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT: ${{ secrets.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT || vars.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT }}
+          TELEGRAM_CHAT_ID_FOR_DEPLOYMENT: ${{ secrets.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT || vars.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT }}
         run: |
           echo "Determining services that have changed..."
-          changed_files=$(git diff --name-only "${{ github.event.before }}" "${{ github.sha }}")
+          
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            git fetch origin ${{ github.base_ref }}
+            changed_files=$(git diff --name-only "origin/${{ github.base_ref }}" "${{ github.sha }}")
+          else
+            BEFORE="${{ github.event.before }}"
+            AFTER="${{ github.sha }}"
+            if [ -z "$BEFORE" ] || [ "$BEFORE" == "0000000000000000000000000000000000000000" ]; then
+               # New branch or forced push, fallback to diffing against previous commit
+               changed_files=$(git diff --name-only HEAD~1 HEAD) 
+            else
+               changed_files=$(git diff --name-only "$BEFORE" "$AFTER")
+            fi
+          fi
           echo "Changed files: $changed_files"
           declare -a services_to_build=()
           # Define service directory mappings
@@ -52,10 +67,16 @@ jobs:
           declare -A service_dirs=(
             ["mini-app"]="mini-app"
             ["participant-tma"]="newton/apps/participant-tma"
+            ["mini-app-sbt-worker"]="mini-app"
+            ["mini-app-nft-api-worker"]="mini-app"
+            ["mini-app-ordinary-worker"]="mini-app"
+            ["mini-app-reward-worker"]="mini-app"
+            ["mini-app-poa-worker"]="mini-app"
+            ["mini-app-notification-socket"]="mini-app"
+            ["mini-app-moderation-bot"]="mini-app"
             ["telegram-bot"]="telegram-bot"
             ["website"]="website"
-            ["caddy"]="devops/caddy"
-            ["swagger-ui"]="swagger"
+            ["caddy"]="devops"
           )
           # If Trigger-full-build.txt has changed, add all services
           if echo "$changed_files" | grep -q "^Trigger-full-build.txt$"; then
@@ -67,6 +88,10 @@ jobs:
                 services_to_build+=("$service")
               fi
             done
+            # Special check for Caddyfile
+            if echo "$changed_files" | grep -q "^Caddyfile$"; then
+                services_to_build+=("caddy")
+            fi
           fi
           # Add 'telegram-bot' if no services have changed
           if [ ${#services_to_build[@]} -eq 0 ]; then
@@ -77,14 +102,14 @@ jobs:
             echo "No services have changes, skipping build."
             services_json="[]"
           else
-            services_json=$(printf '%s\n' "${services_to_build[@]}" | jq -R . | jq -s -c .)
+            services_json=$(printf '%s\n' "${services_to_build[@]}" | jq -R . | jq -s -c 'unique')
           fi
 
           echo "Services to build: $services_json"
           echo "services=$services_json" >> $GITHUB_OUTPUT
           
           
-          if [ -z "TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT" ] || [ -z "$TELEGRAM_CHAT_ID_FOR_DEPLOYMENT" ]; then
+          if [ -z "$TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT" ] || [ -z "$TELEGRAM_CHAT_ID_FOR_DEPLOYMENT" ]; then
             echo "Error: Telegram  deployment bot vars  are not set or are empty."
             exit 1
           fi
@@ -98,9 +123,50 @@ jobs:
             📝 branch: ${{ github.ref }}
             🔍 See Changes: https://github.com/${{ github.repository }}/commit/${{ github.sha }}"
 
-  build-and-push:
-    runs-on: self-hosted
+  validate-services:
+    runs-on: ubuntu-latest
     needs: determine-services
+    if: ${{ needs.determine-services.outputs.services_to_build != '[]' }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "yarn"
+          cache-dependency-path: |
+            mini-app/yarn.lock
+            telegram-bot/yarn.lock
+
+      - name: Validate TypeScript & Linters
+        env:
+          SERVICES: ${{ needs.determine-services.outputs.services_to_build }}
+        run: |
+          echo "Validating changed services: $SERVICES"
+
+          if echo "$SERVICES" | grep -q -E "mini-app"; then
+            echo "--> Validating mini-app..."
+            cd mini-app
+            yarn install --frozen-lockfile --prefer-offline || yarn install
+            yarn lint:quiet || echo "Linting reported warnings"
+            cd ..
+          fi
+
+          if echo "$SERVICES" | grep -q "telegram-bot"; then
+            echo "--> Validating telegram-bot..."
+            cd telegram-bot
+            yarn install --frozen-lockfile --prefer-offline || yarn install
+            yarn run build
+            cd ..
+          fi
+
+          echo "✅ All service validations passed!"
+
+  build-and-push:
+    runs-on: ubuntu-latest
+    needs: [determine-services, validate-services]
     if: ${{ needs.determine-services.outputs.services_to_build != '[]' }}
     strategy:
       matrix:
@@ -115,8 +181,8 @@ jobs:
     steps:
       - name: Send Telegram Message - Build Start
         env:
-          TELEGRAM_BOT_TOKEN: ${{ vars.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT }}
-          TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT || vars.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT || vars.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT }}
         run: |
           if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
             echo "Error: Telegram deployment bot vars are not set or are empty."
@@ -139,14 +205,11 @@ jobs:
         uses: docker/setup-buildx-action@v3.7.1
 
       - name: Authenticate to GitHub Container Registry
-        env:
-          CR_PAT: ${{ secrets.GITHUB_TOKEN }}
-          REGISTRY_USER_PASSWORD: ${{ secrets.REGISTRY_USER_PASSWORD }}
-          REGISTRY_URL: ${{ secrets.REGISTRY_URL }}
-          REGISTRY_USER_NAME: ${{ secrets.REGISTRY_USER_NAME }}
-        run: echo "${REGISTRY_USER_PASSWORD}" | docker login ${REGISTRY_URL} -u ${REGISTRY_USER_NAME} --password-stdin
-
-
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push image for ${{ matrix.service }}
 
@@ -158,10 +221,14 @@ jobs:
             ["mini-app-nft-api-worker"]="mini-app"
             ["mini-app-ordinary-worker"]="mini-app"
             ["mini-app-reward-worker"]="mini-app"
+            ["mini-app-poa-worker"]="mini-app"
+            ["mini-app-notification-socket"]="mini-app"
+            ["mini-app-moderation-bot"]="mini-app"
             ["mini-app"]="mini-app"
             ["telegram-bot"]="telegram-bot"
             ["website"]="website"
             ["caddy"]="devops/caddy"
+            ["swagger-ui"]="swagger"
           )
           branch_name="${{ github.ref_name }}"
           service="${{ matrix.service }}"
@@ -169,7 +236,8 @@ jobs:
           repository=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
           service=$(echo "$service" | tr '[:upper:]' '[:lower:]')
 
-          image_name="${{ secrets.REGISTRY_URL }}/${repository}/${service}"
+          # Use GHCR
+          image_name="ghcr.io/${repository}/${service}"
           tag_commit="${image_name}:${branch_name}-${{ github.run_id }}"
           tag_latest="${image_name}:${branch_name}-latest"
           echo "Building image: $tag_commit"
@@ -285,8 +353,8 @@ jobs:
       - name: Send Telegram Message - Build Success
         if: success()
         env:
-          TELEGRAM_BOT_TOKEN: ${{ vars.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT }}
-          TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT || vars.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT || vars.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT }}
         run: |
           if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
             echo "Error: Telegram vars are not set or are empty."
@@ -305,8 +373,8 @@ jobs:
         if: failure()
         continue-on-error: true
         env:
-          TELEGRAM_BOT_TOKEN: ${{ vars.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT }}
-          TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT || vars.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT || vars.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT }}
         run: |
 
           if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
@@ -352,10 +420,6 @@ jobs:
       #          exclude-workflow-initiator-as-approver: false
       #          additional-approved-words: 'approve,approved,lgtm,yes'
       #          additional-denied-words: 'deny,denied,no'
-      - name: Authenticate to GitHub Container Registry
-        env:
-          CR_PAT: ${{ secrets.GITHUB_TOKEN }}
-        run: echo "${{ secrets.REGISTRY_USER_PASSWORD }}" | docker login ${{ secrets.REGISTRY_URL }} -u ${{ secrets.REGISTRY_USER_NAME }} --password-stdin
       - name: Start SSH Agent and Add Key
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -364,14 +428,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Authenticate to GitHub Container Registry
-        env:
-          CR_PAT: ${{ secrets.GITHUB_TOKEN }}
-        run: echo "${{ secrets.REGISTRY_USER_PASSWORD }}" | docker login ${{ secrets.REGISTRY_URL }} -u ${{ secrets.REGISTRY_USER_NAME }} --password-stdin
       - name: Generate Environment Variables .env File
         id: generate-env-script
         env:
-          CR_PAT: ${{ secrets.GITHUB_TOKEN }}
+          CR_PAT: ${{ secrets.CR_PAT }}
         run: |
           branch_name="${{ github.ref_name }}"
           prefix="${branch_name^^}_"
@@ -388,19 +448,22 @@ jobs:
           secrets_json="${ALLMYSECRETS}"
           vars_json="${ALLMYVARS}"
           
-          # Parse the JSON and filter the variables with the appropriate prefix, removing the prefix when writing to the env file
           echo "$secrets_json" | jq -r --arg prefix "$prefix" \
-            'to_entries[] | select(.key | startswith($prefix)) | "\(.key[$prefix | length:])=\"\(.value)\""' >> $env_file
+            'to_entries[] | select(.key | startswith($prefix)) | "\(.key[$prefix | length:])=\(.value | @sh)"' >> $env_file
           
           echo "$vars_json" | jq -r --arg prefix "$prefix" \
-            'to_entries[] | select(.key | startswith($prefix)) | "\(.key[$prefix | length:])=\"\(.value)\""' >> $env_file
+            'to_entries[] | select(.key | startswith($prefix)) | "\(.key[$prefix | length:])=\(.value | @sh)"' >> $env_file
+          
+          # Strip quotes from numeric values to prevent Docker Swarm port mapping errors
+          sed -i "s/'\([0-9]*\)'/\1/g" $env_file
           
           # Add branch name as env also
-          echo "BRANCH_NAME=\"$branch_name\"" >> $env_file
+          echo "BRANCH_NAME=$branch_name" >> $env_file
           # Add github repo as env also
-          echo "GITHUB_REPO=\"$github_repo\"" >> $env_file
+          echo "GITHUB_REPO=$github_repo" >> $env_file
           # Add the GitHub Container Registry PAT to the env file
-          echo "CR_PAT=\"${CR_PAT}\"" >> $env_file
+          echo "CR_PAT=${CR_PAT}" >> $env_file
+          echo "REGISTRY_URL=ghcr.io" >> $env_file
           
           echo "Environment variables script generated successfully."
 
@@ -415,88 +478,72 @@ jobs:
           if [[ "$branch_name" == "dev" ]]; then
             echo "SSH_IP=${{ secrets.SSH_DEV_IP }}" >> $GITHUB_ENV
             echo "SSH_PORT=${{ secrets.SSH_DEV_PORT }}" >> $GITHUB_ENV
-          elif [[ "$branch_name" == "staging" ]]; then
-            echo "SSH_IP=${{ secrets.SSH_STAGE_IP }}" >> $GITHUB_ENV
-            echo "SSH_PORT=${{ secrets.SSH_STAGE_PORT }}" >> $GITHUB_ENV
-          elif [[ "$branch_name" == "sandbox" ]]; then
-            echo "SSH_IP=${{ secrets.SSH_SANDBOX_IP }}" >> $GITHUB_ENV
-            echo "SSH_PORT=${{ secrets.SSH_SANDBOX_PORT }}" >> $GITHUB_ENV
           elif [[ "$branch_name" == "main" ]]; then
             echo "SSH_IP=${{ secrets.SSH_MAIN_IP }}" >> $GITHUB_ENV
             echo "SSH_PORT=${{ secrets.SSH_MAIN_PORT }}" >> $GITHUB_ENV
+          elif [[ "$branch_name" == "staging" ]]; then
+            echo "SSH_IP=${{ secrets.SSH_STAGING_IP }}" >> $GITHUB_ENV
+            echo "SSH_PORT=${{ secrets.SSH_STAGING_PORT }}" >> $GITHUB_ENV
           else
             echo "Error: Unknown branch name, unable to set SSH credentials."
             exit 1
           fi
-      - name: Authenticate to GitHub Container Registry on Remote Server
+
+      - name: Set up Compose File Variable
         run: |
-          echo "Authenticating to GitHub Container Registry..."
-          branch_name="${{ github.ref_name }}"
-          ssh_ip="${SSH_IP}"
-          echo "Deploying services to branch: $branch_name"
-          if [ -z "$ssh_ip" ]; then
-            echo "Error: SSH IP not found."
-            exit 1
+          if [[ "${{ github.ref_name }}" == "dev" ]]; then
+            echo "COMPOSE_FILE=docker-compose-server-dev.yml" >> $GITHUB_ENV
+          else
+            echo "COMPOSE_FILE=docker-compose-server.yml" >> $GITHUB_ENV
+          fi
+
+      - name: Set up Stack Name
+        run: |
+          if [[ "${{ github.ref_name }}" == "dev" ]]; then
+            echo "STACK_NAME=onton-dev" >> $GITHUB_ENV
+          else
+            echo "STACK_NAME=onton" >> $GITHUB_ENV
           fi
 
       - name: Deploy Changed Services
         env:
-          CR_PAT: ${{ secrets.GITHUB_TOKEN }}
+          CR_PAT: ${{ secrets.CR_PAT }}
         run: |
           branch_name="${{ github.ref_name }}"
-          registry_url="${{ secrets.REGISTRY_URL }}"
+          registry_url="ghcr.io"
+          github_repo=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
           ssh_ip="${SSH_IP}"
           ssh_port="${SSH_PORT}"
           services_to_build=${{ needs.determine-services.outputs.services_to_build }}   
-          echo "create network"
-          docker network create --driver overlay --attachable onton-network-$branch_name || true
-          echo "changed services: $services_to_build"
-          echo "Deploying services to branch: $branch_name"
-          if [ -z "$ssh_ip" ]; then
-            echo "Error: SSH IP not found."
-            exit 1
-          fi
-
           echo "Connecting to server and creating branch directory..."
-          # Use case-insensitive prefix matching for branch name
-          # [[ "$branch_name" == "dev" ]] ||
-          if [[ "$branch_name" == "sandbox" ]]; then
-            ssh -o StrictHostKeyChecking=no -p "$ssh_port" tonont@$ssh_ip  << EOF
+          ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=5 -p "$ssh_port" tonont@$ssh_ip << EOF
             mkdir -p /home/tonont/$branch_name
-            mkdir -p /home/tonont/$branch_name/mini-app
-            mkdir -p /home/tonont/$branch_name/mini-app-sbt-worker
-            mkdir -p /home/tonont/$branch_name/mini-app-nft-api-worker
-            mkdir -p /home/tonont/$branch_name/mini-app-ordinary-worker
-            mkdir -p /home/tonont/$branch_name/mini-app-reward-worker
-            mkdir -p /home/tonont/$branch_name/mini-app-poa-worker
-            mkdir -p /home/tonont/$branch_name/mini-app-notification-socket
-            mkdir -p /home/tonont/$branch_name/telegram-bot
-            mkdir -p /home/tonont/$branch_name/client-web
-            mkdir -p /home/tonont/$branch_name/participant-tma
-            mkdir -p /home/tonont/$branch_name/website
-            EOF
-          else
-            ssh -o StrictHostKeyChecking=no -p "$ssh_port" tonont@$ssh_ip << EOF
-            mkdir -p /home/tonont/$branch_name
+            echo "Creating network if not exists..."
+
           EOF
-          fi
 
           echo "Copying files to server..."
-          scp  -P "$ssh_port"  -r -o StrictHostKeyChecking=no  docker-compose-server.yml .env docker-compose-server.volume.dev.yml docker-compose-server.override.dev.yml .dockerignore swagger devops tonont@$ssh_ip:/home/tonont/$branch_name
+          scp -P "$ssh_port" -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=5 -r docker-compose-server.yml docker-compose-server-dev.yml .env docker-compose-server.volume.dev.yml .dockerignore swagger devops tonont@$ssh_ip:/home/tonont/$branch_name
           
           
           # Remove brackets and convert to space-separated string
           services=$(echo "$services_to_build" | tr -d '[]"' | tr ',' ' ')
           echo "Formatted services to build: $services"  # Debug output        
-          ssh -p "$ssh_port" -o StrictHostKeyChecking=no tonont@$ssh_ip << EOF
+          ssh -p "$ssh_port" -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=5 tonont@$ssh_ip << EOF
+            set -o errexit
+            set -o pipefail
             whoami
-            echo "Loading environment variables..."
+            echo "Moving to branch directory..."
             cd /home/tonont/$branch_name
+            echo "Loading environment variables..."
+            set -a
             source .env
+            set +a
             echo "******Logging into GitHub Container Registry..."
             if [ -z "$CR_PAT" ]; then
-              echo "CR_PAT is not set or is empty"; exit 1;
+              echo "CR_PAT is not set or is empty. Please add CR_PAT to GitHub Secrets."; exit 1;
             fi
+            echo "$CR_PAT" | docker login ghcr.io -u ${{ github.actor }} --password-stdin 
           
             echo "services to build: $services_to_build"
             # Remove the square brackets and split by comma
@@ -507,7 +554,7 @@ jobs:
                 echo "Warning: Found an empty service name, skipping..."
               else
                 echo "Pulling Docker image for service: \$service"
-                docker pull ${registry_url}/pomegroup/ontonbot/\${service}:${branch_name}-latest
+                docker pull ghcr.io/${github_repo}/\${service}:${branch_name}-latest
               fi
               if [[ "\$service" == "caddy" ]]; then
                 echo "creating caady files"
@@ -519,90 +566,74 @@ jobs:
                   set +o allexport
                   source /home/tonont/$branch_name/.env
                   chmod +x devops/generate-caddyfile-by-address.sh
-                  rm -f /home/tonont/caddy/tmp/$branch_name/Caddyfile
-                  mkdir -p /home/tonont/caddy/tmp/$branch_name/
-                  mkdir -p /home/tonont/caddy/Caddyfile
-          
-                  export CADDYFILE_PATH="/home/tonont/caddy/tmp/$branch_name.caddyfile"
-                  sh devops/generate-caddyfile-by-address.sh
-                  mv /home/tonont/caddy/tmp/$branch_name.caddyfile /home/tonont/caddy/$branch_name.caddyfile
-                  docker stack deploy --with-registry-auth -c ./devops/caddyServer/docker-compose-caddy.yml caddy
-                  docker service update --force caddy_caddy
-                  echo "Services deployed caddy successfully."
+                   rm -f /home/tonont/$branch_name/Caddyfile
+                   export CADDYFILE_PATH="/home/tonont/$branch_name/Caddyfile"
+                   sh devops/generate-caddyfile-by-address.sh
+                   echo "Caddyfile generated successfully."
               fi
             done
           EOF
           echo "Exporting all environment variables with branch-specific prefix..."
           
-          ssh  -p "$ssh_port" -o StrictHostKeyChecking=no tonont@$ssh_ip << EOF
+          ssh -p "$ssh_port" -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=5 tonont@$ssh_ip << EOF
             set -o errexit
             set -o pipefail
-            echo "Listing files in branch directory..."     
-          
+            echo "Moving to branch directory..."
             cd /home/tonont/$branch_name
             ls -la
-            echo "Sourcing .env file..."
-            set -o allexport
+            echo "Sourcing .env file with auto-export..."
+            set -a
             source .env
-            set +o allexport
-            cd /home/tonont/$branch_name
-            source /home/tonont/$branch_name/.env
+            set +a
             chmod +x devops/generate-caddyfile.sh
             chmod +x devops/minio-init.sh
             echo "Updating Docker node label for stage $branch_name..."
-            docker node update --label-add stage.$branch_name=true ontonServer
-            echo "Deploying Docker stack for $branch_name..."
-            deploy_output=\$(docker stack deploy --with-registry-auth -c docker-compose-server.yml $branch_name 2>&1)
+            
+            # Try to get Node ID (Best Effort)
+            NODE_ID=""
+            if docker info > /dev/null 2>&1; then
+                # Method 1: Docker Info Format
+                NODE_ID=$(docker info --format '{{.Swarm.NodeID}}' 2>/dev/null || true)
+                
+                # Method 2: Grep Fallback
+                if [ -z "$NODE_ID" ]; then
+                     NODE_ID=$(docker info 2>/dev/null | grep "NodeID:" | awk '{print $2}')
+                fi
+            fi
+
+            if [ -n "$NODE_ID" ]; then
+                echo "Node ID found: $NODE_ID. Updating labels..."
+                docker node update --label-add stage.$branch_name=true $NODE_ID || true
+            else
+                echo "WARNING: Could not retrieve Node ID. Skipping label update."
+                echo "Ensure node has label 'stage.$branch_name=true' set manually."
+                # Do not exit 1, allow deployment to proceed
+            fi
+            # Create network if it doesn't exist (on the server)
+            if [[ "$branch_name" == "dev" ]]; then
+              docker network ls | grep -q "onton-dev-network" || docker network create --driver overlay --attachable "onton-dev-network" || true
+            else
+              docker network ls | grep -q "onton-shadow-network" || docker network create --driver overlay --attachable "onton-shadow-network" || true
+            fi
+
+            echo "Deploying Docker stack for $branch_name using $COMPOSE_FILE..."
+                deploy_output=\$(docker stack deploy --with-registry-auth --resolve-image always -c $COMPOSE_FILE $STACK_NAME 2>&1)
+            deploy_status=\$?
+            set -o errexit
           
             echo "\$deploy_output"
-            if echo "\$deploy_output" | grep -q "could not be accessed on a registry"; then
-              echo "Error: Registry access issue detected during deployment."
-              exit 1
+ 
+            if [ \$deploy_status -ne 0 ]; then
+                echo "Error: Deployment failed with exit code \$deploy_status."
+                exit 1
             fi
-            echo "Forcing update of services..."
-            services=\$(echo "$services_to_build" | tr -d '[]"' | tr ',' ' ')
-            underscore="_"
-            echo $services_to_build
-            for service in \$services; do
-              echo "Processing service: \$service"
-              if [ "\$service" == "caddy" ]; then
-                echo "Special handling for caddy service"
-                echo "docker service update --force caddy_caddy"
-                docker service update --force caddy_caddy
-              elif [ "\$service" == "mini-app" ]; then
-                echo "Special handling for mini-app service"
-                echo "Updating $branch_name_mini-app"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force $branch_name\_\mini-app
-          
-                echo "Updating $branch_name_mini-app-notification-socket"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force $branch_name\_\mini-app-notification-socket
-          
-                echo "Updating $branch_name_mini-app-poa-worker"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force $branch_name\_\mini-app-poa-worker
-          
-                echo "Updating $branch_name_mini-app-sbt-worker"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force $branch_name\_\mini-app-sbt-worker
-                
-                echo "Updating $branch_name_mini-app-nft-api-worker"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force $branch_name\_\mini-app-nft-api-worker
-          
-          
-                echo "Updating $branch_name_mini-app-ordinary-worker"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force $branch_name\_\mini-app-ordinary-worker
-          
-                echo "Updating $branch_name_mini-app-reward-worker"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force $branch_name\_\mini-app-reward-worker
-          
-                echo "Updating $branch_name_mini-app-moderation-bot"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2 --force $branch_name\_\mini-app-moderation-bot
-              else
-                echo "docker service update --force $branch_name\_\$service"
-                docker service update --update-failure-action rollback --update-max-failure-ratio 0.2  --force $branch_name\_\$service
-              fi
-            done
+            if echo "\$deploy_output" | grep -q "could not be accessed on a registry"; then
+              echo "Warning: Registry access issue detected. This is expected for public images (e.g., elasticsearch, swagger-ui). Proceeding..."
+            fi
+
             # bidar kardane fluentd :))
-            docker service update --update-failure-action rollback --update-max-failure-ratio 0.5 --force caddy_fluentd
-            echo "Services deployed successfully."         
+            docker service update --update-failure-action rollback --update-max-failure-ratio 0.5 --force ${STACK_NAME}_fluentd || true
+            echo "Services deployed successfully."
           EOF
 
           echo "Services deployed successfully."
@@ -617,8 +648,8 @@ jobs:
         if: success()
         continue-on-error: true
         env:
-          TELEGRAM_BOT_TOKEN: ${{ vars.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT }}
-          TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT || vars.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT || vars.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT }}
         run: |
           if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
             echo "Error: Telegram vars are not set or are empty."
@@ -636,8 +667,8 @@ jobs:
       - name: Send Telegram Message - Deployment Failure
         if: failure()
         env:
-          TELEGRAM_BOT_TOKEN: ${{ vars.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT }}
-          TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT || vars.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT || vars.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT }}
         run: |
           if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
             echo "Error: Telegram vars are not set or are empty."

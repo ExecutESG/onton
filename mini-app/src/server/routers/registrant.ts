@@ -36,61 +36,75 @@ const checkinRegistrantRequest = evntManagerPP
         message: "Check-in only for in_person events with registration",
       });
     }
-    const registrant = (
-      await db.select().from(eventRegistrants).where(eq(eventRegistrants.registrant_uuid, registrant_uuid)).execute()
-    ).pop();
 
-    if (!registrant) {
-      throw new TRPCError({
-        code: "NOT_FOUND",
-        message: `Registrant Not Found/Invalid for ${event_uuid} and registrant_uuid ${registrant_uuid}`,
-      });
-    }
-    if (registrant.event_uuid !== event_uuid) {
+    const lockKey = `lock:checkin:${registrant_uuid}`;
+    const acquired = await redisTools.acquireLock(lockKey, 10);
+    if (!acquired) {
       throw new TRPCError({
         code: "CONFLICT",
-        message: `Registrant Not for this event ${event_uuid} and registrant_uuid ${registrant_uuid}`,
+        message: "Check-in currently in progress for this attendee. Please try again.",
       });
     }
 
-    if (registrant.status === "checkedin") {
-      return { code: 200, message: "Already Checked-in" };
-    }
-    if (registrant.status !== "approved") {
-      throw new TRPCError({
-        code: "CONFLICT",
-        message: `Registrant Not Approved for this event ${event_uuid} and registrant_uuid ${registrant_uuid}`,
-      });
-    }
+    try {
+      const registrant = (
+        await db.select().from(eventRegistrants).where(eq(eventRegistrants.registrant_uuid, registrant_uuid)).execute()
+      ).pop();
 
-    const userId = registrant.user_id;
-    const visitor = await visitorsDB.addVisitor(userId, event_uuid);
+      if (!registrant) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Registrant Not Found/Invalid for ${event_uuid} and registrant_uuid ${registrant_uuid}`,
+        });
+      }
+      if (registrant.event_uuid !== event_uuid) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: `Registrant Not for this event ${event_uuid} and registrant_uuid ${registrant_uuid}`,
+        });
+      }
 
-    if (!visitor) {
-      logger.error(`Visitor ${userId} not found for event ${event_uuid} in handleNotificationReply`);
-      throw new Error(`Visitor ${userId} not found`);
+      if (registrant.status === "checkedin") {
+        return { code: 200, message: "Already Checked-in" };
+      }
+      if (registrant.status !== "approved") {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: `Registrant Not Approved for this event ${event_uuid} and registrant_uuid ${registrant_uuid}`,
+        });
+      }
+
+      const userId = registrant.user_id;
+      const visitor = await visitorsDB.addVisitor(userId, event_uuid);
+
+      if (!visitor) {
+        logger.error(`Visitor ${userId} not found for event ${event_uuid} in handleNotificationReply`);
+        throw new Error(`Visitor ${userId} not found`);
+      }
+      const existingReward = await rewardDB.checkExistingRewardWithType(visitor?.id, "ton_society_sbt");
+      if (!existingReward) {
+        const reward = await rewardDB.insertRewardRow(visitor.id, null, userId, "ton_society_sbt", "pending_creation", event);
+        logger.log(
+          `CHECKIN::SBT::Reward::Created user reward for user ${userId} and event uuid ${event_uuid} with reward ID ${reward.id}`,
+          reward
+        );
+      } else {
+        logger.log(`CHECKIN::SBT::Reward::User reward already exists for user ${userId} and event uuid ${event_uuid}`);
+      }
+
+      await db
+        .update(eventRegistrants)
+        .set({
+          status: "checkedin",
+        })
+        .where(eq(eventRegistrants.registrant_uuid, registrant_uuid))
+        .execute();
+
+      const final_message = event.has_payment ? "Reward Link will be sent to user" : "User can claim reward on the event page";
+      return { code: 200, message: final_message };
+    } finally {
+      await redisTools.releaseLock(lockKey);
     }
-    const existingReward = await rewardDB.checkExistingRewardWithType(visitor?.id, "ton_society_sbt");
-    if (!existingReward) {
-      const reward = await rewardDB.insertRewardRow(visitor.id, null, userId, "ton_society_sbt", "pending_creation", event);
-      logger.log(
-        `CHECKIN::SBT::Reward::Created user reward for user ${userId} and event uuid ${event_uuid} with reward ID ${reward.id}`,
-        reward
-      );
-    } else {
-      logger.log(`CHECKIN::SBT::Reward::User reward already exists for user ${userId} and event uuid ${event_uuid}`);
-    }
-
-    await db
-      .update(eventRegistrants)
-      .set({
-        status: "checkedin",
-      })
-      .where(eq(eventRegistrants.registrant_uuid, registrant_uuid))
-      .execute();
-
-    const final_message = event.has_payment ? "Reward Link will be sent to user" : "User can claim reward on the event page";
-    return { code: 200, message: final_message };
   });
 
 const processRegistrantRequest = evntManagerPP

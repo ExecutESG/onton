@@ -9,8 +9,11 @@
  *  6) Cleanup Redis  →  redirect back to the mini‑app
  * ------------------------------------------------------------------------ */
 
-import { NextRequest } from "next/server";
-
+import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/db/db";
+import { users } from "@/db/schema/users";
+import { usersDB } from "@/db/modules/users.db";
+import { createWebSessionToken } from "@/server/utils/jwt";
 import { redisTools } from "@/lib/redisTools";
 import { exchangeCodeForTokenGoogle, fetchGoogleUserInfo } from "@/lib/google";
 import { usersGoogleDB } from "@/db/modules/usersGoogle.db";
@@ -24,16 +27,17 @@ export async function GET(req: NextRequest) {
   const code = searchParams.get("code");
   const state = searchParams.get("state");
 
-  /* 1️⃣  Pull PKCE verifier & TG‑user from Redis -------------------- */
+  /* 1️⃣  Pull PKCE verifier & info from Redis -------------------- */
   const saved = state ? await redisTools.getCache(`goauth:${state}`) : null;
 
-  if (!saved || typeof saved !== "object" || !("codeVerifier" in saved) || !("telegramUserId" in saved) || !code) {
+  if (!saved || typeof saved !== "object" || !("codeVerifier" in saved) || !code) {
     return new Response("Invalid or expired state", { status: 400 });
   }
 
-  const { codeVerifier, telegramUserId, returnUrl } = saved as {
+  const { codeVerifier, telegramUserId, source, returnUrl } = saved as {
     codeVerifier: string;
-    telegramUserId: number;
+    telegramUserId?: number;
+    source?: string;
     returnUrl: string;
   };
 
@@ -44,26 +48,84 @@ export async function GET(req: NextRequest) {
     /* 3️⃣  Fetch Google profile (sub, email, name, picture …) ---------- */
     const ui = await fetchGoogleUserInfo(access_token);
 
+    let userId = telegramUserId;
+
+    if (source === "web") {
+      // Look up existing Google account mapping
+      const existingUserId = await usersGoogleDB.getUserIdByGoogleUserId(ui.sub);
+      if (existingUserId) {
+        userId = existingUserId;
+      } else {
+        // Create new web-only user row
+        let isUnique = false;
+        let generatedId = 0;
+        while (!isUnique) {
+          generatedId = 1e14 + Math.floor(Math.random() * 1e12);
+          const existing = await usersDB.selectUserById(generatedId);
+          if (!existing) isUnique = true;
+        }
+        userId = generatedId;
+
+        await db
+          .insert(users)
+          .values({
+            user_id: userId,
+            username: ui.email ? ui.email.split("@")[0] + "_g" : `web_${userId}`,
+            first_name: ui.given_name || ui.name || "Web",
+            last_name: ui.family_name || "User",
+            language_code: "en",
+            role: "user",
+            photo_url: ui.picture || null,
+          })
+          .onConflictDoNothing()
+          .execute();
+      }
+    }
+
+    if (!userId) {
+      return new Response("Unauthorized: missing user context", { status: 401 });
+    }
+
     /* 4️⃣  Upsert mapping in users_google ------------------------------ */
     await usersGoogleDB.upsertGoogleAccount({
-      userId: telegramUserId,
+      userId: userId,
       gUserId: ui.sub,
       gEmail: ui.email,
       gDisplayName: ui.name,
       gAvatarUrl: ui.picture,
     });
 
+    if (source === "web") {
+      /* Cleanup Redis + redirect to web with session cookie ---------- */
+      await redisTools.deleteCache(`goauth:${state}`);
+
+      const sessionToken = await createWebSessionToken({
+        userId: userId,
+        authMethod: "google",
+      });
+
+      const response = NextResponse.redirect(returnUrl);
+      response.cookies.set("onton_session", sessionToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 7 * 24 * 60 * 60, // 7 days
+      });
+      return response;
+    }
+
     /* 5️⃣  Mark the “Google Connect” quest DONE + award points --------- */
     const [gTask] = await tasksDB.getTasksByType("google_connect", false);
 
     if (gTask) {
-      const existing = await taskUsersDB.getUserTaskByUserAndTask(telegramUserId, gTask.id);
+      const existing = await taskUsersDB.getUserTaskByUserAndTask(userId, gTask.id);
 
       if (existing) {
         await taskUsersDB.updateUserTaskById(existing.id, { status: "done" });
       } else {
         await taskUsersDB.addUserTask({
-          userId: telegramUserId,
+          userId: userId,
           taskId: gTask.id,
           status: "done",
           pointStatus: "not_allocated",
@@ -71,7 +133,7 @@ export async function GET(req: NextRequest) {
           groupSbt: "has_not_sbt",
           customData: { gUserId: ui.sub, gEmail: ui.email },
         });
-        await maybeInsertConnectTaskScore(telegramUserId, "google_connect");
+        await maybeInsertConnectTaskScore(userId, "google_connect");
       }
     } else {
       logger.warn("Google callback: no google_connect task configured");

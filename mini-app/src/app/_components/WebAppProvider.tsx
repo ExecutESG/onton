@@ -117,8 +117,10 @@ export default function WebAppProvider({ children }: { children: React.ReactNode
     };
   }, [pathname, router, goBack]);
 
-  // 5) If we don't have initData => show skeleton
-  if (!initData) {
+  // 5) If we don't have initData => show skeleton ONLY if we are running inside Telegram
+  const isTelegram = typeof window !== "undefined" && !!window.Telegram?.WebApp?.initData;
+
+  if (isTelegram && !initData) {
     return (
       <div
         className={"p-4"}

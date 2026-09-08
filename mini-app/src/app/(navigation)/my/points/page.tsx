@@ -10,6 +10,7 @@ import TotalPointsBox from "./TotalPointsBox";
 import EventPointsGroup from "./EventPointsGroup";
 import EventPointsCard from "./EventPointsCard";
 import ChevronDownIconAccord from "./ChevronDownIcon";
+import LoginRequired from "@/app/_components/auth/LoginRequired";
 
 /* tiny helper */
 const pts = (n: number | null | undefined) => (n ? `${n} Point${n === 1 ? "" : "s"}` : "Points");
@@ -19,43 +20,47 @@ export default function MyPointsPage() {
   const [open, setOpen] = useState(true);
 
   /* ── queries that stay on the Points page ────────────────────────── */
-  const totalPoints = trpc.usersScore.getTotalScoreByUserId.useQuery();
+  const totalPoints = trpc.usersScore.getTotalScoreByUserId.useQuery(undefined, { enabled: !!user });
   const paidOnline = trpc.usersScore.getTotalScoreByActivityTypesAndUserId.useQuery({
     activityTypes: ["paid_online_event"],
     itemType: "event",
-  });
+  }, { enabled: !!user });
   const freeOnline = trpc.usersScore.getTotalScoreByActivityTypesAndUserId.useQuery({
     activityTypes: ["free_online_event"],
     itemType: "event",
-  });
+  }, { enabled: !!user });
   const paidOffline = trpc.usersScore.getTotalScoreByActivityTypesAndUserId.useQuery({
     activityTypes: ["paid_offline_event"],
     itemType: "event",
-  });
+  }, { enabled: !!user });
   const freeOffline = trpc.usersScore.getTotalScoreByActivityTypesAndUserId.useQuery({
     activityTypes: ["free_offline_event"],
     itemType: "event",
-  });
+  }, { enabled: !!user });
 
   const freeP2W = trpc.usersScore.getTotalScoreByActivityTypesAndUserId.useQuery({
     activityTypes: ["free_play2win"],
     itemType: "game",
-  });
+  }, { enabled: !!user });
   const paidP2W = trpc.usersScore.getTotalScoreByActivityTypesAndUserId.useQuery({
     activityTypes: ["paid_play2win"],
     itemType: "game",
-  });
+  }, { enabled: !!user });
 
   const organise = trpc.usersScore.getTotalScoreByActivityTypesAndUserId.useQuery({
     activityTypes: ["paid_online_event", "paid_offline_event", "free_online_event", "free_offline_event"],
     itemType: "organize_event",
-  });
+  }, { enabled: !!user });
 
   const loading = [totalPoints, paidOnline, freeOnline, paidOffline, freeOffline, freeP2W, paidP2W, organise].some(
     (q) => q.isLoading
   );
 
-  if (!user || loading) return null;
+  if (!user) {
+    return <LoginRequired />;
+  }
+
+  if (loading) return null;
 
   return (
     <div className="flex flex-col gap-4 ">

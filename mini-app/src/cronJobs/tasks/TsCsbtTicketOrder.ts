@@ -39,15 +39,15 @@ export const TsCsbtTicketOrder = async (pushLockTTl: () => any) => {
       const event_uuid = ordr.event_uuid;
 
       if (!ordr.owner_address) {
-        //NOTE -  tg error
-        logger.error("error_wtf : no owner address", "order_id=", ordr.uuid);
+        logger.error("TsCsbtTicketOrder: no owner address for order", ordr.uuid);
+        await db.update(orders).set({ state: "failed", updatedBy: "csbt_no_owner_address" }).where(eq(orders.uuid, ordr.uuid)).execute();
         continue;
       }
       try {
         Address.parse(ordr.owner_address);
       } catch {
-        //NOTE - tg error
-        logger.error("error_unparsable address : ", ordr.owner_address, "order_id=", ordr.uuid);
+        logger.error("TsCsbtTicketOrder: unparsable address for order", ordr.uuid, ordr.owner_address);
+        await db.update(orders).set({ state: "failed", updatedBy: "csbt_unparsable_address" }).where(eq(orders.uuid, ordr.uuid)).execute();
         continue;
       }
 
@@ -56,21 +56,19 @@ export const TsCsbtTicketOrder = async (pushLockTTl: () => any) => {
       ).pop();
 
       if (!paymentInfo) {
-        logger.error("error_what the fuck : ", "event Does not have payment !!!", event_uuid);
+        logger.error("TsCsbtTicketOrder: event does not have payment info", event_uuid);
+        await db.update(orders).set({ state: "failed", updatedBy: "csbt_no_payment_info" }).where(eq(orders.uuid, ordr.uuid)).execute();
         continue;
       }
       const paymentToken = await eventTokensDB.getTokenById(Number(paymentInfo.token_id));
       if (!paymentToken) {
-        logger.error("missing payment token configuration", event_uuid);
+        logger.error("TsCsbtTicketOrder: missing payment token configuration", event_uuid);
+        await db.update(orders).set({ state: "failed", updatedBy: "csbt_missing_token_config" }).where(eq(orders.uuid, ordr.uuid)).execute();
         continue;
       }
-      //
-      // if (!paymentInfo.collectionAddress) {
-      //   logger.error("no_collection_address", event_uuid);
-      //   continue;
-      // }
+
       if (!paymentInfo.ticketActivityId) {
-        logger.error(`error_what the fuck : NO_ACTIVITY_ID_FOR_CSBT_TICKET ${event_uuid}`);
+        logger.error(`TsCsbtTicketOrder: no ticketActivityId for event ${event_uuid}`);
         continue;
       }
       try {

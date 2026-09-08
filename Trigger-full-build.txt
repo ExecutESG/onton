@@ -1,3 +1,1 @@
-test raffle heartbeat
-test raffle full build
-.
+Force rebuild for Phase 2 Credential Rotation Fri Jul 10 21:11:00 UTC 2026

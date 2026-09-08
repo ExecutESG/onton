@@ -98,13 +98,8 @@ function EventCard({ event, afterTitle, timeOnly, noClick }: EventCardProps, ref
     // If noClick prop is set, do nothing
     if (noClick) return;
 
-    // If ticketToCheckIn => open Telegram link
-    if (hasPayment || ticketToCheckIn) {
-      webApp?.openTelegramLink(`https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME}/event?startapp=${eventUuid}`);
-    } else {
-      // Otherwise, push to /events/[eventUuid]
-      router.push(`/events/${eventUuid}`);
-    }
+    // Otherwise, push to /events/[eventUuid]
+    router.push(`/events/${eventUuid}`);
   };
 
   const start = new Date(startDate * 1000);

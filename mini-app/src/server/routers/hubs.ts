@@ -1,9 +1,9 @@
-import { initDataProtectedProcedure, router } from "@/server/trpc";
+import { initDataProtectedProcedure, publicProcedure, router } from "@/server/trpc";
 import { hardCodedHubs, nonVerifiedHubs } from "@/constants";
 import { getHubs as getHubsApi } from "@/lib/ton-society-api";
 import { organizerTsVerified } from "@/db/modules/userFlags.db";
 
-const getHubs = initDataProtectedProcedure.query(async () => {
+const getHubs = publicProcedure.query(async () => {
   if (process.env?.ENV === "local") {
     return {
       status: true,

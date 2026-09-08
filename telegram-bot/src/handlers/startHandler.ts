@@ -26,13 +26,29 @@ export const startHandler = async (ctx: Context) => {
 
     // 6) Parse any `/start` params in the incoming message
     const messageText = ctx.message?.text;
-    let path;
+    let targetUrl: string | undefined;
+    let buttonText: string | undefined;
+
     if (
       messageText &&
       messageText.split(" ").length === 2 &&
       messageText.split(" ")[0] === "/start"
     ) {
-      path = messageText.split(" ")[1];
+      const rawParam = messageText.split(" ")[1];
+      if (rawParam) {
+        if (rawParam.startsWith("event_")) {
+          const eventUuid = rawParam.replace("event_", "");
+          targetUrl = `${process.env.NEXT_PUBLIC_APP_BASE_URL}/events/${eventUuid}`;
+          buttonText = "Open Event";
+        } else if (rawParam.startsWith("join_")) {
+          targetUrl = `${process.env.NEXT_PUBLIC_APP_BASE_URL}/?startapp=${rawParam}`;
+          buttonText = "Join ONTON";
+        } else if (rawParam.startsWith("tournament_")) {
+          const tournamentId = rawParam.replace("tournament_", "");
+          targetUrl = `${process.env.NEXT_PUBLIC_APP_BASE_URL}/tournaments/${tournamentId}`;
+          buttonText = "Open Tournament";
+        }
+      }
     }
 
     // 7) Send or edit a welcome message, showing your start keyboard
@@ -42,10 +58,8 @@ export const startHandler = async (ctx: Context) => {
 
 <b>Explore Events</b>: Discover a variety of exciting events, from Play2Win games and meetups to exclusive NFT drops.
  
-Get started now and dive into the ONTON experience!`
-
-      ,
-      startKeyboard(),
+Get started now and dive into the ONTON experience!`,
+      startKeyboard(targetUrl, buttonText),
       undefined,
       false,
     );

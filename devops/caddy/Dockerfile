@@ -1,5 +1,6 @@
 # Stage 1: Build Caddy with the Cloudflare DNS module
 FROM caddy:builder AS builder
+ENV GOPROXY=https://goproxy.io,direct
 RUN xcaddy build \
     --with github.com/caddy-dns/cloudflare
 

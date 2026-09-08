@@ -19,7 +19,7 @@ interface SendRewardLinkBody {
 export const sendMessage = async (
   req: Request & { bot: Bot },
   res: Response,
-  tryCount?: number,
+  tryCount: number = 0,
 ): Promise<Response> => {
   try {
     // Destructure the request body
@@ -64,22 +64,33 @@ export const sendMessage = async (
       success: true,
       message: "Message sent successfully",
     });
-  } catch (error) {
+  } catch (error: any) {
+    if (res.headersSent) {
+      return res;
+    }
+
     if (
       error instanceof GrammyError &&
       error.error_code === 429 &&
       tryCount < 10
     ) {
-      logger.error("BOT_ERROR: 429", error);
+      const waitSec = error.parameters?.retry_after ?? 1;
+      logger.warn(`BOT_ERROR: 429 rate limit hit. Waiting ${waitSec}s (attempt ${tryCount + 1}/10)...`);
 
-      // wait 1000
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      await sendMessage(req, res, tryCount ? tryCount + 1 : 1);
+      await new Promise((resolve) => setTimeout(resolve, waitSec * 1000));
+      return await sendMessage(req, res, tryCount + 1);
     }
 
     // Differentiate between Telegram API errors and other errors
+    if (error instanceof GrammyError) {
+      logger.error("TELEGRAM_GRAMMY_ERROR:", error.description);
+      return res.status(error.error_code || 500).json({
+        success: false,
+        error: error.description,
+      });
+    }
+
     if (error.response?.statusCode) {
-      // Handle errors from the Telegram API (e.g., invalid chat_id, bot token issues)
       const errorMessage =
         error.response.description ||
         "An error occurred while sending the message.";

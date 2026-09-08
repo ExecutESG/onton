@@ -90,6 +90,19 @@ x-common-env: &common-env
   SWAGGER_UI_PORT: ${SWAGGER_UI_PORT}
   EVENT_WALLET_ENC_KEY: ${EVENT_WALLET_ENC_KEY}
 services:
+  fluentd:
+    image: fluent/fluentd:v1.14-1
+    hostname: fluentd
+    networks:
+      - onton-network
+    ports:
+      - "24224:24224"
+      - "24224:24224/udp"
+    deploy:
+      mode: global
+      restart_policy:
+        condition: on-failure
+
   minio:
     hostname: minio
     image: minio/minio
@@ -98,8 +111,8 @@ services:
     networks:
       - onton-network
     ports:
-      - "${MINIO_PORT}:${MINIO_PORT}"
-      - "${MINIO_DASHBOARD_PORT}:${MINIO_DASHBOARD_PORT}"
+      - "127.0.0.1:${MINIO_PORT}:${MINIO_PORT}"
+      - "127.0.0.1:${MINIO_DASHBOARD_PORT}:${MINIO_DASHBOARD_PORT}"
     deploy:
       resources:
         limits:
@@ -137,7 +150,7 @@ services:
     depends_on:
       - fluentd
     ports:
-      - "${POSTGRES_PORT}:${POSTGRES_PORT}"
+      - "127.0.0.1:${POSTGRES_PORT}:${POSTGRES_PORT}"
     deploy:
       resources:
         limits:
@@ -160,18 +173,7 @@ services:
     environment:
       <<: *common-env
     command: >
-      postgres -p ${POSTGRES_PORT}
-      -c max_connections=500
-      -c shared_buffers=8GB
-      -c effective_cache_size=24GB
-      -c maintenance_work_mem=2GB
-      -c work_mem=32MB
-      -c checkpoint_completion_target=0.9
-      -c wal_buffers=16MB
-      -c log_min_duration_statement=2000    
-      -c log_destination=stderr             
-      -c logging_collector=off            
-      -c log_statement=none
+      postgres -p ${POSTGRES_PORT} -c max_connections=500 -c shared_buffers=8GB -c effective_cache_size=24GB -c maintenance_work_mem=2GB -c work_mem=32MB -c checkpoint_completion_target=0.9 -c wal_buffers=16MB -c log_min_duration_statement=2000     -c log_destination=stderr              -c logging_collector=off             -c log_statement=none
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -197,8 +199,8 @@ services:
     depends_on:
       - fluentd
     ports:
-      - "${REDIS_PORT}:${REDIS_PORT}"
-    command: redis-server  --port ${REDIS_PORT}
+      - "127.0.0.1:${REDIS_PORT}:${REDIS_PORT}"
+    command: redis-server  --port ${REDIS_PORT} --requirepass ${REDIS_PASSWORD}
     deploy:
       resources:
         limits:
@@ -244,7 +246,7 @@ services:
     depends_on:
       - postgres
     ports:
-      - "${PORT_PGADMIN}:${PORT_PGADMIN}"
+      - "127.0.0.1:${PORT_PGADMIN}:${PORT_PGADMIN}"
     networks:
       - onton-network
     volumes:
@@ -312,17 +314,16 @@ services:
       <<: *common-env
       TON_SOCIETY_API_KEY: ${TON_SOCIETY_API_KEY}
       TON_SOCIETY_BASE_URL: ${TON_SOCIETY_BASE_URL}
-      TWITTER_CLIENT_ID : ${TWITTER_CLIENT_ID}
-      TWITTER_CLIENT_SECRET : ${TWITTER_CLIENT_SECRET}
-      GITHUB_CLIENT_ID : ${GITHUB_CLIENT_ID}
-      GITHUB_CLIENT_SECRET : ${GITHUB_CLIENT_SECRET}
+      TWITTER_CLIENT_ID: ${TWITTER_CLIENT_ID}
+      TWITTER_CLIENT_SECRET: ${TWITTER_CLIENT_SECRET}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
       LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID}
       LINKEDIN_CLIENT_SECRET: ${LINKEDIN_CLIENT_SECRET}
-      GOOGLE_CLIENT_ID : ${GOOGLE_CLIENT_ID}
-      GOOGLE_CLIENT_SECRET : ${GOOGLE_CLIENT_SECRET}
-      MS_CLIENT_ID : ${MS_CLIENT_ID}
-      MS_CLIENT_SECRET : ${MS_CLIENT_SECRET}
-
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      MS_CLIENT_ID: ${MS_CLIENT_ID}
+      MS_CLIENT_SECRET: ${MS_CLIENT_SECRET}
 
     depends_on:
       - postgres
@@ -336,11 +337,7 @@ services:
     secrets:
       - registry-onton-config
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "curl  http://localhost:${MINI_APP_PORT}/api/client/v1/public/ping | grep -q pong ",
-        ]
+      test: [ "CMD-SHELL", "curl  http://localhost:${MINI_APP_PORT}/api/client/v1/public/ping | grep -q pong " ]
       interval: 15s
       timeout: 10s
       start_period: 15s
@@ -736,7 +733,7 @@ services:
     image: metabase/metabase:v0.50.18.3
     hostname: metabase
     ports:
-      - "${PORT_METABASE}:3000"
+      - "127.0.0.1:${PORT_METABASE}:3000"
     deploy:
       resources:
         limits:
@@ -788,14 +785,14 @@ services:
     image: "rabbitmq:4.0.4-management-alpine"
     hostname: rabbitmq
     ports:
-      - "${RABBITMQ_MANAGEMENT_PORT}:15672"
-      - "${RABBITMQ_NODE_PORT}:${RABBITMQ_NODE_PORT}"
+      - "127.0.0.1:${RABBITMQ_MANAGEMENT_PORT}:15672"
+      - "127.0.0.1:${RABBITMQ_NODE_PORT}:${RABBITMQ_NODE_PORT}"
     environment:
       RABBITMQ_DEFAULT_USER: "${RABBITMQ_DEFAULT_USER}"
       RABBITMQ_DEFAULT_PASS: "${RABBITMQ_DEFAULT_PASS}"
       RABBITMQ_NODE_PORT: "${RABBITMQ_NODE_PORT}"
     volumes:
-      - rabbitmq_data:/var/lib/rabbitmq  # Persist data
+      - rabbitmq_data:/var/lib/rabbitmq # Persist data
     depends_on:
       - fluentd
     deploy:
@@ -832,27 +829,27 @@ services:
         tag: "docker.${BRANCH_NAME}-rabbitmq"
         #fluentd-async-connect: "true"
 
-  #  client-web:
-  #    hostname: client-web
-  #    <<: *default-extra-hosts
-  #    image: ${REGISTRY_URL}/${GITHUB_REPO}/client-web:${BRANCH_NAME}-latest
-  #    ports:
-  #      - "${PORT_CLIENT_WEB}:${PORT_CLIENT_WEB}"
-  #    environment:
-  #      NEXT_PUBLIC_BACKEND_URL_CLIENT: ${NEXT_PUBLIC_BACKEND_URL_CLIENT}
-  #      CLIENT_API_JWT_SECRET: ${CLIENT_API_JWT_SECRET}
-  #      CLIENT_API_FIXED_KEY: ${CLIENT_API_FIXED_KEY}
-  #      CLIENT_API_FIXED_USER: ${CLIENT_API_FIXED_USER}
-  #      CLIENT_API_FIXED_ORGANIZER: ${CLIENT_API_FIXED_ORGANIZER}
-  #      PORT_CLIENT_WEB: ${PORT_CLIENT_WEB}
-  #    networks:
-  #      - onton-network
-  #    logging:
-  #        driver: "fluentd"
-  #        options:
-  #            syslog-address: "logstash:5044"
-  #            tag: "docker.${BRANCH_NAME}-client-web"
-  #            #fluentd-async-connect: "true"
+        #  client-web:
+        #    hostname: client-web
+        #    <<: *default-extra-hosts
+        #    image: ${REGISTRY_URL}/${GITHUB_REPO}/client-web:${BRANCH_NAME}-latest
+        #    ports:
+        #      - "${PORT_CLIENT_WEB}:${PORT_CLIENT_WEB}"
+        #    environment:
+        #      NEXT_PUBLIC_BACKEND_URL_CLIENT: ${NEXT_PUBLIC_BACKEND_URL_CLIENT}
+        #      CLIENT_API_JWT_SECRET: ${CLIENT_API_JWT_SECRET}
+        #      CLIENT_API_FIXED_KEY: ${CLIENT_API_FIXED_KEY}
+        #      CLIENT_API_FIXED_USER: ${CLIENT_API_FIXED_USER}
+        #      CLIENT_API_FIXED_ORGANIZER: ${CLIENT_API_FIXED_ORGANIZER}
+        #      PORT_CLIENT_WEB: ${PORT_CLIENT_WEB}
+        #    networks:
+        #      - onton-network
+        #    logging:
+        #        driver: "fluentd"
+        #        options:
+        #            syslog-address: "logstash:5044"
+        #            tag: "docker.${BRANCH_NAME}-client-web"
+        #            #fluentd-async-connect: "true"
 
 
   swagger-ui:
@@ -860,7 +857,7 @@ services:
     hostname: swagger-ui
     # Adjust the port mapping to your preference
     ports:
-      - "${SWAGGER_UI_PORT}:8080"
+      - "127.0.0.1:${SWAGGER_UI_PORT}:8080"
     environment:
       <<: *common-env
       SWAGGER_JSON: "/swagger.yaml"

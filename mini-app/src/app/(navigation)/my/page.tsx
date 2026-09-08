@@ -25,12 +25,15 @@ import { toast } from "sonner";
 import PaymentCard from "./PaymentCard";
 import calendarStarIcon from "./calendar-star.svg";
 import { TbBowFilled } from "react-icons/tb";
+import LoginRequired from "@/app/_components/auth/LoginRequired";
 export default function ProfilePage() {
   const { user } = useUserStore();
   const hasWallet = !!useTonAddress();
   const { setSection } = useSectionStore();
   const router = useRouter();
-  const { data: totalPoints, isLoading: loadingTotalPoints } = trpc.usersScore.getTotalScoreByUserId.useQuery();
+  const { data: totalPoints, isLoading: loadingTotalPoints } = trpc.usersScore.getTotalScoreByUserId.useQuery(undefined, {
+    enabled: !!user,
+  });
 
   const hasEventOrganizer = user?.role === "organizer" || user?.role === "admin";
 
@@ -41,7 +44,11 @@ export default function ProfilePage() {
     router.prefetch("/my/points/");
   }, [router, hasEventOrganizer]);
 
-  if (!user || loadingTotalPoints) return null;
+  if (!user) {
+    return <LoginRequired />;
+  }
+
+  if (loadingTotalPoints) return null;
 
   return (
     <div className="relative isolate">

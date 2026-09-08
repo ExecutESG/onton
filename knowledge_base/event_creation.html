@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Creation Lifecycle</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+            background-color: #f9f9f9;
+        }
+
+        h1,
+        h2,
+        h3 {
+            color: #2c3e50;
+            margin-top: 2rem;
+        }
+
+        h1 {
+            border-bottom: 2px solid #eaeaea;
+            padding-bottom: 0.5rem;
+        }
+
+        .mermaid {
+            text-align: center;
+            margin: 2rem 0;
+        }
+
+        a {
+            color: #0366d6;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .note {
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            color: #856404;
+            padding: 1rem;
+            border-radius: 4px;
+            margin: 1rem 0;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({ startOnLoad: true, theme: 'default' });</script>
+</head>
+
+<body>
+
+    <a href="onton_core_interactions.html">← Back to Core Interactions Map</a>
+
+    <h1>Event Creation Lifecycle</h1>
+    <p>The Event Creation process is the core workflow for Organizers. It involves data validation, optional payment
+        configuration, third-party integration (Ton Society), and moderation.</p>
+
+    <h2>1. Creation Flow (Technical)</h2>
+    <p>The <code>addEvent</code> mutation in <code>src/server/routers/events.ts</code> handles the entire process within
+        a database transaction.</p>
+
+    <h3>Phase 1: Validation</h3>
+    <ul>
+        <li><strong>Organizer Verification:</strong> Checks if the user is <code>ts_verified</code>. Unverified
+            organizers cannot publish to certain Hubs.</li>
+        <li><strong>Dates:</strong> Ensures <code>end_date > start_date</code>.</li>
+        <li><strong>Payment Config:</strong> If it's a paid event, validates <code>capacity</code>,
+            <code>ticket_type</code>, and <code>payment_token</code>.</li>
+    </ul>
+
+    <h3>Phase 2: Database Insertion</h3>
+    <ol>
+        <li><strong><code>events</code> Table:</strong> Inserts core data (Title, Dates, Location, etc.).</li>
+        <li><strong><code>eventPayment</code> Table:</strong> (If paid) Stores price, recipient address, and NFT
+            metadata.</li>
+        <li><strong><code>orders</code> Table:</strong> (If paid) Creates a <code>new</code> order of type
+            <code>event_creation</code> for the organizer to pay the initial listing fee/gas.</li>
+        <li><strong><code>eventFields</code> Table:</strong> Inserts dynamic fields (e.g., custom registration
+            questions).</li>
+    </ol>
+
+    <h3>Phase 3: External Integrations</h3>
+    <ul>
+        <li><strong>Ton Society:</strong> Calls <code>CreateTonSocietyDraft</code> to sync the event with the Ton
+            Society ecosystem.</li>
+        <li><strong>Telegram Notifications:</strong>
+            <ul>
+                <li><strong>Verified Organizers:</strong> Immediately posts to the official Events Channel.</li>
+                <li><strong>Unverified:</strong> Sends a request to the <strong>Moderation Group</strong> via the Bot.
+                    The event remains hidden until approved.</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h2>2. Sequence Diagram</h2>
+
+    <div class="mermaid">
+        sequenceDiagram
+        participant Org as Organizer
+        participant API as tRPC (events.ts)
+        participant DB as PostgreSQL
+        participant Ext as Ton Society
+        participant Mod as Moderation Bot
+
+        Org->>API: addEvent(data)
+        API->>API: Validate Data & User Role
+
+        rect rgb(240, 240, 240)
+        note right of API: Transaction Start
+        API->>DB: Insert Event Row
+        opt is Paid Event
+        API->>DB: Insert Payment Details
+        API->>DB: Create 'event_creation' Order
+        end
+        API->>Ext: Create Draft Activity
+        end
+
+        alt is Verified
+        API->>Mod: Post to Events Channel
+        else is Unverified
+        API->>Mod: Send to Moderation Group
+        end
+
+        API-->>Org: Success (Event UUID)
+    </div>
+
+    <div class="note">
+        <strong>Note on Updates:</strong> When updating a paid event's capacity, the system triggers a new
+        <code>event_capacity_increment</code> order. The extra spots will only be available after this order is paid and
+        verified by the background worker.
+    </div>
+
+</body>
+
+</html>

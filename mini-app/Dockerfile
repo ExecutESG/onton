@@ -102,7 +102,7 @@ COPY ./package.json /app/
 WORKDIR /app
 
 # Install production dependencies only using Yarn
-RUN yarn install --production
+RUN yarn install --production --ignore-engines
 
 ##
 # Stage: with-files
@@ -121,7 +121,7 @@ FROM with-files AS build-stage
 RUN echo "Build stage files:" && ls -la /app
 
 # Install all dependencies (including dev) and build
-RUN yarn install
+RUN yarn install --ignore-engines
 # eslint 9  is not supported in next 14
 #RUN yarn lint:quiet
 RUN yarn build

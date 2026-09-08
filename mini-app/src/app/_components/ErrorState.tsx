@@ -1,3 +1,4 @@
+"use client";
 import Typography from "@/components/Typography";
 import { TG_BOT_LINK, TG_SUPPORT_GROUP } from "@/constants";
 import useWebApp from "@/hooks/useWebApp";

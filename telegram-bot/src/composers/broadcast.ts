@@ -165,14 +165,15 @@ async function handleEventUuid(ctx: MyContext) {
     return ctx.reply(`No participants found for \"${eventRow.title}\".`);
   }
 
+  const uniqueUserIds = Array.from(new Set(tickets.map((t) => String(t.user_id))));
   Object.assign(ctx.session, {
     broadcastEventUuid: uuid,
     broadcastEventTitle: eventRow.title,
-    broadcastUserIds: tickets.map((t) => String(t.user_id)),
+    broadcastUserIds: uniqueUserIds,
     broadcastStep: "askBroadcast",
   });
 
-  await ctx.reply(`✅ Event \"${eventRow.title}\" found with ${tickets.length} participant(s).\nNow send any message (text, photo, video, etc.) you want to broadcast.`);
+  await ctx.reply(`✅ Event \"${eventRow.title}\" found with ${uniqueUserIds.length} unique participant(s).\nNow send any message (text, photo, video, etc.) you want to broadcast.`);
 }
 
 async function handleCsvUpload(ctx: MyContext) {
@@ -187,7 +188,7 @@ async function handleCsvUpload(ctx: MyContext) {
     const url = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${file_path}`;
     const res = await axios.get<ArrayBuffer>(url, { responseType: "arraybuffer" });
     const rows = parse(Buffer.from(res.data).toString("utf-8"), { skip_empty_lines: true });
-    const userIds = rows.map((r: string[]) => r[0]?.trim()).filter(Boolean);
+    const userIds = Array.from(new Set(rows.map((r: string[]) => r[0]?.trim()).filter(Boolean)));
     if (!userIds.length) {
       ctx.session.broadcastStep = "done";
       return ctx.reply("No user IDs found in the CSV. Flow canceled.");
@@ -196,7 +197,7 @@ async function handleCsvUpload(ctx: MyContext) {
       broadcastUserIds: userIds,
       broadcastStep: "askBroadcast",
     });
-    await ctx.reply(`✅ CSV parsed. Found ${userIds.length} user(s).\nNow send any message (text, photo, video, etc.) you want to broadcast.`);
+    await ctx.reply(`✅ CSV parsed. Found ${userIds.length} unique user(s).\nNow send any message (text, photo, video, etc.) you want to broadcast.`);
   } catch (e) {
     ctx.session.broadcastStep = "done";
     await ctx.reply(`Error parsing CSV: ${String(e)}`);

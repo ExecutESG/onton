@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check-in & Proof of Action</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+            background-color: #f9f9f9;
+        }
+
+        h1,
+        h2,
+        h3 {
+            color: #2c3e50;
+            margin-top: 2rem;
+        }
+
+        h1 {
+            border-bottom: 2px solid #eaeaea;
+            padding-bottom: 0.5rem;
+        }
+
+        .mermaid {
+            text-align: center;
+            margin: 2rem 0;
+        }
+
+        a {
+            color: #0366d6;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({ startOnLoad: true, theme: 'default' });</script>
+</head>
+
+<body>
+
+    <a href="onton_core_interactions.html">← Back to Core Interactions Map</a>
+
+    <h1>Check-in & Proof of Action (PoA)</h1>
+    <p>ONTON supports both physical and digital verification methods to confirm attendee participation and trigger
+        reward distribution.</p>
+
+    <h2>1. Physical Check-in (QR Code)</h2>
+    <p>Used for in-person events where the Organizer scans a participant's ticket.</p>
+    <ul>
+        <li><strong>Endpoint:</strong> <code>registrant.checkinRegistrantRequest</code></li>
+        <li><strong>Flow:</strong>
+            <ol>
+                <li><strong>Scan:</strong> Organizer scans User's QR Code.</li>
+                <li><strong>Validation:</strong> System verifies:
+                    <ul>
+                        <li>Event is <code>in_person</code>.</li>
+                        <li>User has <code>approved</code> registration.</li>
+                        <li>User is not already checked in.</li>
+                    </ul>
+                </li>
+                <li><strong>Action:</strong>
+                    <ul>
+                        <li>Updates status to <code>checkedin</code>.</li>
+                        <li><strong>Reward Trigger:</strong> Automatically inserts a <code>pending_creation</code> row
+                            into the <code>rewards</code> table. This cues the background worker to mint the SBT.</li>
+                    </ul>
+                </li>
+            </ol>
+        </li>
+    </ul>
+
+    <h2>2. Digital PoA (Secret Phrase)</h2>
+    <p>Used for online events or quests where physical presence isn't applicable.</p>
+    <ul>
+        <li><strong>Mechanism:</strong> Secret Phrase (Password) Validation.</li>
+        <li><strong>Setup:</strong> Organizer sets a <code>secret_phrase</code> during Event Creation.</li>
+        <li><strong>Flow:</strong>
+            <ol>
+                <li>User attends the online event (e.g., AMA, Stream).</li>
+                <li>Organizer reveals the Secret Phrase.</li>
+                <li>User enters the phrase in the Mini App.</li>
+                <li><strong>Validation:</strong> <code>userEventFieldsDB.checkPasswordTask</code> verifies the hash.
+                </li>
+                <li><strong>Action:</strong> Marks the task as completed, allowing the user to claim the reward.</li>
+            </ol>
+        </li>
+    </ul>
+
+    <h2>3. Reward Trigger Linkage</h2>
+    <p>Both methods ultimately lead to the same outcome: qualifying the user for a reward.</p>
+    <ul>
+        <li><strong>Physical:</strong> Check-in -> Auto-insert Reward Row.</li>
+        <li><strong>Digital:</strong> Task Complete -> User Clicks "Claim" -> <code>createTonSocietySBTReward</code>
+            logic verifies task -> Inserts/Returns Reward.</li>
+    </ul>
+
+    <h2>4. Sequence Diagram</h2>
+
+    <div class="mermaid">
+        sequenceDiagram
+        participant User
+        participant Org as Organizer
+        participant API as tRPC API
+        participant DB as PostgreSQL
+
+        rect rgb(230, 240, 255)
+        note left of User: Physical Check-in
+        Org->>API: checkinRegistrantRequest(QR Data)
+        API->>DB: Validate Registration (Status=Approved)
+        DB-->>API: Valid
+        API->>DB: Update Status -> 'checkedin'
+        API->>DB: Insert Reward (Status='pending_creation')
+        API-->>Org: Success "Checked In"
+        end
+
+        rect rgb(255, 240, 230)
+        note left of User: Digital PoA
+        User->>API: submitSecretPhrase(phrase)
+        API->>DB: Hash & Compare with Event Secret
+        DB-->>API: Match
+        API->>DB: Mark Task Completed
+        User->>API: Claim Reward
+        API->>DB: Verify Task & Insert Reward
+        API-->>User: "Reward Queued"
+        end
+    </div>
+
+</body>
+
+</html>

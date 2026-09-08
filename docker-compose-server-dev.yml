@@ -1,0 +1,469 @@
+version: '3.8'
+
+x-common-env: &common-env
+  ENV: ${ENV}
+  NODE_ENV: ${NODE_ENV}
+  NEXT_PUBLIC_ENV: ${NEXT_PUBLIC_ENV}
+  BRANCH_NAME: ${BRANCH_NAME}
+  DATABASE_URL: ${DATABASE_URL}
+  DATABASE_URL_NFT_MANAGER: ${DATABASE_URL_NFT_MANAGER}
+  REDIS_URL: ${REDIS_URL}
+  TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+  SOCIETY_HUB_API_KEY: ${SOCIETY_HUB_API_KEY}
+  SOCIETY_HUB_ADMIN_CHAT_ID: ${SOCIETY_HUB_ADMIN_CHAT_ID}
+  SOCIETY_HUB_CHAT_ID: ${SOCIETY_HUB_CHAT_ID}
+  ONTON_API_KEY: ${ONTON_API_KEY}
+  NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
+
+x-default-extra-hosts: &default-extra-hosts
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+
+services:
+  postgres:
+    hostname: postgres
+    image: postgres:16-alpine
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT}:5432"
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: "2.0"
+      mode: global
+      update_config:
+        failure_action: rollback
+        order: stop-first
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 15s
+        window: 30s
+    stop_grace_period: 120s
+    stop_signal: SIGTERM
+    environment:
+      <<: *common-env
+    command: >
+      postgres -c max_connections=200 -c shared_buffers=1GB -c effective_cache_size=3GB -c maintenance_work_mem=512MB -c work_mem=16MB
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - onton-network
+
+  redis:
+    image: redis:7-alpine
+    hostname: redis
+    volumes:
+      - redis_data:/data
+    ports:
+      - "127.0.0.1:${REDIS_PORT}:${REDIS_PORT}"
+    command: redis-server --port ${REDIS_PORT}
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+      mode: global
+      update_config:
+        failure_action: rollback
+        order: stop-first
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+    networks:
+      - onton-network
+
+  minio:
+    hostname: minio
+    image: minio/minio:latest
+    ports:
+      - "127.0.0.1:${MINIO_PORT}:${MINIO_PORT}"
+      - "127.0.0.1:${MINIO_DASHBOARD_PORT}:${MINIO_DASHBOARD_PORT}"
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.0"
+      mode: global
+      update_config:
+        failure_action: rollback
+        order: stop-first
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_DOMAIN: ${MINIO_STORAGE_DOMAIN}
+    command: server /data --console-address ":${MINIO_DASHBOARD_PORT}" --address ":${MINIO_PORT}"
+    volumes:
+      - minio_data:/data
+    networks:
+      - onton-network
+
+  mini-app:
+    image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
+    hostname: mini-app
+    ports:
+      - "127.0.0.1:${MINI_APP_PORT}:${MINI_APP_PORT}"
+    <<: *default-extra-hosts
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "0.5"
+      replicas: 1
+    environment:
+      <<: *common-env
+      NEXT_PUBLIC_APP_BASE_URL: https://${MINI_APP_DOMAIN}
+      PORT: 3000
+      # Critical for internal connection
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_HOST: ${IP_REDIS}
+      IP_REDIS: ${IP_REDIS}
+    networks:
+      - onton-network
+
+  participant-tma:
+    image: ghcr.io/executesg/onton/participant-tma:${BRANCH_NAME}-latest
+    hostname: participant-tma
+    ports:
+      - "127.0.0.1:${PARTICIPANT_TMA_PORT-3001}:3001"
+    <<: *default-extra-hosts
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "0.5"
+      replicas: 1
+    environment:
+      <<: *common-env
+      NEXT_PUBLIC_APP_BASE_URL: https://${MINI_APP_DOMAIN}
+      PORT: 3000
+    networks:
+      - onton-network
+
+  telegram-bot:
+    image: ghcr.io/executesg/onton/telegram-bot:${BRANCH_NAME}-latest
+    hostname: telegram-bot
+    <<: *default-extra-hosts
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 1G
+          cpus: "0.5"
+    environment:
+      <<: *common-env
+      BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      ONTON_API_SECRET: ${ONTON_API_SECRET:-}
+      NEXT_PUBLIC_APP_BASE_URL: https://${MINI_APP_DOMAIN}
+    networks:
+      - onton-network
+
+  mini-app-ordinary-worker:
+    image: ghcr.io/executesg/onton/mini-app-ordinary-worker:${BRANCH_NAME}-latest
+    hostname: mini-app-ordinary-worker
+    <<: *default-extra-hosts
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.2"
+      replicas: 0
+    environment:
+      <<: *common-env
+    networks:
+      - onton-network
+
+  mini-app-reward-worker:
+    image: ghcr.io/executesg/onton/mini-app-reward-worker:${BRANCH_NAME}-latest
+    hostname: mini-app-reward-worker
+    <<: *default-extra-hosts
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.2"
+      replicas: 0
+    environment:
+      <<: *common-env
+    networks:
+      - onton-network
+
+  mini-app-poa-worker:
+    image: ghcr.io/executesg/onton/mini-app-poa-worker:${BRANCH_NAME}-latest
+    hostname: mini-app-poa-worker
+    <<: *default-extra-hosts
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.2"
+      replicas: 0
+    environment:
+      <<: *common-env
+    networks:
+      - onton-network
+
+  mini-app-sbt-worker:
+    image: ghcr.io/executesg/onton/mini-app-sbt-worker:${BRANCH_NAME}-latest
+    hostname: mini-app-sbt-worker
+    <<: *default-extra-hosts
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.2"
+      replicas: 0
+    environment:
+      <<: *common-env
+    networks:
+      - onton-network
+
+  mini-app-nft-api-worker:
+    image: ghcr.io/executesg/onton/mini-app-nft-api-worker:${BRANCH_NAME}-latest
+    hostname: mini-app-nft-api-worker
+    <<: *default-extra-hosts
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.2"
+      replicas: 0
+    environment:
+      <<: *common-env
+    networks:
+      - onton-network
+
+  mini-app-moderation-bot:
+    image: ghcr.io/executesg/onton/mini-app-moderation-bot:${BRANCH_NAME}-latest
+    hostname: mini-app-moderation-bot
+    <<: *default-extra-hosts
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.2"
+      replicas: 0
+    environment:
+      <<: *common-env
+    networks:
+      - onton-network
+
+  mini-app-notification-socket:
+    image: ghcr.io/executesg/onton/mini-app-notification-socket:${BRANCH_NAME}-latest
+    hostname: mini-app-notification-socket
+    ports:
+      - "127.0.0.1:${SOCKET_PORT}:${SOCKET_PORT}"
+    <<: *default-extra-hosts
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.2"
+      replicas: 0
+    environment:
+      <<: *common-env
+    networks:
+      - onton-network
+
+  website:
+    image: ghcr.io/executesg/onton/website:${BRANCH_NAME}-latest
+    hostname: website
+    ports:
+      - "127.0.0.1:${PORT_WEB_SITE}:${PORT_WEB_SITE}"
+    <<: *default-extra-hosts
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "0.5"
+      replicas: 1
+    environment:
+      <<: *common-env
+      PORT_WEB_SITE: ${PORT_WEB_SITE}
+    networks:
+      - onton-network
+
+  caddy:
+    image: ghcr.io/executesg/onton/caddy:${BRANCH_NAME}-latest
+    hostname: caddy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    depends_on:
+      - fluentd
+    deploy:
+      resources:
+        limits:
+          memory: 6000M
+          cpus: '4.0'
+      mode: global
+      update_config:
+        failure_action: rollback
+        order: start-first
+      placement:
+        constraints:
+          - node.role == manager
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./devops/cert/:/certs
+    networks:
+      - onton-network
+    environment:
+      <<: *common-env
+      USE_CLOUDFLARE: ${USE_CLOUDFLARE}
+      CLOUDFLARE_EMAIL: ${CLOUDFLARE_EMAIL:-}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
+      CLOUDFLARE_EMAIL_MAIN: ${CLOUDFLARE_EMAIL_MAIN:-}
+      CLOUDFLARE_API_TOKEN_MAIN: ${CLOUDFLARE_API_TOKEN_MAIN:-}
+    secrets:
+      - registry-onton-config
+
+  registry:
+    image: registry:latest
+    hostname: registry
+    environment:
+      REGISTRY_AUTH: htpasswd
+      REGISTRY_AUTH_HTPASSWD_REALM: Registry Realm
+      REGISTRY_AUTH_HTPASSWD_PATH: /auth/registry.password
+      REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY: /data
+      SHOW_CONTENT_DIGEST: "true"
+      REGISTRY_STORAGE_DELETE_ENABLED: "true"
+    volumes:
+      - /home/tonont/registry/registry.password:/auth/registry.password
+      - registry_data:/data
+    deploy:
+      mode: global
+      resources:
+        limits:
+          memory: 4000M
+          cpus: '2.0'
+    networks:
+      - onton-network
+
+  registry-ui:
+    image: joxit/docker-registry-ui:latest
+    hostname: registry-ui
+    environment:
+      REGISTRY_TITLE: "ONTON Docker Registry UI"
+      NGINX_PROXY_PASS_URL: "http://registry:5000"
+      DELETE_IMAGES: "true"
+    networks:
+      - onton-network
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.1
+    hostname: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: '2.0'
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - onton-network
+
+  fluentd:
+    image: fluent/fluentd:v1.18-debian-1
+    hostname: fluentd
+    user: root
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.2'
+    ports:
+      - "127.0.0.1:24224:24224"
+      - "127.0.0.1:24224:24224/udp"
+    volumes:
+      - ./devops/fluent/fluent.conf:/fluentd/etc/fluent.conf
+    entrypoint: >
+      /bin/sh -c "
+      apt-get update -y &&
+      apt-get install curl -y &&
+      gem install fluent-plugin-concat &&
+      gem install fluent-plugin-elasticsearch  &&
+      gem install fluent-plugin-prometheus &&
+      gem install fluent-plugin-prometheus-pull &&
+      fluentd -c /fluentd/etc/fluent.conf -v
+      "
+    environment:
+      FLUENT_ELASTICSEARCH_HOST: elasticsearch
+      FLUENT_ELASTICSEARCH_PORT: 9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - onton-network
+
+  swagger-ui:
+    image: swaggerapi/swagger-ui:v5.11.0
+    hostname: swagger-ui
+    ports:
+      - "127.0.0.1:${SWAGGER_UI_PORT}:8080"
+    environment:
+      <<: *common-env
+      SWAGGER_JSON: "/swagger.yaml"
+    volumes:
+      - ./swagger/ExternalSeller.yml:/usr/share/nginx/html/swagger/ExternalSeller.yaml
+      - ./swagger/GameRewards.yml:/usr/share/nginx/html/swagger/GameRewards.yaml
+      - ./swagger/NFTApi.yml:/usr/share/nginx/html/swagger/NFTApi.yaml
+      - ./swagger/swagger-initializer.js:/usr/share/nginx/html/swagger-initializer.js
+      - ./swagger/custom.css:/usr/share/nginx/html/swagger/custom.css
+    networks:
+      - onton-network
+    deploy:
+      replicas: 0
+      placement:
+        constraints:
+          - node.role == manager
+
+networks:
+  onton-network:
+    name: onton-dev-network
+    driver: overlay
+    external: true
+
+volumes:
+  caddy_data:
+    name: "onton_dev_caddy_data"
+  caddy_config:
+    name: "onton_dev_caddy_config"
+  registry_data:
+    name: "onton_dev_registry_data"
+  elasticsearch_data:
+    name: "onton_dev_elasticsearch_data"
+  minio_data:
+    name: "onton_minio_data"
+  postgres_data:
+    name: "onton_postgres_data"
+  redis_data:
+    name: "onton_redis_data"
+  drizzle_data:
+    name: "onton_dev_drizzle_data"
+  drizzle_data_cron:
+    name: "onton_dev_drizzle_data_cron"
+
+secrets:
+  registry-onton-config:
+    external: true

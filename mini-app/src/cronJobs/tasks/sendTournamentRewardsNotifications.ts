@@ -67,6 +67,14 @@ async function attemptSendTelegramWithRetries(row: RewardNotificationRow): Promi
         return true;
       } else {
         logger.warn(`Notification attempt #${attempts} failed for user ${row.telegramUserId}: ${response.error}`);
+        // If error is fatal (user blocked bot, account deactivated/not found), stop retrying immediately
+        const isFatal =
+          response.error &&
+          /blocked|forbidden|chat (?:not )?found|user (?:not )?found|deactivated/i.test(response.error);
+        if (isFatal) {
+          logger.warn(`User ${row.telegramUserId} has blocked the bot or is unreachable. Terminating retries.`);
+          return false;
+        }
       }
     } catch (error) {
       logger.error(`Notification attempt #${attempts} threw error for user ${row.telegramUserId} =>`, error);
@@ -117,6 +125,12 @@ export async function sendTournamentRewardsNotifications() {
       const success = await attemptSendTelegramWithRetries(row);
       if (success) {
         // Mark the user’s notification as received
+        await markNotificationReceived(row.telegramUserId, row.tournamentId);
+      } else {
+        // Retries exhausted or user blocked bot: mark as resolved to prevent infinite cron loops
+        logger.warn(
+          `Notification delivery permanently failed for user ${row.telegramUserId} in tournament ${row.tournamentId}. Marking resolved.`
+        );
         await markNotificationReceived(row.telegramUserId, row.tournamentId);
       }
     } catch (err) {

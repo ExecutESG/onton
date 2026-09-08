@@ -14,6 +14,7 @@ import { trpc } from "@/app/_trpc/client";
 import useWebApp from "@/hooks/useWebApp";
 import { telegramShareLink } from "@/utils";
 import { useUserStore } from "@/context/store/user.store";
+import LoginRequired from "@/app/_components/auth/LoginRequired";
 
 import { Button } from "@/components/ui/button";
 import TotalPointsBox from "../points/TotalPointsBox";
@@ -43,13 +44,13 @@ export default function MyQuestsPage() {
   const webApp = useWebApp();
 
   /* 1️⃣  ── LOAD TASK LISTS ───────────────────────────────────────── */
-  const xTaskQ = trpc.task.getTasksByType.useQuery({ taskType: "x_connect", onlyAvailableNow: false });
-  const ghTaskQ = trpc.task.getTasksByType.useQuery({ taskType: "github_connect", onlyAvailableNow: false });
-  const liTaskQ = trpc.task.getTasksByType.useQuery({ taskType: "linked_in_connect", onlyAvailableNow: false });
-  const gTaskQ = trpc.task.getTasksByType.useQuery({ taskType: "google_connect", onlyAvailableNow: false });
-  const oTaskQ = trpc.task.getTasksByType.useQuery({ taskType: "outlook_connect", onlyAvailableNow: false });
+  const xTaskQ = trpc.task.getTasksByType.useQuery({ taskType: "x_connect", onlyAvailableNow: false }, { enabled: !!user });
+  const ghTaskQ = trpc.task.getTasksByType.useQuery({ taskType: "github_connect", onlyAvailableNow: false }, { enabled: !!user });
+  const liTaskQ = trpc.task.getTasksByType.useQuery({ taskType: "linked_in_connect", onlyAvailableNow: false }, { enabled: !!user });
+  const gTaskQ = trpc.task.getTasksByType.useQuery({ taskType: "google_connect", onlyAvailableNow: false }, { enabled: !!user });
+  const oTaskQ = trpc.task.getTasksByType.useQuery({ taskType: "outlook_connect", onlyAvailableNow: false }, { enabled: !!user });
 
-  const questQueries = QUEST_TYPES.map((tt) => trpc.task.getTasksByType.useQuery({ taskType: tt, onlyAvailableNow: false }));
+  const questQueries = QUEST_TYPES.map((tt) => trpc.task.getTasksByType.useQuery({ taskType: tt, onlyAvailableNow: false }, { enabled: !!user }));
   const questTasks = questQueries.flatMap((q) => q.data?.tasks ?? []);
 
   /* maps for dependency gating */
@@ -148,12 +149,12 @@ export default function MyQuestsPage() {
   }, [pendingId]);
 
   /* 4️⃣  ── Affiliate & Score helpers ─────────────────────────────── */
-  const affDataQ = trpc.task.getOntonJoinAffiliateData.useQuery();
+  const affDataQ = trpc.task.getOntonJoinAffiliateData.useQuery(undefined, { enabled: !!user });
   const joinScore = trpc.usersScore.getTotalScoreByActivityTypesAndUserId.useQuery({
     activityTypes: ["join_onton_affiliate"],
     itemType: "task",
-  });
-  const totalPtsQ = trpc.usersScore.getTotalScoreByUserId.useQuery();
+  }, { enabled: !!user });
+  const totalPtsQ = trpc.usersScore.getTotalScoreByUserId.useQuery(undefined, { enabled: !!user });
 
   const copyLink = async () => {
     if (!affDataQ.data?.linkHash) return toast.error("No link");
@@ -170,7 +171,11 @@ export default function MyQuestsPage() {
     (q) => q.isLoading
   );
 
-  if (!user || queriesLoading) return null;
+  if (!user) {
+    return <LoginRequired />;
+  }
+
+  if (queriesLoading) return null;
 
   /* 6️⃣  ── UI ─────────────────────────────────────────────────────── */
   return (

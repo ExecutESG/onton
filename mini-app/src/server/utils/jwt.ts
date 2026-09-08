@@ -19,6 +19,11 @@ export type PayloadToken = {
   address: string;
 };
 
+export type WebSessionToken = {
+  userId: number;
+  authMethod: "telegram_widget" | "google" | "ton_connect";
+};
+
 /**
  * Create a token with the given payload.
  */
@@ -36,6 +41,7 @@ function buildCreateToken<T extends JWTPayload>(expirationTime: string): (payloa
 
 export const createAuthToken = buildCreateToken<AuthToken>("2w");
 export const createPayloadToken = buildCreateToken<PayloadToken>("2w");
+export const createWebSessionToken = buildCreateToken<WebSessionToken>("7d");
 
 /**
  * Verify the given token.

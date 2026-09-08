@@ -8,7 +8,7 @@ fi
 
 # Define TLS configuration based on the USE_CLOUDFLARE variable
 echo "Generating Caddyfile... USE_CLOUDFLARE=${USE_CLOUDFLARE}"
-if [ -n "${USE_CLOUDFLARE}" ]; then
+if [ "${USE_CLOUDFLARE}" = "true" ]; then
     if [ "${BRANCH_NAME}" = "main" ]; then
         TLS_CONFIG="tls {
             dns cloudflare {env.CLOUDFLARE_API_TOKEN_MAIN}
@@ -21,7 +21,7 @@ if [ -n "${USE_CLOUDFLARE}" ]; then
         }"
     fi
 else
-    TLS_CONFIG="tls /certs/fullchain.pem /certs/privkey.pem {
+    TLS_CONFIG="tls {
         protocols tls1.2 tls1.3
     }"
 fi
@@ -54,6 +54,25 @@ else
     PROXY_SWAGGER_UI=${IP_SWAGGER_UI}
 fi
 
+# Default to service names if IPs are empty (Docker Swarm DNS)
+: "${PROXY_WEBSITE:=website}"
+: "${PROXY_MINI_APP:=mini-app}"
+: "${PROXY_CLIENT_WEB:=client-web}"
+
+# Force service names for reliability in Swarm (overriding IP_RANGE_BASE/host.docker.internal)
+PROXY_WEBSITE="website"
+PROXY_MINI_APP="mini-app"
+PROXY_CLIENT_WEB="client-web"
+PROXY_SWAGGER_UI="swagger-ui"
+# Keep others as-is or default?
+# RabbitMQ and others might need similar treatment if they are services.
+PROXY_RABBITMQ="rabbitmq"
+PROXY_METABASE="metabase"
+PROXY_MINIO="minio"
+PROXY_PGADMIN="pgadmin"
+PROXY_SOCKET="mini-app-notification-socket"
+
+
 # Define log configuration
 LOG_CONFIG="log {
     output stdout
@@ -63,10 +82,18 @@ LOG_CONFIG="log {
 # Generate Caddyfile
 echo "
 
+# Hardcoded block for app.dev.onton.live to ensure SSL/Proxy always works regardless of MINI_APP_DOMAIN value
+app.dev.onton.live {
+    ${TLS_CONFIG}
+    ${LOG_CONFIG}
+    reverse_proxy /ptma* http://${PROXY_PARTICIPANT_TMA}:3001
+    reverse_proxy http://${PROXY_MINI_APP}:${MINI_APP_PORT}
+}
+
 ${MINI_APP_DOMAIN} {
     ${TLS_CONFIG}
     ${LOG_CONFIG}
-    reverse_proxy /ptma* http://${PROXY_PARTICIPANT_TMA}:${PARTICIPANT_TMA_PORT}
+    reverse_proxy /ptma* http://${PROXY_PARTICIPANT_TMA}:3001
     reverse_proxy /swagger* http://${PROXY_SWAGGER_UI}:${SWAGGER_UI_PORT}
     reverse_proxy http://${PROXY_MINI_APP}:${MINI_APP_PORT}
 }
@@ -143,9 +170,9 @@ ${ONTON_DOMAIN} {
 #    }
 
     # Reverse proxy for all other paths to Next.js
-#    handle {
-#        reverse_proxy ${PROXY_WEBSITE}:${PORT_WEB_SITE}
-#    }
+    handle {
+        reverse_proxy ${PROXY_WEBSITE}:${PORT_WEB_SITE}
+    }
 }
 
 

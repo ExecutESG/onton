@@ -118,6 +118,9 @@ export const bot = new Bot<MyContext>(process.env.BOT_TOKEN || "");
     });
 
     // 6) Register routes
+    app.get("/health", (_, res) => {
+      res.json({ status: "ok", timestamp: Date.now() });
+    });
     app.post("/send-file", handleFileSend);
     app.get("/generate-qr", handleSendQRCode);
     app.post("/share-event", handleShareEvent);

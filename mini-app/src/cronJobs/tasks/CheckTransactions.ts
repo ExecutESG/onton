@@ -81,11 +81,11 @@ export const CheckTransactions = async () => {
     }
     const decimals = token.decimals ?? 0;
     const amount = Number(o.rawAmount) / 10 ** decimals;
-    const normalizedAmount = parseFloat(amount.toFixed(Math.min(decimals, 6)));
+    const normalizedAmount = parseFloat(amount.toFixed(Math.min(decimals, 9)));
     const orderAmount = Number(orderRow.total_price ?? 0);
     if (Number.isFinite(orderAmount)) {
       const diff = Math.abs(orderAmount - normalizedAmount);
-      if (diff > 1e-6) {
+      if (diff > 1e-4) {
         logger.warn("cron_trx_amount_mismatch", {
           uuid: o.order_uuid,
           orderAmount,

@@ -13,7 +13,7 @@ import { users } from "../schema";
 
 /* compute ranks + eligibility per *prize* */
 export const computeTopN = async (prizeId: number) => {
-  const [{ top_n, need_shipping }] = await db
+  const prize = await db
     .select({
       top_n: eventMerchPrizes.top_n,
       need_shipping: eventMerchPrizes.need_shipping,
@@ -22,24 +22,26 @@ export const computeTopN = async (prizeId: number) => {
     .where(eq(eventMerchPrizes.merch_prize_id, prizeId))
     .limit(1);
 
-  const rows = await db
-    .select()
-    .from(eventMerchPrizeResults)
-    .where(eq(eventMerchPrizeResults.merch_prize_id, prizeId))
-    .orderBy(desc(eventMerchPrizeResults.score), eventMerchPrizeResults.id)
-    .execute();
+  if (!prize.length) return;
+  const { top_n, need_shipping } = prize[0];
+  const eligibleStatus = need_shipping ? "awaiting_address" : "awaiting_pickup";
 
-  for (let i = 0; i < rows.length; i++) {
-    const rank = i + 1;
-    await db
-      .update(eventMerchPrizeResults)
-      .set({
-        rank,
-        status: rank <= top_n ? (need_shipping ? "awaiting_address" : "awaiting_pickup") : "pending",
-      })
-      .where(eq(eventMerchPrizeResults.id, rows[i].id))
-      .execute();
-  }
+  await db.execute(sql`
+    WITH ranked AS (
+      SELECT id, ROW_NUMBER() OVER (ORDER BY score DESC, id ASC) AS calculated_rank
+      FROM ${eventMerchPrizeResults}
+      WHERE ${eventMerchPrizeResults.merch_prize_id} = ${prizeId}
+    )
+    UPDATE ${eventMerchPrizeResults}
+    SET
+      rank = ranked.calculated_rank,
+      status = CASE
+        WHEN ranked.calculated_rank <= ${top_n} THEN ${eligibleStatus}::merch_result_status
+        ELSE 'pending'::merch_result_status
+      END
+    FROM ranked
+    WHERE ${eventMerchPrizeResults.id} = ranked.id
+  `);
 };
 
 export const getPrizeWithWinners = async (prizeId: number) => {

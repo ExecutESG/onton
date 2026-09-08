@@ -1,0 +1,152 @@
+version: '3.8'
+
+x-common-env: &common-env
+  ENV: production
+  NODE_ENV: production
+  NEXT_PUBLIC_ENV: production
+  DATABASE_URL: postgres://onton:onton-secure-updated@postgres:5432/onton_db
+  DATABASE_URL_NFT_MANAGER: postgres://onton:onton-secure-updated@postgres:5432/onton_nft_manager
+  REDIS_URL: redis://redis:6379
+  TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+  SOCIETY_HUB_API_KEY: ${SOCIETY_HUB_API_KEY}
+  SOCIETY_HUB_ADMIN_CHAT_ID: ${SOCIETY_HUB_ADMIN_CHAT_ID}
+  SOCIETY_HUB_CHAT_ID: ${SOCIETY_HUB_CHAT_ID}
+
+x-default-extra-hosts: &default-extra-hosts
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+
+services:
+  mini-app:
+    image: ghcr.io/executesg/onton/mini-app:main-latest
+    hostname: mini-app
+    ports:
+      - "3000:3000"
+    <<: *default-extra-hosts
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: "1.0"
+      replicas: 1
+    environment:
+      <<: *common-env
+    networks:
+      - onton-network
+
+  telegram-bot:
+    image: ghcr.io/executesg/onton/telegram-bot:main-latest
+    hostname: telegram-bot
+    <<: *default-extra-hosts
+    deploy:
+      mode: replicated
+      replicas: 1
+      resources:
+        limits:
+          memory: 1G
+          cpus: "0.5"
+    environment:
+      <<: *common-env
+      BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      ONTON_API_SECRET: ${ONTON_API_SECRET}
+      NEXT_PUBLIC_APP_BASE_URL: https://dev.onton.live
+    networks:
+      - onton-network
+
+  # Worker services (Lite Mode: Replicas 0 initially, can be scaled up)
+  mini-app-ordinary-worker:
+    image: ghcr.io/executesg/onton/mini-app-ordinary-worker:main-latest
+    deploy:
+      replicas: 0
+    environment:
+      <<: *common-env
+    networks:
+      - onton-network
+
+  website:
+    image: ghcr.io/executesg/onton/website:main-latest
+    hostname: website
+    ports:
+      - "3003:3003"
+    <<: *default-extra-hosts
+    deploy:
+      replicas: 1
+    environment:
+      <<: *common-env
+    networks:
+      - onton-network
+
+  caddy:
+    image: ghcr.io/executesg/onton/caddy:main-latest
+    hostname: caddy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    deploy:
+      mode: global
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+      # - ./Caddyfile:/etc/caddy/Caddyfile:ro # Use built-in or mapped Caddyfile
+    networks:
+      - onton-network
+    environment:
+      <<: *common-env
+      USE_CLOUDFLARE: "true"
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN}
+      DOMAIN: dev.onton.live
+
+  postgres:
+    image: postgres:16-alpine
+    hostname: postgres
+    environment:
+      POSTGRES_USER: onton
+      POSTGRES_PASSWORD: onton-secure-updated
+      POSTGRES_DB: onton_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - onton-network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+
+  redis:
+    image: redis:7-alpine
+    hostname: redis
+    volumes:
+      - redis_data:/data
+    networks:
+      - onton-network
+
+  minio:
+    image: minio/minio:RELEASE.2024-01-16T16-07-38Z
+    hostname: minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio_data:/data
+    networks:
+      - onton-network
+
+networks:
+  onton-network:
+    name: onton-shadow-network
+    driver: overlay # Requires docker swarm init
+    attachable: true
+
+volumes:
+  caddy_data:
+  caddy_config:
+  postgres_data:
+  redis_data:
+  minio_data:

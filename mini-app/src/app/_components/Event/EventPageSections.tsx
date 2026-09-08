@@ -7,6 +7,7 @@ import channelAvatar from "@/components/icons/channel-avatar.svg";
 import LoadableImage from "@/components/LoadableImage";
 import Typography from "@/components/Typography";
 import { useUserStore } from "@/context/store/user.store";
+import { useLoginStore } from "@/context/store/login.store";
 import { Address } from "@ton/core";
 import { Block, List, ListItem } from "konsta/react";
 import { useRouter } from "next/navigation";
@@ -203,6 +204,8 @@ EventAttributes.displayName = "EventAttributes";
 // Status component to handle different event states
 const EventRegistrationStatus = () => {
   const { eventData, isNotEnded } = useEventData();
+  const { user } = useUserStore();
+  const { openLogin } = useLoginStore();
   const registrantStatus = eventData.data?.registrant_status ?? "";
   const capacityFilled = Boolean(eventData.data?.capacity_filled);
   const hasWaitingList = Boolean(eventData.data?.has_waiting_list);
@@ -219,6 +222,23 @@ const EventRegistrationStatus = () => {
     capacityFilled
   );
   if ((hasWaitingList || !capacityFilled) && registrantStatus === "") {
+    if (!user) {
+      return (
+        <CustomCard title="Registration Form">
+          <div className="flex flex-col items-center justify-center p-6 text-center">
+            <Typography variant="body" className="text-gray-500 mb-4">
+              Please sign in to register for this event.
+            </Typography>
+            <MainButton
+              text="Sign In to Register"
+              onClick={openLogin}
+              color="primary"
+            />
+          </div>
+        </CustomCard>
+      );
+    }
+
     return isCustom ? (
       <CustomCard title={"Registration Form"}>
         <UserCustomRegisterForm />
@@ -459,11 +479,30 @@ MainButtonHandler.displayName = "MainButtonHandler";
 const EventPassword = React.memo(() => {
   const { eventData, hasEnteredPassword, isStarted, isNotEnded } = useEventData();
   const { user } = useUserStore();
+  const { openLogin } = useLoginStore();
   const isOnlineEvent = eventData.data?.participationType === "online";
   const isEventActive = isStarted && isNotEnded;
   const userCompletedTasks =
     (["approved", "checkedin"].includes(eventData.data?.registrant_status as string) || !eventData.data?.has_registration) &&
     user?.wallet_address;
+
+  if (!user) {
+    if (eventData.data?.has_registration) return null;
+    return (
+      <CustomCard
+        title="Claim Your Reward"
+        description="Please sign in and connect your wallet to verify participation and claim rewards."
+      >
+        <div className="p-4 pt-0">
+          <MainButton
+            text="Sign In to Claim Reward"
+            onClick={openLogin}
+            color="primary"
+          />
+        </div>
+      </CustomCard>
+    );
+  }
 
   if (!((userCompletedTasks && !hasEnteredPassword && isEventActive && isOnlineEvent) || !user?.wallet_address)) return null;
 
@@ -517,7 +556,7 @@ export const EventSections = () => {
 
   return (
     <div
-      className="flex flex-col gap-3 p-4"
+      className="flex flex-col gap-3 p-4 mx-auto max-w-xl w-full md:rounded-2xl md:shadow-md md:border md:border-gray-200 dark:md:border-gray-800 md:bg-white"
       style={{
         paddingBottom: "calc(var(--tg-safe-area-inset-bottom) + 4rem)",
       }}

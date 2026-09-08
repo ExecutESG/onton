@@ -5,8 +5,10 @@ let redisClient: RedisClientType | undefined;
 
 const connectToRedis = async (): Promise<void> => {
   if (!redisClient) {
+    const redisPassword = process.env.REDIS_PASSWORD;
+    const authString = redisPassword ? `:${redisPassword}@` : "";
     redisClient = createClient({
-      url: `redis://${process.env.IP_REDIS || "redis"}:${process.env.REDIS_PORT || 6379}`,
+      url: `redis://${authString}${process.env.IP_REDIS || "redis"}:${process.env.REDIS_PORT || 6379}`,
     });
 
     redisClient.on("error", (err) => {

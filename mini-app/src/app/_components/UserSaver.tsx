@@ -33,6 +33,9 @@ const UserSaver: FC<{
   }
 
   if (syncUser.isError) {
+    if (syncUser.error.data?.code === "UNAUTHORIZED") {
+      return <>{children}</>;
+    }
     if (syncUser.error.data?.code === "FORBIDDEN") {
       return <ErrorState errorCode="banned" />;
     } else {

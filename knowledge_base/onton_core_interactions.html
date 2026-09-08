@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ONTON Core Interactions</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+            background-color: #f9f9f9;
+        }
+
+        h1,
+        h2 {
+            color: #2c3e50;
+        }
+
+        h1 {
+            border-bottom: 2px solid #eaeaea;
+            padding-bottom: 0.5rem;
+        }
+
+        .card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 1rem;
+            transition: transform 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .card h3 {
+            margin-top: 0;
+        }
+
+        .card a {
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+
+        .status {
+            font-size: 0.8em;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            display: inline-block;
+            margin-bottom: 0.5rem;
+        }
+
+        .done {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .todo {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+
+        .mermaid {
+            text-align: center;
+            margin: 2rem 0;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({ startOnLoad: true, theme: 'default' });</script>
+</head>
+
+<body>
+
+    <h1>ONTON Core Interactions (Map)</h1>
+    <p>This index maps the critical user flows within the ONTON platform. Click on a section to view its detailed
+        documentation.</p>
+
+    <div class="mermaid">
+        graph TD
+        User((User)) -->|1. Start| Onboarding[User Onboarding]
+        Onboarding -->|Participant| Ticket[Buy Ticket]
+        Onboarding -->|Organizer| Upgrade[Organizer Upgrade]
+
+        auth_doc["<a href='user_onboarding.html'>View Docs</a>"]:::doc
+        Onboarding -.-> auth_doc
+
+        Upgrade -->|3. Create| Event[Event Creation]
+        event_doc["<a href='event_creation.html'>View Docs</a>"]:::doc
+        Event -.-> event_doc
+
+        pass_doc["<a href='payment_system_overview.html'>View Docs</a>"]:::doc
+        Ticket -.-> pass_doc
+        Upgrade -.-> pass_doc
+
+        Ticket -->|4. Attend| CheckIn[Check-in & PoA]
+        poa_doc["<a href='checkin_and_poa.html'>View Docs</a>"]:::doc
+        CheckIn -.-> poa_doc
+
+        CheckIn -->|5. Complete| Reward[Reward Distribution]
+        reward_doc["<a href='reward_distribution.html'>View Docs</a>"]:::doc
+        Reward -.-> reward_doc
+
+        Affiliate[Affiliate & Referral] -->|Refer| Ticket
+        affiliate_doc["<a href='affiliate_system.html'>View Docs</a>"]:::doc
+        Affiliate -.-> affiliate_doc
+
+        classDef doc fill:#f9f,stroke:#333,stroke-width:2px;
+    </div>
+
+    <h2>Detailed Documentation Status</h2>
+
+    <div class="card">
+        <a href="user_onboarding.html">
+            <span class="status todo">Pending</span>
+            <h3>1. User Onboarding & Auth</h3>
+            <p>Telegram WebApp validation, Wallet Connection (TON Connect), and Profile creation.</p>
+        </a>
+    </div>
+
+    <div class="card">
+        <a href="payment_system_overview.html">
+            <span class="status done">Complete</span>
+            <h3>2. Payments & Upgrades</h3>
+            <p>Organizer upgrades and Ticket purchases via TON blockchain transactions.</p>
+        </a>
+    </div>
+
+    <div class="card">
+        <a href="event_creation.html">
+            <span class="status todo">Pending</span>
+            <h3>3. Event Creation Lifecycle</h3>
+            <p>Drafting, publishing, and deploying SBT collections for events.</p>
+        </a>
+    </div>
+
+    <div class="card">
+        <a href="checkin_and_poa.html">
+            <span class="status todo">Pending</span>
+            <h3>4. Check-in & Proof of Action</h3>
+            <p>Physical QR scanning and Digital proof submissions.</p>
+        </a>
+    </div>
+
+    <div class="card">
+        <a href="reward_distribution.html">
+            <span class="status todo">Pending</span>
+            <h3>5. Reward Distribution</h3>
+            <p>Automated background workers for minting SBTs and notifying users.</p>
+        </a>
+    </div>
+
+    <div class="card">
+        <a href="affiliate_system.html">
+            <span class="status todo">Pending</span>
+            <h3>6. Affiliate System</h3>
+            <p>Referral tracking and commission logic.</p>
+        </a>
+    </div>
+
+</body>
+
+</html>

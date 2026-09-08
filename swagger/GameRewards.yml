@@ -9,6 +9,10 @@ servers:
     description: Development server
   - url: https://app.onton.live/api/v1
     description: Production server
+  - url: https://dev-app.dev.onton.live/api/v1
+    description: Development server
+  - url: https://app.onton.live/api/v1
+    description: Production server
 
 paths:
   /reward:

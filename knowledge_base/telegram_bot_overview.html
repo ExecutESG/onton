@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ONTON Telegram Bot Service Overview</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+            background-color: #f9f9f9;
+        }
+
+        h1,
+        h2,
+        h3 {
+            color: #2c3e50;
+            margin-top: 2rem;
+        }
+
+        h1 {
+            border-bottom: 2px solid #eaeaea;
+            padding-bottom: 0.5rem;
+        }
+
+        h2 {
+            border-bottom: 1px solid #eaeaea;
+            padding-bottom: 0.3rem;
+        }
+
+        code {
+            background-color: #f0f0f0;
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+            font-size: 0.9em;
+        }
+
+        pre {
+            background-color: #f6f8fa;
+            padding: 1rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            border: 1px solid #e1e4e8;
+        }
+
+        pre code {
+            background-color: transparent;
+            padding: 0;
+        }
+
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 1rem 0;
+        }
+
+        th,
+        td {
+            border: 1px solid #dfe2e5;
+            padding: 0.6rem 1rem;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f6f8fa;
+        }
+
+        .mermaid {
+            text-align: center;
+            margin: 2rem 0;
+        }
+
+        a {
+            color: #0366d6;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            securityLevel: 'loose'
+        });
+    </script>
+</head>
+
+<body>
+
+    <div class="container">
+
+        <h1>ONTON Telegram Bot Service Overview</h1>
+        <p>The <code>telegram-bot</code> service is a specialized Node.js application responsible for all direct
+            interactions with the Telegram Platform API. It works in two directions: handling user commands and
+            providing an internal API for other services to send messages.</p>
+
+        <h2>1. High-Level Architecture</h2>
+
+        <div class="mermaid">
+            graph TD
+            User((Telegram User)) -->|/start| Grammy[Grammy Bot Logic]
+            Grammy -->|Process| Handlers[Command Handlers]
+            Handlers -->|Read/Write| DB[(PostgreSQL)]
+
+            MiniApp[Mini App Service] -->|HTTP POST| Express[Internal Express API]
+            Express -->|Send Message| TG_API((Telegram API))
+            TG_API -->|Notify| User
+        </div>
+
+        <hr>
+
+        <h2>2. Technology Stack</h2>
+        <ul>
+            <li><strong>Runtime:</strong> Node.js (TypeScript)</li>
+            <li><strong>Bot Framework:</strong> <a href="https://grammy.dev/" target="_blank">Grammy</a></li>
+            <li><strong>API Server:</strong> Express.js</li>
+            <li><strong>Database:</strong> PostgreSQL (Direct connection via <code>pg</code>) & Redis (Session storage)
+            </li>
+            <li><strong>Storage:</strong> MinIO (S3) for file uploads</li>
+        </ul>
+
+        <hr>
+
+        <h2>3. Directory Structure</h2>
+        <pre><code>telegram-bot/
+├── src/
+│   ├── <a href="https://github.com/ExecutESG/onton/blob/dev/telegram-bot/src/main.ts" target="_blank">main.ts</a>             # Entry point (Bot + Express setup)
+│   ├── composers/          # Middleware & routing logic
+│   ├── <a href="https://github.com/ExecutESG/onton/tree/dev/telegram-bot/src/controllers" target="_blank">controllers/</a>        # Express Route Handlers (Internal API)
+│   ├── <a href="https://github.com/ExecutESG/onton/tree/dev/telegram-bot/src/handlers" target="_blank">handlers/</a>           # Telegram Command Handlers
+│   ├── cronJobs/           # Background tasks (PollSender)
+│   └── lib/                # External services (Redis, etc.)
+└── package.json</code></pre>
+
+        <hr>
+
+        <h2>4. Internal API Endpoints</h2>
+        <p>The <code>telegram-bot</code> exposes an HTTP server (default port <code>3333</code>) strictly for internal
+            use by the <code>mini-app</code> or workers.</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Method</th>
+                    <th>Endpoint</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>POST</code></td>
+                    <td><code>/send-message</code></td>
+                    <td>Sends a text message to a user.</td>
+                </tr>
+                <tr>
+                    <td><code>POST</code></td>
+                    <td><code>/send-file</code></td>
+                    <td>Uploads and sends a file to a user.</td>
+                </tr>
+                <tr>
+                    <td><code>POST</code></td>
+                    <td><code>/generate-qr</code></td>
+                    <td>Generates a QR code for a specific link.</td>
+                </tr>
+                <tr>
+                    <td><code>POST</code></td>
+                    <td><code>/share-event</code></td>
+                    <td>Sends an event card to a user.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <hr>
+
+        <h2>5. How it runs</h2>
+        <p>The <code>src/main.ts</code> file does two things in parallel:</p>
+        <ol>
+            <li><strong>Starts the Bot:</strong> <code>bot.start()</code> (Long polling mode).</li>
+            <li><strong>Starts Express:</strong> <code>app.listen(3333)</code> (Internal API).</li>
+        </ol>
+    </div>
+
+</body>
+
+</html>

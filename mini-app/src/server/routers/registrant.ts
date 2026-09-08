@@ -36,61 +36,75 @@ const checkinRegistrantRequest = evntManagerPP
         message: "Check-in only for in_person events with registration",
       });
     }
-    const registrant = (
-      await db.select().from(eventRegistrants).where(eq(eventRegistrants.registrant_uuid, registrant_uuid)).execute()
-    ).pop();
 
-    if (!registrant) {
-      throw new TRPCError({
-        code: "NOT_FOUND",
-        message: `Registrant Not Found/Invalid for ${event_uuid} and registrant_uuid ${registrant_uuid}`,
-      });
-    }
-    if (registrant.event_uuid !== event_uuid) {
+    const lockKey = `lock:checkin:${registrant_uuid}`;
+    const acquired = await redisTools.acquireLock(lockKey, 10);
+    if (!acquired) {
       throw new TRPCError({
         code: "CONFLICT",
-        message: `Registrant Not for this event ${event_uuid} and registrant_uuid ${registrant_uuid}`,
+        message: "Check-in currently in progress for this attendee. Please try again.",
       });
     }
 
-    if (registrant.status === "checkedin") {
-      return { code: 200, message: "Already Checked-in" };
-    }
-    if (registrant.status !== "approved") {
-      throw new TRPCError({
-        code: "CONFLICT",
-        message: `Registrant Not Approved for this event ${event_uuid} and registrant_uuid ${registrant_uuid}`,
-      });
-    }
+    try {
+      const registrant = (
+        await db.select().from(eventRegistrants).where(eq(eventRegistrants.registrant_uuid, registrant_uuid)).execute()
+      ).pop();
 
-    const userId = registrant.user_id;
-    const visitor = await visitorsDB.addVisitor(userId, event_uuid);
+      if (!registrant) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Registrant Not Found/Invalid for ${event_uuid} and registrant_uuid ${registrant_uuid}`,
+        });
+      }
+      if (registrant.event_uuid !== event_uuid) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: `Registrant Not for this event ${event_uuid} and registrant_uuid ${registrant_uuid}`,
+        });
+      }
 
-    if (!visitor) {
-      logger.error(`Visitor ${userId} not found for event ${event_uuid} in handleNotificationReply`);
-      throw new Error(`Visitor ${userId} not found`);
+      if (registrant.status === "checkedin") {
+        return { code: 200, message: "Already Checked-in" };
+      }
+      if (registrant.status !== "approved") {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: `Registrant Not Approved for this event ${event_uuid} and registrant_uuid ${registrant_uuid}`,
+        });
+      }
+
+      const userId = registrant.user_id;
+      const visitor = await visitorsDB.addVisitor(userId, event_uuid);
+
+      if (!visitor) {
+        logger.error(`Visitor ${userId} not found for event ${event_uuid} in handleNotificationReply`);
+        throw new Error(`Visitor ${userId} not found`);
+      }
+      const existingReward = await rewardDB.checkExistingRewardWithType(visitor?.id, "ton_society_sbt");
+      if (!existingReward) {
+        const reward = await rewardDB.insertRewardRow(visitor.id, null, userId, "ton_society_sbt", "pending_creation", event);
+        logger.log(
+          `CHECKIN::SBT::Reward::Created user reward for user ${userId} and event uuid ${event_uuid} with reward ID ${reward.id}`,
+          reward
+        );
+      } else {
+        logger.log(`CHECKIN::SBT::Reward::User reward already exists for user ${userId} and event uuid ${event_uuid}`);
+      }
+
+      await db
+        .update(eventRegistrants)
+        .set({
+          status: "checkedin",
+        })
+        .where(eq(eventRegistrants.registrant_uuid, registrant_uuid))
+        .execute();
+
+      const final_message = event.has_payment ? "Reward Link will be sent to user" : "User can claim reward on the event page";
+      return { code: 200, message: final_message };
+    } finally {
+      await redisTools.releaseLock(lockKey);
     }
-    const existingReward = await rewardDB.checkExistingRewardWithType(visitor?.id, "ton_society_sbt");
-    if (!existingReward) {
-      const reward = await rewardDB.insertRewardRow(visitor.id, null, userId, "ton_society_sbt", "pending_creation", event);
-      logger.log(
-        `CHECKIN::SBT::Reward::Created user reward for user ${userId} and event uuid ${event_uuid} with reward ID ${reward.id}`,
-        reward
-      );
-    } else {
-      logger.log(`CHECKIN::SBT::Reward::User reward already exists for user ${userId} and event uuid ${event_uuid}`);
-    }
-
-    await db
-      .update(eventRegistrants)
-      .set({
-        status: "checkedin",
-      })
-      .where(eq(eventRegistrants.registrant_uuid, registrant_uuid))
-      .execute();
-
-    const final_message = event.has_payment ? "Reward Link will be sent to user" : "User can claim reward on the event page";
-    return { code: 200, message: final_message };
   });
 
 const processRegistrantRequest = evntManagerPP
@@ -175,36 +189,49 @@ const eventRegister = initDataProtectedProcedure.input(CombinedEventRegisterSche
     });
   }
 
-  let event_filled_and_has_waiting_list = false;
-
-  if (event.capacity) {
-    const approved_requests_count = await eventRegistrantsDB.getApprovedRequestsCount(event_uuid);
-    const event_cap_filled = approved_requests_count >= event.capacity;
-
-    event_filled_and_has_waiting_list = !!(event_cap_filled && event.has_waiting_list);
-
-    if (event_cap_filled && !event.has_waiting_list) {
-      // Event capacity filled and no waiting list
-      throw new TRPCError({
-        code: "CONFLICT",
-        message: `Event Capacity Reached for event ${event.event_uuid}`,
-      });
-    }
+  const lockKey = `lock:event_register:${event_uuid}`;
+  const lockAcquired = await redisTools.acquireLock(lockKey, 10);
+  if (!lockAcquired) {
+    throw new TRPCError({
+      code: "CONFLICT",
+      message: "Server is busy processing registrations for this event. Please try again in a few seconds.",
+    });
   }
 
-  const request_status = !!event.has_approval || event_filled_and_has_waiting_list ? "pending" : "approved"; // pending if approval is required otherwise auto approve them
+  try {
+    let event_filled_and_has_waiting_list = false;
 
-  await db.insert(eventRegistrants).values({
-    event_uuid: event_uuid,
-    user_id: userId,
-    status: request_status,
-    register_info: registerInfo,
-  });
-  await addVisitor(userId, event_uuid);
-  // Clear the organizer user cache so it will be reloaded next time
-  await redisTools.deleteCache(getUserCacheKey(userId));
+    if (event.capacity) {
+      const approved_requests_count = await eventRegistrantsDB.getApprovedRequestsCount(event_uuid);
+      const event_cap_filled = approved_requests_count >= event.capacity;
 
-  return { message: "success", code: 201 };
+      event_filled_and_has_waiting_list = !!(event_cap_filled && event.has_waiting_list);
+
+      if (event_cap_filled && !event.has_waiting_list) {
+        // Event capacity filled and no waiting list
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: `Event Capacity Reached for event ${event.event_uuid}`,
+        });
+      }
+    }
+
+    const request_status = !!event.has_approval || event_filled_and_has_waiting_list ? "pending" : "approved"; // pending if approval is required otherwise auto approve them
+
+    await db.insert(eventRegistrants).values({
+      event_uuid: event_uuid,
+      user_id: userId,
+      status: request_status,
+      register_info: registerInfo,
+    });
+    await addVisitor(userId, event_uuid);
+    // Clear the organizer user cache so it will be reloaded next time
+    await redisTools.deleteCache(getUserCacheKey(userId));
+
+    return { message: "success", code: 201 };
+  } finally {
+    await redisTools.releaseLock(lockKey);
+  }
 });
 
 const statusesZod = z.enum(["pending", "rejected", "approved", "checkedin"]);

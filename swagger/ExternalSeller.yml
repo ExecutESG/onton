@@ -12,6 +12,10 @@ servers:
     description: Development server
   - url: https://app.onton.live
     description: Production server
+  - url: https://dev-app.dev.onton.live
+    description: Development server
+  - url: https://app.onton.live
+    description: Production server
 
 components:
   securitySchemes:

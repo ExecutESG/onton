@@ -99,7 +99,7 @@ async function handleCsvUpload(ctx: MyContext) {
 
         // Parse CSV
         const rows = parse(buffer.toString("utf-8"), { skip_empty_lines: true });
-        const userIds: string[] = rows.map((r: string[]) => r[0]?.trim()).filter(Boolean);
+        const userIds: string[] = Array.from(new Set(rows.map((r: string[]) => r[0]?.trim()).filter(Boolean)));
 
         if (!userIds.length) {
             await ctx.reply("No user IDs found in CSV. Flow canceled.");

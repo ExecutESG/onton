@@ -17,7 +17,7 @@ export const ALLOWED_DOMAINS = [
   "t.me",
   "onton.tg",
   "onton.live",
-  "mohammad-app.toncloud.observer",
+
   "tonkeeper.app",
   "tonkeeper.com",
   "tonhub.com",

@@ -1,0 +1,56 @@
+# ------------------------------------------------------
+# 1) Base image
+# ------------------------------------------------------
+FROM node:22-alpine3.19 AS base
+
+RUN apk add --no-cache \
+    libc6-compat \
+    python3 \
+    make \
+    g++ \
+    bash \
+    curl \
+    ca-certificates \
+    ffmpeg \
+    freetype \
+    ttf-dejavu \
+    nano
+
+# Set the working directory
+WORKDIR /app
+
+# ------------------------------------------------------
+# 2) Dependencies stage
+# ------------------------------------------------------
+FROM base AS dependencies
+
+# Copy only the files needed to install dependencies
+COPY package.json  ./
+
+# HACK: Remove broken @types/form-data that breaks tsc build
+RUN sed -i '/@types\/form-data/d' package.json
+
+# Install dependencies using Yarn
+RUN yarn install --frozen-lockfile
+
+# ------------------------------------------------------
+# 3) Stage with all project files
+# ------------------------------------------------------
+FROM dependencies AS with-files
+
+# Copy the entire project after dependencies are installed
+COPY . .
+
+# ------------------------------------------------------
+# 4) Production stage
+# ------------------------------------------------------
+FROM with-files AS production
+
+# Expose the default port for the telegram-bot
+EXPOSE $TELEGRAM_BOT_PORT
+
+# BUILD STEP ADDED FOR SHADOW FIX
+RUN yarn run tsc --skipLibCheck
+
+# RUN COMPILED CODE
+CMD ["node", "-r", "tsconfig-paths/register", "src/main.js"]

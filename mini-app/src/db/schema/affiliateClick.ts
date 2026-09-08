@@ -1,11 +1,10 @@
-import { bigint, index, integer, pgTable, timestamp } from "drizzle-orm/pg-core";
+import { bigint, index, integer, pgTable, serial, timestamp } from "drizzle-orm/pg-core";
 import { InferSelectModel, sql } from "drizzle-orm";
 
 export const affiliateClick = pgTable(
   "affiliate_click",
   {
-    id: integer("id").primaryKey().default(sql`nextval
-        ('affiliate_click_id_seq'::regclass)`),
+    id: serial("id").primaryKey(),
     affiliateLinkId: bigint("affiliate_lnk_id", { mode: "number" }).notNull(),
     userId: bigint("user_id", { mode: "number" }).notNull(),
     createdAt: timestamp("created_at", { precision: 6 }).notNull(),

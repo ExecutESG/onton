@@ -43,15 +43,16 @@ import {
   adminOrganizerProtectedProcedure,
   eventManagementProtectedProcedure as eventManagerPP,
   initDataProtectedProcedure,
+  publicProcedure,
   router,
 } from "../trpc";
 import { internal_server_error } from "../utils/error_utils";
 
 dotenv.config();
 
-const getEvent = initDataProtectedProcedure.input(z.object({ event_uuid: z.string() })).query(async (opts) => {
-  const userId = opts.ctx.user.user_id;
-  const userRole = opts.ctx.user.role;
+const getEvent = publicProcedure.input(z.object({ event_uuid: z.string() })).query(async (opts) => {
+  const userId = opts.ctx.user?.user_id;
+  const userRole = opts.ctx.user?.role;
   const event_uuid = opts.input.event_uuid;
   type PaymentDetailsWithToken = Partial<EventPaymentSelectType & { token?: EventTokenRow | null }>;
 
@@ -82,7 +83,7 @@ const getEvent = initDataProtectedProcedure.input(z.object({ event_uuid: z.strin
 
   //If event is hidden or not enabled
   if (eventData.hidden || !eventData.enabled) {
-    if (userId !== eventData.owner && userRole !== "admin" && !(await userHasModerationAccess(userId, userRole))) {
+    if (!userId || !userRole || (userId !== eventData.owner && userRole !== "admin" && !(await userHasModerationAccess(userId, userRole)))) {
       throw new TRPCError({ code: "UNPROCESSABLE_CONTENT", message: "event is not published yet" });
     }
   }
@@ -143,9 +144,9 @@ const getEvent = initDataProtectedProcedure.input(z.object({ event_uuid: z.strin
   }
   /* ------------------------ Event Needs Registration ------------------------ */
 
-  const user_request = await eventRegistrantsDB.getRegistrantRequest(event_uuid, userId);
+  const user_request = userId ? await eventRegistrantsDB.getRegistrantRequest(event_uuid, userId) : null;
 
-  const userIsAdminOrOwner = eventData.owner == userId || userRole == "admin";
+  const userIsAdminOrOwner = userId ? (eventData.owner == userId || userRole == "admin") : false;
   let mask_event_capacity = !userIsAdminOrOwner;
 
   if (userIsAdminOrOwner) {
@@ -934,10 +935,8 @@ const updateEvent = eventManagerPP
     }
   });
 
-const getEventsWithFilters = initDataProtectedProcedure.input(searchEventsInputZod).query(async (opts) => {
-  if (!opts.ctx.user.user_id) {
-    throw new TRPCError({ code: "UNAUTHORIZED", message: "Unauthorized access, invalid user" });
-  }
+const getEventsWithFilters = publicProcedure.input(searchEventsInputZod).query(async (opts) => {
+  const userId = opts.ctx.user?.user_id;
 
   if (opts.input.filter?.organizer_user_id) {
     const organizer = await usersDB.selectUserById(opts.input.filter.organizer_user_id);
@@ -948,7 +947,7 @@ const getEventsWithFilters = initDataProtectedProcedure.input(searchEventsInputZ
   }
 
   try {
-    const events = await eventDB.getEventsWithFilters(opts.input, opts.ctx.user.user_id);
+    const events = await eventDB.getEventsWithFilters(opts.input, userId);
 
     return { status: "success", data: events.eventsData, totalCount: events.rowsCount };
   } catch (error) {
@@ -961,11 +960,9 @@ const getEventsWithFilters = initDataProtectedProcedure.input(searchEventsInputZ
   }
 });
 
-export const getEventsWithFiltersInfinite = initDataProtectedProcedure.input(searchEventsInputZod).query(async (opts) => {
+export const getEventsWithFiltersInfinite = publicProcedure.input(searchEventsInputZod).query(async (opts) => {
   const input = opts.input;
-  if (!opts.ctx.user.user_id) {
-    throw new TRPCError({ code: "UNAUTHORIZED", message: "Unauthorized access, invalid user" });
-  }
+  const userId = opts.ctx.user?.user_id;
   if (input.filter?.organizer_user_id) {
     const organizer = await usersDB.selectUserById(input.filter.organizer_user_id);
     if (organizer?.role !== "organizer" && organizer?.role !== "admin" && organizer?.CustomAccessRoles?.length === 0) {
@@ -979,7 +976,7 @@ export const getEventsWithFiltersInfinite = initDataProtectedProcedure.input(sea
       // tell the DB function: fetch an extra row
       limit: (input.limit ?? 10) + 1,
     },
-    opts.ctx.user.user_id
+    userId
   );
 
   const actualLimit = input.limit ?? 10;
@@ -996,7 +993,7 @@ export const getEventsWithFiltersInfinite = initDataProtectedProcedure.input(sea
   };
 });
 
-const getCategories = initDataProtectedProcedure.query(async () => {
+const getCategories = publicProcedure.query(async () => {
   try {
     return await eventCategoriesDB.fetchAllCategories(true);
   } catch (error) {

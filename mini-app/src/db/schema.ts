@@ -39,12 +39,12 @@ import { eventRegistrants, eventRegistrantStatus } from "./schema/eventRegistran
 import { events, raffleKindEnum, RaffleKindType } from "./schema/events";
 import { eventTokens } from "./schema/eventTokens";
 import { giataCity } from "./schema/giataCity";
-import { moderationLog, ModerationLogActionType } from "./schema/moderation_log";
+import { moderationLog, ModerationLogAction, ModerationLogActionType } from "./schema/moderation_log";
 import { nftItems } from "./schema/nft_items";
 import { notifications } from "./schema/notifications";
 import { ontoSetting } from "./schema/ontoSetting";
 import { orders, orderTypes } from "./schema/orders";
-import { rewards, RewardsSelectType, RewardTonSocietyStatusType } from "./schema/rewards";
+import { rewards, RewardsSelectType, RewardTonSocietyStatusType, tonSocietyStatusEnum } from "./schema/rewards";
 import { sbtRewardCollections } from "./schema/sbtRewardCollections";
 import { sideEvents } from "./schema/sideEvents";
 import { tickets, ticketsRelations } from "./schema/tickets";
@@ -64,6 +64,10 @@ import {
   tournamentEntryType,
   tournamentPrizePoolStatusType,
   tournamentPrizeType,
+  tournamentStateEnum,
+  entryTypeEnum,
+  prizePoolStatusEnum,
+  prizeTypeEnum,
 } from "./schema/tournaments";
 import { games, GamesRowInsert } from "./schema/games";
 import {
@@ -84,7 +88,7 @@ import {
   userScoreItem,
 } from "./schema/usersScore";
 
-import { callbackTaskRuns, CallbackTaskRunsRow, callbackTaskRunStatusType } from "./schema/callbackTaskRuns";
+import { callbackTaskRuns, CallbackTaskRunsRow, callbackTaskRunStatusType, callbackTaskRunStatusEnum } from "./schema/callbackTaskRuns";
 import { gameLeaderboard, GameLeaderboardRow, GameLeaderboardRowInsert } from "./schema/gameLeaderboard";
 import {
   CallBackTaskAPINameType,
@@ -94,6 +98,11 @@ import {
   CallBackTaskSHttpMethodType,
   CallbackTasksRow,
   CallBackTaskStepNameType,
+  apiNameEnum,
+  itemTypeEnum,
+  stepNameEnum,
+  httpMethodEnum,
+  taskFunctionEnum,
 } from "./schema/callbackTasks";
 
 import {
@@ -241,10 +250,21 @@ import { usersOutlook } from "./schema/usersOutlook";
 export {
   accessRoleEnum,
   accessRoleItemTypeEnum,
+  apiNameEnum,
+  itemTypeEnum,
+  stepNameEnum,
+  httpMethodEnum,
+  taskFunctionEnum,
+  tournamentStateEnum,
+  entryTypeEnum,
+  prizePoolStatusEnum,
+  prizeTypeEnum,
+  callbackTaskRunStatusEnum,
   coupon_definition_status,
   coupon_definition_type,
   coupon_item_status,
   developmentEnvironment,
+  ModerationLogAction,
   eventParticipationType,
   eventPoaResultStatus,
   eventTriggerStatus,
@@ -258,6 +278,7 @@ export {
   pgTicketTypes,
   rewardStatus,
   rewardType,
+  tonSocietyStatusEnum,
   ticketStatus,
   ticketTypes,
   user_flags,

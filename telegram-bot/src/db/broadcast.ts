@@ -59,14 +59,15 @@ export async function bulkInsertBroadcastUsers(
     broadcastId: number,
     userIds: string[],
 ): Promise<void> {
-    if (!userIds.length) return;
+    const uniqueUserIds = Array.from(new Set(userIds.map((u) => String(u).trim()).filter(Boolean)));
+    if (!uniqueUserIds.length) return;
 
     const client = await pool.connect();
     try {
         await client.query("BEGIN");
 
-        for (let i = 0; i < userIds.length; i += CHUNK) {
-            const slice = userIds.slice(i, i + CHUNK);
+        for (let i = 0; i < uniqueUserIds.length; i += CHUNK) {
+            const slice = uniqueUserIds.slice(i, i + CHUNK);
 
             // ($1,$2),($1,$3)… structure for this slice
             const values: string[] = [];

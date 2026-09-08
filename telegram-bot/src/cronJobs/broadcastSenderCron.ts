@@ -100,6 +100,13 @@ export async function broadcastSenderCron(bot: Bot) {
             logger.info(`broadcastSenderCron: sent to ${user_id} (bu_id=${bu_id}, bid=${broadcast_id})`);
         } catch (err) {
             logger.warn(`broadcastSenderCron: copy error to ${user_id}: ${err}`);
+            if (err instanceof GrammyError && err.error_code === 429) {
+                const retryAfter = (err.parameters as any)?.retry_after ?? 5;
+                logger.warn(`broadcastSenderCron: 429 FloodWait detected. Pausing for ${retryAfter}s before retrying.`);
+                await delay(retryAfter * 1000);
+                await markBroadcastUserFailed(bu_id, retry_count, String(err), false);
+                continue;
+            }
             const fatal = isForbiddenError(err) || isChatNotFoundError(err) || retry_count + 1 >= 10;
             await markBroadcastUserFailed(bu_id, retry_count + 1, String(err), fatal);
         }
@@ -183,9 +190,11 @@ async function notifyAdminsAboutFinishedBroadcast(bot: Bot, bid: number) {
 /* helpers                                                            */
 /* ------------------------------------------------------------------ */
 function isForbiddenError(err: unknown) {
-    return err instanceof GrammyError ? err.error_code === 403 : /403|forbidden/i.test(String(err));
+    return err instanceof GrammyError ? err.error_code === 403 : /403|forbidden|deactivated/i.test(String(err));
 }
 function isChatNotFoundError(err: unknown) {
-    return err instanceof GrammyError ? err.error_code === 400 && /chat (?:not )?found/i.test(err.description) : /chat (?:not )?found/i.test(String(err));
+    return err instanceof GrammyError
+        ? err.error_code === 400 && /chat (?:not )?found|user (?:not )?found/i.test(err.description)
+        : /chat (?:not )?found|user (?:not )?found/i.test(String(err));
 }
 function delay(ms: number) { return new Promise<void>((r) => setTimeout(r, ms)); }

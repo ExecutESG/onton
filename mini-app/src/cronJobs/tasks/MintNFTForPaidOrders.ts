@@ -15,6 +15,7 @@ import { affiliateLinksDB } from "@/db/modules/affiliateLinks.db";
 import { couponItemsDB } from "@/db/modules/couponItems.db";
 import { config } from "@/server/config";
 import { isAxiosError } from "axios";
+import { redisTools } from "@/lib/redisTools";
 
 export const MintNFTForPaidOrders = async (pushLockTTl: () => any) => {
   // Get Orders to be Minted
@@ -52,15 +53,15 @@ export const MintNFTForPaidOrders = async (pushLockTTl: () => any) => {
       const event_uuid = ordr.event_uuid;
 
       if (!ordr.owner_address) {
-        //NOTE -  tg error
-        logger.error("error_wtf : no owner address", "order_id=", ordr.uuid);
+        logger.error("MintNFTForPaidOrders: no owner address for order", ordr.uuid);
+        await db.update(orders).set({ state: "failed", updatedBy: "mint_no_owner_address" }).where(eq(orders.uuid, ordr.uuid)).execute();
         continue;
       }
       try {
         Address.parse(ordr.owner_address);
       } catch {
-        //NOTE - tg error
-        logger.error("error_unparsable address : ", ordr.owner_address, "order_id=", ordr.uuid);
+        logger.error("MintNFTForPaidOrders: unparsable address for order", ordr.uuid, ordr.owner_address);
+        await db.update(orders).set({ state: "failed", updatedBy: "mint_unparsable_address" }).where(eq(orders.uuid, ordr.uuid)).execute();
         continue;
       }
 
@@ -69,14 +70,24 @@ export const MintNFTForPaidOrders = async (pushLockTTl: () => any) => {
       ).pop();
 
       if (!paymentInfo) {
-        logger.error("error_what the fuck : ", "event Does not have payment !!!", event_uuid);
+        logger.error("MintNFTForPaidOrders: event does not have payment info", event_uuid);
+        await db.update(orders).set({ state: "failed", updatedBy: "mint_no_payment_info" }).where(eq(orders.uuid, ordr.uuid)).execute();
         continue;
       }
       if (!paymentInfo.collectionAddress) {
-        logger.error(" no collection address right now");
+        logger.error("MintNFTForPaidOrders: no collection address for event", event_uuid);
         continue;
       }
-      const meta_data_url = await uploadJsonToMinio(
+
+      const mintLockKey = `lock:mint_nft:${event_uuid}`;
+      const lockAcquired = await redisTools.acquireLock(mintLockKey, 30);
+      if (!lockAcquired) {
+        logger.warn(`MintNFTForPaidOrders: mint lock busy for event ${event_uuid}, skipping order ${ordr.uuid} this cycle`);
+        continue;
+      }
+
+      try {
+        const meta_data_url = await uploadJsonToMinio(
         {
           name: paymentInfo.title,
           description: paymentInfo.description,
@@ -191,6 +202,9 @@ export const MintNFTForPaidOrders = async (pushLockTTl: () => any) => {
       });
 
       // await pushLockTTl();
+      } finally {
+        await redisTools.releaseLock(mintLockKey);
+      }
     } catch (error) {
       if (isAxiosError(error)) {
         logger.error("nft_mint_error", {

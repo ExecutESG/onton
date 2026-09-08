@@ -32,7 +32,8 @@ async function MainCronJob() {
   new CronJob("*/3 * * * *", cronJobRunner(cronJobs.notifyUsersForRewards), null, true);
 
   if (is_prod_env()) {
-    new CronJob("0 4 * * * *", cronJobs.syncSbtCollectionsForEvents, null, true); // has been disabled because of high rate limit usage
+    // Disabled: high rate limit usage and deprecated external TON Society API
+    // new CronJob("0 4 * * * *", cronJobs.syncSbtCollectionsForEvents, null, true);
     new CronJob(
       "*/60 * * * *", // (cronTime) =>  every hour
       cronJobs.CheckSbtStatus, // (onTick)   => function to run

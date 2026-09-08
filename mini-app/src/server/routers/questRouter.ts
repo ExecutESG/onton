@@ -6,8 +6,45 @@ import { TRPCError } from "@trpc/server";
 import { tasksDB } from "@/db/modules/tasks.db";
 import { taskUsersDB } from "@/db/modules/taskUsers.db";
 import { maybeInsertScoreGeneric } from "@/lib/maybeInsertScoreGeneric";
+import { fetchOntonSettings } from "@/db/modules/ontoSetting";
+import { tgSafeCall } from "@/utils/tgSafeCall";
+import { Bot } from "grammy";
+import { MAIN_TG_CHANNEL_ID, MAIN_TG_CHAT_ID } from "@/constants";
+import { logger } from "@/server/utils/logger";
 
 const DELAY_MS = 30_000;
+
+async function checkTelegramMembership(userId: number, target: string | number): Promise<boolean | null> {
+  try {
+    let token: string | null = null;
+    try {
+      const { configProtected } = await fetchOntonSettings();
+      token = (configProtected?.["check_join_bot_token"] as string) || process.env.BOT_TOKEN || null;
+    } catch {
+      token = process.env.BOT_TOKEN || null;
+    }
+
+    if (!token) return null;
+
+    const bot = new Bot(token);
+    const { data: chatMember, error } = await tgSafeCall(() => bot.api.getChatMember(target, userId));
+
+    if (error || !chatMember) {
+      logger.warn(`Could not check chat member for user ${userId} in ${target}: ${error?.message}`);
+      return null;
+    }
+
+    const memberStatuses = ["member", "creator", "administrator", "restricted"];
+    const isMember =
+      memberStatuses.includes(chatMember.status) &&
+      (chatMember.status === "restricted" ? (chatMember as any).is_member : true);
+
+    return isMember;
+  } catch (e) {
+    logger.error("Error in checkTelegramMembership:", e);
+    return null;
+  }
+}
 
 /* -------------------------------------------------------------
  *  Resolve “link to open” based on task_type & json_for_checker
@@ -99,6 +136,40 @@ export const questRouter = router({
     const ut = await taskUsersDB.getUserTaskByUserAndTask(userId, taskId);
     if (!ut) return { status: "not_started" } as const;
     if (ut.status === "done") return { status: "done" } as const;
+
+    // Real Telegram verification for channel and group quests
+    if (task.taskType === "tg_join_channel" || task.taskType === "tg_join_group") {
+      const cfg = (task.jsonForChecker ?? {}) as any;
+      const target =
+        task.taskType === "tg_join_channel"
+          ? cfg.channel_id ??
+            (cfg.channel_username
+              ? cfg.channel_username.startsWith("@")
+                ? cfg.channel_username
+                : `@${cfg.channel_username}`
+              : MAIN_TG_CHANNEL_ID)
+          : cfg.group_id ??
+            cfg.chat_id ??
+            (cfg.group_username
+              ? cfg.group_username.startsWith("@")
+                ? cfg.group_username
+                : `@${cfg.group_username}`
+              : MAIN_TG_CHAT_ID);
+
+      const isMember = await checkTelegramMembership(userId, target);
+
+      if (isMember === true) {
+        await taskUsersDB.updateUserTaskById(ut.id, { status: "done" });
+        await maybeInsertScoreGeneric(userId, taskId);
+        return { status: "done" } as const;
+      }
+
+      if (isMember === false) {
+        // User has not joined the required channel/group yet
+        return { status: "waiting" } as const;
+      }
+      // If isMember === null (e.g. bot not in private channel or API error), fall through to timer fallback
+    }
 
     const elapsed = Date.now() - new Date(ut.createdAt).getTime();
     if (elapsed >= DELAY_MS) {

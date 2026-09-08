@@ -11,26 +11,22 @@ export const addUserScore = async (params: { raffle_id: number; user_id: number;
 
 /* ------------------------- RANK & ELIGIBILITY -------------------------- */
 export const computeTopN = async (raffleId: number, topN: number) => {
-  // 1. rank by score DESC, id ASC (tie-breaker)
-  const rows = await db
-    .select()
-    .from(eventRaffleResults)
-    .where(eq(eventRaffleResults.raffle_id, raffleId))
-    .orderBy(desc(eventRaffleResults.score), eventRaffleResults.id)
-    .execute();
-
-  // 2. update rank & status
-  for (let i = 0; i < rows.length; i++) {
-    const rank = i + 1;
-    await db
-      .update(eventRaffleResults)
-      .set({
-        rank,
-        status: rank <= topN ? "eligible" : "pending",
-      })
-      .where(eq(eventRaffleResults.id, rows[i].id))
-      .execute();
-  }
+  await db.execute(sql`
+    WITH ranked AS (
+      SELECT id, ROW_NUMBER() OVER (ORDER BY score DESC, id ASC) AS calculated_rank
+      FROM ${eventRaffleResults}
+      WHERE ${eventRaffleResults.raffle_id} = ${raffleId}
+    )
+    UPDATE ${eventRaffleResults}
+    SET
+      rank = ranked.calculated_rank,
+      status = CASE
+        WHEN ranked.calculated_rank <= ${topN} THEN 'eligible'::raffle_result_status
+        ELSE 'pending'::raffle_result_status
+      END
+    FROM ranked
+    WHERE ${eventRaffleResults.id} = ranked.id
+  `);
 };
 
 /* --------------------------- PAYOUT HELPERS ---------------------------- */

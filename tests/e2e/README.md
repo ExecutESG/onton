@@ -31,6 +31,7 @@ npm run test:headed
   - **TonConnect UI**: Validating TonConnect button rendering and wallet selection modal (`tc-root`) lifecycle without unhandled console or page exceptions.
   - **Public API**: Direct `GET /api/client/v1/public/ping` returning HTTP 200 with server uptime, timestamp, and commit SHA metadata.
 
+
 ## Scheduled Execution & CI
 Tests run automatically every 6 hours via [`.github/workflows/scheduled-smoke-tests.yml`](../../.github/workflows/scheduled-smoke-tests.yml).
 If tests fail, an automated alert is sent to the Telegram deployment logs channel.

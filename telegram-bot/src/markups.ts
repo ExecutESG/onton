@@ -1,9 +1,14 @@
 import { InlineKeyboard } from "grammy";
 
-const startKeyboard = () => {
-  return new InlineKeyboard()
-    .webApp("Explore Events", `${process.env.NEXT_PUBLIC_APP_BASE_URL}/`).row()
-
+const startKeyboard = (targetUrl?: string, buttonText?: string) => {
+  const kb = new InlineKeyboard();
+  if (targetUrl && buttonText) {
+    kb.webApp(buttonText, targetUrl).row();
+    kb.webApp("Explore All Events", `${process.env.NEXT_PUBLIC_APP_BASE_URL}/`);
+  } else {
+    kb.webApp("Explore Events", `${process.env.NEXT_PUBLIC_APP_BASE_URL}/`);
+  }
+  return kb;
 };
 
 

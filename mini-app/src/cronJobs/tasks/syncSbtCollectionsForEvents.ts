@@ -39,6 +39,11 @@ type CombinedRecord = EventRecord | TicketRecord;
 const BATCH_SIZE = 30000;
 
 export const syncSbtCollectionsForEvents = async () => {
+  if (!process.env.TON_SOCIETY_BASE_URL) {
+    logger.warn("syncSbtCollectionsForEvents skipped: TON_SOCIETY_BASE_URL is not configured.");
+    return;
+  }
+
   let offsetEvents = 0;
   let offsetTickets = 0;
 

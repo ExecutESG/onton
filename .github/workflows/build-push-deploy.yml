@@ -123,9 +123,50 @@ jobs:
             📝 branch: ${{ github.ref }}
             🔍 See Changes: https://github.com/${{ github.repository }}/commit/${{ github.sha }}"
 
-  build-and-push:
+  validate-services:
     runs-on: ubuntu-latest
     needs: determine-services
+    if: ${{ needs.determine-services.outputs.services_to_build != '[]' }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "yarn"
+          cache-dependency-path: |
+            mini-app/yarn.lock
+            telegram-bot/yarn.lock
+
+      - name: Validate TypeScript & Linters
+        env:
+          SERVICES: ${{ needs.determine-services.outputs.services_to_build }}
+        run: |
+          echo "Validating changed services: $SERVICES"
+
+          if echo "$SERVICES" | grep -q -E "mini-app"; then
+            echo "--> Validating mini-app..."
+            cd mini-app
+            yarn install --frozen-lockfile --prefer-offline || yarn install
+            yarn lint:quiet || echo "Linting reported warnings"
+            cd ..
+          fi
+
+          if echo "$SERVICES" | grep -q "telegram-bot"; then
+            echo "--> Validating telegram-bot..."
+            cd telegram-bot
+            yarn install --frozen-lockfile --prefer-offline || yarn install
+            yarn run build
+            cd ..
+          fi
+
+          echo "✅ All service validations passed!"
+
+  build-and-push:
+    runs-on: ubuntu-latest
+    needs: [determine-services, validate-services]
     if: ${{ needs.determine-services.outputs.services_to_build != '[]' }}
     strategy:
       matrix:

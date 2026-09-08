@@ -1,0 +1,72 @@
+name: Scheduled Smoke & Health Checks
+
+on:
+  schedule:
+    # Run every 6 hours
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      target_env:
+        description: "Target Environment to Test"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - "dev"
+          - "production"
+
+concurrency:
+  group: scheduled-smoke-tests
+  cancel-in-progress: true
+
+jobs:
+  smoke-test:
+    name: Execute E2E Smoke Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Determine Target URL
+        id: target
+        run: |
+          if [ "${{ github.event.inputs.target_env }}" == "production" ]; then
+            echo "url=https://onton.app" >> $GITHUB_OUTPUT
+            echo "env_name=Production" >> $GITHUB_OUTPUT
+          else
+            echo "url=https://app.dev.onton.live" >> $GITHUB_OUTPUT
+            echo "env_name=Dev (Shadow)" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install Dependencies
+        working-directory: tests/e2e
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+
+      - name: Run Playwright Tests
+        working-directory: tests/e2e
+        env:
+          BASE_URL: ${{ steps.target.outputs.url }}
+        run: |
+          npx playwright test
+
+      - name: Send Telegram Alert on Failure
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT || vars.TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT || vars.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT }}
+        run: |
+          if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
+            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              -d chat_id="${TELEGRAM_CHAT_ID}" \
+              -d parse_mode="HTML" \
+              -d text="🚨 <b>E2E Smoke Test Failed</b> for <b>${{ steps.target.outputs.env_name }}</b>%0AURL: ${{ steps.target.outputs.url }}%0AWorkflow Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          fi

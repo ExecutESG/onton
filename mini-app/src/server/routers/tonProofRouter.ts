@@ -84,13 +84,29 @@ export const tonProofRouter = router({
       }
 
       /* 2) allowed domain + freshness (±60 s) */
-      if (!ALLOWED_DOMAINS.includes(input.proof.domain.value)) {
+      if (
+        !ALLOWED_DOMAINS.includes(input.proof.domain.value) &&
+        !input.proof.domain.value.endsWith("onton.live")
+      ) {
         throw new TRPCError({ code: "FORBIDDEN", message: "domain not allowed" });
       }
       const age = Math.floor(Date.now() / 1e3) - input.proof.timestamp;
       if (Math.abs(age) > VALID_AGE_SEC) {
         throw new TRPCError({ code: "FORBIDDEN", message: "proof too old" });
       }
+
+      /* 2.1) payload verification and single-use challenge consumption */
+      const payloadParts = input.proof.payload.split(":");
+      if (payloadParts.length < 4 || payloadParts[0] !== "onton" || payloadParts[1] !== String(userId)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Invalid payload format" });
+      }
+      const challenge = payloadParts[2];
+      const cachedUserId = await redisTools.getCache(`tp:${challenge}`);
+      if (!cachedUserId || String(cachedUserId) !== String(userId)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Invalid or expired proof challenge" });
+      }
+      // Consume challenge immediately to prevent replay attacks
+      await redisTools.deleteCache(`tp:${challenge}`);
 
       /* ─────────────────────────────── public-key discovery      */
 

@@ -226,7 +226,7 @@ services:
       target: production
     restart: "unless-stopped"
     ports:
-      - "${TELEGRAM_BOT_PORT}:${TELEGRAM_BOT_PORT}"
+      - "127.0.0.1:${TELEGRAM_BOT_PORT}:${TELEGRAM_BOT_PORT}"
     profiles:
       - front-end-development
       - manual-apps

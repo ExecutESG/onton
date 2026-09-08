@@ -175,36 +175,49 @@ const eventRegister = initDataProtectedProcedure.input(CombinedEventRegisterSche
     });
   }
 
-  let event_filled_and_has_waiting_list = false;
-
-  if (event.capacity) {
-    const approved_requests_count = await eventRegistrantsDB.getApprovedRequestsCount(event_uuid);
-    const event_cap_filled = approved_requests_count >= event.capacity;
-
-    event_filled_and_has_waiting_list = !!(event_cap_filled && event.has_waiting_list);
-
-    if (event_cap_filled && !event.has_waiting_list) {
-      // Event capacity filled and no waiting list
-      throw new TRPCError({
-        code: "CONFLICT",
-        message: `Event Capacity Reached for event ${event.event_uuid}`,
-      });
-    }
+  const lockKey = `lock:event_register:${event_uuid}`;
+  const lockAcquired = await redisTools.acquireLock(lockKey, 10);
+  if (!lockAcquired) {
+    throw new TRPCError({
+      code: "CONFLICT",
+      message: "Server is busy processing registrations for this event. Please try again in a few seconds.",
+    });
   }
 
-  const request_status = !!event.has_approval || event_filled_and_has_waiting_list ? "pending" : "approved"; // pending if approval is required otherwise auto approve them
+  try {
+    let event_filled_and_has_waiting_list = false;
 
-  await db.insert(eventRegistrants).values({
-    event_uuid: event_uuid,
-    user_id: userId,
-    status: request_status,
-    register_info: registerInfo,
-  });
-  await addVisitor(userId, event_uuid);
-  // Clear the organizer user cache so it will be reloaded next time
-  await redisTools.deleteCache(getUserCacheKey(userId));
+    if (event.capacity) {
+      const approved_requests_count = await eventRegistrantsDB.getApprovedRequestsCount(event_uuid);
+      const event_cap_filled = approved_requests_count >= event.capacity;
 
-  return { message: "success", code: 201 };
+      event_filled_and_has_waiting_list = !!(event_cap_filled && event.has_waiting_list);
+
+      if (event_cap_filled && !event.has_waiting_list) {
+        // Event capacity filled and no waiting list
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: `Event Capacity Reached for event ${event.event_uuid}`,
+        });
+      }
+    }
+
+    const request_status = !!event.has_approval || event_filled_and_has_waiting_list ? "pending" : "approved"; // pending if approval is required otherwise auto approve them
+
+    await db.insert(eventRegistrants).values({
+      event_uuid: event_uuid,
+      user_id: userId,
+      status: request_status,
+      register_info: registerInfo,
+    });
+    await addVisitor(userId, event_uuid);
+    // Clear the organizer user cache so it will be reloaded next time
+    await redisTools.deleteCache(getUserCacheKey(userId));
+
+    return { message: "success", code: 201 };
+  } finally {
+    await redisTools.releaseLock(lockKey);
+  }
 });
 
 const statusesZod = z.enum(["pending", "rejected", "approved", "checkedin"]);

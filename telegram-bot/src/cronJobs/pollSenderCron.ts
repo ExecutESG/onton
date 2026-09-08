@@ -43,10 +43,18 @@ export async function pollSenderCron(bot: Bot) {
                 `pollSenderCron: send failed poll_id=${poll_id} user_id=${user_id}: ${err}`
             );
 
-            // 3) Check if it's a 403 => user blocked bot => final fail
-            if (isForbiddenError(err)) {
+            // Handle 429 FloodWait => respect retry_after, pause, and keep row pending without penalty
+            if (err instanceof GrammyError && err.error_code === 429) {
+                const retryAfter = (err.parameters as any)?.retry_after ?? 5;
+                logger.warn(`pollSenderCron: 429 FloodWait detected. Pausing for ${retryAfter}s.`);
+                await delay(retryAfter * 1000);
+                continue;
+            }
+
+            // Check if it's a fatal error (user blocked bot, chat not found, deactivated account)
+            if (isFatalError(err)) {
                 await markPollSentFailed(poll_id, user_id, retry_count);
-                logger.warn(`pollSenderCron: user_id=${user_id} => final fail (403 blocked)`);
+                logger.warn(`pollSenderCron: user_id=${user_id} => final fail (fatal error: ${err})`);
             } else {
                 // Otherwise handle normal retry logic
                 const newRetry = retry_count + 1;
@@ -105,18 +113,24 @@ async function actuallySendPollMessage(
 }
 
 /* -------------------------------------------------------------------------- */
-/* Helper: check if error is a 403 => user blocked the bot                    */
+/* Helper: check if error is fatal (403 blocked, chat/user not found, deactivated) */
 /* -------------------------------------------------------------------------- */
-function isForbiddenError(err: unknown): boolean {
-    // If it's a GrammyError or HttpError
-    // Checking code 403 or message "Forbidden"
+function isFatalError(err: unknown): boolean {
     if (err instanceof GrammyError) {
-        // E.g., err.error_code === 403 or err.description includes "Forbidden"
-        return err.error_code === 403 || /forbidden/i.test(err.description);
+        return (
+            err.error_code === 403 ||
+            (err.error_code === 400 && /chat (?:not )?found|user (?:not )?found/i.test(err.description)) ||
+            /forbidden|deactivated/i.test(err.description)
+        );
     }
-    // If it's some other error type, you might parse the message
     const str = String(err).toLowerCase();
-    return str.includes("403") || str.includes("forbidden");
+    return (
+        str.includes("403") ||
+        str.includes("forbidden") ||
+        str.includes("chat not found") ||
+        str.includes("user not found") ||
+        str.includes("deactivated")
+    );
 }
 
 /* -------------------------------------------------------------------------- */

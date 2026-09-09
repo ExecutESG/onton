@@ -52,13 +52,20 @@ export const startHandler = async (ctx: Context) => {
     }
 
     // 7) Send or edit a welcome message, showing your start keyboard
+    const welcomeMessage = `✨ <b>Welcome to ONTON — The Luma of Telegram & Web3</b> ✨
+
+Discover, host, and experience the best events across the Telegram & Web3 ecosystem!
+
+🎟️ <b>1-Tap Free RSVP</b> — Join events in one click without wallet friction.
+⭐ <b>Telegram Stars & Crypto</b> — Buy tickets natively with Stars (Apple/Google Pay) or TON/USDT.
+💬 <b>Instant Event Chat Access</b> — Get private, single-use invite links to attendee groups.
+🏆 <b>Proof-of-Attendance Badges</b> — Collect verifiable digital badges as memories.
+
+Ready to explore? Choose an option below 👇`;
+
     await editOrSend(
       ctx,
-      `Welcome to ONTON, your gateway to the best events on the TON blockchain and beyond!
-
-<b>Explore Events</b>: Discover a variety of exciting events, from Play2Win games and meetups to exclusive NFT drops.
- 
-Get started now and dive into the ONTON experience!`,
+      welcomeMessage,
       startKeyboard(targetUrl, buttonText),
       undefined,
       false,

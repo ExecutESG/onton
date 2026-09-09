@@ -4,9 +4,13 @@ const startKeyboard = (targetUrl?: string, buttonText?: string) => {
   const kb = new InlineKeyboard();
   if (targetUrl && buttonText) {
     kb.webApp(buttonText, targetUrl).row();
-    kb.webApp("Explore All Events", `${process.env.NEXT_PUBLIC_APP_BASE_URL}/`);
+    kb.webApp("🌟 Explore Events", `${process.env.NEXT_PUBLIC_APP_BASE_URL}/`).row();
+    kb.webApp("🎟️ Host an Event", `${process.env.NEXT_PUBLIC_APP_BASE_URL}/events/create`).row();
+    kb.url("📢 Official Channel", "https://t.me/ontonlive");
   } else {
-    kb.webApp("Explore Events", `${process.env.NEXT_PUBLIC_APP_BASE_URL}/`);
+    kb.webApp("🌟 Explore Events", `${process.env.NEXT_PUBLIC_APP_BASE_URL}/`).row();
+    kb.webApp("🎟️ Host an Event", `${process.env.NEXT_PUBLIC_APP_BASE_URL}/events/create`).row();
+    kb.url("📢 Official Channel", "https://t.me/ontonlive");
   }
   return kb;
 };

@@ -90,8 +90,15 @@ export default function Navbar() {
             <div className="flex items-center space-x-3 md:order-2 text-primary">
               <Link
                 target="_blank"
+                href="https://t.me/theontonbot/event"
+                className="hidden sm:inline-flex items-center justify-center px-3.5 py-1.5 text-xs font-semibold rounded-full bg-[#007AFF] text-white hover:bg-blue-600 transition-all shadow-sm"
+              >
+                🎟️ Host Event
+              </Link>
+              <Link
+                target="_blank"
                 href="https://t.me/ontonlive"
-                className="flex space-x-1.5"
+                className="flex space-x-1.5 items-center"
               >
                 <TelegramIcon />
                 <span className="font-bold hidden md:block">Channel</span>

@@ -97,11 +97,9 @@ export default function Footer() {
     <footer className="container flex justify-between items-start py-10 px-20 mx-auto bg-white border-t border-[#C8C7CB] gap-10 w-full flex-col md:flex-row">
       <div className="flex gap-8">
         <div className="flex flex-col gap-2 md:col-span-1 lg:col-span-1">
-          <h1 className="text-md md:text-lg font-semibold text-black">ONton</h1>
-          <p className="text-sm">
-            ONton is a TON powered event management platform integrated with
-            Telegram for secure and transparent event organization and
-            participation.
+          <h1 className="text-md md:text-lg font-semibold text-black">ONTON</h1>
+          <p className="text-sm text-gray-600 max-w-md">
+            The Luma of Telegram & Web3 Event OS. Frictionless 1-tap Free RSVPs, native Telegram Stars & crypto payments, automated group chat gating, and Proof-of-Attendance badges.
           </p>
           <div className="flex justify-between md:col-span-1 lg:col-span-1">
             {footerLinks.map((section, index) => (

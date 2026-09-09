@@ -41,7 +41,6 @@ export const ShareTicketButton: React.FC<ShareTicketButtonProps> = ({
   return (
     <Button
       onClick={handleShare}
-      variant="outline"
       className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-gray-300 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 active:scale-[0.98]"
     >
       <FiShare2 className="h-4 w-4" />

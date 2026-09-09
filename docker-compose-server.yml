@@ -95,9 +95,6 @@ services:
     hostname: fluentd
     networks:
       - onton-network
-    ports:
-      - "24224:24224"
-      - "24224:24224/udp"
     deploy:
       mode: global
       restart_policy:

@@ -1,6 +1,12 @@
 name: Build, Push, and Deploy Services
 
 on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: "Specific service to build/deploy, or 'all', or 'auto'"
+        required: false
+        default: "auto"
   push:
     branches:
       - "dev"
@@ -28,6 +34,10 @@ concurrency:
   cancel-in-progress: false
   # Deployed: 2026-07-11 - Stack separation (onton-dev)
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   determine-services:
     runs-on: ubuntu-latest
@@ -46,21 +56,6 @@ jobs:
           TELEGRAM_CHAT_ID_FOR_DEPLOYMENT: ${{ secrets.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT || vars.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT }}
         run: |
           echo "Determining services that have changed..."
-          
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
-            git fetch origin ${{ github.base_ref }}
-            changed_files=$(git diff --name-only "origin/${{ github.base_ref }}" "${{ github.sha }}")
-          else
-            BEFORE="${{ github.event.before }}"
-            AFTER="${{ github.sha }}"
-            if [ -z "$BEFORE" ] || [ "$BEFORE" == "0000000000000000000000000000000000000000" ]; then
-               # New branch or forced push, fallback to diffing against previous commit
-               changed_files=$(git diff --name-only HEAD~1 HEAD) 
-            else
-               changed_files=$(git diff --name-only "$BEFORE" "$AFTER")
-            fi
-          fi
-          echo "Changed files: $changed_files"
           declare -a services_to_build=()
           # Define service directory mappings
           #  ["client-web"]="client-web-panel"
@@ -78,19 +73,44 @@ jobs:
             ["website"]="website"
             ["caddy"]="devops"
           )
-          # If Trigger-full-build.txt has changed, add all services
-          if echo "$changed_files" | grep -q "^Trigger-full-build.txt$"; then
-            echo "Trigger-full-build.txt has changed, rebuilding all services."
-            services_to_build=("${!service_dirs[@]}")
+
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.service }}" ] && [ "${{ github.event.inputs.service }}" != "auto" ]; then
+            if [ "${{ github.event.inputs.service }}" == "all" ]; then
+              services_to_build=("${!service_dirs[@]}")
+            else
+              services_to_build=("${{ github.event.inputs.service }}")
+            fi
+            echo "Workflow dispatch targeting: ${services_to_build[@]}"
           else
-            for service in "${!service_dirs[@]}"; do
-              if echo "$changed_files" | grep -q "^${service_dirs[$service]}"; then
-                services_to_build+=("$service")
+            if [ "${{ github.event_name }}" == "pull_request" ]; then
+              git fetch origin ${{ github.base_ref }}
+              changed_files=$(git diff --name-only "origin/${{ github.base_ref }}" "${{ github.sha }}")
+            else
+              BEFORE="${{ github.event.before }}"
+              AFTER="${{ github.sha }}"
+              if [ -z "$BEFORE" ] || [ "$BEFORE" == "0000000000000000000000000000000000000000" ]; then
+                 # New branch or forced push, fallback to diffing against previous commit
+                 changed_files=$(git diff --name-only HEAD~1 HEAD) 
+              else
+                 changed_files=$(git diff --name-only "$BEFORE" "$AFTER")
               fi
-            done
-            # Special check for Caddyfile
-            if echo "$changed_files" | grep -q "^Caddyfile$"; then
-                services_to_build+=("caddy")
+            fi
+            echo "Changed files: $changed_files"
+
+            # If Trigger-full-build.txt has changed, add all services
+            if echo "$changed_files" | grep -q "^Trigger-full-build.txt$"; then
+              echo "Trigger-full-build.txt has changed, rebuilding all services."
+              services_to_build=("${!service_dirs[@]}")
+            else
+              for service in "${!service_dirs[@]}"; do
+                if echo "$changed_files" | grep -q "^${service_dirs[$service]}"; then
+                  services_to_build+=("$service")
+                fi
+              done
+              # Special check for Caddyfile
+              if echo "$changed_files" | grep -q "^Caddyfile$"; then
+                  services_to_build+=("caddy")
+              fi
             fi
           fi
           # Add 'telegram-bot' if no services have changed
@@ -174,7 +194,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-      actions: write
     env:
       ALLMYSECRETS: ${{ toJSON(secrets) }}
       ALLMYVARS: ${{ toJSON(vars) }}
@@ -396,12 +415,10 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: [ determine-services,build-and-push ]
-    if: ${{ needs.determine-services.outputs.services_to_build != '[]' && github.event_name == 'push' }}
+    if: ${{ needs.determine-services.outputs.services_to_build != '[]' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
     permissions:
-      contents: write
+      contents: read
       packages: read
-      actions: write
-      id-token: write
     env:
       ALLMYSECRETS: ${{ toJSON(secrets) }}
       ALLMYVARS: ${{ toJSON(vars) }}
@@ -633,6 +650,20 @@ jobs:
 
             # bidar kardane fluentd :))
             docker service update --update-failure-action rollback --update-max-failure-ratio 0.5 --force ${STACK_NAME}_fluentd || true
+
+            # Force reload of updated background workers and services in Docker Swarm
+            for service in $services; do
+              case "$service" in
+                mini-app|mini-app-reward-worker|mini-app-sbt-worker|mini-app-ordinary-worker|mini-app-nft-api-worker|mini-app-poa-worker|mini-app-moderation-bot|mini-app-notification-socket)
+                  echo "Forcing reload of worker: ${STACK_NAME}_${service}..."
+                  docker service update --update-failure-action rollback --update-max-failure-ratio 0.5 --force ${STACK_NAME}_${service} || true
+                  ;;
+                telegram-bot|website|participant-tma)
+                  echo "Forcing reload of service: ${STACK_NAME}_${service}..."
+                  docker service update --update-failure-action rollback --update-max-failure-ratio 0.5 --force ${STACK_NAME}_${service} || true
+                  ;;
+              esac
+            done
             echo "Services deployed successfully."
           EOF
 

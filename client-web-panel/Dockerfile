@@ -22,7 +22,7 @@ RUN apk update && apk upgrade && \
   giflib-dev
 
 # Install pnpm globally
-RUN npm i -g pnpm
+RUN npm i -g pnpm@9.15.4
 WORKDIR /app
 
 FROM base AS with-files

@@ -13,7 +13,7 @@ RUN apk update && apk upgrade && \
   curl \
   ca-certificates
 # Install pnpm globally
-RUN npm i -g pnpm
+RUN npm i -g pnpm@9.15.4
 WORKDIR /app
 
 FROM base AS dependencies

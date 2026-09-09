@@ -11,6 +11,7 @@ export type TicketType = {
   company: string;
   position: string;
   status: string;
+  telegram_invite_link?: string | null;
   nftAddress: string | null;
   event_uuid: string;
   ticket_id: number;

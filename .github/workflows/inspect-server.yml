@@ -1,0 +1,55 @@
+name: Inspect Swarm Server
+
+on:
+  workflow_dispatch:
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Start SSH Agent and Add Key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Run Diagnostics on Swarm Manager
+        env:
+          SSH_IP: ${{ secrets.SSH_DEV_IP }}
+          SSH_PORT: ${{ secrets.SSH_DEV_PORT }}
+        run: |
+          ssh -o StrictHostKeyChecking=no -p "$SSH_PORT" tonont@$SSH_IP << 'DIAG_EOF'
+            echo "=== DOCKER STACK LIST ==="
+            docker stack ls
+
+            echo "=== DOCKER SERVICE LIST ==="
+            docker service ls
+
+            echo "=== SERVICE INSPECT ONTON REWARD WORKER ==="
+            docker service inspect onton_mini-app-reward-worker --format 'onton_mini-app-reward-worker Image: {{.Spec.TaskTemplate.ContainerSpec.Image}}' || true
+            docker service ps onton_mini-app-reward-worker --no-trunc || true
+
+            echo "=== SERVICE INSPECT ONTON-DEV REWARD WORKER ==="
+            docker service inspect onton-dev_mini-app-reward-worker --format 'onton-dev_mini-app-reward-worker Image: {{.Spec.TaskTemplate.ContainerSpec.Image}}' || true
+            docker service ps onton-dev_mini-app-reward-worker --no-trunc || true
+
+            echo "=== ALL RUNNING DOCKER CONTAINERS (ps) ==="
+            docker ps --format "table {{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}"
+
+            echo "=== LOGS OF RECENT REWARD WORKER CONTAINERS ==="
+            for cid in $(docker ps -q --filter "name=reward"); do
+              echo "--- Container $cid logs (last 50 lines) ---"
+              docker logs --tail 50 "$cid" || true
+            done
+
+            echo "=== CRON LOGS (ANY CRON IN RUNNING CONTAINERS) ==="
+            for cid in $(docker ps -q); do
+              cname=$(docker inspect --format '{{.Name}}' "$cid")
+              if docker logs --tail 50 "$cid" 2>&1 | grep -q "SBT Sync"; then
+                echo "FOUND SBT Sync in container $cname ($cid)!"
+                docker logs --tail 30 "$cid"
+              fi
+            done
+
+            echo "=== MAIN .ENV GITHUB_REPO AND REGISTRY ==="
+            cat /home/tonont/main/.env | grep -E "GITHUB_REPO|REGISTRY_URL" || true
+DIAG_EOF

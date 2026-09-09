@@ -503,3 +503,18 @@ export const callCheckBotAdmin = async (chatId: number): Promise<{ success: bool
   const resp = await tgClientPost("check-bot-admin", body);
   return resp.data; // e.g. { success: true, chatInfo: { ... } }
 };
+
+export const callCreateStarsInvoiceLink = async (props: {
+  title: string;
+  description: string;
+  payload: string;
+  starsAmount: number;
+}): Promise<{ success: boolean; link?: string; error?: string }> => {
+  try {
+    const resp = await tgClientPost("create-stars-invoice", props);
+    return resp.data;
+  } catch (err: any) {
+    logger.error("Error in callCreateStarsInvoiceLink:", err);
+    return { success: false, error: err.message };
+  }
+};

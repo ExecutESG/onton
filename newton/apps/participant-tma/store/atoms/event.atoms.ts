@@ -7,3 +7,6 @@ export const tsxBocAtom = atom<string | undefined>(undefined);
 
 // discount code
 export const discountCodeAtom = atom<string | undefined>(undefined);
+
+// payment rail selection: Telegram Stars or On-Chain Crypto (USDT/TON)
+export const paymentRailAtom = atom<"STARS" | "CRYPTO">("STARS");

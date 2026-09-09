@@ -171,7 +171,7 @@ services:
       - expecting-mini-app
       - minimal
       - full
-    command: redis-server --save "" --appendonly no --requirepass ${REDIS_PASSWORD}
+    command: sh -c 'if [ -n "$${REDIS_PASSWORD}" ]; then exec redis-server --save "" --appendonly no --requirepass "$${REDIS_PASSWORD}"; else exec redis-server --save "" --appendonly no; fi'
     environment:
       <<: *common-env
     networks:

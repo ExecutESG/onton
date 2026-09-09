@@ -92,12 +92,20 @@ export async function createUserRewardLink(
 export async function registerActivity(
   activityDetails: TSAPIoperations["createEvent"]["requestBody"]["content"]["application/json"]
 ) {
-  const response = await tonSocietyClient.post("/activities", activityDetails);
-  // log error if response status is not 200
-  if (response.status !== 200) {
-    logger.error(`Error registering activity: ${response}`);
+  if (process.env.ENABLE_TON_SOCIETY !== "true") {
+    logger.warn("registerActivity skipped: TON Society API is disabled/deprecated.");
+    return { status: "success", data: { activity_id: 0, activity_url: "" } } as TonSocietyRegisterActivityResponse;
   }
-  return response.data as TonSocietyRegisterActivityResponse;
+  try {
+    const response = await tonSocietyClient.post("/activities", activityDetails);
+    if (response.status !== 200) {
+      logger.error(`Error registering activity: ${response}`);
+    }
+    return response.data as TonSocietyRegisterActivityResponse;
+  } catch (error) {
+    logger.error(`Error registering activity with Ton Society:`, error);
+    return { status: "failed", data: { activity_id: 0, activity_url: "" } } as TonSocietyRegisterActivityResponse;
+  }
 }
 
 export type CreateActivityRequestBody = TSAPIoperations["createEvent"]["requestBody"]["content"]["application/json"];
@@ -110,14 +118,18 @@ export async function updateActivity(
   activityDetails: TSAPIoperations["updateEvent"]["requestBody"]["content"]["application/json"],
   activity_id: string | number
 ) {
-  if (!activity_id)
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: "event does not have a valid activity id",
-    });
-  logger.info(`Updating activity ${activity_id} with details`, activityDetails);
-  const response = await tonSocietyClient.patch(`/activities/${activity_id}`, activityDetails);
-  return response.data as { status: "success"; data: {} };
+  if (!activity_id || activity_id === 0) return { status: "success", data: {} };
+  if (process.env.ENABLE_TON_SOCIETY !== "true") {
+    return { status: "success", data: {} };
+  }
+  try {
+    logger.info(`Updating activity ${activity_id} with details`, activityDetails);
+    const response = await tonSocietyClient.patch(`/activities/${activity_id}`, activityDetails);
+    return response.data as { status: "success"; data: {} };
+  } catch (error) {
+    logger.error(`Error updating activity ${activity_id} with Ton Society:`, error);
+    return { status: "success", data: {} };
+  }
 }
 
 export async function getSBTClaimedStatus(activity_id: number, user_id: number | string) {

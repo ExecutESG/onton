@@ -195,8 +195,90 @@ jobs:
       contents: read
       packages: write
     env:
-      ALLMYSECRETS: ${{ toJSON(secrets) }}
       ALLMYVARS: ${{ toJSON(vars) }}
+      DEV_BOT_TOKEN: ${{ secrets.DEV_BOT_TOKEN }}
+      DEV_CLIENT_API_FIXED_KEY: ${{ secrets.DEV_CLIENT_API_FIXED_KEY }}
+      DEV_CLIENT_API_JWT_SECRET: ${{ secrets.DEV_CLIENT_API_JWT_SECRET }}
+      DEV_CLOUDFLARE_API_TOKEN: ${{ secrets.DEV_CLOUDFLARE_API_TOKEN }}
+      DEV_DATABASE_URL: ${{ secrets.DEV_DATABASE_URL }}
+      DEV_JWT_SECRET_SOCKET: ${{ secrets.DEV_JWT_SECRET_SOCKET }}
+      DEV_MB_ENCRYPTION_SECRET_KEY: ${{ secrets.DEV_MB_ENCRYPTION_SECRET_KEY }}
+      DEV_MINIO_ROOT_PASSWORD: ${{ secrets.DEV_MINIO_ROOT_PASSWORD }}
+      DEV_MINIO_ROOT_USER: ${{ secrets.DEV_MINIO_ROOT_USER }}
+      DEV_MNEMONIC: ${{ secrets.DEV_MNEMONIC }}
+      DEV_ONTON_API_KEY: ${{ secrets.DEV_ONTON_API_KEY }}
+      DEV_ONTON_API_SECRET: ${{ secrets.DEV_ONTON_API_SECRET }}
+      DEV_PGADMIN_DEFAULT_PASSWORD: ${{ secrets.DEV_PGADMIN_DEFAULT_PASSWORD }}
+      DEV_POSTGRES_PASSWORD: ${{ secrets.DEV_POSTGRES_PASSWORD }}
+      DEV_RABBITMQ_DEFAULT_PASS: ${{ secrets.DEV_RABBITMQ_DEFAULT_PASS }}
+      DEV_TONAPI_API_KEY: ${{ secrets.DEV_TONAPI_API_KEY }}
+      DEV_TON_CENTER_TOKEN: ${{ secrets.DEV_TON_CENTER_TOKEN }}
+      DEV_TON_SOCIETY_API_KEY: ${{ secrets.DEV_TON_SOCIETY_API_KEY }}
+      MAIN_BOT_TOKEN: ${{ secrets.MAIN_BOT_TOKEN }}
+      MAIN_CLIENT_API_FIXED_KEY: ${{ secrets.MAIN_CLIENT_API_FIXED_KEY }}
+      MAIN_CLIENT_API_JWT_SECRET: ${{ secrets.MAIN_CLIENT_API_JWT_SECRET }}
+      MAIN_CLOUDFLARE_API_TOKEN: ${{ secrets.MAIN_CLOUDFLARE_API_TOKEN }}
+      MAIN_CLOUDFLARE_API_TOKEN_MAIN: ${{ secrets.MAIN_CLOUDFLARE_API_TOKEN_MAIN }}
+      MAIN_CLOUDFLARE_DNS_ZONE_ID: ${{ secrets.MAIN_CLOUDFLARE_DNS_ZONE_ID }}
+      MAIN_CLOUDFLARE_EMAIL: ${{ secrets.MAIN_CLOUDFLARE_EMAIL }}
+      MAIN_CLOUDFLARE_EMAIL_MAIN: ${{ secrets.MAIN_CLOUDFLARE_EMAIL_MAIN }}
+      MAIN_DATABASE_URL: ${{ secrets.MAIN_DATABASE_URL }}
+      MAIN_DATABASE_URL_NFT_MANAGER: ${{ secrets.MAIN_DATABASE_URL_NFT_MANAGER }}
+      MAIN_EVENT_WALLET_ENC_KEY: ${{ secrets.MAIN_EVENT_WALLET_ENC_KEY }}
+      MAIN_GITHUB_CLIENT_SECRET: ${{ secrets.MAIN_GITHUB_CLIENT_SECRET }}
+      MAIN_GOOGLE_CLIENT_SECRET: ${{ secrets.MAIN_GOOGLE_CLIENT_SECRET }}
+      MAIN_LINKEDIN_CLIENT_SECRET: ${{ secrets.MAIN_LINKEDIN_CLIENT_SECRET }}
+      MAIN_MB_ENCRYPTION_SECRET_KEY: ${{ secrets.MAIN_MB_ENCRYPTION_SECRET_KEY }}
+      MAIN_MINIO_ROOT_PASSWORD: ${{ secrets.MAIN_MINIO_ROOT_PASSWORD }}
+      MAIN_MINIO_ROOT_USER: ${{ secrets.MAIN_MINIO_ROOT_USER }}
+      MAIN_MNEMONIC: ${{ secrets.MAIN_MNEMONIC }}
+      MAIN_MS_CLIENT_SECRET: ${{ secrets.MAIN_MS_CLIENT_SECRET }}
+      MAIN_ONTON_API_KEY: ${{ secrets.MAIN_ONTON_API_KEY }}
+      MAIN_ONTON_API_SECRET: ${{ secrets.MAIN_ONTON_API_SECRET }}
+      MAIN_PGADMIN_DEFAULT_EMAIL: ${{ secrets.MAIN_PGADMIN_DEFAULT_EMAIL }}
+      MAIN_PGADMIN_DEFAULT_PASSWORD: ${{ secrets.MAIN_PGADMIN_DEFAULT_PASSWORD }}
+      MAIN_POSTGRES_PASSWORD: ${{ secrets.MAIN_POSTGRES_PASSWORD }}
+      MAIN_POSTGRES_USER: ${{ secrets.MAIN_POSTGRES_USER }}
+      MAIN_RABBITMQ_DEFAULT_PASS: ${{ secrets.MAIN_RABBITMQ_DEFAULT_PASS }}
+      MAIN_RABBITMQ_DEFAULT_USER: ${{ secrets.MAIN_RABBITMQ_DEFAULT_USER }}
+      MAIN_REDIS_PASSWORD: ${{ secrets.MAIN_REDIS_PASSWORD }}
+      MAIN_SENTRY_AUTH_TOKEN: ${{ secrets.MAIN_SENTRY_AUTH_TOKEN }}
+      MAIN_TONAPI_API_KEY: ${{ secrets.MAIN_TONAPI_API_KEY }}
+      MAIN_TON_CENTER_TOKEN: ${{ secrets.MAIN_TON_CENTER_TOKEN }}
+      MAIN_TON_SOCIETY_API_KEY: ${{ secrets.MAIN_TON_SOCIETY_API_KEY }}
+      MAIN_TWITTER_CLIENT_SECRET: ${{ secrets.MAIN_TWITTER_CLIENT_SECRET }}
+      STAGING_BOT_TOKEN: ${{ secrets.STAGING_BOT_TOKEN }}
+      STAGING_CLIENT_API_FIXED_KEY: ${{ secrets.STAGING_CLIENT_API_FIXED_KEY }}
+      STAGING_CLIENT_API_JWT_SECRET: ${{ secrets.STAGING_CLIENT_API_JWT_SECRET }}
+      STAGING_CLOUDFLARE_API_TOKEN: ${{ secrets.STAGING_CLOUDFLARE_API_TOKEN }}
+      STAGING_CLOUDFLARE_API_TOKEN_MAIN: ${{ secrets.STAGING_CLOUDFLARE_API_TOKEN_MAIN }}
+      STAGING_CLOUDFLARE_DNS_ZONE_ID: ${{ secrets.STAGING_CLOUDFLARE_DNS_ZONE_ID }}
+      STAGING_CLOUDFLARE_EMAIL: ${{ secrets.STAGING_CLOUDFLARE_EMAIL }}
+      STAGING_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+      STAGING_DATABASE_URL_NFT_MANAGER: ${{ secrets.STAGING_DATABASE_URL_NFT_MANAGER }}
+      STAGING_GITHUB_CLIENT_SECRET: ${{ secrets.STAGING_GITHUB_CLIENT_SECRET }}
+      STAGING_GOOGLE_CLIENT_SECRET: ${{ secrets.STAGING_GOOGLE_CLIENT_SECRET }}
+      STAGING_LINKEDIN_CLIENT_SECRET: ${{ secrets.STAGING_LINKEDIN_CLIENT_SECRET }}
+      STAGING_MB_ENCRYPTION_SECRET_KEY: ${{ secrets.STAGING_MB_ENCRYPTION_SECRET_KEY }}
+      STAGING_MINIO_ROOT_PASSWORD: ${{ secrets.STAGING_MINIO_ROOT_PASSWORD }}
+      STAGING_MINIO_ROOT_USER: ${{ secrets.STAGING_MINIO_ROOT_USER }}
+      STAGING_MNEMONIC: ${{ secrets.STAGING_MNEMONIC }}
+      STAGING_MS_CLIENT_SECRET: ${{ secrets.STAGING_MS_CLIENT_SECRET }}
+      STAGING_ONTON_API_KEY: ${{ secrets.STAGING_ONTON_API_KEY }}
+      STAGING_ONTON_API_SECRET: ${{ secrets.STAGING_ONTON_API_SECRET }}
+      STAGING_PGADMIN_DEFAULT_EMAIL: ${{ secrets.STAGING_PGADMIN_DEFAULT_EMAIL }}
+      STAGING_PGADMIN_DEFAULT_PASSWORD: ${{ secrets.STAGING_PGADMIN_DEFAULT_PASSWORD }}
+      STAGING_POSTGRES_PASSWORD: ${{ secrets.STAGING_POSTGRES_PASSWORD }}
+      STAGING_POSTGRES_USER: ${{ secrets.STAGING_POSTGRES_USER }}
+      STAGING_RABBITMQ_DEFAULT_PASS: ${{ secrets.STAGING_RABBITMQ_DEFAULT_PASS }}
+      STAGING_RABBITMQ_DEFAULT_USER: ${{ secrets.STAGING_RABBITMQ_DEFAULT_USER }}
+      STAGING_REDIS_PASSWORD: ${{ secrets.STAGING_REDIS_PASSWORD }}
+      STAGING_SECRET_EVENT_WALLET_ENC_KEY: ${{ secrets.STAGING_SECRET_EVENT_WALLET_ENC_KEY }}
+      STAGING_SENTRY_AUTH_TOKEN: ${{ secrets.STAGING_SENTRY_AUTH_TOKEN }}
+      STAGING_TONAPI_API_KEY: ${{ secrets.STAGING_TONAPI_API_KEY }}
+      STAGING_TON_CENTER_TOKEN: ${{ secrets.STAGING_TON_CENTER_TOKEN }}
+      STAGING_TON_SOCIETY_API_KEY: ${{ secrets.STAGING_TON_SOCIETY_API_KEY }}
+      STAGING_TWITTER_CLIENT_SECRET: ${{ secrets.STAGING_TWITTER_CLIENT_SECRET }}
     steps:
       - name: Send Telegram Message - Build Start
         env:
@@ -297,31 +379,8 @@ jobs:
             branch_prefix="${branch_name^^}_"
             echo "Extracting environment variables for the branch prefix: $branch_prefix"
 
-            # Function to safely process environment variables
-            process_env_vars() {
-              local json_str="$1"
-              local prefix="$2"
-              local outfile="$3"
-
-              # Ensure JSON is properly formatted
-              echo "$json_str" | jq -r --arg prefix "$prefix" \
-                'with_entries(select(.key | startswith($prefix))) |
-                to_entries[] |
-                "\(.key | sub($prefix; ""))=\(.value)"' >> "$outfile" || true
-            }
-
-            # Process secrets with error handling
-            if [ -n "$ALLMYSECRETS" ]; then
-              echo "Processing secrets..."
-              process_env_vars "$ALLMYSECRETS" "$branch_prefix" "$BUILD_ARGS_FILE"
-
-            fi
-
-            # Process vars with error handling
-            if [ -n "$ALLMYVARS" ]; then
-              echo "Processing vars..."
-              process_env_vars "$ALLMYVARS" "$branch_prefix" "$BUILD_ARGS_FILE"
-            fi
+            # Process environment variables for build args
+            python3 devops/export_env.py build_args "$branch_prefix" "$BUILD_ARGS_FILE"
 
             # Add package manager
             echo "PACKAGE_MANAGER=pnpm" >> "$BUILD_ARGS_FILE"
@@ -420,8 +479,90 @@ jobs:
       contents: read
       packages: read
     env:
-      ALLMYSECRETS: ${{ toJSON(secrets) }}
       ALLMYVARS: ${{ toJSON(vars) }}
+      DEV_BOT_TOKEN: ${{ secrets.DEV_BOT_TOKEN }}
+      DEV_CLIENT_API_FIXED_KEY: ${{ secrets.DEV_CLIENT_API_FIXED_KEY }}
+      DEV_CLIENT_API_JWT_SECRET: ${{ secrets.DEV_CLIENT_API_JWT_SECRET }}
+      DEV_CLOUDFLARE_API_TOKEN: ${{ secrets.DEV_CLOUDFLARE_API_TOKEN }}
+      DEV_DATABASE_URL: ${{ secrets.DEV_DATABASE_URL }}
+      DEV_JWT_SECRET_SOCKET: ${{ secrets.DEV_JWT_SECRET_SOCKET }}
+      DEV_MB_ENCRYPTION_SECRET_KEY: ${{ secrets.DEV_MB_ENCRYPTION_SECRET_KEY }}
+      DEV_MINIO_ROOT_PASSWORD: ${{ secrets.DEV_MINIO_ROOT_PASSWORD }}
+      DEV_MINIO_ROOT_USER: ${{ secrets.DEV_MINIO_ROOT_USER }}
+      DEV_MNEMONIC: ${{ secrets.DEV_MNEMONIC }}
+      DEV_ONTON_API_KEY: ${{ secrets.DEV_ONTON_API_KEY }}
+      DEV_ONTON_API_SECRET: ${{ secrets.DEV_ONTON_API_SECRET }}
+      DEV_PGADMIN_DEFAULT_PASSWORD: ${{ secrets.DEV_PGADMIN_DEFAULT_PASSWORD }}
+      DEV_POSTGRES_PASSWORD: ${{ secrets.DEV_POSTGRES_PASSWORD }}
+      DEV_RABBITMQ_DEFAULT_PASS: ${{ secrets.DEV_RABBITMQ_DEFAULT_PASS }}
+      DEV_TONAPI_API_KEY: ${{ secrets.DEV_TONAPI_API_KEY }}
+      DEV_TON_CENTER_TOKEN: ${{ secrets.DEV_TON_CENTER_TOKEN }}
+      DEV_TON_SOCIETY_API_KEY: ${{ secrets.DEV_TON_SOCIETY_API_KEY }}
+      MAIN_BOT_TOKEN: ${{ secrets.MAIN_BOT_TOKEN }}
+      MAIN_CLIENT_API_FIXED_KEY: ${{ secrets.MAIN_CLIENT_API_FIXED_KEY }}
+      MAIN_CLIENT_API_JWT_SECRET: ${{ secrets.MAIN_CLIENT_API_JWT_SECRET }}
+      MAIN_CLOUDFLARE_API_TOKEN: ${{ secrets.MAIN_CLOUDFLARE_API_TOKEN }}
+      MAIN_CLOUDFLARE_API_TOKEN_MAIN: ${{ secrets.MAIN_CLOUDFLARE_API_TOKEN_MAIN }}
+      MAIN_CLOUDFLARE_DNS_ZONE_ID: ${{ secrets.MAIN_CLOUDFLARE_DNS_ZONE_ID }}
+      MAIN_CLOUDFLARE_EMAIL: ${{ secrets.MAIN_CLOUDFLARE_EMAIL }}
+      MAIN_CLOUDFLARE_EMAIL_MAIN: ${{ secrets.MAIN_CLOUDFLARE_EMAIL_MAIN }}
+      MAIN_DATABASE_URL: ${{ secrets.MAIN_DATABASE_URL }}
+      MAIN_DATABASE_URL_NFT_MANAGER: ${{ secrets.MAIN_DATABASE_URL_NFT_MANAGER }}
+      MAIN_EVENT_WALLET_ENC_KEY: ${{ secrets.MAIN_EVENT_WALLET_ENC_KEY }}
+      MAIN_GITHUB_CLIENT_SECRET: ${{ secrets.MAIN_GITHUB_CLIENT_SECRET }}
+      MAIN_GOOGLE_CLIENT_SECRET: ${{ secrets.MAIN_GOOGLE_CLIENT_SECRET }}
+      MAIN_LINKEDIN_CLIENT_SECRET: ${{ secrets.MAIN_LINKEDIN_CLIENT_SECRET }}
+      MAIN_MB_ENCRYPTION_SECRET_KEY: ${{ secrets.MAIN_MB_ENCRYPTION_SECRET_KEY }}
+      MAIN_MINIO_ROOT_PASSWORD: ${{ secrets.MAIN_MINIO_ROOT_PASSWORD }}
+      MAIN_MINIO_ROOT_USER: ${{ secrets.MAIN_MINIO_ROOT_USER }}
+      MAIN_MNEMONIC: ${{ secrets.MAIN_MNEMONIC }}
+      MAIN_MS_CLIENT_SECRET: ${{ secrets.MAIN_MS_CLIENT_SECRET }}
+      MAIN_ONTON_API_KEY: ${{ secrets.MAIN_ONTON_API_KEY }}
+      MAIN_ONTON_API_SECRET: ${{ secrets.MAIN_ONTON_API_SECRET }}
+      MAIN_PGADMIN_DEFAULT_EMAIL: ${{ secrets.MAIN_PGADMIN_DEFAULT_EMAIL }}
+      MAIN_PGADMIN_DEFAULT_PASSWORD: ${{ secrets.MAIN_PGADMIN_DEFAULT_PASSWORD }}
+      MAIN_POSTGRES_PASSWORD: ${{ secrets.MAIN_POSTGRES_PASSWORD }}
+      MAIN_POSTGRES_USER: ${{ secrets.MAIN_POSTGRES_USER }}
+      MAIN_RABBITMQ_DEFAULT_PASS: ${{ secrets.MAIN_RABBITMQ_DEFAULT_PASS }}
+      MAIN_RABBITMQ_DEFAULT_USER: ${{ secrets.MAIN_RABBITMQ_DEFAULT_USER }}
+      MAIN_REDIS_PASSWORD: ${{ secrets.MAIN_REDIS_PASSWORD }}
+      MAIN_SENTRY_AUTH_TOKEN: ${{ secrets.MAIN_SENTRY_AUTH_TOKEN }}
+      MAIN_TONAPI_API_KEY: ${{ secrets.MAIN_TONAPI_API_KEY }}
+      MAIN_TON_CENTER_TOKEN: ${{ secrets.MAIN_TON_CENTER_TOKEN }}
+      MAIN_TON_SOCIETY_API_KEY: ${{ secrets.MAIN_TON_SOCIETY_API_KEY }}
+      MAIN_TWITTER_CLIENT_SECRET: ${{ secrets.MAIN_TWITTER_CLIENT_SECRET }}
+      STAGING_BOT_TOKEN: ${{ secrets.STAGING_BOT_TOKEN }}
+      STAGING_CLIENT_API_FIXED_KEY: ${{ secrets.STAGING_CLIENT_API_FIXED_KEY }}
+      STAGING_CLIENT_API_JWT_SECRET: ${{ secrets.STAGING_CLIENT_API_JWT_SECRET }}
+      STAGING_CLOUDFLARE_API_TOKEN: ${{ secrets.STAGING_CLOUDFLARE_API_TOKEN }}
+      STAGING_CLOUDFLARE_API_TOKEN_MAIN: ${{ secrets.STAGING_CLOUDFLARE_API_TOKEN_MAIN }}
+      STAGING_CLOUDFLARE_DNS_ZONE_ID: ${{ secrets.STAGING_CLOUDFLARE_DNS_ZONE_ID }}
+      STAGING_CLOUDFLARE_EMAIL: ${{ secrets.STAGING_CLOUDFLARE_EMAIL }}
+      STAGING_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+      STAGING_DATABASE_URL_NFT_MANAGER: ${{ secrets.STAGING_DATABASE_URL_NFT_MANAGER }}
+      STAGING_GITHUB_CLIENT_SECRET: ${{ secrets.STAGING_GITHUB_CLIENT_SECRET }}
+      STAGING_GOOGLE_CLIENT_SECRET: ${{ secrets.STAGING_GOOGLE_CLIENT_SECRET }}
+      STAGING_LINKEDIN_CLIENT_SECRET: ${{ secrets.STAGING_LINKEDIN_CLIENT_SECRET }}
+      STAGING_MB_ENCRYPTION_SECRET_KEY: ${{ secrets.STAGING_MB_ENCRYPTION_SECRET_KEY }}
+      STAGING_MINIO_ROOT_PASSWORD: ${{ secrets.STAGING_MINIO_ROOT_PASSWORD }}
+      STAGING_MINIO_ROOT_USER: ${{ secrets.STAGING_MINIO_ROOT_USER }}
+      STAGING_MNEMONIC: ${{ secrets.STAGING_MNEMONIC }}
+      STAGING_MS_CLIENT_SECRET: ${{ secrets.STAGING_MS_CLIENT_SECRET }}
+      STAGING_ONTON_API_KEY: ${{ secrets.STAGING_ONTON_API_KEY }}
+      STAGING_ONTON_API_SECRET: ${{ secrets.STAGING_ONTON_API_SECRET }}
+      STAGING_PGADMIN_DEFAULT_EMAIL: ${{ secrets.STAGING_PGADMIN_DEFAULT_EMAIL }}
+      STAGING_PGADMIN_DEFAULT_PASSWORD: ${{ secrets.STAGING_PGADMIN_DEFAULT_PASSWORD }}
+      STAGING_POSTGRES_PASSWORD: ${{ secrets.STAGING_POSTGRES_PASSWORD }}
+      STAGING_POSTGRES_USER: ${{ secrets.STAGING_POSTGRES_USER }}
+      STAGING_RABBITMQ_DEFAULT_PASS: ${{ secrets.STAGING_RABBITMQ_DEFAULT_PASS }}
+      STAGING_RABBITMQ_DEFAULT_USER: ${{ secrets.STAGING_RABBITMQ_DEFAULT_USER }}
+      STAGING_REDIS_PASSWORD: ${{ secrets.STAGING_REDIS_PASSWORD }}
+      STAGING_SECRET_EVENT_WALLET_ENC_KEY: ${{ secrets.STAGING_SECRET_EVENT_WALLET_ENC_KEY }}
+      STAGING_SENTRY_AUTH_TOKEN: ${{ secrets.STAGING_SENTRY_AUTH_TOKEN }}
+      STAGING_TONAPI_API_KEY: ${{ secrets.STAGING_TONAPI_API_KEY }}
+      STAGING_TON_CENTER_TOKEN: ${{ secrets.STAGING_TON_CENTER_TOKEN }}
+      STAGING_TON_SOCIETY_API_KEY: ${{ secrets.STAGING_TON_SOCIETY_API_KEY }}
+      STAGING_TWITTER_CLIENT_SECRET: ${{ secrets.STAGING_TWITTER_CLIENT_SECRET }}
     steps:
       #      - name: Manual Approval
       #        if: |
@@ -461,18 +602,8 @@ jobs:
           > $env_file
           
           
-          # Extract GitHub secrets and environment variables from ALLMYSECRETS and ALLMYVARS
-          secrets_json="${ALLMYSECRETS}"
-          vars_json="${ALLMYVARS}"
-          
-          echo "$secrets_json" | jq -r --arg prefix "$prefix" \
-            'to_entries[] | select(.key | startswith($prefix)) | "\(.key[$prefix | length:])=\(.value | @sh)"' >> $env_file
-          
-          echo "$vars_json" | jq -r --arg prefix "$prefix" \
-            'to_entries[] | select(.key | startswith($prefix)) | "\(.key[$prefix | length:])=\(.value | @sh)"' >> $env_file
-          
-          # Strip quotes from numeric values to prevent Docker Swarm port mapping errors
-          sed -i "s/'\([0-9]*\)'/\1/g" $env_file
+          # Extract GitHub secrets and environment variables
+          python3 devops/export_env.py env "$prefix" "$env_file"
           
           # Add branch name as env also
           echo "BRANCH_NAME=$branch_name" >> $env_file

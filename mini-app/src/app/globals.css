@@ -130,6 +130,13 @@ table {
 
 @layer base {
   :root {
+    --tg-safe-area-inset-top: 0px;
+    --tg-safe-area-inset-bottom: 0px;
+    --tg-safe-area-inset-left: 0px;
+    --tg-safe-area-inset-right: 0px;
+    --tg-content-safe-area-inset-top: 0px;
+    --tg-content-safe-area-inset-bottom: 0px;
+
     --shadcn-background: 240, 19%, 95%;
     --shadcn-shadcn-foreground: 222.2 84% 4.9%;
 

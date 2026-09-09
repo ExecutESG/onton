@@ -46,7 +46,6 @@ const EventTmaSettings = ({ eventId, requiresTicketToChekin, pageAffiliate }: Ev
     const goToUpdateInfoPage = () => router.push(`/event/${eventId}/claim-ticket`);
     const mainBtnOnClick = () =>
       router.push(`/event/${eventId}/buy-ticket${pageAffiliate ? `?affiliate=${pageAffiliate}` : ""}`);
-    const openTonConnectModal = () => tonConnectModal.open();
 
     const setupMainButton = (bgColor: `#${string}`, textColor: `#${string}`, text: string, onClick: () => void) => {
       mainButton?.setBgColor(bgColor).setTextColor(textColor).setText(text).enable().show().on("click", onClick);
@@ -112,7 +111,7 @@ const EventTmaSettings = ({ eventId, requiresTicketToChekin, pageAffiliate }: Ev
     const isFree = !event.eventTicket || Number(event.eventTicket.price) === 0;
     const buttonText = isFree
       ? "RSVP (Free)"
-      : `Get Ticket (${event.eventTicket.price} ${event.eventTicket.token?.symbol || "TON"})`;
+      : `Get Ticket (${event.eventTicket?.price ?? ""} ${event.eventTicket?.token?.symbol || "TON"})`;
 
     setupMainButton("#007AFF", "#ffffff", buttonText, mainBtnOnClick);
     router.prefetch(`/event/${eventId}/buy-ticket`);

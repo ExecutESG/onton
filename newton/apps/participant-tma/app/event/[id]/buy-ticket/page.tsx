@@ -17,68 +17,6 @@ type BuyTicketProps = {
   searchParams: { [key: string]: string | undefined };
 };
 
-type TicketInfoProps = {
-  ticket: {
-    ticketImage: string;
-    price: number | string;
-    payment_type?: string;
-    token?: {
-      symbol: string;
-    };
-    title: string;
-  };
-};
-
-const TicketInfo = ({ ticket }: TicketInfoProps) => {
-  return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-4">
-        <Image
-          priority
-          alt={"ticket image"}
-          width={64}
-          height={64}
-          className="h-16 w-16 rounded-sm border-[0.34px]"
-          src={ticket.ticketImage}
-        />
-        <div className="flex flex-col">
-          <h5 className="type-headline font-semibold">
-            {ticket.price} {ticket.token?.symbol ?? ticket.payment_type}
-          </h5>
-          <p className="type-subtitle-2 text-telegram-hint-color font-normal">{ticket.title}</p>
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-        <ButtonTma
-          buttonColor={"gray"}
-          disabled
-          className="h-8 w-8 rounded-full"
-        >
-          <FaMinus
-            fill="#8E8E93"
-            className="h-4 w-4"
-            width={32}
-            height={32}
-          />
-        </ButtonTma>
-        <span className="text-[17px] font-semibold">1</span>
-        <ButtonTma
-          buttonColor={"gray"}
-          disabled
-          className="h-8 w-8 rounded-full"
-        >
-          <FaPlus
-            fill="#8E8E93"
-            className="h-4 w-4"
-            width={32}
-            height={32}
-          />
-        </ButtonTma>
-      </div>
-    </div>
-  );
-};
-
 const BuyTicket = ({ params, searchParams }: BuyTicketProps) => {
   const { data: event, isError, isLoading } = useEventData(params.id);
 

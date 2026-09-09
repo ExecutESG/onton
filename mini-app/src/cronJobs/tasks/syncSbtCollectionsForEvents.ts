@@ -39,6 +39,12 @@ type CombinedRecord = EventRecord | TicketRecord;
 const BATCH_SIZE = 30000;
 
 export const syncSbtCollectionsForEvents = async () => {
+  // Disabled: TON Society external API is deprecated and causes high rate limit usage and 404 alert spam on legacy records.
+  if (process.env.ENABLE_SBT_COLLECTION_SYNC !== "true") {
+    logger.info("syncSbtCollectionsForEvents skipped: task is deprecated and disabled.");
+    return;
+  }
+
   if (!process.env.TON_SOCIETY_BASE_URL) {
     logger.warn("syncSbtCollectionsForEvents skipped: TON_SOCIETY_BASE_URL is not configured.");
     return;

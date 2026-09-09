@@ -350,7 +350,7 @@ services:
 
   mini-app-sbt-worker:
     hostname: mini-app-sbt-worker
-    image: ${REGISTRY_URL}/${GITHUB_REPO}/mini-app:${BRANCH_NAME}-latest
+    image: ${REGISTRY_URL}/${GITHUB_REPO}/mini-app-sbt-worker:${BRANCH_NAME}-latest
     <<: *default-extra-hosts
     deploy:
       resources:
@@ -394,7 +394,7 @@ services:
 
   mini-app-nft-api-worker:
     hostname: mini-app-nft-api-worker
-    image: ${REGISTRY_URL}/${GITHUB_REPO}/mini-app:${BRANCH_NAME}-latest
+    image: ${REGISTRY_URL}/${GITHUB_REPO}/mini-app-nft-api-worker:${BRANCH_NAME}-latest
     <<: *default-extra-hosts
     deploy:
       resources:
@@ -439,7 +439,7 @@ services:
 
   mini-app-reward-worker:
     hostname: mini-app-reward-worker
-    image: ${REGISTRY_URL}/${GITHUB_REPO}/mini-app:${BRANCH_NAME}-latest
+    image: ${REGISTRY_URL}/${GITHUB_REPO}/mini-app-reward-worker:${BRANCH_NAME}-latest
     <<: *default-extra-hosts
     deploy:
       resources:
@@ -483,7 +483,7 @@ services:
 
   mini-app-ordinary-worker:
     hostname: mini-app-ordinary-worker
-    image: ${REGISTRY_URL}/${GITHUB_REPO}/mini-app:${BRANCH_NAME}-latest
+    image: ${REGISTRY_URL}/${GITHUB_REPO}/mini-app-ordinary-worker:${BRANCH_NAME}-latest
     <<: *default-extra-hosts
     deploy:
       resources:
@@ -527,7 +527,7 @@ services:
 
   mini-app-moderation-bot:
     hostname: mini-app-moderation-bot
-    image: ${REGISTRY_URL}/${GITHUB_REPO}/mini-app:${BRANCH_NAME}-latest
+    image: ${REGISTRY_URL}/${GITHUB_REPO}/mini-app-moderation-bot:${BRANCH_NAME}-latest
     <<: *default-extra-hosts
     deploy:
       resources:
@@ -571,7 +571,7 @@ services:
 
   mini-app-poa-worker:
     hostname: mini-app-poa-worker
-    image: ${REGISTRY_URL}/${GITHUB_REPO}/mini-app:${BRANCH_NAME}-latest
+    image: ${REGISTRY_URL}/${GITHUB_REPO}/mini-app-poa-worker:${BRANCH_NAME}-latest
     <<: *default-extra-hosts
     deploy:
       resources:
@@ -617,7 +617,7 @@ services:
 
   mini-app-notification-socket:
     hostname: mini-app-notification-socket
-    image: ${REGISTRY_URL}/${GITHUB_REPO}/mini-app:${BRANCH_NAME}-latest
+    image: ${REGISTRY_URL}/${GITHUB_REPO}/mini-app-notification-socket:${BRANCH_NAME}-latest
     <<: *default-extra-hosts
     ports:
       - "${SOCKET_PORT}:${SOCKET_PORT}"

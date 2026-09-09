@@ -250,7 +250,7 @@ services:
       - pgadmin:/var/lib/pgadmin
 
   telegram-bot:
-    image: ${REGISTRY_URL}/${GITHUB_REPO}/telegram-bot:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/telegram-bot:${BRANCH_NAME}-latest
     hostname: telegram-bot
     deploy:
       resources:
@@ -289,7 +289,7 @@ services:
 
   mini-app:
     hostname: mini-app
-    image: ${REGISTRY_URL}/${GITHUB_REPO}/mini-app:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
     ports:
       - "${MINI_APP_PORT}:${MINI_APP_PORT}"
     <<: *default-extra-hosts
@@ -347,7 +347,7 @@ services:
 
   mini-app-sbt-worker:
     hostname: mini-app-sbt-worker
-    image: ${REGISTRY_URL}/${GITHUB_REPO}/mini-app-sbt-worker:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app-sbt-worker:${BRANCH_NAME}-latest
     <<: *default-extra-hosts
     deploy:
       resources:
@@ -391,7 +391,7 @@ services:
 
   mini-app-nft-api-worker:
     hostname: mini-app-nft-api-worker
-    image: ${REGISTRY_URL}/${GITHUB_REPO}/mini-app-nft-api-worker:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app-nft-api-worker:${BRANCH_NAME}-latest
     <<: *default-extra-hosts
     deploy:
       resources:
@@ -436,7 +436,7 @@ services:
 
   mini-app-reward-worker:
     hostname: mini-app-reward-worker
-    image: ${REGISTRY_URL}/${GITHUB_REPO}/mini-app-reward-worker:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app-reward-worker:${BRANCH_NAME}-latest
     <<: *default-extra-hosts
     deploy:
       resources:
@@ -480,7 +480,7 @@ services:
 
   mini-app-ordinary-worker:
     hostname: mini-app-ordinary-worker
-    image: ${REGISTRY_URL}/${GITHUB_REPO}/mini-app-ordinary-worker:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app-ordinary-worker:${BRANCH_NAME}-latest
     <<: *default-extra-hosts
     deploy:
       resources:
@@ -524,7 +524,7 @@ services:
 
   mini-app-moderation-bot:
     hostname: mini-app-moderation-bot
-    image: ${REGISTRY_URL}/${GITHUB_REPO}/mini-app-moderation-bot:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app-moderation-bot:${BRANCH_NAME}-latest
     <<: *default-extra-hosts
     deploy:
       resources:
@@ -568,7 +568,7 @@ services:
 
   mini-app-poa-worker:
     hostname: mini-app-poa-worker
-    image: ${REGISTRY_URL}/${GITHUB_REPO}/mini-app-poa-worker:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app-poa-worker:${BRANCH_NAME}-latest
     <<: *default-extra-hosts
     deploy:
       resources:
@@ -614,7 +614,7 @@ services:
 
   mini-app-notification-socket:
     hostname: mini-app-notification-socket
-    image: ${REGISTRY_URL}/${GITHUB_REPO}/mini-app-notification-socket:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app-notification-socket:${BRANCH_NAME}-latest
     <<: *default-extra-hosts
     ports:
       - "${SOCKET_PORT}:${SOCKET_PORT}"
@@ -663,7 +663,7 @@ services:
 
   participant-tma:
     hostname: participant-tma
-    image: ${REGISTRY_URL}/${GITHUB_REPO}/participant-tma:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/participant-tma:${BRANCH_NAME}-latest
     ports:
       - "${PARTICIPANT_TMA_PORT}:${PARTICIPANT_TMA_PORT}"
     deploy:
@@ -696,7 +696,7 @@ services:
 
   website:
     hostname: website
-    image: ${REGISTRY_URL}/${GITHUB_REPO}/website:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/website:${BRANCH_NAME}-latest
     ports:
       - "${PORT_WEB_SITE}:${PORT_WEB_SITE}"
     depends_on:
@@ -829,7 +829,7 @@ services:
         #  client-web:
         #    hostname: client-web
         #    <<: *default-extra-hosts
-        #    image: ${REGISTRY_URL}/${GITHUB_REPO}/client-web:${BRANCH_NAME}-latest
+        #    image: ghcr.io/executesg/onton/client-web:${BRANCH_NAME}-latest
         #    ports:
         #      - "${PORT_CLIENT_WEB}:${PORT_CLIENT_WEB}"
         #    environment:

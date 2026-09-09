@@ -623,8 +623,8 @@ jobs:
             echo "SSH_IP=${{ secrets.SSH_DEV_IP }}" >> $GITHUB_ENV
             echo "SSH_PORT=${{ secrets.SSH_DEV_PORT }}" >> $GITHUB_ENV
           elif [[ "$branch_name" == "main" ]]; then
-            echo "SSH_IP=${{ secrets.SSH_MAIN_IP }}" >> $GITHUB_ENV
-            echo "SSH_PORT=${{ secrets.SSH_MAIN_PORT }}" >> $GITHUB_ENV
+            echo "SSH_IP=${{ secrets.SSH_DEV_IP }}" >> $GITHUB_ENV
+            echo "SSH_PORT=${{ secrets.SSH_DEV_PORT }}" >> $GITHUB_ENV
           elif [[ "$branch_name" == "staging" ]]; then
             echo "SSH_IP=${{ secrets.SSH_STAGING_IP }}" >> $GITHUB_ENV
             echo "SSH_PORT=${{ secrets.SSH_STAGING_PORT }}" >> $GITHUB_ENV

@@ -12,30 +12,42 @@ export default function CTASection() {
         </div>
 
         <div className="md:basis-5/12">
-          <h2 className="font-bold text-[32px] mb-2 md:text-[64px] md:mb-6">ONton</h2>
-          <h3 className="font-bold text-[28px] mb-2 leading-tight">Experience the Future of Event Management</h3>
-          <p className="mb-4 md:mb-10">
-            ONton is a cutting-edge <b>event management platform</b> integrated with <b>Telegram</b> and powered by <b>TON</b>. Our app allows users to seamlessly organize, manage, and participate in events with secure, transparent transactions. Join TON Society and experience the future of event management.
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-blue-50 text-[#007AFF] mb-4 border border-blue-200 shadow-sm">
+            <span>✨</span> The Luma of Telegram & Web3
+          </div>
+          <h1 className="font-bold text-[34px] mb-2 md:text-[56px] md:mb-4 tracking-tight leading-tight">
+            Events on Telegram, Simplified.
+          </h1>
+          <h2 className="font-semibold text-[20px] md:text-[24px] mb-3 text-gray-700 leading-snug">
+            1-Click Free RSVPs · Telegram Stars · Automated Group Gating
+          </h2>
+          <p className="mb-6 md:mb-8 text-gray-600 text-[16px] leading-relaxed">
+            ONTON combines frictionless Telegram native onboarding with powerful Web3 tools. Attendees RSVP in one tap without crypto wallets, pay using Telegram Stars (Apple/Google Pay) or TON/USDT, and instantly unlock your private community chat.
           </p>
 
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-2.5 gap-border-b border-[#C8C7CB] md:border-0 pb-4">
-            <Link target="_blank"
+          <div className="flex flex-col sm:flex-row gap-3 pb-4">
+            <Link
+              target="_blank"
               href="https://t.me/theontonbot"
-              className='flex-grow'>
-              <button 
-                className="btn btn-primary w-full" 
-                >
-                Discover app
+              className="flex-grow"
+            >
+              <button className="btn btn-primary w-full py-3 text-[16px] font-semibold shadow-md hover:shadow-lg transition-all">
+                🚀 Launch Mini App
               </button>
             </Link>
-            <Link target="_blank"
-              href="https://t.me/ontonsupport"
-              className='flex-grow'>
-              <button className="btn btn-light w-full">
-                Join Telegram Community
+            <Link
+              target="_blank"
+              href="https://t.me/theontonbot/event"
+              className="flex-grow"
+            >
+              <button className="btn btn-light w-full py-3 text-[16px] font-semibold border border-gray-300 hover:bg-gray-50 transition-all">
+                🎟️ Host an Event
               </button>
             </Link>
           </div>
+          <p className="text-xs text-gray-500 mt-1">
+            Over 300,000+ Telegram users & 400+ events powered.
+          </p>
         </div>
       </div>
     </section>

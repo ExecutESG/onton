@@ -52,13 +52,6 @@ const EventTmaSettings = ({ eventId, requiresTicketToChekin, pageAffiliate }: Ev
       mainButton?.setBgColor(bgColor).setTextColor(textColor).setText(text).enable().show().on("click", onClick);
     };
 
-    if (!wallet?.account.address) {
-      setupMainButton("#e1efff", "#007aff", "Connect Your Wallet", openTonConnectModal);
-      return () => {
-        mainButton?.hide().off("click", openTonConnectModal);
-      };
-    }
-
     if (!event) return;
 
     const { userHasTicket, orderAlreadyPlace, isSoldOut } = event;
@@ -115,8 +108,13 @@ const EventTmaSettings = ({ eventId, requiresTicketToChekin, pageAffiliate }: Ev
       };
     }
 
-    // Buy Ticket if none of above conditions were true
-    setupMainButton("#007AFF", "#ffffff", "Purchase Ticket", mainBtnOnClick);
+    // Buy / RSVP Ticket if none of above conditions were true
+    const isFree = !event.eventTicket || Number(event.eventTicket.price) === 0;
+    const buttonText = isFree
+      ? "RSVP (Free)"
+      : `Get Ticket (${event.eventTicket.price} ${event.eventTicket.token?.symbol || "TON"})`;
+
+    setupMainButton("#007AFF", "#ffffff", buttonText, mainBtnOnClick);
     router.prefetch(`/event/${eventId}/buy-ticket`);
 
     return () => {

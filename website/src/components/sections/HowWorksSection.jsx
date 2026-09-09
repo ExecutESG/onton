@@ -22,22 +22,22 @@ const Card = ({ title, description, link, linkText, disabled }) => (
 
 const cards = [
   {
-    title: "Attend Events",
-    description: "Participate in various events hosted on ONton and earn Reward Tokens for your participation",
+    title: "1. Create in 60 Seconds",
+    description: "Launch your event directly on Telegram. Enable Free RSVP, accept Telegram Stars (Apple/Google Pay) or TON/USDT, and connect your official group.",
+    link: "https://t.me/theontonbot/event",
+    linkText: "Host an Event →"
+  },
+  {
+    title: "2. 1-Click Frictionless RSVP",
+    description: "Attendees register instantly without crypto wallet setups or gas fees. They receive a personal QR pass and immediate one-time group chat access.",
     link: "https://t.me/theontonbot",
-    linkText: "View Events"
+    linkText: "Explore Events →"
   },
   {
-    title: "Earn Points",
-    description: "Every SoulBound reward token you receive translates into points that accumulate weekly and monthly",
-    link: "/points",
-    disabled: true
-  },
-  {
-    title: "Climb the Leaderboard",
-    description: "Your points place you on our competitive leaderboards, updated regularly to reflect the most active and engaged participants",
-    link: "/leaderboard",
-    disabled: true
+    title: "3. Door Check-in & Badges",
+    description: "Scan attendee QR codes at the door with the fast mobile scanner. Check-in automatically unlocks verified digital Proof-of-Attendance SBT badges.",
+    link: "https://t.me/ontonlive",
+    linkText: "Join Community →"
   }
 ];
 

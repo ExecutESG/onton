@@ -36,7 +36,11 @@ export const handleShareEvent = async (
       const startDate = formatDateInTimezone(startDateInSeconds, timeZone);
       const endDate = formatDateInTimezone(endDateInSeconds, timeZone);
 
-      const defaultButton = { text: "Buy Ticket", web_app: { url } };
+      const isFree = !event.has_payment;
+      const defaultButton = {
+        text: isFree ? "🎟️ RSVP (Free)" : "🎫 Get Ticket",
+        web_app: { url },
+      };
       const customButton = custom_button || defaultButton;
 
       // Try to process and send the image

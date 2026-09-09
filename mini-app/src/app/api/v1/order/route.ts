@@ -1,5 +1,5 @@
 import { db } from "@/db/db";
-import { eventRegistrants, orders } from "@/db/schema";
+import { eventRegistrants, orders, tickets } from "@/db/schema";
 import "@/lib/gracefullyShutdown";
 import { removeKey } from "@/lib/utils";
 import { getAuthenticatedUser } from "@/server/auth";
@@ -11,6 +11,7 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { logger } from "@/server/utils/logger";
 import { applyCouponDiscount } from "@/lib/applyCouponDiscount";
+import { issueAndSendEventInviteLink } from "@/lib/eventInviteService";
 
 const addOrderSchema = z.object({
   event_uuid: z.string().uuid(),
@@ -18,8 +19,23 @@ const addOrderSchema = z.object({
   telegram: z.string(),
   company: z.string().optional(),
   position: z.string().optional(),
-  affiliate_id: z.string().nullable(),
-  owner_address: z.string().refine((data) => Address.isAddress(Address.parse(data))),
+  affiliate_id: z.string().nullable().optional(),
+  owner_address: z
+    .string()
+    .optional()
+    .nullable()
+    .refine(
+      (data) => {
+        if (!data || data.trim() === "") return true;
+        try {
+          return Address.isAddress(Address.parse(data));
+        } catch {
+          return false;
+        }
+      },
+      { message: "Invalid TON address" }
+    ),
+  payment_method: z.enum(["TON", "USDT", "STAR"]).optional(),
   coupon_code: z.string().optional().nullable(),
 });
 
@@ -125,6 +141,30 @@ export async function POST(request: Request) {
   /*                            Already Have an Order                           */
   /* -------------------------------------------------------------------------- */
   if (userOrder) {
+    if (userOrder.state === "completed") {
+      const reg = await db.query.eventRegistrants.findFirst({
+        where: and(eq(eventRegistrants.event_uuid, eventData.event_uuid), eq(eventRegistrants.user_id, userId)),
+      });
+      return Response.json({
+        order_id: userOrder.uuid,
+        message: "You already have a valid ticket for this event",
+        state: "completed",
+        is_free: userOrder.total_price === 0,
+        invite_link: reg?.telegram_invite_link || null,
+        token: {
+          token_id: userOrder.token_id,
+          symbol: paymentToken.symbol,
+          decimals: paymentToken.decimals,
+          master_address: paymentToken.master_address,
+          is_native: paymentToken.is_native,
+          logo_url: paymentToken.logo_url,
+        },
+        utm_tag: body.data.affiliate_id,
+        total_price: userOrder.total_price,
+        default_price: eventPaymentInfo.price,
+      });
+    }
+
     if (userOrder.state === "failed" || userOrder.state === "cancelled") {
       if (errorResponse) {
         return errorResponse;
@@ -153,14 +193,73 @@ export async function POST(request: Request) {
     }
 
     if (userOrder.state === "new" || userOrder.state === "confirming") {
-      await db
-        .update(orders)
-        .set({ state: "new", updatedAt: new Date(), total_price: discountedPrice })
-        .where(eq(orders.uuid, userOrder.uuid))
-        .execute();
+      const isFree = discountedPrice === 0;
+      const targetState = isFree ? "completed" : "confirming";
+
+      await db.transaction(async (trx) => {
+        await trx
+          .update(orders)
+          .set({
+            state: targetState,
+            updatedAt: new Date(),
+            total_price: discountedPrice,
+            owner_address: body.data.owner_address || userOrder.owner_address,
+          })
+          .where(eq(orders.uuid, userOrder.uuid))
+          .execute();
+
+        const register_info = removeKey(body.data, "event_uuid");
+        await trx
+          .insert(eventRegistrants)
+          .values({
+            event_uuid: body.data.event_uuid,
+            status: isFree ? "approved" : "pending",
+            register_info: register_info,
+            user_id: userId,
+          })
+          .onConflictDoUpdate({
+            target: [eventRegistrants.event_uuid, eventRegistrants.user_id],
+            set: {
+              status: isFree ? "approved" : "pending",
+              register_info: register_info,
+            },
+          })
+          .execute();
+
+        if (isFree) {
+          await trx
+            .insert(tickets)
+            .values({
+              name: body.data.full_name,
+              telegram: body.data.telegram,
+              company: body.data.company,
+              position: body.data.position,
+              order_uuid: userOrder.uuid,
+              status: "UNUSED",
+              event_uuid: body.data.event_uuid,
+              ticket_id: eventPaymentInfo.id,
+              user_id: userId,
+            })
+            .execute();
+        }
+      });
+
+      let inviteLink: string | null = null;
+      if (isFree) {
+        const reg = await db.query.eventRegistrants.findFirst({
+          where: and(eq(eventRegistrants.event_uuid, eventData.event_uuid), eq(eventRegistrants.user_id, userId)),
+        });
+        if (reg?.id) {
+          inviteLink = await issueAndSendEventInviteLink(body.data.event_uuid, userId, reg.id);
+        }
+      }
+
       return Response.json({
         order_id: userOrder.uuid,
-        message: "order is placed",
+        message: isFree ? "Ticket claimed successfully!" : "order is placed",
+        state: targetState,
+        is_free: isFree,
+        invite_link: inviteLink,
         token: {
           token_id: userOrder.token_id,
           symbol: paymentToken.symbol,
@@ -178,6 +277,10 @@ export async function POST(request: Request) {
   let new_order = null;
   let new_order_uuid = null;
   let new_order_price = -1;
+  const isFree = discountedPrice === 0;
+  const initialOrderState = isFree ? "completed" : "confirming";
+  const initialRegistrantStatus = isFree ? "approved" : "pending";
+  let insertedRegistrantId: number | null = null;
 
   /* -------------------------------------------------------------------------- */
   /*                              Create New Order                              */
@@ -197,8 +300,9 @@ export async function POST(request: Request) {
           total_price: discountedPrice,
           token_id: eventPaymentInfo.token_id,
 
-          state: "confirming",
+          state: initialOrderState,
           order_type: ticketOrderType,
+          owner_address: body.data.owner_address || null,
 
           utm_source: body.data.affiliate_id,
           updatedBy: "system",
@@ -209,33 +313,60 @@ export async function POST(request: Request) {
     ).pop();
 
     new_order_price = new_order?.total_price || -1;
+    new_order_uuid = new_order?.uuid;
 
     // insert event registrants
     const register_info = removeKey(body.data, "event_uuid");
-    await trx
+    const [regRow] = await trx
       .insert(eventRegistrants)
       .values({
         event_uuid: body.data.event_uuid,
-        status: "pending",
+        status: initialRegistrantStatus,
         register_info: register_info,
         user_id: userId,
       })
       .onConflictDoUpdate({
         target: [eventRegistrants.event_uuid, eventRegistrants.user_id],
         set: {
-          status: "pending",
+          status: initialRegistrantStatus,
           register_info: register_info,
         },
       })
+      .returning({ id: eventRegistrants.id })
       .execute();
 
-    new_order_uuid = new_order?.uuid;
+    insertedRegistrantId = regRow?.id || null;
+
+    if (isFree && new_order_uuid) {
+      await trx
+        .insert(tickets)
+        .values({
+          name: body.data.full_name,
+          telegram: body.data.telegram,
+          company: body.data.company,
+          position: body.data.position,
+          order_uuid: new_order_uuid,
+          status: "UNUSED",
+          event_uuid: body.data.event_uuid,
+          ticket_id: eventPaymentInfo.id,
+          user_id: userId,
+        })
+        .execute();
+    }
   });
+
+  let inviteLink: string | null = null;
+  if (isFree && insertedRegistrantId) {
+    inviteLink = await issueAndSendEventInviteLink(body.data.event_uuid, userId, insertedRegistrantId);
+  }
 
   if (new_order && new_order_uuid) {
     return Response.json({
       order_id: new_order_uuid,
-      message: "order created successfully",
+      message: isFree ? "Ticket claimed successfully!" : "order created successfully",
+      state: initialOrderState,
+      is_free: isFree,
+      invite_link: inviteLink,
       utm_tag: body.data.affiliate_id,
       token: {
         token_id: eventPaymentInfo.token_id,

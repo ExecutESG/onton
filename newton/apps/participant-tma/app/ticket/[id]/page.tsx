@@ -10,6 +10,8 @@ import { FiExternalLink } from "react-icons/fi";
 
 import { redirect } from "next/navigation";
 import { ClaimTicketButton } from "~/components/ticket/ClaimTicketButton";
+import { EventGroupInviteButton } from "~/components/ticket/EventGroupInviteButton";
+import { ShareTicketButton } from "~/components/ticket/ShareTicketButton";
 import SectionContent from "~/components/ticket/SectionContent";
 import TicketAttributes from "~/components/ticket/TicketAttributes";
 import TicketTmaSettings from "~/components/ticket/TicketTmaSettings";
@@ -69,6 +71,22 @@ const Ticket = async ({ params }: TicketParams) => {
     ]);
   }
 
+  attributes.push([
+    "Status",
+    <span
+      key="status"
+      className={`font-semibold ${
+        ticket.status === "checkedin"
+          ? "text-green-600"
+          : ticket.status === "approved"
+            ? "text-blue-600"
+            : "text-neutral-600"
+      }`}
+    >
+      {ticket.status === "checkedin" ? "Checked In ✅" : "Active Pass 🎟️"}
+    </span>,
+  ]);
+
   return (
     <Page variant="withSections">
       <Section variant={"bottomRounded"}>
@@ -88,7 +106,18 @@ const Ticket = async ({ params }: TicketParams) => {
         />
         <SeparatorTma />
         <TicketAttributes data={attributes} />
-        {ticket.userSbtTicket?.data?.reward_link && <ClaimTicketButton link={ticket.userSbtTicket?.data?.reward_link} />}
+        {ticket.telegram_invite_link && (
+          <EventGroupInviteButton inviteLink={ticket.telegram_invite_link} />
+        )}
+        <ShareTicketButton
+          eventUuid={ticket.event_uuid}
+          eventTitle={ticket.ticketData?.title}
+        />
+        {ticket.userSbtTicket?.data?.reward_link && (
+          <div className="mt-2 w-full">
+            <ClaimTicketButton link={ticket.userSbtTicket.data.reward_link} />
+          </div>
+        )}
       </Section>
       <TicketTmaSettings
         ticketId={params.id}

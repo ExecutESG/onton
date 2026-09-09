@@ -48,13 +48,13 @@ test.describe("Core User Journeys - Event Discovery", () => {
     expect(bannerSrc).toContain("storage.onton.live");
 
     // 2. Verify Event Title
-    const titleHeading = page.locator("text=The Future of Finance in Argentina").first();
+    const titleHeading = page.getByText(/The Future of Finance in Argentina/i).first();
     await expect(titleHeading).toBeVisible();
 
     // 3. Verify Host/Organizer Details
-    const organizerSection = page.locator("text=Organizer").first();
+    const organizerSection = page.getByText(/Organizer/i).first();
     await expect(organizerSection).toBeVisible();
-    const organizerName = page.locator("text=Farukh").first();
+    const organizerName = page.getByText(/Farukh/i).first();
     await expect(organizerName).toBeVisible();
 
     // 4. Verify Ticket Price options

@@ -29,9 +29,11 @@ import { logger } from "./utils/logger";
 import { handleShareTournament } from "./handlers/handleShareTournament";
 import { handleShareAffiliateLink } from "./handlers/handleShareAffiliateLink";
 
-import {handleShareJoinOntonLink} from "./controllers/handleShareJoinOntonLink";
+import { handleShareJoinOntonLink } from "./controllers/handleShareJoinOntonLink";
+import { createStarsInvoiceHandler } from "./controllers/starsInvoiceHandler";
+import { handleStarsPreCheckout, handleStarsSuccessfulPayment } from "./handlers/starsPaymentHandler";
 
-import {startPollSenderCron} from "./cronJobs/initializer";
+import { startPollSenderCron } from "./cronJobs/initializer";
 export const bot = new Bot<MyContext>(process.env.BOT_TOKEN || "");
 
 (async function bootstrap() {
@@ -94,8 +96,11 @@ export const bot = new Bot<MyContext>(process.env.BOT_TOKEN || "");
 
     bot.use(mainComposer);
 
+    // Stars payment handlers
+    bot.on("pre_checkout_query", handleStarsPreCheckout);
+    bot.on(":successful_payment", handleStarsSuccessfulPayment);
 
-    bot.catch(e => console.log(e));
+    bot.catch((e) => console.log(e));
 
     // 4) Start the bot (non-blocking)
     bot
@@ -133,6 +138,7 @@ export const bot = new Bot<MyContext>(process.env.BOT_TOKEN || "");
     app.post("/check-bot-admin", checkBotAdminHandler);
     app.post("/create-invite", createInviteLinkHandler);
     app.post("/delete-invite", deleteInviteLinkHandler);
+    app.post("/create-stars-invoice", createStarsInvoiceHandler);
     app.post("/share-affiliate-link", handleShareAffiliateLink);
     app.post("/share-join-onton-link-affiliate", handleShareJoinOntonLink);
     // 7) Start listening, store the server instance

@@ -15,19 +15,24 @@ export default function ONIONSection() {
                     />
                 </div>
                 <div className="md:basis-7/12 lg:basis-6/12">
-                    <h2 className="font-bold text-[32px] mb-2 md:text-[64px] md:mb-6">
-                        ONION
+                    <h2 className="font-bold text-[32px] mb-2 md:text-[54px] md:mb-4 tracking-tight">
+                        Host with ONTON
                     </h2>
-                    <h3 className="font-bold text-[20px] md:text-[36px] mb-2 leading-tight">
-                        Find out what ONION is?
+                    <h3 className="font-semibold text-[20px] md:text-[28px] mb-3 text-gray-700 leading-tight">
+                        Transform Your Community Gatherings into Unforgettable Events
                     </h3>
-                    <p className="mb-4 md:mb-[32px] md:text-[17px]">
-                        Curious about ONION? Join the exclusive Mystery event to uncover what it is and how it ties into ONton&#39;s point system. Gain access, earn points, and discover the hidden potential behind ONION—something far more exciting than you might expect. What could it be? Find out soon...
+                    <p className="mb-6 md:mb-8 md:text-[17px] text-gray-600 leading-relaxed">
+                        Whether you are organizing a global Web3 conference, a developer hackathon, or a private VIP dinner, ONTON provides everything you need directly in Telegram. Collect Free RSVPs, accept Telegram Stars (Apple/Google Pay) or crypto, gate community chats automatically, and scan QR tickets at the door.
                     </p>
 
-                    <Link target='_blank' href='https://t.me/theontonbot/event?startapp=43d33878-a1ba-4209-9169-4845066004c6' className='btn-primary btn'>
-                        Unlock ONION Mystery
-                    </Link>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                        <Link target='_blank' href='https://t.me/theontonbot/event' className='btn-primary btn text-center py-3 px-6 text-base font-semibold'>
+                            🎟️ Create an Event Now
+                        </Link>
+                        <Link target='_blank' href='https://t.me/ontonsupport' className='btn-light btn text-center py-3 px-6 text-base font-semibold border border-gray-300'>
+                            💬 Talk to Our Team
+                        </Link>
+                    </div>
                 </div>
             </div>
         </section>

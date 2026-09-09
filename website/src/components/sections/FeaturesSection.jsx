@@ -38,20 +38,12 @@ export default function FeaturesSection() {
               className="mx-auto relative" />
           </div>
 
-          <div className="grid grid-cols-1 gap-2">
+          <div className="grid grid-cols-1 gap-2.5">
             <Checkbox
               check
               label={
                 <span>
-                  <strong>Create </strong>and<strong> Manage </strong>Events
-                </span>
-              }
-            />
-            <Checkbox
-              check
-              label={
-                <span>
-                  Integration with <strong>TON Society</strong>
+                  <strong>1-Click Free RSVP:</strong> Instant passes with zero wallet friction
                 </span>
               }
             />
@@ -59,7 +51,7 @@ export default function FeaturesSection() {
               check
               label={
                 <span>
-                  Paid Events with <strong>NFT Tickets</strong>
+                  <strong>Dual-Rail Checkout:</strong> Telegram Stars (Apple/Google Pay) + TON / USDT
                 </span>
               }
             />
@@ -67,35 +59,47 @@ export default function FeaturesSection() {
               check
               label={
                 <span>
-                  Minting Soulbound Tokens
+                  <strong>Automated Chat Gating:</strong> Single-use invite links sent via Bot DM
                 </span>
               }
             />
             <Checkbox
+              check
               label={
                 <span>
-                  <strong>LeaderBoard</strong> and <strong>Points</strong> System
+                  <strong>Fast Door QR Scanner:</strong> Instant mobile check-in for organizers
                 </span>
               }
             />
             <Checkbox
+              check
               label={
                 <span>
-                  <strong>Organizers</strong> Incentivized System
+                  <strong>Proof of Attendance:</strong> Mintable SBT badges & digital event memories
                 </span>
               }
             />
             <Checkbox
+              check
               label={
                 <span>
-                  <strong>Calendar</strong> Integration
+                  <strong>Viral In-Chat Cards:</strong> Dynamic preview cards tailored for Telegram groups
                 </span>
               }
             />
             <Checkbox
+              check
               label={
                 <span>
-                  <strong>Referral</strong> System
+                  <strong>TON Society:</strong> Seamless integration with the broader TON ecosystem
+                </span>
+              }
+            />
+            <Checkbox
+              check
+              label={
+                <span>
+                  <strong>Organizer Dashboard:</strong> Real-time attendance, guest list & analytics
                 </span>
               }
             />
@@ -103,9 +107,9 @@ export default function FeaturesSection() {
             <Link
               target="_blank"
               href="https://t.me/theontonbot"
-              className="btn btn-primary block md:inline-block md:w-[270px] mt-[38px]"
+              className="btn btn-primary block md:inline-block md:w-[270px] mt-[28px] text-center"
             >
-              Discover App
+              Explore Mini App
             </Link>
           </div>
         </div>

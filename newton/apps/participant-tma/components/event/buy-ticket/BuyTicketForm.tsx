@@ -1,7 +1,7 @@
 "use client";
 
 import { useMainButton } from "@tma.js/sdk-react";
-import { useTonWallet } from "@tonconnect/ui-react";
+import { useTonConnectUI, useTonWallet } from "@tonconnect/ui-react";
 import { Card, CardContent } from "@ui/base/card";
 import { Input } from "@ui/base/input";
 import { Section } from "@ui/base/section";
@@ -9,13 +9,15 @@ import { toast } from "@ui/base/sonner";
 import SeparatorTma from "@ui/components/Separator";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import React, { FormEventHandler, useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
 import BuyTicketTmaSettings from "~/components/event/buy-ticket/BuyTicketTmaSettings";
 import { useTransferTon } from "~/hooks/ton.hooks";
 import { useAddOrderMutation } from "~/hooks/useAddOrderMutation";
-import { discountCodeAtom, isRequestingTicketAtom } from "~/store/atoms/event.atoms";
+import { createStarsInvoice } from "~/services/orders.services";
+import { discountCodeAtom, isRequestingTicketAtom, paymentRailAtom } from "~/store/atoms/event.atoms";
 import { useUserStore } from "~/store/user.store";
 import { PaymentToken } from "~/types/order.types";
 import { ALLOWED_TONFEST_EVENT_UUIDS } from "~/utils/constants";
@@ -49,11 +51,14 @@ const BuyTicketForm = (params: BuyTicketFormProps) => {
   const form = useRef<BuyTicketFormElement>(null);
   const setIsRequestingTicket = useSetAtom(isRequestingTicketAtom);
   const wallet = useTonWallet();
+  const [tonConnectUI] = useTonConnectUI();
+  const router = useRouter();
   const addOrder = useAddOrderMutation();
   const mainButton = useMainButton(true);
   const transfer = useTransferTon();
 
   const discountCode = useAtomValue(discountCodeAtom);
+  const paymentRail = useAtomValue(paymentRailAtom);
 
   const affiliate_id = params.affiliate_id || null;
 
@@ -68,18 +73,67 @@ const BuyTicketForm = (params: BuyTicketFormProps) => {
       telegram: string;
       company?: string;
       position?: string;
-      owner_address: string;
+      owner_address?: string;
     };
 
     mainButton?.hide().disable();
     mainButton?.hideLoader();
+
+    const isFree = Number(params.price) === 0;
+
     try {
       const orderData = await addOrder.mutateAsync({
         event_uuid: params.event_uuid,
         affiliate_id,
         ...data,
+        owner_address: wallet?.account.address || null,
+        payment_method: isFree ? undefined : (paymentRail === "STARS" ? "STAR" : "TON"),
         coupon_code: discountCode || null,
       });
+
+      // 1) Free RSVP or already completed ticket
+      if (isFree || orderData.is_free || orderData.state === "completed" || Number(orderData.total_price) === 0) {
+        toast.success("Ticket confirmed!");
+        router.push(`/ticket/${params.event_uuid}`);
+        return;
+      }
+
+      // 2) Telegram Stars payment flow
+      if (paymentRail === "STARS") {
+        try {
+          const invoiceRes = await createStarsInvoice(orderData.order_id);
+          // @ts-ignore
+          if (typeof window !== "undefined" && window?.Telegram?.WebApp?.openInvoice) {
+            // @ts-ignore
+            window.Telegram.WebApp.openInvoice(invoiceRes.invoice_link, (status: string) => {
+              if (status === "paid") {
+                toast.success("Payment completed! Your ticket is confirmed.");
+                router.push(`/ticket/${params.event_uuid}`);
+              } else if (status === "failed") {
+                toast.error("Payment failed. Please try again.");
+                mainButton?.show().enable();
+              } else {
+                mainButton?.show().enable();
+              }
+            });
+          } else {
+            // Fallback for browser view
+            window.open(invoiceRes.invoice_link, "_blank");
+          }
+        } catch (invoiceError: any) {
+          toast.error(invoiceError.message || "Failed to create Stars invoice");
+          mainButton?.show().enable();
+        }
+        return;
+      }
+
+      // 3) Crypto (TON / USDT) payment flow
+      if (!wallet?.account.address) {
+        toast.info("Please connect your TON wallet to pay with crypto");
+        await tonConnectUI.openModal();
+        mainButton?.show().enable();
+        return;
+      }
 
       if (!orderData.token) {
         throw new Error("Payment token information is missing in the order response");
@@ -105,8 +159,6 @@ const BuyTicketForm = (params: BuyTicketFormProps) => {
       mainButton?.show().enable();
       console.error("Error adding order:", error);
     }
-
-    // if not connected
   };
 
   const validateForm = useCallback(() => {
@@ -185,14 +237,39 @@ const BuyTicketForm = (params: BuyTicketFormProps) => {
               name="owner_address"
               value={wallet?.account.address}
             />
-            {wallet?.account.address && (
-              <button
-                type="submit"
-                className="mt-4 w-full rounded-full bg-[#007AFF] py-3 text-white font-semibold"
-              >
-                {params.paymentToken ? `Pay ${params.paymentToken.symbol}` : "Pay"}
-              </button>
-            )}
+            <div className="mt-4 w-full pr-4">
+              {Number(params.price) === 0 ? (
+                <button
+                  type="submit"
+                  className="w-full rounded-full bg-[#007AFF] py-3 text-white font-semibold shadow-md active:opacity-90"
+                >
+                  RSVP Now (Free)
+                </button>
+              ) : paymentRail === "STARS" ? (
+                <button
+                  type="submit"
+                  className="w-full rounded-full bg-[#FFB800] hover:bg-[#E5A700] py-3 text-black font-semibold shadow-md active:opacity-90 flex items-center justify-center gap-2"
+                >
+                  <span>Pay with Telegram Stars</span>
+                  <span>⭐</span>
+                </button>
+              ) : wallet?.account.address ? (
+                <button
+                  type="submit"
+                  className="w-full rounded-full bg-[#007AFF] py-3 text-white font-semibold shadow-md active:opacity-90"
+                >
+                  {params.paymentToken ? `Pay ${params.paymentToken.symbol}` : "Pay Crypto"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => tonConnectUI.openModal()}
+                  className="w-full rounded-full bg-[#007AFF] py-3 text-white font-semibold shadow-md active:opacity-90"
+                >
+                  Connect Wallet to Pay
+                </button>
+              )}
+            </div>
             <FormActionLoader />
           </form>
         </CardContent>

@@ -2,12 +2,12 @@
 
 import { Card, CardContent } from "@ui/base/card";
 import { toast } from "@ui/base/sonner";
-import { useSetAtom } from "jotai";
+import { useAtom, useSetAtom } from "jotai";
 import Image from "next/image";
 import React, { useEffect, useState } from "react";
 import { FaSpinner } from "react-icons/fa";
 import { useApplyCoupon } from "~/hooks/queries/useApplyCoupon";
-import { discountCodeAtom } from "~/store/atoms/event.atoms";
+import { discountCodeAtom, paymentRailAtom } from "~/store/atoms/event.atoms";
 
 interface DiscountCodeProps {
   initialPrice: number;
@@ -45,6 +45,7 @@ export default function CheckoutCard({
   const [couponType, setCouponType] = useState("");
   const [finalPrice, setFinalPrice] = useState(initialPrice);
   const setEventDiscountCode = useSetAtom(discountCodeAtom);
+  const [paymentRail, setPaymentRail] = useAtom(paymentRailAtom);
 
   const { mutate: applyCoupon, isPending: isLoading } = useApplyCoupon();
 
@@ -161,6 +162,35 @@ export default function CheckoutCard({
                   </button>
                 )}
               </label>
+            </div>
+          )}
+          {initialPrice > 0 && (
+            <div className="pt-3 mt-3 flex flex-col gap-2">
+              <span className="text-[13px] font-medium text-[#8E8E93]">PAYMENT METHOD</span>
+              <div className="grid grid-cols-2 gap-2 rounded-xl bg-[#EEEEF0] p-1">
+                <button
+                  type="button"
+                  onClick={() => setPaymentRail("STARS")}
+                  className={`py-2 px-3 rounded-lg text-sm font-semibold transition-all ${
+                    paymentRail === "STARS"
+                      ? "bg-white text-[#007AFF] shadow-sm"
+                      : "text-[#8E8E93] hover:text-black"
+                  }`}
+                >
+                  ⭐ Stars (1-Tap)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentRail("CRYPTO")}
+                  className={`py-2 px-3 rounded-lg text-sm font-semibold transition-all ${
+                    paymentRail === "CRYPTO"
+                      ? "bg-white text-[#007AFF] shadow-sm"
+                      : "text-[#8E8E93] hover:text-black"
+                  }`}
+                >
+                  💎 Crypto ({currency})
+                </button>
+              </div>
             </div>
           )}
         </CardContent>

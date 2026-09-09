@@ -6,7 +6,7 @@ import { useAtomValue } from "jotai";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-import { isRequestingTicketAtom } from "~/store/atoms/event.atoms";
+import { isRequestingTicketAtom, paymentRailAtom } from "~/store/atoms/event.atoms";
 import { PaymentToken } from "~/types/order.types";
 import BuyTicketConnectWalletButton from "./BuyTicketConnectWalletButton";
 import BuyTicketSendTransactionButton from "./BuyTicketSendTransactionButton";
@@ -27,6 +27,7 @@ const BuyTicketTmaSettings = (props: BuyTicketTmaSettingsProps) => {
   const tma = useMiniApp(true);
   const [tonconnectUI] = useTonConnectUI();
   const isRequestingTicket = useAtomValue(isRequestingTicketAtom);
+  const paymentRail = useAtomValue(paymentRailAtom);
 
   // state
   const router = useRouter();
@@ -123,15 +124,39 @@ const BuyTicketTmaSettings = (props: BuyTicketTmaSettingsProps) => {
         if (props.isSoldOut) {
           return null;
         }
+
+        const isFree = Number(props.price) === 0;
+
+        // 1) Free RSVP
+        if (isFree) {
+          return (
+            <BuyTicketSendTransactionButton
+              validateForm={props.validateForm}
+              price={0}
+              text="RSVP Now (Free)"
+              bgColor="#007AFF"
+            />
+          );
+        }
+
+        // 2) Telegram Stars
+        if (paymentRail === "STARS") {
+          return (
+            <BuyTicketSendTransactionButton
+              validateForm={props.validateForm}
+              price={props.price}
+              text="Pay with Stars (⭐)"
+              bgColor="#FFB800"
+              textColor="#000000"
+            />
+          );
+        }
+
+        // 3) Crypto (TON / USDT)
         if (!tonconnectUI.account?.address) {
-          console.log("[BuyTicketTmaSettings] wallet not connected");
           return <BuyTicketConnectWalletButton />;
         }
-        if (!props.paymentToken) {
-          console.log("[BuyTicketTmaSettings] missing payment token");
-          return null;
-        }
-        console.log("[BuyTicketTmaSettings] rendering pay button", props.paymentToken.symbol);
+
         return (
           <BuyTicketSendTransactionButton
             validateForm={props.validateForm}

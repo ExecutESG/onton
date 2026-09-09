@@ -781,16 +781,22 @@ jobs:
             # bidar kardane fluentd :))
             docker service update --update-failure-action rollback --update-max-failure-ratio 0.5 --force ${STACK_NAME}_fluentd || true
 
+            # Explicit reload for reward worker when deploying mini-app or reward-worker
+            if echo "$services" | grep -q -E "mini-app|mini-app-reward-worker"; then
+              echo "Forcing reload of worker: ${STACK_NAME}_mini-app-reward-worker..."
+              docker service update --update-failure-action rollback --update-max-failure-ratio 0.5 --force ${STACK_NAME}_mini-app-reward-worker || true
+            fi
+
             # Force reload of updated background workers and services in Docker Swarm
             for service in $services; do
-              case "$service" in
+              case "\$service" in
                 mini-app|mini-app-reward-worker|mini-app-sbt-worker|mini-app-ordinary-worker|mini-app-nft-api-worker|mini-app-poa-worker|mini-app-moderation-bot|mini-app-notification-socket)
-                  echo "Forcing reload of worker: ${STACK_NAME}_${service}..."
-                  docker service update --update-failure-action rollback --update-max-failure-ratio 0.5 --force ${STACK_NAME}_${service} || true
+                  echo "Forcing reload of worker: ${STACK_NAME}_\${service}..."
+                  docker service update --update-failure-action rollback --update-max-failure-ratio 0.5 --force ${STACK_NAME}_\${service} || true
                   ;;
                 telegram-bot|website|participant-tma)
-                  echo "Forcing reload of service: ${STACK_NAME}_${service}..."
-                  docker service update --update-failure-action rollback --update-max-failure-ratio 0.5 --force ${STACK_NAME}_${service} || true
+                  echo "Forcing reload of service: ${STACK_NAME}_\${service}..."
+                  docker service update --update-failure-action rollback --update-max-failure-ratio 0.5 --force ${STACK_NAME}_\${service} || true
                   ;;
               esac
             done

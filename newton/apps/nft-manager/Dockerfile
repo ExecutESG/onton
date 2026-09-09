@@ -2,7 +2,7 @@
 FROM node:22-alpine3.19 AS minimum-image
 RUN apk update
 RUN apk add nano
-RUN npm i -g pnpm
+RUN npm i -g pnpm@9.15.4
 
 # Base image
 FROM minimum-image AS base

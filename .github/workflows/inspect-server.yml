@@ -50,6 +50,13 @@ jobs:
               fi
             done
 
+            echo "=== REWARD WORKER CODE CHECK ==="
+            for cid in $(docker ps -q --filter "name=reward"); do
+              echo "Checking container $cid:"
+              docker exec "$cid" grep -n "syncSbtCollectionsForEvents" /app/src/workers/cronJobSchedulerReward.ts || true
+              docker exec "$cid" grep -n "ENABLE_SBT_COLLECTION_SYNC" /app/src/cronJobs/tasks/syncSbtCollectionsForEvents.ts || true
+            done
+
             echo "=== MAIN .ENV GITHUB_REPO AND REGISTRY ==="
             cat /home/tonont/main/.env | grep -E "GITHUB_REPO|REGISTRY_URL" || true
           '

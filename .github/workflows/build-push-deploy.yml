@@ -154,7 +154,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Validate TypeScript & Linters
         env:
@@ -165,7 +165,7 @@ jobs:
           if echo "$SERVICES" | grep -q -E "mini-app"; then
             echo "--> Validating mini-app..."
             cd mini-app
-            yarn install --frozen-lockfile --prefer-offline || yarn install
+            yarn install --frozen-lockfile --prefer-offline --ignore-engines || yarn install --ignore-engines
             yarn lint:quiet || echo "Linting reported warnings"
             cd ..
           fi

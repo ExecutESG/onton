@@ -32,6 +32,10 @@ const footerLinks = [
     title: "Shortcut",
     links: [
       {
+        text: "Organizer Guide",
+        href: "/blog/guide",
+      },
+      {
         text: "Mini app",
         href: "https://t.me/theontonbot/event",
         target: "_blank",
@@ -42,7 +46,7 @@ const footerLinks = [
         target: "_blank",
       },
       {
-        text: "ONton Comunity",
+        text: "ONTON Community",
         href: "https://t.me/ontonsupport",
         target: "_blank",
       },

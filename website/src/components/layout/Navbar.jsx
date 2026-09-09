@@ -60,8 +60,7 @@ const navItems = [
   },
   {
     label: "Organizer Guide",
-    href: "https://onton.live/blog/guide/",
-    target: "_blank",
+    href: "/blog/guide",
   },
   {
     label: "Mini app",

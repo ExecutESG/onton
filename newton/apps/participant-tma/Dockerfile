@@ -2,8 +2,8 @@
 FROM node:22-alpine3.19 AS minimum-image
 RUN apk update
 RUN apk add nano
-# Update pnpm to the latest (or a specific) version
-RUN npm install --global pnpm@latest
+# Update pnpm to a stable version compatible with workspace
+RUN npm install --global pnpm@9.15.4
 
 
 # Base stage

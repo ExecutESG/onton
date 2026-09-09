@@ -156,11 +156,37 @@ export async function findActivity(activity_id: number): Promise<findActivityRes
     throw new Error("wrong activity id");
   }
 
-  const result = await tonSocietyClient.get(`/activities/${activity_id}`);
-  return result.data;
+  if (process.env.ENABLE_TON_SOCIETY !== "true") {
+    return {
+      status: "success",
+      data: {
+        id: activity_id,
+        attributes: {
+          title: "Mock Activity",
+          description: "Mock Activity Description",
+          registration_type: "free",
+          start_date: new Date().toISOString(),
+          end_date: new Date().toISOString(),
+          capacity: 1000,
+        },
+      },
+    } as any;
+  }
+
+  try {
+    const result = await tonSocietyClient.get(`/activities/${activity_id}`);
+    return result.data;
+  } catch (error) {
+    logger.error(`Error finding activity ${activity_id} from Ton Society:`, error);
+    throw error;
+  }
 }
 
 export async function getHubs(): Promise<SocietyHub[]> {
+  if (process.env.ENABLE_TON_SOCIETY !== "true") {
+    return hardCodedHubs;
+  }
+
   // Define a cache key – you can parameterize if needed.
   const cacheKey = redisTools.cacheKeys.hubs;
 

@@ -754,14 +754,13 @@ jobs:
                 # Do not exit 1, allow deployment to proceed
             fi
             # Create network if it doesn't exist (on the server)
-            if [[ "$branch_name" == "dev" ]]; then
-              docker network ls | grep -q "onton-dev-network" || docker network create --driver overlay --attachable "onton-dev-network" || true
-            else
-              docker network ls | grep -q "onton-shadow-network" || docker network create --driver overlay --attachable "onton-shadow-network" || true
-            fi
+            docker network ls | grep -q "onton-network-${branch_name}" || docker network create --driver overlay --attachable "onton-network-${branch_name}" || true
+            docker network ls | grep -q "onton-dev-network" || docker network create --driver overlay --attachable "onton-dev-network" || true
+            docker network ls | grep -q "onton-shadow-network" || docker network create --driver overlay --attachable "onton-shadow-network" || true
 
             echo "Deploying Docker stack for $branch_name using $COMPOSE_FILE..."
-                deploy_output=\$(docker stack deploy --with-registry-auth --resolve-image always -c $COMPOSE_FILE $STACK_NAME 2>&1)
+            set +o errexit
+            deploy_output=\$(docker stack deploy --with-registry-auth --resolve-image always -c $COMPOSE_FILE $STACK_NAME 2>&1)
             deploy_status=\$?
             set -o errexit
           

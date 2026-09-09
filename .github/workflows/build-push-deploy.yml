@@ -1,6 +1,12 @@
 name: Build, Push, and Deploy Services
 
 on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: "Specific service to build/deploy, or 'all', or 'auto'"
+        required: false
+        default: "auto"
   push:
     branches:
       - "dev"
@@ -50,21 +56,6 @@ jobs:
           TELEGRAM_CHAT_ID_FOR_DEPLOYMENT: ${{ secrets.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT || vars.TELEGRAM_CHAT_ID_FOR_DEPLOYMENT }}
         run: |
           echo "Determining services that have changed..."
-          
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
-            git fetch origin ${{ github.base_ref }}
-            changed_files=$(git diff --name-only "origin/${{ github.base_ref }}" "${{ github.sha }}")
-          else
-            BEFORE="${{ github.event.before }}"
-            AFTER="${{ github.sha }}"
-            if [ -z "$BEFORE" ] || [ "$BEFORE" == "0000000000000000000000000000000000000000" ]; then
-               # New branch or forced push, fallback to diffing against previous commit
-               changed_files=$(git diff --name-only HEAD~1 HEAD) 
-            else
-               changed_files=$(git diff --name-only "$BEFORE" "$AFTER")
-            fi
-          fi
-          echo "Changed files: $changed_files"
           declare -a services_to_build=()
           # Define service directory mappings
           #  ["client-web"]="client-web-panel"
@@ -82,19 +73,44 @@ jobs:
             ["website"]="website"
             ["caddy"]="devops"
           )
-          # If Trigger-full-build.txt has changed, add all services
-          if echo "$changed_files" | grep -q "^Trigger-full-build.txt$"; then
-            echo "Trigger-full-build.txt has changed, rebuilding all services."
-            services_to_build=("${!service_dirs[@]}")
+
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.service }}" ] && [ "${{ github.event.inputs.service }}" != "auto" ]; then
+            if [ "${{ github.event.inputs.service }}" == "all" ]; then
+              services_to_build=("${!service_dirs[@]}")
+            else
+              services_to_build=("${{ github.event.inputs.service }}")
+            fi
+            echo "Workflow dispatch targeting: ${services_to_build[@]}"
           else
-            for service in "${!service_dirs[@]}"; do
-              if echo "$changed_files" | grep -q "^${service_dirs[$service]}"; then
-                services_to_build+=("$service")
+            if [ "${{ github.event_name }}" == "pull_request" ]; then
+              git fetch origin ${{ github.base_ref }}
+              changed_files=$(git diff --name-only "origin/${{ github.base_ref }}" "${{ github.sha }}")
+            else
+              BEFORE="${{ github.event.before }}"
+              AFTER="${{ github.sha }}"
+              if [ -z "$BEFORE" ] || [ "$BEFORE" == "0000000000000000000000000000000000000000" ]; then
+                 # New branch or forced push, fallback to diffing against previous commit
+                 changed_files=$(git diff --name-only HEAD~1 HEAD) 
+              else
+                 changed_files=$(git diff --name-only "$BEFORE" "$AFTER")
               fi
-            done
-            # Special check for Caddyfile
-            if echo "$changed_files" | grep -q "^Caddyfile$"; then
-                services_to_build+=("caddy")
+            fi
+            echo "Changed files: $changed_files"
+
+            # If Trigger-full-build.txt has changed, add all services
+            if echo "$changed_files" | grep -q "^Trigger-full-build.txt$"; then
+              echo "Trigger-full-build.txt has changed, rebuilding all services."
+              services_to_build=("${!service_dirs[@]}")
+            else
+              for service in "${!service_dirs[@]}"; do
+                if echo "$changed_files" | grep -q "^${service_dirs[$service]}"; then
+                  services_to_build+=("$service")
+                fi
+              done
+              # Special check for Caddyfile
+              if echo "$changed_files" | grep -q "^Caddyfile$"; then
+                  services_to_build+=("caddy")
+              fi
             fi
           fi
           # Add 'telegram-bot' if no services have changed
@@ -399,7 +415,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: [ determine-services,build-and-push ]
-    if: ${{ needs.determine-services.outputs.services_to_build != '[]' && github.event_name == 'push' }}
+    if: ${{ needs.determine-services.outputs.services_to_build != '[]' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
     permissions:
       contents: read
       packages: read

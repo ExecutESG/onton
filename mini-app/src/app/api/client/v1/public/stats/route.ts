@@ -34,7 +34,7 @@ export async function GET() {
           title: events.title,
           subtitle: events.subtitle,
           location: events.location,
-          participationType: events.participation_type,
+          participationType: events.participationType,
           startDate: events.start_date,
           endDate: events.end_date,
           imageUrl: events.image_url,

@@ -127,13 +127,13 @@ export default function ProfilePage() {
 
       {hasEventOrganizer && (
         <div
-          className="fixed text-primary drop-shadow rounded-full right-4 pt-1 z-50 cursor-pointer"
+          className="fixed text-primary drop-shadow rounded-full right-4 pt-1 z-[1100] cursor-pointer"
           onClick={(e) => {
             setSection("event_setup_form_general_step");
             router.push("/events/create");
           }}
           style={{
-            bottom: `calc(90px + var(--tg-safe-area-inset-bottom))`,
+            bottom: `calc(90px + var(--tg-safe-area-inset-bottom, 0px))`,
           }}
         >
           <FabPlusIcon />

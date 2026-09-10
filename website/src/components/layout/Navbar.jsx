@@ -59,6 +59,14 @@ const navItems = [
     href: "/#cta",
   },
   {
+    label: "Blog",
+    href: "/blog",
+  },
+  {
+    label: "Web3 Events",
+    href: "/events",
+  },
+  {
     label: "Organizer Guide",
     href: "/blog/guide",
   },

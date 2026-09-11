@@ -253,5 +253,1037 @@
     "target_wholesale_usd": 350,
     "vetting_status": "Tier-2 (Video / YouTube Partner)",
     "notes": "Adds high-authority video review content to complement live AMAs."
+  },
+  {
+    "id": "ONTON-01",
+    "name": "ONTON Announcements (EN)",
+    "organization": "ONTON Core",
+    "primary_contact": "ONTON Admin",
+    "username": "ontonlive",
+    "user_id": 7013087032,
+    "platforms": {
+      "telegram_channel": "https://t.me/ontonlive"
+    },
+    "claimed_audience": {
+      "telegram": "300K+ users ecosystem"
+    },
+    "primary_services": [
+      "Pinned Announcement",
+      "Event Feature",
+      "Push Notification Alert"
+    ],
+    "historical_quoted_retail_usd": 300,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Owned Channel (Core)",
+    "notes": "Primary English announcement channel for all event and token launches."
+  },
+  {
+    "id": "ONTON-02",
+    "name": "ONTON Events Feed",
+    "organization": "ONTON Core",
+    "primary_contact": "ONTON Admin",
+    "username": "onton_events",
+    "user_id": 7013087032,
+    "platforms": {
+      "telegram_channel": "https://t.me/onton_events"
+    },
+    "claimed_audience": {
+      "telegram": "Active event attendees"
+    },
+    "primary_services": [
+      "Event Card Broadcast",
+      "1-Tap RSVP Feature",
+      "AMA Ticket Alerts"
+    ],
+    "historical_quoted_retail_usd": 200,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Owned Channel (Core)",
+    "notes": "Dedicated event broadcast channel. Direct RSVP feed."
+  },
+  {
+    "id": "ONTON-03",
+    "name": "ONTON | \u041d\u043e\u0432\u043e\u0441\u0442\u0438 (RU)",
+    "organization": "ONTON Core",
+    "primary_contact": "ONTON Admin",
+    "username": "ontonlive_ru",
+    "user_id": 7013087032,
+    "platforms": {
+      "telegram_channel": "https://t.me/ontonlive_ru"
+    },
+    "claimed_audience": {
+      "telegram": "CIS / RU Web3 Community"
+    },
+    "primary_services": [
+      "Russian Language Translation & Pinned Announcement",
+      "Community Broadcast"
+    ],
+    "historical_quoted_retail_usd": 150,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Owned Channel (Regional)",
+    "notes": "Key regional channel for CIS/Russian-speaking participants."
+  },
+  {
+    "id": "ONTON-04",
+    "name": "ONTON Farsi (FA)",
+    "organization": "ONTON Core",
+    "primary_contact": "ONTON Admin",
+    "username": "ontonlive_fa",
+    "user_id": 7013087032,
+    "platforms": {
+      "telegram_channel": "https://t.me/ontonlive_fa"
+    },
+    "claimed_audience": {
+      "telegram": "Persian TON Community"
+    },
+    "primary_services": [
+      "Persian Language Announcement & Support"
+    ],
+    "historical_quoted_retail_usd": 100,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Owned Channel (Regional)",
+    "notes": "Regional channel for Iranian / Persian Web3 developers and users."
+  },
+  {
+    "id": "OP-01",
+    "name": "TON Persian Founders",
+    "organization": "TON Persian Founders",
+    "primary_contact": "Zoobin",
+    "username": "",
+    "user_id": -1002294766987,
+    "platforms": {
+      "telegram_chat": "Chat ID -1002294766987"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: Zoobin (2026-06-13 08:52): \u0648 \u0647\u0645\u0647 \u0686\u06cc\u0648 \u062f\u0627\u0631\u0645 \u062a\u062c\u0631\u0628\u06cc \u06cc\u0627\u062f \u0645\u06cc\u06af\u06cc\u0631\u0645 \u0648 \u0645\u06cc\u062a\u0648\u0646\u0645 \u0627\u0634\u062a\u0628\u0627\u0647 \u0632\u06cc\u0627\u062f \u062f\u0627\u0634\u062a\u0647 \u0628\u0627\u0634\u0645..."
+  },
+  {
+    "id": "OP-02",
+    "name": "Folk",
+    "organization": "Folk",
+    "primary_contact": "Muaz",
+    "username": "",
+    "user_id": -1002683405579,
+    "platforms": {
+      "telegram_chat": "Chat ID -1002683405579"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: Muaz (2026-06-10 18:05): @Thequails can you drop me a DM// currently I am working with another project.. ..."
+  },
+  {
+    "id": "OP-03",
+    "name": "Tonalytics",
+    "organization": "Tonalytics",
+    "primary_contact": "Behindthemask \ud83d\udc8e\ud83e\udd77\ud83c\udffd",
+    "username": "",
+    "user_id": -1002668690877,
+    "platforms": {
+      "telegram_chat": "Chat ID -1002668690877"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: Behindthemask \ud83d\udc8e\ud83e\udd77\ud83c\udffd (2026-06-10 14:18): Hi @alexgoreninov @Goreninoff  meet @MuazXinthix..."
+  },
+  {
+    "id": "OP-04",
+    "name": "Bazaar Bridge",
+    "organization": "Bazaar Bridge",
+    "primary_contact": "Behindthemask \ud83d\udc8e\ud83e\udd77\ud83c\udffd",
+    "username": "",
+    "user_id": -1002617665925,
+    "platforms": {
+      "telegram_chat": "Chat ID -1002617665925"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: Behindthemask \ud83d\udc8e\ud83e\udd77\ud83c\udffd (2025-04-03 16:18): ill be needing this asap so i can send to the designers to commence actions on  ..."
+  },
+  {
+    "id": "OP-05",
+    "name": "bcoinpartners ONTON",
+    "organization": "bcoinpartners ONTON",
+    "primary_contact": "Fedor 2048 |",
+    "username": "",
+    "user_id": -4995442386,
+    "platforms": {
+      "telegram_chat": "Chat ID -4995442386"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: Fedor 2048 | (2025-12-12 11:29): Also we have an agency https://t.me/agncy2048\n\nWe are interested in any traffic/..."
+  },
+  {
+    "id": "OP-06",
+    "name": "BEETON",
+    "organization": "BEETON",
+    "primary_contact": "\u041a\u0440\u0438\u043f\u0442\u043e",
+    "username": "",
+    "user_id": -4675583892,
+    "platforms": {
+      "telegram_chat": "Chat ID -4675583892"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: \u041a\u0440\u0438\u043f\u0442\u043e (2025-10-22 13:00): \u043a\u043e\u043b\u043b\u0435\u0433\u0438, \u0432\u044b \u043f\u043e\u043c\u043e\u0436\u0435\u0442\u0435 \u0440\u0435\u0448\u0438\u0442\u044c \u043f\u0440\u043e\u0431\u043b\u0435\u043c\u0443? \u0432\u0440\u0435\u043c\u044f \u0438\u0434\u0435\u0442 - \u043d\u0438\u043a\u0430\u043a\u0438\u0445 \u0434\u0432\u0438\u0436\u0435\u043d\u0438\u0439 \u043d\u0435\u0442..."
+  },
+  {
+    "id": "OP-07",
+    "name": "BeWhale",
+    "organization": "BeWhale",
+    "primary_contact": "Babak",
+    "username": "",
+    "user_id": -1002409393626,
+    "platforms": {
+      "telegram_chat": "Chat ID -1002409393626"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: Babak (2025-10-01 11:57): Hi @Mfarimani \nI think Vadim has not received ONIONs as partner for the NFT camp..."
+  },
+  {
+    "id": "OP-08",
+    "name": "ONton x GVWS",
+    "organization": "ONton x GVWS",
+    "primary_contact": "Grishka",
+    "username": "",
+    "user_id": -1002585599554,
+    "platforms": {
+      "telegram_chat": "Chat ID -1002585599554"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: Grishka (2025-09-30 12:43): @Behindthe_mask1 hey! \nHow we can claim our onion?..."
+  },
+  {
+    "id": "OP-09",
+    "name": "[C] Hubz",
+    "organization": "[C] Hubz",
+    "primary_contact": "Mahdi",
+    "username": "",
+    "user_id": -1002633996193,
+    "platforms": {
+      "telegram_chat": "Chat ID -1002633996193"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: Mahdi (2025-09-03 10:29): Done..."
+  },
+  {
+    "id": "OP-10",
+    "name": "LEGBO",
+    "organization": "LEGBO",
+    "primary_contact": "Babak",
+    "username": "",
+    "user_id": -4724505295,
+    "platforms": {
+      "telegram_chat": "Chat ID -4724505295"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: Babak (2025-08-25 14:07): whats up..."
+  },
+  {
+    "id": "OP-11",
+    "name": "Your Premium | Your Notcoin",
+    "organization": "Your Premium | Your Notcoin",
+    "primary_contact": "Babak",
+    "username": "",
+    "user_id": -4786297285,
+    "platforms": {
+      "telegram_chat": "Chat ID -4786297285"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: Babak (2025-08-23 12:08): Bro \ud83d\ude02\ud83d\ude02..."
+  },
+  {
+    "id": "OP-12",
+    "name": "FOLLOWDRAGONS/BITJAM",
+    "organization": "FOLLOWDRAGONS/BITJAM",
+    "primary_contact": "\u9f99\ud83d\udc8eFollowDragons",
+    "username": "",
+    "user_id": -4726046707,
+    "platforms": {
+      "telegram_chat": "Chat ID -4726046707"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: \u9f99\ud83d\udc8eFollowDragons (2025-08-22 14:47): \u2764\ufe0f\u200d\ud83d\udd25 We listed $ONIT in our Holdzilla wallet as part of our Onton support initia..."
+  },
+  {
+    "id": "OP-13",
+    "name": "Viper",
+    "organization": "Viper",
+    "primary_contact": "Behindthemask \ud83d\udc8e\ud83e\udd77\ud83c\udffd",
+    "username": "",
+    "user_id": -1002641724771,
+    "platforms": {
+      "telegram_chat": "Chat ID -1002641724771"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: Behindthemask \ud83d\udc8e\ud83e\udd77\ud83c\udffd (2025-07-29 15:19): \ud83c\udf89 Round 1 Sold Out \u2014 Before Time Ran Out!\nLet\u2019s cool down for 10 minutes... then..."
+  },
+  {
+    "id": "OP-14",
+    "name": "YEMINIZ",
+    "organization": "YEMINIZ",
+    "primary_contact": "Ade \ud83d\udc51",
+    "username": "",
+    "user_id": -4656491908,
+    "platforms": {
+      "telegram_chat": "Chat ID -4656491908"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: Ade \ud83d\udc51 (2025-07-29 17:08): Hey Dear Partner,\n\n[ @yeminizz \u00a0 ]\n\nThank you so much for your support so far!\n\n..."
+  },
+  {
+    "id": "OP-15",
+    "name": "Wonka",
+    "organization": "Wonka",
+    "primary_contact": "Behindthemask \ud83d\udc8e\ud83e\udd77\ud83c\udffd",
+    "username": "",
+    "user_id": -4719941260,
+    "platforms": {
+      "telegram_chat": "Chat ID -4719941260"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: Behindthemask \ud83d\udc8e\ud83e\udd77\ud83c\udffd (2025-07-29 15:19): \ud83c\udf89 Round 1 Sold Out \u2014 Before Time Ran Out!\nLet\u2019s cool down for 10 minutes... then..."
+  },
+  {
+    "id": "OP-16",
+    "name": "ROUNDCHICKENTON",
+    "organization": "ROUNDCHICKENTON",
+    "primary_contact": "Behindthemask \ud83d\udc8e\ud83e\udd77\ud83c\udffd",
+    "username": "",
+    "user_id": -4698113891,
+    "platforms": {
+      "telegram_chat": "Chat ID -4698113891"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: Behindthemask \ud83d\udc8e\ud83e\udd77\ud83c\udffd (2025-07-29 15:19): \ud83c\udf89 Round 1 Sold Out \u2014 Before Time Ran Out!\nLet\u2019s cool down for 10 minutes... then..."
+  },
+  {
+    "id": "OP-17",
+    "name": "MR. BASH",
+    "organization": "MR. BASH",
+    "primary_contact": "Behindthemask \ud83d\udc8e\ud83e\udd77\ud83c\udffd",
+    "username": "",
+    "user_id": -4679656250,
+    "platforms": {
+      "telegram_chat": "Chat ID -4679656250"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: Behindthemask \ud83d\udc8e\ud83e\udd77\ud83c\udffd (2025-07-29 15:19): \ud83c\udf89 Round 1 Sold Out \u2014 Before Time Ran Out!\nLet\u2019s cool down for 10 minutes... then..."
+  },
+  {
+    "id": "OP-18",
+    "name": "Jivo Pets",
+    "organization": "Jivo Pets",
+    "primary_contact": "Behindthemask \ud83d\udc8e\ud83e\udd77\ud83c\udffd",
+    "username": "",
+    "user_id": -4622269676,
+    "platforms": {
+      "telegram_chat": "Chat ID -4622269676"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: Behindthemask \ud83d\udc8e\ud83e\udd77\ud83c\udffd (2025-07-29 15:19): \ud83c\udf89 Round 1 Sold Out \u2014 Before Time Ran Out!\nLet\u2019s cool down for 10 minutes... then..."
+  },
+  {
+    "id": "OP-19",
+    "name": "ONTON X Architect.Ton",
+    "organization": "ONTON X Architect.Ton",
+    "primary_contact": "Behindthemask \ud83d\udc8e\ud83e\udd77\ud83c\udffd",
+    "username": "",
+    "user_id": -4602547353,
+    "platforms": {
+      "telegram_chat": "Chat ID -4602547353"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: Behindthemask \ud83d\udc8e\ud83e\udd77\ud83c\udffd (2025-07-29 15:19): \ud83c\udf89 Round 1 Sold Out \u2014 Before Time Ran Out!\nLet\u2019s cool down for 10 minutes... then..."
+  },
+  {
+    "id": "OP-20",
+    "name": "Syde.fi",
+    "organization": "Syde.fi",
+    "primary_contact": "Behindthemask \ud83d\udc8e\ud83e\udd77\ud83c\udffd",
+    "username": "",
+    "user_id": -1002678147789,
+    "platforms": {
+      "telegram_chat": "Chat ID -1002678147789"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: Behindthemask \ud83d\udc8e\ud83e\udd77\ud83c\udffd (2025-07-29 15:19): \ud83c\udf89 Round 1 Sold Out \u2014 Before Time Ran Out!\nLet\u2019s cool down for 10 minutes... then..."
+  },
+  {
+    "id": "OP-21",
+    "name": "ELVIS",
+    "organization": "ELVIS",
+    "primary_contact": "Behindthemask \ud83d\udc8e\ud83e\udd77\ud83c\udffd",
+    "username": "",
+    "user_id": -4623638867,
+    "platforms": {
+      "telegram_chat": "Chat ID -4623638867"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: Behindthemask \ud83d\udc8e\ud83e\udd77\ud83c\udffd (2025-07-29 15:19): \ud83c\udf89 Round 1 Sold Out \u2014 Before Time Ran Out!\nLet\u2019s cool down for 10 minutes... then..."
+  },
+  {
+    "id": "OP-22",
+    "name": "ARNI on TON",
+    "organization": "ARNI on TON",
+    "primary_contact": "Behindthemask \ud83d\udc8e\ud83e\udd77\ud83c\udffd",
+    "username": "",
+    "user_id": -4687338386,
+    "platforms": {
+      "telegram_chat": "Chat ID -4687338386"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: Behindthemask \ud83d\udc8e\ud83e\udd77\ud83c\udffd (2025-07-29 15:19): \ud83c\udf89 Round 1 Sold Out \u2014 Before Time Ran Out!\nLet\u2019s cool down for 10 minutes... then..."
+  },
+  {
+    "id": "OP-23",
+    "name": "REIGN",
+    "organization": "REIGN",
+    "primary_contact": "Babak",
+    "username": "",
+    "user_id": -4768338421,
+    "platforms": {
+      "telegram_chat": "Chat ID -4768338421"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: Babak (2025-07-30 16:24): yeb..."
+  },
+  {
+    "id": "OP-24",
+    "name": "Zeroikins",
+    "organization": "Zeroikins",
+    "primary_contact": "Ade \ud83d\udc51",
+    "username": "",
+    "user_id": -4610503426,
+    "platforms": {
+      "telegram_chat": "Chat ID -4610503426"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: Ade \ud83d\udc51 (2025-07-29 13:41): Dear Partner, [ @zeroikins  \u00a0 ]\n\nReminder: ONION Fair Launch Auction goes live t..."
+  },
+  {
+    "id": "OP-25",
+    "name": "Xem On TON",
+    "organization": "Xem On TON",
+    "primary_contact": "Babak",
+    "username": "",
+    "user_id": -4602080924,
+    "platforms": {
+      "telegram_chat": "Chat ID -4602080924"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: Babak (2025-07-29 17:38): Hey bro \nSorry I wanted to respond earlier but I lost the message.\nWe will make ..."
+  },
+  {
+    "id": "OP-26",
+    "name": "Ton2k",
+    "organization": "Ton2k",
+    "primary_contact": "Behindthemask \ud83d\udc8e\ud83e\udd77\ud83c\udffd",
+    "username": "",
+    "user_id": -4717211510,
+    "platforms": {
+      "telegram_chat": "Chat ID -4717211510"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: Behindthemask \ud83d\udc8e\ud83e\udd77\ud83c\udffd (2025-07-29 15:19): \ud83c\udf89 Round 1 Sold Out \u2014 Before Time Ran Out!\nLet\u2019s cool down for 10 minutes... then..."
+  },
+  {
+    "id": "OP-27",
+    "name": "Masterverses",
+    "organization": "Masterverses",
+    "primary_contact": "Behindthemask \ud83d\udc8e\ud83e\udd77\ud83c\udffd",
+    "username": "",
+    "user_id": -1002609978162,
+    "platforms": {
+      "telegram_chat": "Chat ID -1002609978162"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: Behindthemask \ud83d\udc8e\ud83e\udd77\ud83c\udffd (2025-07-29 15:19): \ud83c\udf89 Round 1 Sold Out \u2014 Before Time Ran Out!\nLet\u2019s cool down for 10 minutes... then..."
+  },
+  {
+    "id": "OP-28",
+    "name": "BB & CRYPTO",
+    "organization": "BB & CRYPTO",
+    "primary_contact": "Babak",
+    "username": "",
+    "user_id": -4744936394,
+    "platforms": {
+      "telegram_chat": "Chat ID -4744936394"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: Babak (2025-08-14 17:41): Hi \nAs far as I know, it only includes the NFTs and the fair launch \nNot the one..."
+  },
+  {
+    "id": "OP-29",
+    "name": "JANA",
+    "organization": "JANA",
+    "primary_contact": "Jana \ud83c\udde7\ud83c\uddf7\ud83c\udde6\ud83c\uddfa",
+    "username": "",
+    "user_id": -4954920944,
+    "platforms": {
+      "telegram_chat": "Chat ID -4954920944"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: Jana \ud83c\udde7\ud83c\uddf7\ud83c\udde6\ud83c\uddfa (2025-08-12 22:00): Great and you?..."
+  },
+  {
+    "id": "OP-30",
+    "name": "GoMining",
+    "organization": "GoMining",
+    "primary_contact": "Behindthemask \ud83d\udc8e\ud83e\udd77\ud83c\udffd",
+    "username": "",
+    "user_id": -1002625129873,
+    "platforms": {
+      "telegram_chat": "Chat ID -1002625129873"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: Behindthemask \ud83d\udc8e\ud83e\udd77\ud83c\udffd (2025-04-07 04:10): @FakhulMiah @jdreier \n\nLet's know if you are in, as we are looking to finalize o..."
+  },
+  {
+    "id": "OP-31",
+    "name": "E-Football Manager",
+    "organization": "E-Football Manager",
+    "primary_contact": "Behindthemask \ud83d\udc8e\ud83e\udd77\ud83c\udffd",
+    "username": "",
+    "user_id": -1002613853584,
+    "platforms": {
+      "telegram_chat": "Chat ID -1002613853584"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: Behindthemask \ud83d\udc8e\ud83e\udd77\ud83c\udffd (2025-04-07 04:09): Hey @EFM_TON  let's know if you are in, as we are looking to finalize our partne..."
+  },
+  {
+    "id": "OP-32",
+    "name": "Fintax",
+    "organization": "Fintax",
+    "primary_contact": "Behindthemask \ud83d\udc8e\ud83e\udd77\ud83c\udffd",
+    "username": "",
+    "user_id": -1002597673872,
+    "platforms": {
+      "telegram_chat": "Chat ID -1002597673872"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: Behindthemask \ud83d\udc8e\ud83e\udd77\ud83c\udffd (2025-04-07 04:06): Hey @piesakuya let's know if you are in, as we are looking to finalize our partn..."
+  },
+  {
+    "id": "OP-33",
+    "name": "CryptoMagnate",
+    "organization": "CryptoMagnate",
+    "primary_contact": "Behindthemask \ud83d\udc8e\ud83e\udd77\ud83c\udffd",
+    "username": "",
+    "user_id": -1002668846685,
+    "platforms": {
+      "telegram_chat": "Chat ID -1002668846685"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: Behindthemask \ud83d\udc8e\ud83e\udd77\ud83c\udffd (2025-04-05 07:40): Hi Artem,\n\nThank you for your thoughtful response and for taking the time to rev..."
+  },
+  {
+    "id": "OP-34",
+    "name": "KC",
+    "organization": "KC",
+    "primary_contact": "Babak",
+    "username": "",
+    "user_id": -4674106293,
+    "platforms": {
+      "telegram_chat": "Chat ID -4674106293"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: Babak (2025-07-30 16:28): Hey @KC_web3 \nHow are you doing man?..."
+  },
+  {
+    "id": "OP-35",
+    "name": "ONION Launch Partners",
+    "organization": "ONION Launch Partners",
+    "primary_contact": "ONTON",
+    "username": "",
+    "user_id": -1002436519875,
+    "platforms": {
+      "telegram_chat": "Chat ID -1002436519875"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: ONTON (2025-06-28 20:16): Lets invite all launch partners here\n@Behindthe_mask1 @elbabix..."
+  },
+  {
+    "id": "OP-36",
+    "name": "TON Persian Founders",
+    "organization": "TON Persian Founders",
+    "primary_contact": "Mahdi",
+    "username": "",
+    "user_id": -4671013921,
+    "platforms": {
+      "telegram_chat": "Chat ID -4671013921"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: Mahdi (2025-05-03 18:41): \u0645\u0645\u0646\u0648\u0646 \u0627\u062d\u0633\u0627\u0646 \u062c\u0627\u0646.\n\u0645\u062a\u0627\u0633\u0641\u0627\u0646\u0647 \u0647\u0646\u0648\u0632 \u0628\u0627 \u0635\u0627\u0628\u0631 \u0645\u0644\u0627\u0642\u0627\u062a \u0646\u06a9\u0631\u062f\u0645.\n\u0627\u0644\u0627\u0646 \u0628\u0647\u0634 \u067e\u06cc\u0627\u0645 \u062f\u0627\u062f\u0645.\n\n\u0646\u0645\u06cc \u062f\u0648..."
+  },
+  {
+    "id": "OP-37",
+    "name": "Play2Win partnership",
+    "organization": "Play2Win partnership",
+    "primary_contact": "k k",
+    "username": "",
+    "user_id": -1002496964120,
+    "platforms": {
+      "telegram_chat": "Chat ID -1002496964120"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: k k (2025-03-14 11:53): Good day! Waiting for our creative director and devs will take a look at possibi..."
+  },
+  {
+    "id": "OP-38",
+    "name": "Genesis ONIONs Launch Partners",
+    "organization": "Genesis ONIONs Launch Partners",
+    "primary_contact": "Admin",
+    "username": "",
+    "user_id": -4637922023,
+    "platforms": {
+      "telegram_chat": "Chat ID -4637922023"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Existing co-marketing partnership chat with ONTON."
+  },
+  {
+    "id": "OP-39",
+    "name": "Play2Win partnership",
+    "organization": "Play2Win partnership",
+    "primary_contact": "andrey m",
+    "username": "",
+    "user_id": -4728166373,
+    "platforms": {
+      "telegram_chat": "Chat ID -4728166373"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: andrey m (2025-03-12 12:13): hi there\nI am Andrey..."
+  },
+  {
+    "id": "OP-40",
+    "name": "ONTON Organizers",
+    "organization": "ONTON Organizers",
+    "primary_contact": "Admin",
+    "username": "",
+    "user_id": -1002492177355,
+    "platforms": {
+      "telegram_chat": "Chat ID -1002492177355"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Existing co-marketing partnership chat with ONTON."
+  },
+  {
+    "id": "OP-41",
+    "name": "ONTON Organizers",
+    "organization": "ONTON Organizers",
+    "primary_contact": "Malena",
+    "username": "",
+    "user_id": -4724856097,
+    "platforms": {
+      "telegram_chat": "Chat ID -4724856097"
+    },
+    "claimed_audience": {
+      "community": "Partner Community / Mini App"
+    },
+    "primary_services": [
+      "Cross-Promotion",
+      "AMA Exchange",
+      "Syndicate Cohort Client / Partner"
+    ],
+    "historical_quoted_retail_usd": 0,
+    "target_wholesale_usd": 0,
+    "vetting_status": "Ecosystem Partner (Active Chat)",
+    "notes": "Last contact: Malena (2025-01-06 08:01): Please make it super group..."
   }
 ]

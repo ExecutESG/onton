@@ -28,7 +28,7 @@ test.describe("SBT Engine API & Endpoint Tests", () => {
     expect(response.status()).toBe(200);
     const body = await response.json();
     expect(body[0]).toBeDefined();
-    expect(body[0]?.result?.data).toBeNull(); // non-existent event returns null collection cleanly
+    expect(body[0]?.result?.data?.collection).toBeNull(); // non-existent event returns null collection cleanly
   });
 
   test("tRPC sbt.getWalletBadges responds with array of badges", async ({ request }) => {

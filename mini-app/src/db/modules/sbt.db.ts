@@ -3,9 +3,84 @@ import { sbtCollections, SbtCollectionInsert, SbtCollectionRow, SbtCollectionUpd
 import { sbtItems, SbtItemInsert, SbtItemRow, SbtItemUpdate } from "@/db/schema/sbtItems";
 import { and, desc, eq, sql } from "drizzle-orm";
 
+let tablesEnsured = false;
+
+export async function ensureSbtTables(): Promise<void> {
+  if (tablesEnsured) return;
+
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS "public"."sbt_collections" (
+        "id" serial PRIMARY KEY NOT NULL,
+        "event_uuid" varchar(255) NOT NULL,
+        "collection_address" varchar(255) NOT NULL,
+        "owner_address" varchar(255) NOT NULL,
+        "authority_address" varchar(255) NOT NULL,
+        "name" varchar(255) NOT NULL,
+        "description" text,
+        "image" varchar(500),
+        "metadata_url" varchar(500) NOT NULL,
+        "common_content_url" varchar(500) DEFAULT '',
+        "next_item_index" bigint DEFAULT 0 NOT NULL,
+        "total_minted" bigint DEFAULT 0 NOT NULL,
+        "status" varchar(50) DEFAULT 'active' NOT NULL,
+        "created_at" timestamp DEFAULT now(),
+        "updated_at" timestamp (3) DEFAULT now()
+      );
+    `);
+
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS "sbt_collections_event_uuid_idx" ON "public"."sbt_collections" USING btree ("event_uuid");
+    `);
+
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS "sbt_collections_address_idx" ON "public"."sbt_collections" USING btree ("collection_address");
+    `);
+
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS "public"."sbt_items" (
+        "id" serial PRIMARY KEY NOT NULL,
+        "sbt_collection_id" bigint NOT NULL,
+        "item_index" bigint NOT NULL,
+        "item_address" varchar(255) NOT NULL,
+        "recipient_user_id" bigint,
+        "recipient_wallet_address" varchar(255) NOT NULL,
+        "metadata_url" varchar(500) NOT NULL,
+        "status" varchar(50) DEFAULT 'minted' NOT NULL,
+        "transaction_hash" varchar(255),
+        "revoked_at" timestamp,
+        "metadata" json,
+        "created_at" timestamp DEFAULT now(),
+        "updated_at" timestamp (3) DEFAULT now()
+      );
+    `);
+
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS "sbt_items_collection_id_idx" ON "public"."sbt_items" USING btree ("sbt_collection_id");
+    `);
+
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS "sbt_items_address_idx" ON "public"."sbt_items" USING btree ("item_address");
+    `);
+
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS "sbt_items_recipient_wallet_idx" ON "public"."sbt_items" USING btree ("recipient_wallet_address");
+    `);
+
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS "sbt_items_recipient_user_idx" ON "public"."sbt_items" USING btree ("recipient_user_id");
+    `);
+
+    tablesEnsured = true;
+  } catch (err) {
+    console.error("ensureSbtTables error:", err);
+  }
+}
+
 export const sbtDB = {
   // Collection operations
   async findCollectionByEventUuid(eventUuid: string): Promise<SbtCollectionRow | null> {
+    await ensureSbtTables();
     const rows = await db
       .select()
       .from(sbtCollections)
@@ -16,6 +91,7 @@ export const sbtDB = {
   },
 
   async findCollectionByAddress(collectionAddress: string): Promise<SbtCollectionRow | null> {
+    await ensureSbtTables();
     const rows = await db
       .select()
       .from(sbtCollections)
@@ -26,6 +102,7 @@ export const sbtDB = {
   },
 
   async findCollectionById(id: number): Promise<SbtCollectionRow | null> {
+    await ensureSbtTables();
     const rows = await db
       .select()
       .from(sbtCollections)
@@ -36,6 +113,7 @@ export const sbtDB = {
   },
 
   async insertSbtCollection(data: SbtCollectionInsert): Promise<SbtCollectionRow> {
+    await ensureSbtTables();
     const rows = await db
       .insert(sbtCollections)
       .values(data)
@@ -45,6 +123,7 @@ export const sbtDB = {
   },
 
   async updateSbtCollection(id: number, data: SbtCollectionUpdate): Promise<SbtCollectionRow | null> {
+    await ensureSbtTables();
     const rows = await db
       .update(sbtCollections)
       .set(data)
@@ -55,6 +134,7 @@ export const sbtDB = {
   },
 
   async incrementCollectionIndex(id: number): Promise<SbtCollectionRow | null> {
+    await ensureSbtTables();
     const rows = await db
       .update(sbtCollections)
       .set({
@@ -69,6 +149,7 @@ export const sbtDB = {
 
   // Item operations
   async findSbtItemByCollectionAndIndex(collectionId: number, itemIndex: number): Promise<SbtItemRow | null> {
+    await ensureSbtTables();
     const rows = await db
       .select()
       .from(sbtItems)
@@ -79,6 +160,7 @@ export const sbtDB = {
   },
 
   async findSbtItemByAddress(itemAddress: string): Promise<SbtItemRow | null> {
+    await ensureSbtTables();
     const rows = await db
       .select()
       .from(sbtItems)
@@ -89,6 +171,7 @@ export const sbtDB = {
   },
 
   async findUserSbtItems(userId: number): Promise<SbtItemRow[]> {
+    await ensureSbtTables();
     return db
       .select()
       .from(sbtItems)
@@ -98,6 +181,7 @@ export const sbtDB = {
   },
 
   async findWalletSbtItems(walletAddress: string): Promise<SbtItemRow[]> {
+    await ensureSbtTables();
     return db
       .select()
       .from(sbtItems)
@@ -120,6 +204,7 @@ export const sbtDB = {
   },
 
   async insertSbtItem(data: SbtItemInsert): Promise<SbtItemRow> {
+    await ensureSbtTables();
     const rows = await db
       .insert(sbtItems)
       .values(data)

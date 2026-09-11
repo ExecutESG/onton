@@ -21,4 +21,23 @@ test.describe("SBT Engine API & Endpoint Tests", () => {
     const data = await response.json();
     expect(data?.payload).toBeDefined();
   });
+
+  test("tRPC sbt.getEventCollection responds with valid data structure", async ({ request }) => {
+    const input = encodeURIComponent(JSON.stringify({ "0": { eventUuid: "test-event-uuid" } }));
+    const response = await request.get(`${BASE_URL}/api/trpc/sbt.getEventCollection?batch=1&input=${input}`);
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expect(body[0]).toBeDefined();
+    expect(body[0]?.result?.data).toBeNull(); // non-existent event returns null collection cleanly
+  });
+
+  test("tRPC sbt.getWalletBadges responds with array of badges", async ({ request }) => {
+    const input = encodeURIComponent(JSON.stringify({ "0": { walletAddress: "0:0000000000000000000000000000000000000000000000000000000000000000" } }));
+    const response = await request.get(`${BASE_URL}/api/trpc/sbt.getWalletBadges?batch=1&input=${input}`);
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expect(body[0]).toBeDefined();
+    expect(Array.isArray(body[0]?.result?.data?.badges)).toBe(true);
+  });
 });
+

@@ -1,0 +1,257 @@
+[
+  {
+    "id": "CP-01",
+    "name": "Crypto Panda Global",
+    "organization": "Crypto Panda",
+    "primary_contact": "Erik Berlin",
+    "username": "Desmond_CM",
+    "user_id": 7246462984,
+    "platforms": {
+      "telegram_group": "https://t.me/cryptopandaglobal",
+      "telegram_channel": "https://t.me/cryptopandaann",
+      "twitter": "https://twitter.com/CryptoPanda_gl",
+      "binance_live": "https://www.binance.com/en/live/u/23559312"
+    },
+    "claimed_audience": {
+      "binance_live": "390K+",
+      "twitter": "130K+",
+      "telegram": "100K+"
+    },
+    "primary_services": [
+      "Binance Live AMA",
+      "X Space AMA",
+      "TG Voice/Video AMA",
+      "Giveaways",
+      "Pinned Posts"
+    ],
+    "historical_quoted_retail_usd": 650,
+    "target_wholesale_usd": 380,
+    "vetting_status": "Tier-1 (Anchor Partner)",
+    "notes": "Most frequent outreach. Official Binance Live channel #23559312. Bundles 2 AMAs + 6 months post sharing."
+  },
+  {
+    "id": "CP-02",
+    "name": "Crypto Panda Promotions Unit",
+    "organization": "Crypto Panda",
+    "primary_contact": "Dustin Anderson",
+    "username": "Dustin_Andersonic",
+    "user_id": 1286099943,
+    "platforms": {
+      "telegram_group": "https://t.me/cryptopandaglobal",
+      "binance_live": "https://www.binance.com/en/live/u/23559312"
+    },
+    "claimed_audience": {
+      "binance_live": "380K+",
+      "telegram": "100K+"
+    },
+    "primary_services": [
+      "Telegram Text/Voice AMA",
+      "Binance Live AMA",
+      "Shilling",
+      "TG/X Followers"
+    ],
+    "historical_quoted_retail_usd": 400,
+    "target_wholesale_usd": 250,
+    "vetting_status": "Tier-1 (Alternate Contact)",
+    "notes": "Head of promotions at Crypto Panda. Offered $400 partnership package previously."
+  },
+  {
+    "id": "CP-03",
+    "name": "Crypto Panda Marketing Desk",
+    "organization": "Crypto Panda",
+    "primary_contact": "Husayen Sheikh",
+    "username": "Husayen_cp",
+    "user_id": 6956060166,
+    "platforms": {
+      "binance_live": "https://www.binance.com/en/live/u/23559312",
+      "telegram_channel": "https://t.me/cryptopandaann"
+    },
+    "claimed_audience": {
+      "binance_live": "380K+",
+      "telegram": "50K+"
+    },
+    "primary_services": [
+      "Combined Binance + Twitter AMA",
+      "Project Review",
+      "Strategic Announcements"
+    ],
+    "historical_quoted_retail_usd": 500,
+    "target_wholesale_usd": 300,
+    "vetting_status": "Tier-1 (Alternate Contact)",
+    "notes": "Discounted a $700 combo down to $500. Highly responsive to negotiation."
+  },
+  {
+    "id": "CFI-01",
+    "name": "CryptoFi Global Community",
+    "organization": "CryptoFi",
+    "primary_contact": "PAULO || ASTRONAUT",
+    "username": "Paulo_Astro",
+    "user_id": 7179503467,
+    "platforms": {
+      "telegram_group": "https://t.me/CryptoFi_Global",
+      "telegram_channel": "https://t.me/CryptoFi_news",
+      "twitter": "https://x.com/CryptoFi_global",
+      "binance_live": "http://www.binance.com/en/live/u/46270178"
+    },
+    "claimed_audience": {
+      "binance_live": "226K+",
+      "twitter": "128K+",
+      "telegram": "80K+"
+    },
+    "primary_services": [
+      "Binance Live AMA",
+      "X-Space Broadcast",
+      "TG Voice/Video AMA",
+      "Pin Posts"
+    ],
+    "historical_quoted_retail_usd": 550,
+    "target_wholesale_usd": 320,
+    "vetting_status": "Tier-1 (Anchor Partner)",
+    "notes": "1,500+ project portfolio claimed. Strong presence across Europe and Asia."
+  },
+  {
+    "id": "CS-01",
+    "name": "Crypto Solution Network",
+    "organization": "Crypto Solution",
+    "primary_contact": "MOSXKO Admin",
+    "username": "Uhffvjjlog",
+    "user_id": 5763302447,
+    "platforms": {
+      "telegram_group": "https://bit.ly/CryptosolutionGroup",
+      "telegram_channel": "https://bit.ly/cryptosolutionchannel",
+      "twitter": "https://bit.ly/Cryptosolutionx",
+      "binance_live": "https://bit.ly/CryptosolutionBinance"
+    },
+    "claimed_audience": {
+      "binance_live": "150K+",
+      "telegram": "65K+"
+    },
+    "primary_services": [
+      "Telegram Voice/Video/Text AMA",
+      "Binance Live AMA",
+      "Twitter Space AMA",
+      "Airdrop Promo"
+    ],
+    "historical_quoted_retail_usd": 300,
+    "target_wholesale_usd": 180,
+    "vetting_status": "Tier-2 (Budget/High Margin Partner)",
+    "notes": "Best price-performance ratio. Full service package priced at only $300 retail."
+  },
+  {
+    "id": "VC-01",
+    "name": "ValenceCrypto Ecosystem",
+    "organization": "ValenceCrypto",
+    "primary_contact": "MR. Alpha || Coo",
+    "username": "Alpha_Coo",
+    "user_id": 7135934074,
+    "platforms": {
+      "telegram_channel": "https://t.me/ValenceCrypto",
+      "portfolio": "https://telegra.ph/Valence-Crypto-AMA-Details--Links-02-25"
+    },
+    "claimed_audience": {
+      "multi_platform": "700K+ cumulative"
+    },
+    "primary_services": [
+      "Multi-Exchange Streaming (Binance, KuCoin, HTX, Bitget, Gate Live)",
+      "Strategic AMAs",
+      "Listing Support"
+    ],
+    "historical_quoted_retail_usd": 800,
+    "target_wholesale_usd": 450,
+    "vetting_status": "Tier-1 (Multi-Exchange Specialist)",
+    "notes": "Access to KuCoin Live and Gate.io Live in addition to Binance Live. Ideal for higher tier packages."
+  },
+  {
+    "id": "TP-01",
+    "name": "TrafficPlaza Growth Agency",
+    "organization": "TrafficPlaza",
+    "primary_contact": "Joseph Pray",
+    "username": "TrafficPlaza",
+    "user_id": 2061282089,
+    "platforms": {
+      "telegram_channel": "https://t.me/TrafficPlaza"
+    },
+    "claimed_audience": {
+      "telegram_mini_apps": "Millions of network users (TimeFarm, Yescoin)"
+    },
+    "primary_services": [
+      "TMA Real User Acquisition",
+      "Wallet Connected Users",
+      "TG Premium Subscriptions"
+    ],
+    "historical_quoted_retail_usd": 350,
+    "target_wholesale_usd": 200,
+    "vetting_status": "Tier-1 (TMA Traffic Specialist)",
+    "notes": "Essential for TMA game clients wanting active daily users and wallet connections."
+  },
+  {
+    "id": "EW-01",
+    "name": "Evan Weston Promotions",
+    "organization": "Independent",
+    "primary_contact": "Evan Weston",
+    "username": "Evan_Weston",
+    "user_id": 7612649987,
+    "platforms": {
+      "telegram": "Direct Network"
+    },
+    "claimed_audience": {
+      "multi_channel": "100K+"
+    },
+    "primary_services": [
+      "Telegram Text/Video AMA",
+      "Binance Live AMA",
+      "KOLs Campaign",
+      "Tweet Boosting"
+    ],
+    "historical_quoted_retail_usd": 450,
+    "target_wholesale_usd": 270,
+    "vetting_status": "Tier-2 (Syndicate Contributor)",
+    "notes": "Good for overflow syndication and additional Space listeners."
+  },
+  {
+    "id": "SA-01",
+    "name": "Spectre Shill Army",
+    "organization": "The Spectre Shill Army",
+    "primary_contact": "Ghost Guy \ud83e\udd77\ud83c\udfff\ud83c\udc04\ufe0f",
+    "username": "theghostguy1",
+    "user_id": 7436839903,
+    "platforms": {
+      "telegram_group": "@THESPECTRESHILLARMY"
+    },
+    "claimed_audience": {
+      "raiders": "Active raid squads with blue-check X accounts"
+    },
+    "primary_services": [
+      "Targeted Shilling",
+      "X Trending Raids",
+      "Blue-check Engagement"
+    ],
+    "historical_quoted_retail_usd": 250,
+    "target_wholesale_usd": 150,
+    "vetting_status": "Tier-3 (Social Raid Specialist)",
+    "notes": "Use for viral raid bursts during client AMAs to push engagement algorithms."
+  },
+  {
+    "id": "CQ-01",
+    "name": "Crypto Queen Media",
+    "organization": "Crypto Queen",
+    "primary_contact": "Emma",
+    "username": "None",
+    "user_id": 7686100786,
+    "platforms": {
+      "youtube": "Crypto Queen (260K+ Subs)"
+    },
+    "claimed_audience": {
+      "youtube_subs": "260K+"
+    },
+    "primary_services": [
+      "YouTube Video Review",
+      "Dedicated Tutorial",
+      "Community Announcement"
+    ],
+    "historical_quoted_retail_usd": 600,
+    "target_wholesale_usd": 350,
+    "vetting_status": "Tier-2 (Video / YouTube Partner)",
+    "notes": "Adds high-authority video review content to complement live AMAs."
+  }
+]

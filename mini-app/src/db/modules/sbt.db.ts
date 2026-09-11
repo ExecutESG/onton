@@ -1,6 +1,7 @@
 import { db } from "@/db/db";
 import { sbtCollections, SbtCollectionInsert, SbtCollectionRow, SbtCollectionUpdate } from "@/db/schema/sbtCollections";
 import { sbtItems, SbtItemInsert, SbtItemRow, SbtItemUpdate } from "@/db/schema/sbtItems";
+import { events } from "@/db/schema/events";
 import { and, desc, eq, sql } from "drizzle-orm";
 
 let tablesEnsured = false;
@@ -87,7 +88,47 @@ export const sbtDB = {
       .where(eq(sbtCollections.eventUuid, eventUuid))
       .limit(1)
       .execute();
-    return rows[0] || null;
+    if (rows[0]) {
+      return rows[0];
+    }
+
+    // Fallback: Check if event has a legacy sbt_collection_address in events table
+    try {
+      const legacy = await db
+        .select({
+          eventUuid: events.event_uuid,
+          title: events.title,
+          description: events.description,
+          imageUrl: events.image_url,
+          sbtCollectionAddress: events.sbt_collection_address,
+        })
+        .from(events)
+        .where(eq(events.event_uuid, eventUuid))
+        .limit(1)
+        .execute();
+
+      if (legacy[0]?.sbtCollectionAddress) {
+        const address = legacy[0].sbtCollectionAddress;
+        return await this.insertSbtCollection({
+          eventUuid,
+          collectionAddress: address,
+          ownerAddress: address,
+          authorityAddress: address,
+          name: `${legacy[0].title || "Event"} Soulbound Credentials`,
+          description: legacy[0].description || "Event Soulbound Credentials",
+          image: legacy[0].imageUrl || "",
+          metadataUrl: "",
+          commonContentUrl: "",
+          nextItemIndex: 0,
+          totalMinted: 0,
+          status: "active",
+        });
+      }
+    } catch {
+      // ignore fallback error
+    }
+
+    return null;
   },
 
   async findCollectionByAddress(collectionAddress: string): Promise<SbtCollectionRow | null> {

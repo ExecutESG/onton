@@ -265,7 +265,7 @@ function EmptyList() {
             variant="subheadline2"
             className="font-medium text-[#8e8e93]"
           >
-            Can access and manage guests list
+            Full event management: edit details, export data, and manage guests
           </Typography>
         </div>
         <div>
@@ -280,7 +280,7 @@ function EmptyList() {
             variant="subheadline2"
             className="font-medium text-[#8e8e93]"
           >
-            Can access and manage guests list
+            Scan ticket QR codes and validate attendee check-ins at the venue
           </Typography>
         </div>
       </div>

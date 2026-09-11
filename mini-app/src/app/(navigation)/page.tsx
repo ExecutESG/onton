@@ -218,7 +218,7 @@ const OngoingEvents = () => {
     <div className="flex flex-col gap-2">
       <div className="w-full pb-2 flex justify-between items-center">
         <Typography variant="title2">
-          Ongoing Events{ongoingEvents.data?.totalCount ? `(${ongoingEvents.data?.totalCount})` : ""}
+          Ongoing Events{ongoingEvents.data?.totalCount ? ` (${ongoingEvents.data?.totalCount})` : ""}
         </Typography>
         <Link
           href={"/search?" + new URLSearchParams({ eventStatus: "ongoing" }).toString()}

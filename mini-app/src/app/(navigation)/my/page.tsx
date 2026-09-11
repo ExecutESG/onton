@@ -99,7 +99,7 @@ export default function ProfilePage() {
         }}
         iconSrc={solarCupOutline}
         title="My Points"
-        subtitle="You Acheived"
+        subtitle="You Achieved"
         footerTexts={[{ items: "Points", count: Number(totalPoints) || 0 }]}
       />
       <ActionCard

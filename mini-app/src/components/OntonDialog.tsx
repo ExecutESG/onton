@@ -1,5 +1,6 @@
 import Typography from "@/components/Typography";
 import { cn } from "@/utils";
+import { X } from "lucide-react";
 import { ReactNode, useRef } from "react";
 
 export default function OntonDialog({
@@ -15,6 +16,8 @@ export default function OntonDialog({
 }) {
   const innerRef = useRef<HTMLDivElement>(null);
 
+  if (!open) return null;
+
   return (
     <div
       onClick={(e) => {
@@ -23,20 +26,32 @@ export default function OntonDialog({
         onClose();
       }}
       className={cn(
-        "fixed z-0 inset-0 bg-[#0008] duration-300 transition-ease-out opacity-0 invisible",
-        open && " visible opacity-100 z-30 "
+        "fixed inset-0 z-[1100] bg-black/70 backdrop-blur-sm transition-opacity duration-300 flex items-center justify-center p-4",
+        open ? "visible opacity-100" : "invisible opacity-0 pointer-events-none"
       )}
     >
       <div
         ref={innerRef}
         className={cn(
-          "left-1/2 top-1/2 transform -translate-x-1/2 z-40 max-h-full overflow-hidden duration-300 fixed rounded-xl max-w-full w-[80%] bg-white dark:bg-neutral-800 p-4",
-          open && "-translate-y-1/2"
+          "relative z-[1200] max-h-[90vh] overflow-y-auto duration-200 rounded-2xl max-w-sm w-full bg-white dark:bg-neutral-900 shadow-2xl p-6 border border-gray-100 dark:border-gray-800"
         )}
       >
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onClose();
+          }}
+          className="absolute right-4 top-4 p-1.5 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 bg-gray-100 dark:bg-neutral-800 transition"
+          aria-label="Close dialog"
+        >
+          <X className="w-4 h-4" />
+        </button>
+
         <Typography
           variant="title3"
-          className="text-center mb-8 font-normal"
+          bold
+          className="text-center mb-4 text-gray-900 dark:text-white"
         >
           {title}
         </Typography>

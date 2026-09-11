@@ -13,7 +13,7 @@ The event landing page (`EventPageSections.tsx`) places platform monetization (G
 ---
 
 ## 2. Current Implementation Analysis
-In [`EventPageSections.tsx`](file:///Users/mahdifarimani/Documents/AntiGravity/ONTON2026/ontonbot/mini-app/src/app/_components/Event/EventPageSections.tsx#L554-L582):
+In [`EventPageSections.tsx`](mini-app/src/app/_components/Event/EventPageSections.tsx#L554-L582):
 ```tsx
 export const EventSections = () => {
   return (

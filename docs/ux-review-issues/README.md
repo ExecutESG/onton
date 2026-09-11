@@ -4,16 +4,16 @@ This directory contains the comprehensive UX review and formal improvement speci
 
 ---
 
-## 📑 Issue Catalog
+## 📑 Live GitHub Issues Catalog
 
-| # | Issue Key | Title | Target Module | Severity / Priority |
-|---|---|---|---|---|
-| **01** | [`ISSUE-01`](./ISSUE-01-rapid-continuous-qr-scanner.md) | **[UX/TMA] Rapid Continuous QR Scanner Mode for Event Door Check-In** | `mini-app` (Scan QR) | `Critical` / High |
-| **02** | [`ISSUE-02`](./ISSUE-02-attendee-event-page-hierarchy.md) | **[UX/Flow] Re-architect Attendee Event Page Layout & Defer Web3 Onboarding** | `mini-app` (Event Page) | `High` / Conversion |
-| **03** | [`ISSUE-03`](./ISSUE-03-offline-pass-direct-chat-qr.md) | **[UX/TMA] Offline Pass & Direct Telegram Chat Delivery for Check-In QR Codes** | `telegram-bot` & `mini-app` | `Critical` / Reliability |
-| **04** | [`ISSUE-04`](./ISSUE-04-admin-batch-guest-triage.md) | **[UX/Admin] Batch Triage & Fast-Action Filters in TMA Guest Management** | `mini-app` (Guest List) | `Medium` / Efficiency |
-| **05** | [`ISSUE-05`](./ISSUE-05-fix-export-app-termination.md) | **[UX/Interaction] Fix Sudden Mini App Termination on Excel Guest List Export** | `mini-app` (Interactions) | `Medium` / Bug / SoftFix |
-| **06** | [`ISSUE-06`](./ISSUE-06-modernize-web-admin-panel.md) | **[UX/Web] Modernize Event Admin Dashboard with Analytics & Safe Printing** | `client-web-panel` | `Medium` / Admin Portal |
+| # | Issue ID | Live GitHub Link | Title | Target Module | Labels |
+|---|---|---|---|---|---|
+| **01** | `#904` | [#904](https://github.com/ExecutESG/onton/issues/904) | **[UX/TMA] Rapid Continuous QR Scanner Mode for Event Door Check-In** | `mini-app` (Scan QR) | `Design`, `enhancement`, `Critical` |
+| **02** | `#905` | [#905](https://github.com/ExecutESG/onton/issues/905) | **[UX/Flow] Re-architect Attendee Event Page Layout & Defer Web3 Onboarding** | `mini-app` (Event Page) | `Design`, `enhancement` |
+| **03** | `#906` | [#906](https://github.com/ExecutESG/onton/issues/906) | **[UX/TMA] Offline Pass & Direct Telegram Chat Delivery for Check-In QR Codes** | `telegram-bot` & `mini-app` | `Design`, `feature`, `Critical` |
+| **04** | `#908` | [#908](https://github.com/ExecutESG/onton/issues/908) | **[UX/Admin] Batch Triage & Fast-Action Filters in TMA Guest Management** | `mini-app` (Guest List) | `Design`, `enhancement` |
+| **05** | `#909` | [#909](https://github.com/ExecutESG/onton/issues/909) | **[UX/Interaction] Fix Sudden Mini App Termination on Excel Guest List Export** | `mini-app` (Interactions) | `Design`, `bug`, `softFix` |
+| **06** | `#910` | [#910](https://github.com/ExecutESG/onton/issues/910) | **[UX/Web] Modernize Event Admin Dashboard with Analytics & Safe Printing** | `client-web-panel` | `Design`, `enhancement` |
 
 ---
 

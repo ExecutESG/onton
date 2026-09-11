@@ -13,7 +13,7 @@ At event venues located in basements, hotel convention centers, or crowded halls
 ---
 
 ## 2. Current Implementation Analysis
-In [`registrant.ts`](file:///Users/mahdifarimani/Documents/AntiGravity/ONTON2026/ontonbot/mini-app/src/server/routers/registrant.ts#L141-L153):
+In [`registrant.ts`](mini-app/src/server/routers/registrant.ts#L141-L153):
 ```typescript
 if (opts.input.status === "approved") {
   const share_link = `https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME}/event?startapp=${event_uuid}`;

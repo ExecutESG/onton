@@ -13,7 +13,7 @@ Organizers managing events with 100+ registrants must manually approve or reject
 ---
 
 ## 2. Current Implementation Analysis
-In [`RegistrationGuestList.tsx`](file:///Users/mahdifarimani/Documents/AntiGravity/ONTON2026/ontonbot/mini-app/src/app/_components/Event/RegistrationGuestList.tsx#L105-L122):
+In [`RegistrationGuestList.tsx`](mini-app/src/app/_components/Event/RegistrationGuestList.tsx#L105-L122):
 ```tsx
 footerContent = hasPayment ? null : (
   <div className="flex space-x-2">

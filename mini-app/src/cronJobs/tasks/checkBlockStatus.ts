@@ -71,6 +71,10 @@ export const checkAllUsersBlockStatus = async (): Promise<void> => {
 };
 
 export const CheckAllUsersBlock = async () => {
+  if (process.env.CHECK_ALL_USERS_BLOCK_ENABLED !== "true") {
+    logger.log("CheckAllUsersBlock skipped: disabled by default to protect Telegram API rate limits.");
+    return;
+  }
   logger.log("====> Running CheckAllUsersBlock");
   await checkAllUsersBlockStatus();
   logger.log("====> Completed CheckAllUsersBlock");

@@ -13,7 +13,7 @@ At in-person events, door check-in officers face severe throughput bottlenecks. 
 ---
 
 ## 2. Current Implementation Analysis
-In [`ScanRegistrantQRCode.tsx`](file:///Users/mahdifarimani/Documents/AntiGravity/ONTON2026/ontonbot/mini-app/src/app/_components/Event/ScanRegistrantQRCode.tsx#L18-L46):
+In [`ScanRegistrantQRCode.tsx`](mini-app/src/app/_components/Event/ScanRegistrantQRCode.tsx#L18-L46):
 ```typescript
 const checkInRegistrant = trpc.registrant.checkinRegistrantRequest.useMutation({
   onSuccess: (data) => {

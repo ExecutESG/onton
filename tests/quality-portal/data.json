@@ -1,18 +1,18 @@
 {
   "meta": {
-    "generatedAt": "2026-09-09T13:57:54.661Z",
+    "generatedAt": "2026-09-11T13:28:00.858Z",
     "platform": "ONTON 2026 Production Readiness & Flaws Audit",
     "targetEnvironment": "https://app.dev.onton.live",
     "overallReadinessScore": 98,
     "marketingReady": true,
     "growthReady": true,
     "stats": {
-      "total": 74,
-      "passed": 74,
+      "total": 90,
+      "passed": 90,
       "failed": 0,
       "flaky": 0,
       "skipped": 0,
-      "durationMs": 82802.405
+      "durationMs": 88469.79299999999
     },
     "rolesCount": 6,
     "totalFlows": 27,

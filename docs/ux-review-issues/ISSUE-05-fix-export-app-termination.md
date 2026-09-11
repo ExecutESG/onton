@@ -13,7 +13,7 @@ When an event organizer taps the "Download List Excel" MainButton in the TMA gue
 ---
 
 ## 2. Current Implementation Analysis
-In [`RegistrationGuestList.tsx`](file:///Users/mahdifarimani/Documents/AntiGravity/ONTON2026/ontonbot/mini-app/src/app/_components/Event/RegistrationGuestList.tsx#L383-L404):
+In [`RegistrationGuestList.tsx`](mini-app/src/app/_components/Event/RegistrationGuestList.tsx#L383-L404):
 ```typescript
 const exportVisitorList = trpc.telegramInteractions.requestExportFile.useMutation({
   onSuccess: () => {

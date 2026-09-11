@@ -13,13 +13,13 @@ The Web Management Panel (`client-web-panel`) provides minimal operational feedb
 ---
 
 ## 2. Current Implementation Analysis
-1. **Raw UI & No Metrics** in [`dashboard/index.js`](file:///Users/mahdifarimani/Documents/AntiGravity/ONTON2026/ontonbot/client-web-panel/pages/dashboard/index.js#L12-L28):
+1. **Raw UI & No Metrics** in [`dashboard/index.js`](client-web-panel/pages/dashboard/index.js#L12-L28):
    * Shows plain `<p>Loading...</p>` and `<p>Error loading events</p>`.
    * Unfiltered grid of cards with no sorting by date, status (Draft / Live / Completed), or ticket counts.
-2. **Blocking Native Dialogs & Popup Blockers** in [`GuestList.js`](file:///Users/mahdifarimani/Documents/AntiGravity/ONTON2026/ontonbot/client-web-panel/components/MyCompo/Guests/GuestList.js#L122-L173):
+2. **Blocking Native Dialogs & Popup Blockers** in [`GuestList.js`](client-web-panel/components/MyCompo/Guests/GuestList.js#L122-L173):
    * `window.confirm(t("common.ticket_already_used") + " \n " + t("common.want_to_print_again"))` pauses JavaScript execution.
    * `window.open('', '', 'height=600,width=800')` creates an unstyled HTML print popup that is frequently blocked by Chrome/Safari/Brave popup blockers.
-3. **Information Leak** in [`client-web-panel/pages/index.js`](file:///Users/mahdifarimani/Documents/AntiGravity/ONTON2026/ontonbot/client-web-panel/pages/index.js#L7-L8):
+3. **Information Leak** in [`client-web-panel/pages/index.js`](client-web-panel/pages/index.js#L7-L8):
    * `console.log(process.env.NEXT_PUBLIC_BACKEND_URL_CLIENT); console.log(process.env)` dumps runtime environment variables to the browser console.
 
 ---

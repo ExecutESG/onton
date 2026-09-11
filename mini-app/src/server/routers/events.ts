@@ -437,18 +437,27 @@ const addEvent = adminOrganizerProtectedProcedure.input(z.object({ eventData: Ev
        */
       try {
         if (register_to_ts) {
-          const res = await registerActivity(eventDraft);
-          tsActivityId = res.data.activity_id;
+          try {
+            const res = await registerActivity(eventDraft);
+            if (res?.status === "success" && res?.data?.activity_id) {
+              tsActivityId = res.data.activity_id;
 
-          await trx
-            .update(events)
-            .set({
-              activity_id: res.data.activity_id,
-              updatedBy: user_id.toString(),
-              updatedAt: new Date(),
-            })
-            .where(eq(events.event_uuid, newEvent[0].event_uuid as string))
-            .execute();
+              await trx
+                .update(events)
+                .set({
+                  activity_id: res.data.activity_id,
+                  updatedBy: user_id.toString(),
+                  updatedAt: new Date(),
+                })
+                .where(eq(events.event_uuid, newEvent[0].event_uuid as string))
+                .execute();
+            }
+          } catch (tsError) {
+            logger.warn(
+              `Failed to register activity with Ton Society for event ${newEvent[0].event_uuid}. Proceeding without Ton Society.`,
+              tsError
+            );
+          }
         }
 
         /* ------------- Generate the message using the render function ------------- */

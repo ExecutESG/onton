@@ -21,17 +21,20 @@ export default function WebAppProvider({ children }: { children: React.ReactNode
   // Access multi-level stack from the store
   const { goBack } = useSectionStore();
 
-  // 1) Sentry + initialization (disabled)
+  // 1) Sentry + initialization
   useEffect(() => {
-    if (webApp?.initDataUnsafe.user?.id) {
+    if (webApp?.initDataUnsafe?.user?.id && webApp.initData) {
       setInitData(webApp.initData);
-      // Sentry.init({ environment: process.env.NEXT_PUBLIC_ENV });
-      // Sentry.setUser({
-      //   id: webApp.initDataUnsafe.user?.id,
-      //   username: webApp.initDataUnsafe.user?.username,
-      // });
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("telegram:initParams", webApp.initData);
+      }
+    } else if (typeof window !== "undefined") {
+      const stored = sessionStorage.getItem("telegram:initParams");
+      if (stored && !initData) {
+        setInitData(stored);
+      }
     }
-  }, [setInitData, webApp?.initData, webApp?.initDataUnsafe.user?.id, webApp?.initDataUnsafe.user?.username]);
+  }, [setInitData, initData, webApp?.initData, webApp?.initDataUnsafe?.user?.id, webApp?.initDataUnsafe?.user?.username]);
 
   // 2) Track initial history length
   const initialHistoryLength = useRef<number>(0);

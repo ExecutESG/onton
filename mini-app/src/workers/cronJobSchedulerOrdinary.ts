@@ -28,19 +28,21 @@ async function MainCronJob() {
   // this method will delete all the lock keys on startup to avoid any stale locks
   await deleteLockKeys();
 
-  new CronJob(
-    "0 1 * * *", // (cronTime) => at 1:00 AM
-    cronJobs.CheckAllUsersBlock, // (onTick)   => function to run
-    null, // (onComplete) => no special callback after job
-    true, // (start) => start immediately
-    null, // (timeZone) => e.g. "UTC" or your local
-    null, // (context)
-    false, // (runOnInit) => don't run immediately on app start
-    null, // (utcOffset)
-    false, // (unrefTimeout)
-    true // (waitForCompletion) => wait for onTick to finish
-    // No errorHandler passed
-  );
+  if (process.env.CHECK_ALL_USERS_BLOCK_ENABLED === "true") {
+    new CronJob(
+      "0 1 * * *", // (cronTime) => at 1:00 AM
+      cronJobs.CheckAllUsersBlock, // (onTick)   => function to run
+      null, // (onComplete) => no special callback after job
+      true, // (start) => start immediately
+      null, // (timeZone) => e.g. "UTC" or your local
+      null, // (context)
+      false, // (runOnInit) => don't run immediately on app start
+      null, // (utcOffset)
+      false, // (unrefTimeout)
+      true // (waitForCompletion) => wait for onTick to finish
+      // No errorHandler passed
+    );
+  }
 
   new CronJob(
     "*/1 * * * *", // (cronTime) =>  every minute

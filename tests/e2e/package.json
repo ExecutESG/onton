@@ -5,7 +5,9 @@
   "scripts": {
     "test": "playwright test",
     "test:headed": "playwright test --headed",
-    "test:report": "playwright show-report"
+    "test:report": "playwright show-report",
+    "test:quality": "playwright test && node ../quality-portal/generate-portal-data.js",
+    "portal": "node ../quality-portal/serve.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.42.0"

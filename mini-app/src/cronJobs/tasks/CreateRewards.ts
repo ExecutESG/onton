@@ -17,6 +17,11 @@ import eventPaymentDB from "@/db/modules/eventPayment.db";
  * creating rewards, then revert it back to the original date when done.
  */
 export const CreateRewards = async (pushLockTTl: () => any) => {
+  if (process.env.ENABLE_TON_SOCIETY !== "true") {
+    logger.info("CreateRewards skipped: TON Society API is deprecated and disabled.");
+    return;
+  }
+
   // 1) Gather all events that have pending rewards, sorted by event_end_date DESC
   const eventsWithPending = await eventDB.fetchEventsWithPendingRewards();
   // e.g. => { eventUuid: string, eventEndDate: number }[]

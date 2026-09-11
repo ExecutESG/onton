@@ -102,12 +102,17 @@ export default function TRPCAPIProvider({ children }: { children: React.ReactNod
           headers() {
             const headers: Record<string, string> = {};
 
-            /* Telegram init-data (your existing auth) */
-            if (initData) headers.Authorization = initData;
+            /* Telegram init-data (dynamic resolution) */
+            const storeInitData = useUserStore.getState().initData;
+            const tgInitData = typeof window !== "undefined" ? window.Telegram?.WebApp?.initData : "";
+            const sessionInitData = typeof window !== "undefined" ? sessionStorage.getItem("telegram:initParams") || "" : "";
+            const activeInitData = storeInitData || tgInitData || sessionInitData;
+
+            if (activeInitData) headers.Authorization = activeInitData;
 
             /* Session-JWT from ton-proof */
             const jwt = getJwt();
-            if (jwt) headers["x-session-jwt"] = jwt; // <- choose any header name
+            if (jwt) headers["x-session-jwt"] = jwt;
 
             return headers;
           },

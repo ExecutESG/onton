@@ -64,7 +64,7 @@ const MainFilterDrawer: React.FC<MainFilterDrawerProps> = ({
     >
       {(open, setOpen) => (
         <>
-          <div className="p-4 py-4 space-y-2 cursor-pointer">
+          <div className="p-4 py-4 space-y-2 cursor-pointer bg-white dark:bg-[#18222d] text-slate-900 dark:text-white rounded-t-2xl">
             {/* EVENT TYPE */}
             <div
               className="space-y-3 border-b-[1px] pb-1"

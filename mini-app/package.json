@@ -38,6 +38,7 @@
     "db:gen": "dotenv -e ../.env -- cross-var drizzle-kit generate",
     "db:up": "dotenv -e ../.env -- cross-var drizzle-kit up",
     "db:custom": "dotenv -e ../.env -- cross-var drizzle-kit  generate --custom",
+    "db:migrate": "dotenv -e ../.env -- cross-var tsx src/db/migrate.ts",
     "test:watch": "jest --watch",
     "format": "prettier --write ./src",
     "type:check": "dotenv -e  ../.env -- cross-var tsc --noEmit",

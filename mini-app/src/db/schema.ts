@@ -46,6 +46,8 @@ import { ontoSetting } from "./schema/ontoSetting";
 import { orders, orderTypes } from "./schema/orders";
 import { rewards, RewardsSelectType, RewardTonSocietyStatusType, tonSocietyStatusEnum } from "./schema/rewards";
 import { sbtRewardCollections } from "./schema/sbtRewardCollections";
+import { sbtCollections, SbtCollectionRow, SbtCollectionInsert, SbtCollectionUpdate } from "./schema/sbtCollections";
+import { sbtItems, SbtItemRow, SbtItemInsert, SbtItemUpdate } from "./schema/sbtItems";
 import { sideEvents } from "./schema/sideEvents";
 import { tickets, ticketsRelations } from "./schema/tickets";
 import { user_custom_flags, user_flags, userFlagsType } from "./schema/user_custom_flags";
@@ -398,6 +400,8 @@ export {
   usersLinkedin,
   usersGoogle,
   usersOutlook,
+  sbtCollections,
+  sbtItems,
 };
 
 // Type Exports
@@ -526,5 +530,10 @@ export type {
   EventMerchNotifStatusType,
   PartnershipAffiliatePurchasesRow,
   PartnershipAffiliateUserEntryType,
-
+  SbtCollectionRow,
+  SbtCollectionInsert,
+  SbtCollectionUpdate,
+  SbtItemRow,
+  SbtItemInsert,
+  SbtItemUpdate,
 };

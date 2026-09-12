@@ -1,0 +1,184 @@
+#pragma version >=0.4.0;
+#include "stdlib.fc";
+
+;; ============================================================================
+;; ONTON Phase 2 Compressed SBT (cSBT) Anchor Contract
+;; 
+;; Efficient on-chain state compression anchor storing a 32-byte Merkle root,
+;; authoritative event parameters, and cryptographically verifying off-chain
+;; attendee soulbound token inclusion proofs.
+;; ============================================================================
+
+;; Opcodes
+const int op::update_merkle_root = 0x1a8f5c32;
+const int op::transfer_ownership = 0x2daae156;
+const int op::update_metadata   = 0x3f124a9c;
+const int op::verify_proof       = 0x5e2b4f91;
+
+;; Error Codes
+const int error::unauthorized    = 401;
+const int error::invalid_proof   = 402;
+const int error::invalid_op      = 403;
+
+;; ----------------------------------------------------------------------------
+;; Persistent Storage Functions
+;; ----------------------------------------------------------------------------
+;; Storage Schema:
+;;   owner_address: MsgAddressInt
+;;   merkle_root:   uint256 (32 bytes)
+;;   event_uuid:    uint256 (32 bytes)
+;;   total_leaves:  uint32
+;;   metadata_uri:  ^Cell (TEP-64 snake format)
+;; ----------------------------------------------------------------------------
+
+(slice, int, int, int, cell) load_data() inline {
+    slice ds = get_data().begin_parse();
+    slice owner_address = ds~load_msg_addr();
+    int merkle_root = ds~load_uint(256);
+    int event_uuid = ds~load_uint(256);
+    int total_leaves = ds~load_uint(32);
+    cell metadata_uri = ds~load_ref();
+    ds.end_parse();
+    return (owner_address, merkle_root, event_uuid, total_leaves, metadata_uri);
+}
+
+() save_data(slice owner_address, int merkle_root, int event_uuid, int total_leaves, cell metadata_uri) impure inline {
+    set_data(begin_cell()
+        .store_slice(owner_address)
+        .store_uint(merkle_root, 256)
+        .store_uint(event_uuid, 256)
+        .store_uint(total_leaves, 32)
+        .store_ref(metadata_uri)
+        .end_cell());
+}
+
+;; ----------------------------------------------------------------------------
+;; Merkle Proof Verification Logic
+;; ----------------------------------------------------------------------------
+;; Verifies a directional Merkle inclusion proof against a root:
+;; Each proof step has:
+;;   - direction: uint1 (0 = sibling is on right, 1 = sibling is on left)
+;;   - sibling:   uint256 (sibling node hash)
+;; Hashes are computed using standard TON cell representation hash (SHA256)
+;; ----------------------------------------------------------------------------
+
+int check_merkle_inclusion(int leaf_hash, cell proof_cell, int root) inline {
+    slice cs = proof_cell.begin_parse();
+    int current_hash = leaf_hash;
+
+    while (cs.slice_bits() >= 257) {
+        int direction = cs~load_uint(1);
+        int sibling = cs~load_uint(256);
+
+        builder b = begin_cell();
+        if (direction == 0) {
+            b = b.store_uint(current_hash, 256).store_uint(sibling, 256);
+        } else {
+            b = b.store_uint(sibling, 256).store_uint(current_hash, 256);
+        }
+        current_hash = cell_hash(b.end_cell());
+
+        ;; Handle multi-cell proof chains
+        if ((cs.slice_bits() < 257) & (cs.slice_refs() > 0)) {
+            cs = cs~load_ref().begin_parse();
+        }
+    }
+
+    return current_hash == root;
+}
+
+;; ----------------------------------------------------------------------------
+;; Internal Message Handler
+;; ----------------------------------------------------------------------------
+
+() recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+    if (in_msg_body.slice_empty?()) {
+        return (); ;; Accept simple Toncoin transfers
+    }
+
+    slice cs = in_msg_full.begin_parse();
+    int flags = cs~load_uint(4);
+    if (flags & 1) {
+        return (); ;; Ignore bounced messages
+    }
+    slice sender_address = cs~load_msg_addr();
+
+    int op = in_msg_body~load_uint(32);
+    int query_id = in_msg_body~load_uint(64);
+
+    (slice owner_address, int merkle_root, int event_uuid, int total_leaves, cell metadata_uri) = load_data();
+
+    ;; 1. Update Merkle Root & Total Leaves (Authority only)
+    if (op == op::update_merkle_root) {
+        throw_unless(error::unauthorized, equal_slices(sender_address, owner_address));
+        int new_merkle_root = in_msg_body~load_uint(256);
+        int new_total_leaves = in_msg_body~load_uint(32);
+        save_data(owner_address, new_merkle_root, event_uuid, new_total_leaves, metadata_uri);
+        return ();
+    }
+
+    ;; 2. Transfer Ownership (Authority only)
+    if (op == op::transfer_ownership) {
+        throw_unless(error::unauthorized, equal_slices(sender_address, owner_address));
+        slice new_owner = in_msg_body~load_msg_addr();
+        save_data(new_owner, merkle_root, event_uuid, total_leaves, metadata_uri);
+        return ();
+    }
+
+    ;; 3. Update Off-Chain Metadata URI (Authority only)
+    if (op == op::update_metadata) {
+        throw_unless(error::unauthorized, equal_slices(sender_address, owner_address));
+        cell new_metadata = in_msg_body~load_ref();
+        save_data(owner_address, merkle_root, event_uuid, total_leaves, new_metadata);
+        return ();
+    }
+
+    ;; 4. Verify Inclusion Proof On-Chain
+    if (op == op::verify_proof) {
+        int leaf_hash = in_msg_body~load_uint(256);
+        cell proof_cell = in_msg_body~load_ref();
+        int is_valid = check_merkle_inclusion(leaf_hash, proof_cell, merkle_root);
+        throw_unless(error::invalid_proof, is_valid);
+        return ();
+    }
+
+    throw(error::invalid_op);
+}
+
+;; ----------------------------------------------------------------------------
+;; Getter Methods (Public TON Query Interface)
+;; ----------------------------------------------------------------------------
+
+int get_merkle_root() method_id {
+    (_, int merkle_root, _, _, _) = load_data();
+    return merkle_root;
+}
+
+int get_total_leaves() method_id {
+    (_, _, _, int total_leaves, _) = load_data();
+    return total_leaves;
+}
+
+slice get_owner_address() method_id {
+    (slice owner_address, _, _, _, _) = load_data();
+    return owner_address;
+}
+
+int get_event_uuid() method_id {
+    (_, _, int event_uuid, _, _) = load_data();
+    return event_uuid;
+}
+
+cell get_metadata_uri() method_id {
+    (_, _, _, _, cell metadata_uri) = load_data();
+    return metadata_uri;
+}
+
+(slice, int, int, int, cell) get_anchor_data() method_id {
+    return load_data();
+}
+
+int verify_inclusion(int leaf_hash, cell proof_cell) method_id {
+    (_, int merkle_root, _, _, _) = load_data();
+    return check_merkle_inclusion(leaf_hash, proof_cell, merkle_root);
+}

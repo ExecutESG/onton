@@ -696,6 +696,13 @@ jobs:
               echo "Processing service: \$service"
               if [ -z "\$service" ]; then
                 echo "Warning: Found an empty service name, skipping..."
+                continue
+              fi
+
+              # Skip pulling images for services with 0 replicas (not running on this stack)
+              replica_count=\$(docker service inspect --format '{{if .Spec.Mode.Replicated}}{{.Spec.Mode.Replicated.Replicas}}{{else}}1{{end}}' "${STACK_NAME}_\${service}" 2>/dev/null | tr -d '[:space:]')
+              if [ "\$replica_count" = "0" ]; then
+                echo "⏭️  Skipping pull for \$service (0 replicas on ${STACK_NAME})"
               else
                 echo "Pulling Docker image for service: \$service"
                 docker pull ghcr.io/${github_repo}/\${service}:${branch_name}-latest
@@ -783,6 +790,13 @@ jobs:
 
             # Force reload of updated background workers and services in Docker Swarm
             for service in $services; do
+              # Skip force reload for services with 0 replicas
+              replica_count=\$(docker service inspect --format '{{if .Spec.Mode.Replicated}}{{.Spec.Mode.Replicated.Replicas}}{{else}}1{{end}}' "${STACK_NAME}_\${service}" 2>/dev/null | tr -d '[:space:]')
+              if [ "\$replica_count" = "0" ]; then
+                echo "⏭️  Skipping reload for \$service (0 replicas on ${STACK_NAME})"
+                continue
+              fi
+
               case "$service" in
                 mini-app|mini-app-reward-worker|mini-app-sbt-worker|mini-app-ordinary-worker|mini-app-nft-api-worker|mini-app-poa-worker|mini-app-moderation-bot|mini-app-notification-socket)
                   echo "Forcing reload of worker: ${STACK_NAME}_${service}..."

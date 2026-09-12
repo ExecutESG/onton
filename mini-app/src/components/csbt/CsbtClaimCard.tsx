@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import Typography from "@/components/Typography";
-import CustomButton from "@/app/_components/Button/CustomButton";
 import { cn } from "@/utils";
 
 export interface CsbtClaimCardProps {
@@ -177,14 +176,21 @@ export const CsbtClaimCard: React.FC<CsbtClaimCardProps> = ({
             </p>
           </div>
         ) : (
-          <CustomButton
+          <button
+            type="button"
             onClick={handleClaim}
             disabled={isClaiming || !isVerified}
-            isLoading={isClaiming}
-            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold py-3.5 rounded-2xl shadow-lg shadow-indigo-500/25 transition-all"
+            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 text-white font-semibold py-3.5 px-6 rounded-2xl shadow-lg shadow-indigo-500/25 transition-all text-sm active:scale-[0.99]"
           >
-            Claim Soulbound Credential (0 Gas Fee)
-          </CustomButton>
+            {isClaiming ? (
+              <span className="flex items-center gap-2">
+                <span className="h-4 w-4 rounded-full border-2 border-white/20 border-t-white animate-spin" />
+                <span>Claiming Credential...</span>
+              </span>
+            ) : (
+              <span>Claim Soulbound Credential (0 Gas Fee)</span>
+            )}
+          </button>
         )}
       </div>
     </div>

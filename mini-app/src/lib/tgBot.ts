@@ -9,18 +9,20 @@ import axios, { AxiosError } from "axios";
 import { Bot, InputFile } from "grammy";
 import { InlineKeyboardMarkup, InputMediaPhoto, InputMediaVideo } from "grammy/types";
 
+import { getTelegramBotBaseUrl } from "./tgBotConfig";
+
 interface MediaGroupItem {
   type: "photo" | "video";
   url: string;
 }
 
 const tgClient = axios.create({
-  baseURL: `http://${process.env.IP_TELEGRAM_BOT}:${process.env.TELEGRAM_BOT_PORT}`,
+  baseURL: getTelegramBotBaseUrl(),
 });
 
 // Helper to post to your custom Telegram server
 const tgClientPost = (path: string, data: any) =>
-  tgClient.post(`http://${process.env.IP_TELEGRAM_BOT}:${process.env.TELEGRAM_BOT_PORT}/${path}`, data);
+  tgClient.post(`${getTelegramBotBaseUrl()}/${path}`, data);
 
 let botInstance: Bot | null = null;
 const MAX_WAIT_TIME = 30000; // 30 seconds max wait time

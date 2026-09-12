@@ -16,6 +16,8 @@ x-common-env: &common-env
   ONTON_API_SECRET: ${ONTON_API_SECRET}
   MNEMONIC: ${MNEMONIC}
   NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
+  IP_TELEGRAM_BOT: ${IP_TELEGRAM_BOT:-telegram-bot}
+  TELEGRAM_BOT_PORT: ${TELEGRAM_BOT_PORT:-3002}
 
 x-default-extra-hosts: &default-extra-hosts
   extra_hosts:

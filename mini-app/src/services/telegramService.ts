@@ -4,6 +4,7 @@ import { rewardLinkZod } from "@/types/user.types";
 import axios from "axios";
 import { logger } from "@/server/utils/logger";
 import { RewardVisitorTypePartial } from "@/db/schema/rewards";
+import { getTelegramBotBaseUrl } from "@/lib/tgBotConfig";
 // Send reward notification to visitors
 export const sendRewardNotification = async (reward: RewardVisitorTypePartial, event: EventTypeSecure) => {
   try {
@@ -120,7 +121,7 @@ export const shareEventRequest = async (
   const event_url = `${process.env.NEXT_PUBLIC_APP_BASE_URL}/events/${event_uuid}`;
 
   try {
-    const response = await axios.post(`http://${process.env.IP_TELEGRAM_BOT}:${process.env.TELEGRAM_BOT_PORT}/share-event`, {
+    const response = await axios.post(`${getTelegramBotBaseUrl()}/share-event`, {
       user_id: user_id,
       id: event_uuid,
       share_link: share_link,
@@ -170,7 +171,7 @@ export const shareOrganizerRequest = async (
   try {
     // Send a POST to the new /share-organizer route in your telegram-bot service
     const response = await axios.post(
-      `http://${process.env.IP_TELEGRAM_BOT}:${process.env.TELEGRAM_BOT_PORT}/share-organizer`,
+      `${getTelegramBotBaseUrl()}/share-organizer`,
       {
         requesting_user: requestingUserId,
         organizer_id: organizerId,
@@ -215,7 +216,7 @@ export const shareTournamentRequest = async (
   try {
     // 2) Send a POST to the new /share-tournament route
     const response = await axios.post(
-      `http://${process.env.IP_TELEGRAM_BOT}:${process.env.TELEGRAM_BOT_PORT}/share-tournament`,
+      `${getTelegramBotBaseUrl()}/share-tournament`,
       {
         requesting_user: requestingUserId,
         tournament_id: tournamentId,
@@ -251,7 +252,7 @@ export const shareAffiliateLinkRequest = async (
 ): Promise<{ success: boolean; data?: any; error?: string }> => {
   try {
     const response = await axios.post(
-      `http://${process.env.IP_TELEGRAM_BOT}:${process.env.TELEGRAM_BOT_PORT}/share-affiliate-link`,
+      `${getTelegramBotBaseUrl()}/share-affiliate-link`,
       {
         requesting_user: requestingUserId,
         link_hash: linkHash,
@@ -284,7 +285,7 @@ export async function shareJoinOntonAffiliateLinkRequest(
 ): Promise<{ success: boolean; data?: any; error?: string }> {
   try {
     const response = await axios.post(
-      `http://${process.env.IP_TELEGRAM_BOT}:${process.env.TELEGRAM_BOT_PORT}/share-join-onton-link-affiliate`,
+      `${getTelegramBotBaseUrl()}/share-join-onton-link-affiliate`,
       {
         requesting_user: requestingUserId,
         link_hash: linkHash,

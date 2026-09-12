@@ -1,8 +1,7 @@
-// checkBlockStatus.ts
-
 import axios from "axios";
 import { logger } from "@/server/utils/logger";
 import { usersDB } from "@/db/modules/users.db";
+import { getTelegramBotBaseUrl } from "@/lib/tgBotConfig";
 
 // Pause execution for `ms` milliseconds
 function sleep(ms: number): Promise<void> {
@@ -16,7 +15,7 @@ function sleep(ms: number): Promise<void> {
 async function requestCheckBlockStatus(userId: number, attempt = 1): Promise<void> {
   try {
     const response = await axios.post(
-      `http://${process.env.IP_TELEGRAM_BOT}:${process.env.TELEGRAM_BOT_PORT}/check-block-status`,
+      `${getTelegramBotBaseUrl()}/check-block-status`,
       {
         user_id: userId,
       }

@@ -4,9 +4,22 @@ import time
 import sys
 import select
 
-HOST = "65.109.212.86"
-PASS = "89*evddQFpZXHA7BCnmV"
-PUB_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJR/bHh8v4FkPzqr+LGP7RQaH/ZtA3UjKb6K1Z8I2u3Z mahdifarimani@Mac.home"
+HOST = os.environ.get("PROD_HOST", "65.109.212.86")
+PASS = os.environ.get("PROD_PASS") or (sys.argv[1] if len(sys.argv) > 1 else "")
+PUB_KEY = os.environ.get("SSH_PUB_KEY") or (sys.argv[2] if len(sys.argv) > 2 else "")
+
+if not PASS:
+    import getpass
+    PASS = getpass.getpass(f"Enter root password for {HOST}: ")
+
+if not PUB_KEY:
+    default_key = os.path.expanduser("~/.ssh/id_ed25519.pub")
+    if os.path.exists(default_key):
+        with open(default_key, "r") as f:
+            PUB_KEY = f.read().strip()
+    else:
+        print("Error: SSH_PUB_KEY environment variable or argument required.", file=sys.stderr)
+        sys.exit(1)
 
 CMDS = f"""
 export TERM=xterm

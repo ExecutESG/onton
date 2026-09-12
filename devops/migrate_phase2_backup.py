@@ -5,8 +5,11 @@ import sys
 import select
 
 # Credentials
-HOST = "65.109.212.86"
-PASS = "89*evddQFpZXHA7BCnmV"
+HOST = os.environ.get("PROD_HOST", "65.109.212.86")
+PASS = os.environ.get("PROD_PASS")
+if not PASS:
+    import getpass
+    PASS = getpass.getpass(f"Enter root password for {HOST}: ")
 
 def ssh_execute_interactive(host, password, commands):
     print(f"--- CONNECTING TO {host} ---")

@@ -34,7 +34,7 @@ Used for TON network interactions, NFT minting, and social hubs.
 - **Wallet Security**: `MAIN_MNEMONIC` (Seed phrase for the treasury/action wallet), `MAIN_EVENT_WALLET_ENC_KEY`.
 
 ### Domain 4: Storage & Database
-- **Primary Database**: `MAIN_POSTGRES_USER` (Confirmed: `ontonont`), `MAIN_POSTGRES_PASSWORD` (Confirmed: `@GqjCiFjdywo2hliunXyeLBD`).
+- **Primary Database**: `MAIN_POSTGRES_USER` (Confirmed: `ontonont`), `MAIN_POSTGRES_PASSWORD` (Stored in GitHub Secrets).
 - **Database Names**: `mini-app`, `nft-manager`.
 - **Object Storage (MinIO)**: `MAIN_MINIO_ROOT_USER`, `MAIN_MINIO_ROOT_PASSWORD`.
 - **Queue/Cache**: `MAIN_RABBITMQ_DEFAULT_USER`, `MAIN_RABBITMQ_DEFAULT_PASS`, `MAIN_REDIS_PASSWORD`.

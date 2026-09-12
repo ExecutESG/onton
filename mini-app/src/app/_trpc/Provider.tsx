@@ -6,6 +6,7 @@ import React, { useState } from "react";
 import { getJwt, trpc } from "./client";
 import { useUserStore } from "@/context/store/user.store";
 import { observable } from "@trpc/server/observable";
+import { getClientTelegramInitData } from "@/lib/clientTelegramInitData";
 
 const initDataExpirationAlert = () => {
   sessionStorage.removeItem("telegram:initParams");
@@ -45,7 +46,13 @@ const createCombinedLink = (): TRPCLink<any> => {
               // Handle unauthorized error
               if (err.data?.code === "UNAUTHORIZED") {
                 console.error("UNAUTHORIZED error in response:", err);
-                initDataExpirationAlert();
+                const hasSentInitData = !!(getClientTelegramInitData() || useUserStore.getState().initData);
+                const isExplicitExpiry =
+                  err.message?.toLowerCase().includes("expired") ||
+                  err.message?.toLowerCase().includes("invalid");
+                if (hasSentInitData && isExplicitExpiry) {
+                  initDataExpirationAlert();
+                }
                 observer.error(err);
                 return;
               }
@@ -106,7 +113,7 @@ export default function TRPCAPIProvider({ children }: { children: React.ReactNod
             const storeInitData = useUserStore.getState().initData;
             const tgInitData = typeof window !== "undefined" ? window.Telegram?.WebApp?.initData : "";
             const sessionInitData = typeof window !== "undefined" ? sessionStorage.getItem("telegram:initParams") || "" : "";
-            const activeInitData = storeInitData || tgInitData || sessionInitData;
+            const activeInitData = storeInitData || tgInitData || sessionInitData || getClientTelegramInitData();
 
             if (activeInitData) headers.Authorization = activeInitData;
 

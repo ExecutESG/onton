@@ -1,5 +1,6 @@
 import { RouterOutput } from "@/server";
 import { create } from "zustand";
+import { getClientTelegramInitData } from "@/lib/clientTelegramInitData";
 
 type User = RouterOutput["users"]["syncUser"];
 type UserStore = {
@@ -11,7 +12,7 @@ type UserStore = {
 
 export const useUserStore = create<UserStore>((set) => ({
   user: null,
-  initData: null as unknown as string,
+  initData: getClientTelegramInitData(),
   setInitData: (initData: string) => set((state) => ({ ...state, initData })),
   setUser: (user: User) => set((state) => ({ ...state, user })),
 }));

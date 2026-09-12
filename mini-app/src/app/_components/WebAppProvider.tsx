@@ -8,6 +8,7 @@ import EventsSkeleton from "./molecules/skeletons/EventsSkeleton";
 
 import { useUserStore } from "@/context/store/user.store";
 import { useSectionStore } from "@/zustand/useSectionStore";
+import { getClientTelegramInitData, isTelegramClient } from "@/lib/clientTelegramInitData";
 
 export default function WebAppProvider({ children }: { children: React.ReactNode }) {
   const webApp = useWebApp();
@@ -23,10 +24,11 @@ export default function WebAppProvider({ children }: { children: React.ReactNode
 
   // 1) Sentry + initialization
   useEffect(() => {
-    if (webApp?.initDataUnsafe?.user?.id && webApp.initData) {
-      setInitData(webApp.initData);
+    const activeData = (webApp?.initDataUnsafe?.user?.id && webApp.initData) || getClientTelegramInitData();
+    if (activeData) {
+      setInitData(activeData);
       if (typeof window !== "undefined") {
-        sessionStorage.setItem("telegram:initParams", webApp.initData);
+        sessionStorage.setItem("telegram:initParams", activeData);
       }
     } else if (typeof window !== "undefined") {
       const stored = sessionStorage.getItem("telegram:initParams");
@@ -121,9 +123,10 @@ export default function WebAppProvider({ children }: { children: React.ReactNode
   }, [pathname, router, goBack]);
 
   // 5) If we don't have initData => show skeleton ONLY if we are running inside Telegram
-  const isTelegram = typeof window !== "undefined" && !!window.Telegram?.WebApp?.initData;
+  const isTelegram = isTelegramClient();
+  const hasInitData = !!(initData || getClientTelegramInitData());
 
-  if (isTelegram && !initData) {
+  if (isTelegram && !hasInitData) {
     return (
       <div
         className={"p-4"}
@@ -131,7 +134,7 @@ export default function WebAppProvider({ children }: { children: React.ReactNode
           backgroundColor: theme?.bg_color,
         }}
       >
-        <EventsSkeleton />;
+        <EventsSkeleton />
       </div>
     );
   }

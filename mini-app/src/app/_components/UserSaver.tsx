@@ -6,14 +6,20 @@ import { FC, ReactNode, useEffect } from "react";
 import { trpc } from "../_trpc/client";
 import { ErrorState } from "./ErrorState";
 import EventSkeleton from "./molecules/skeletons/EventSkeleton";
+import { getClientTelegramInitData, isTelegramClient } from "@/lib/clientTelegramInitData";
 
 const UserSaver: FC<{
   children: ReactNode;
 }> = ({ children }) => {
-  const { setUser } = useUserStore();
+  const { setUser, initData } = useUserStore();
   const webApp = useWebApp();
 
-  const syncUser = trpc.users.syncUser.useQuery();
+  const activeInitData = initData || getClientTelegramInitData();
+  const isTg = isTelegramClient();
+
+  const syncUser = trpc.users.syncUser.useQuery(undefined, {
+    enabled: isTg ? !!activeInitData : true,
+  });
 
   // Second effect: Handle user saving after WebApp is ready
   useEffect(() => {
@@ -24,7 +30,7 @@ const UserSaver: FC<{
   }, [syncUser.isSuccess, syncUser.data?.wallet_address, syncUser.data, setUser, webApp]);
 
   // Show loading state until everything is ready
-  if (syncUser.isLoading) {
+  if (syncUser.isLoading || (isTg && !activeInitData)) {
     return (
       <div className="h-screen p-4">
         <EventSkeleton />

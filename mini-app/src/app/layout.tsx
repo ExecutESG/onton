@@ -40,7 +40,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             ></script>
           </>
         )}
-        <Script src="https://telegram.org/js/telegram-web-app.js"></Script>
+        <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive"></Script>
       </head>
       <body className={cn(mainFont.className)}>
         <Providers>

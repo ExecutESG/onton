@@ -2,6 +2,15 @@ name: Inspect Swarm Server
 
 on:
   workflow_dispatch:
+    inputs:
+      action:
+        description: "Action to perform: inspect, disk-cleanup, or custom"
+        required: false
+        default: "inspect"
+      custom_command:
+        description: "Custom command to run on server (when action=custom)"
+        required: false
+        default: ""
 
 jobs:
   inspect:
@@ -16,47 +25,49 @@ jobs:
         env:
           SSH_IP: ${{ secrets.SSH_DEV_IP }}
           SSH_PORT: ${{ secrets.SSH_DEV_PORT }}
+          ACTION: ${{ github.event.inputs.action || 'inspect' }}
+          CUSTOM_COMMAND: ${{ github.event.inputs.custom_command || '' }}
         run: |
-          ssh -o StrictHostKeyChecking=no -p "$SSH_PORT" tonont@$SSH_IP '
+          ssh -o StrictHostKeyChecking=no -p "$SSH_PORT" tonont@$SSH_IP bash -s << EOF
+            set -o errexit
+            set -o pipefail
+
+            echo "=== CURRENT DISK USAGE ==="
+            df -h
+
+            echo "=== DOCKER SYSTEM DF ==="
+            docker system df
+
+            if [ "\$ACTION" = "disk-cleanup" ]; then
+              echo "=== CLEANING UP DOCKER RESOURCES ==="
+              echo "Pruning dangling containers..."
+              docker container prune -f
+              echo "Pruning unreferenced images older than 24h..."
+              docker image prune -af --filter "until=24h"
+              echo "Pruning build cache..."
+              docker builder prune -f || true
+              echo "=== DISK USAGE AFTER CLEANUP ==="
+              df -h
+              docker system df
+              exit 0
+            fi
+
+            if [ "\$ACTION" = "custom" ] && [ -n "\$CUSTOM_COMMAND" ]; then
+              echo "=== EXECUTING CUSTOM COMMAND ==="
+              eval "\$CUSTOM_COMMAND"
+              exit 0
+            fi
+
             echo "=== DOCKER STACK LIST ==="
             docker stack ls
 
             echo "=== DOCKER SERVICE LIST ==="
             docker service ls
 
-            echo "=== SERVICE INSPECT ONTON REWARD WORKER ==="
-            docker service inspect onton_mini-app-reward-worker --format "onton_mini-app-reward-worker Image: {{.Spec.TaskTemplate.ContainerSpec.Image}}" || true
-            docker service ps onton_mini-app-reward-worker --no-trunc || true
-
-            echo "=== SERVICE INSPECT ONTON-DEV REWARD WORKER ==="
-            docker service inspect onton-dev_mini-app-reward-worker --format "onton-dev_mini-app-reward-worker Image: {{.Spec.TaskTemplate.ContainerSpec.Image}}" || true
-            docker service ps onton-dev_mini-app-reward-worker --no-trunc || true
+            echo "=== SERVICE INSPECT ONTON MINI-APP ==="
+            docker service inspect onton_mini-app --format "onton_mini-app Image: {{.Spec.TaskTemplate.ContainerSpec.Image}}" || true
+            docker service ps onton_mini-app --no-trunc || true
 
             echo "=== ALL RUNNING DOCKER CONTAINERS (ps) ==="
             docker ps --format "table {{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}"
-
-            echo "=== LOGS OF RECENT REWARD WORKER CONTAINERS ==="
-            for cid in $(docker ps -q --filter "name=reward"); do
-              echo "--- Container $cid logs (last 50 lines) ---"
-              docker logs --tail 50 "$cid" || true
-            done
-
-            echo "=== CRON LOGS (ANY CRON IN RUNNING CONTAINERS) ==="
-            for cid in $(docker ps -q); do
-              cname=$(docker inspect --format "{{.Name}}" "$cid")
-              if docker logs --tail 50 "$cid" 2>&1 | grep -q "SBT Sync"; then
-                echo "FOUND SBT Sync in container $cname ($cid)!"
-                docker logs --tail 30 "$cid"
-              fi
-            done
-
-            echo "=== REWARD WORKER CODE CHECK ==="
-            for cid in $(docker ps -q --filter "name=reward"); do
-              echo "Checking container $cid:"
-              docker exec "$cid" grep -n "syncSbtCollectionsForEvents" /app/src/workers/cronJobSchedulerReward.ts || true
-              docker exec "$cid" grep -n "ENABLE_SBT_COLLECTION_SYNC" /app/src/cronJobs/tasks/syncSbtCollectionsForEvents.ts || true
-            done
-
-            echo "=== MAIN .ENV GITHUB_REPO AND REGISTRY ==="
-            cat /home/tonont/main/.env | grep -E "GITHUB_REPO|REGISTRY_URL" || true
-          '
+          EOF

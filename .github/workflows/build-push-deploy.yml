@@ -690,12 +690,22 @@ jobs:
             echo "$CR_PAT" | docker login ghcr.io -u ${{ github.actor }} --password-stdin 
           
             echo "services to build: $services_to_build"
+            echo "Cleaning up dangling images before pull..."
+            docker image prune -f || true
+
             # Remove the square brackets and split by comma
             echo "Pulling latest images of changed services..."
             for service in $services; do
               echo "Processing service: \$service"
               if [ -z "\$service" ]; then
                 echo "Warning: Found an empty service name, skipping..."
+                continue
+              fi
+
+              # Skip pulling images for services with 0 replicas (not running on this stack)
+              replica_count=\$(docker service inspect --format '{{if .Spec.Mode.Replicated}}{{.Spec.Mode.Replicated.Replicas}}{{else}}1{{end}}' "${STACK_NAME}_\${service}" 2>/dev/null | tr -d '[:space:]')
+              if [ "\$replica_count" = "0" ]; then
+                echo "⏭️  Skipping pull for \$service (0 replicas on ${STACK_NAME})"
               else
                 echo "Pulling Docker image for service: \$service"
                 docker pull ghcr.io/${github_repo}/\${service}:${branch_name}-latest
@@ -779,24 +789,25 @@ jobs:
             fi
 
             # bidar kardane fluentd :))
-            docker service update --update-failure-action rollback --update-max-failure-ratio 0.5 --force ${STACK_NAME}_fluentd || true
-
-            # Explicit reload for reward worker when deploying mini-app or reward-worker
-            if echo "$services" | grep -q -E "mini-app|mini-app-reward-worker"; then
-              echo "Forcing reload of worker: ${STACK_NAME}_mini-app-reward-worker..."
-              docker service update --update-failure-action rollback --update-max-failure-ratio 0.5 --force ${STACK_NAME}_mini-app-reward-worker || true
-            fi
+            docker service update --detach=true --update-failure-action rollback --update-max-failure-ratio 0.5 --force ${STACK_NAME}_fluentd || true
 
             # Force reload of updated background workers and services in Docker Swarm
             for service in $services; do
-              case "\$service" in
+              # Skip force reload for services with 0 replicas
+              replica_count=\$(docker service inspect --format '{{if .Spec.Mode.Replicated}}{{.Spec.Mode.Replicated.Replicas}}{{else}}1{{end}}' "${STACK_NAME}_\${service}" 2>/dev/null | tr -d '[:space:]')
+              if [ "\$replica_count" = "0" ]; then
+                echo "⏭️  Skipping reload for \$service (0 replicas on ${STACK_NAME})"
+                continue
+              fi
+
+              case "$service" in
                 mini-app|mini-app-reward-worker|mini-app-sbt-worker|mini-app-ordinary-worker|mini-app-nft-api-worker|mini-app-poa-worker|mini-app-moderation-bot|mini-app-notification-socket)
-                  echo "Forcing reload of worker: ${STACK_NAME}_\${service}..."
-                  docker service update --update-failure-action rollback --update-max-failure-ratio 0.5 --force ${STACK_NAME}_\${service} || true
+                  echo "Forcing reload of worker: ${STACK_NAME}_${service}..."
+                  docker service update --detach=true --update-failure-action rollback --update-max-failure-ratio 0.5 --force ${STACK_NAME}_${service} || true
                   ;;
                 telegram-bot|website|participant-tma)
-                  echo "Forcing reload of service: ${STACK_NAME}_\${service}..."
-                  docker service update --update-failure-action rollback --update-max-failure-ratio 0.5 --force ${STACK_NAME}_\${service} || true
+                  echo "Forcing reload of service: ${STACK_NAME}_${service}..."
+                  docker service update --detach=true --update-failure-action rollback --update-max-failure-ratio 0.5 --force ${STACK_NAME}_${service} || true
                   ;;
               esac
             done

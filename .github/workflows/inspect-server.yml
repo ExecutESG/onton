@@ -28,9 +28,12 @@ jobs:
           ACTION: ${{ github.event.inputs.action || 'inspect' }}
           CUSTOM_COMMAND: ${{ github.event.inputs.custom_command || '' }}
         run: |
-          ssh -o StrictHostKeyChecking=no -p "$SSH_PORT" tonont@$SSH_IP bash -s << EOF
+          ssh -o StrictHostKeyChecking=no -p "$SSH_PORT" tonont@$SSH_IP bash -s -- "$ACTION" "$CUSTOM_COMMAND" << 'EOF'
             set -o errexit
             set -o pipefail
+
+            ACTION="$1"
+            CUSTOM_COMMAND="$2"
 
             echo "=== CURRENT DISK USAGE ==="
             df -h
@@ -38,7 +41,7 @@ jobs:
             echo "=== DOCKER SYSTEM DF ==="
             docker system df
 
-            if [ "\$ACTION" = "disk-cleanup" ]; then
+            if [ "$ACTION" = "disk-cleanup" ]; then
               echo "=== CLEANING UP DOCKER RESOURCES ==="
               echo "Pruning dangling containers..."
               docker container prune -f
@@ -52,9 +55,9 @@ jobs:
               exit 0
             fi
 
-            if [ "\$ACTION" = "custom" ] && [ -n "\$CUSTOM_COMMAND" ]; then
+            if [ "$ACTION" = "custom" ] && [ -n "$CUSTOM_COMMAND" ]; then
               echo "=== EXECUTING CUSTOM COMMAND ==="
-              eval "\$CUSTOM_COMMAND"
+              eval "$CUSTOM_COMMAND"
               exit 0
             fi
 

@@ -7,6 +7,10 @@ on:
         description: "Action to perform: inspect, disk-cleanup, purge-cloudflare, or custom"
         required: false
         default: "inspect"
+      target_server:
+        description: "Target server: main or dev"
+        required: false
+        default: "main"
       custom_command:
         description: "Custom command to run on server (when action=custom)"
         required: false
@@ -76,8 +80,8 @@ jobs:
       - name: Run Diagnostics on Swarm Manager
         if: ${{ github.event.inputs.action != 'purge-cloudflare' }}
         env:
-          SSH_IP: ${{ secrets.SSH_DEV_IP }}
-          SSH_PORT: ${{ secrets.SSH_DEV_PORT }}
+          SSH_IP: ${{ (github.event.inputs.target_server == 'dev') && secrets.SSH_DEV_IP || secrets.SSH_MAIN_IP }}
+          SSH_PORT: ${{ (github.event.inputs.target_server == 'dev') && secrets.SSH_DEV_PORT || secrets.SSH_MAIN_PORT }}
           ACTION: ${{ github.event.inputs.action || 'inspect' }}
           CUSTOM_COMMAND: ${{ github.event.inputs.custom_command || '' }}
         run: |

@@ -183,7 +183,7 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     needs: [determine-services, validate-services]
-    if: ${{ needs.determine-services.outputs.services_to_build != '[]' }}
+    if: ${{ needs.determine-services.outputs.services_to_build != '[]' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
     strategy:
       matrix:
         service: ${{ fromJson(needs.determine-services.outputs.services_to_build) }}

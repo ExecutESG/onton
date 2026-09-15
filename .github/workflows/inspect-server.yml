@@ -4,13 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "Action to perform: inspect, disk-cleanup, purge-cloudflare, or custom"
+        description: "Action to perform: inspect, disk-cleanup, purge-cloudflare, update-caddy-prod, update-prod-dns, or custom"
         required: false
         default: "inspect"
       target_server:
-        description: "Target server: main or dev"
+        description: "Target server: dev or main"
         required: false
-        default: "main"
+        default: "dev"
       custom_command:
         description: "Custom command to run on server (when action=custom)"
         required: false
@@ -20,6 +20,9 @@ jobs:
   inspect:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
       - name: Purge Cloudflare Cache
         if: ${{ github.event.inputs.action == 'purge-cloudflare' }}
         env:
@@ -30,8 +33,6 @@ jobs:
           CF_EMAIL: ${{ secrets.MAIN_CLOUDFLARE_EMAIL }}
         run: |
           echo "Purging Cloudflare cache for Zone $CF_ZONE..."
-          purge_success=false
-
           echo "Querying prod.onton.live and all DNS records..."
           curl -s "https://api.cloudflare.com/client/v4/zones/$CF_ZONE/dns_records?name=prod.onton.live" \
             -H "Authorization: Bearer $CF_TOKEN" \
@@ -43,19 +44,49 @@ jobs:
           echo ""
           echo "Done Cloudflare DNS check"
 
-          echo "Finished Cloudflare check"
+      - name: Update Cloudflare DNS to Active Host
+        if: ${{ github.event.inputs.action == 'update-prod-dns' }}
+        env:
+          CF_ZONE: ${{ secrets.MAIN_CLOUDFLARE_DNS_ZONE_ID }}
+          CF_TOKEN: ${{ secrets.MAIN_CLOUDFLARE_API_TOKEN }}
+        run: |
+          RECORD_ID=$(curl -s "https://api.cloudflare.com/client/v4/zones/$CF_ZONE/dns_records?name=prod.onton.live" \
+            -H "Authorization: Bearer $CF_TOKEN" \
+            -H "Content-Type: application/json" | jq -r '.result[0].id')
+          echo "Found Record ID: $RECORD_ID"
+          echo "Updating prod.onton.live to 65.109.182.13..."
+          RESPONSE=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/$CF_ZONE/dns_records/$RECORD_ID" \
+            -H "Authorization: Bearer $CF_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data '{"type":"A","name":"prod.onton.live","content":"65.109.182.13","ttl":1,"proxied":true,"comment":"prod main swarm host"}')
+          echo "Response: $RESPONSE"
+          if echo "$RESPONSE" | grep -q '"success":true'; then
+            echo "DNS updated successfully to 65.109.182.13!"
+          else
+            echo "Error updating DNS: $RESPONSE"
+            exit 1
+          fi
 
       - name: Start SSH Agent and Add Key
-        if: ${{ github.event.inputs.action != 'purge-cloudflare' }}
+        if: ${{ github.event.inputs.action != 'purge-cloudflare' && github.event.inputs.action != 'update-prod-dns' }}
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Run Diagnostics on Swarm Manager
-        if: ${{ github.event.inputs.action != 'purge-cloudflare' }}
+      - name: Run Update Caddy Prod
+        if: ${{ github.event.inputs.action == 'update-caddy-prod' }}
         env:
-          SSH_IP: ${{ (github.event.inputs.target_server == 'dev') && secrets.SSH_DEV_IP || secrets.SSH_MAIN_IP }}
-          SSH_PORT: ${{ (github.event.inputs.target_server == 'dev') && secrets.SSH_DEV_PORT || secrets.SSH_MAIN_PORT }}
+          SSH_IP: ${{ secrets.SSH_DEV_IP }}
+          SSH_PORT: ${{ secrets.SSH_DEV_PORT }}
+        run: |
+          scp -o StrictHostKeyChecking=no -P "$SSH_PORT" devops/update_caddy_prod.sh tonont@$SSH_IP:/home/tonont/update_caddy_prod.sh
+          ssh -o StrictHostKeyChecking=no -p "$SSH_PORT" tonont@$SSH_IP bash /home/tonont/update_caddy_prod.sh
+
+      - name: Run Diagnostics on Swarm Manager
+        if: ${{ github.event.inputs.action != 'purge-cloudflare' && github.event.inputs.action != 'update-prod-dns' && github.event.inputs.action != 'update-caddy-prod' }}
+        env:
+          SSH_IP: ${{ (github.event.inputs.target_server == 'main') && secrets.SSH_MAIN_IP || secrets.SSH_DEV_IP }}
+          SSH_PORT: ${{ (github.event.inputs.target_server == 'main') && secrets.SSH_MAIN_PORT || secrets.SSH_DEV_PORT }}
           ACTION: ${{ github.event.inputs.action || 'inspect' }}
           CUSTOM_COMMAND: ${{ github.event.inputs.custom_command || '' }}
         run: |

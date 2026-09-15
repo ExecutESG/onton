@@ -90,6 +90,20 @@ app.dev.onton.live {
     reverse_proxy http://${PROXY_MINI_APP}:${MINI_APP_PORT}
 }
 
+# Production ingress blocks for app.onton.live and onton.live
+app.onton.live {
+    ${TLS_CONFIG}
+    ${LOG_CONFIG}
+    reverse_proxy /ptma* http://host.docker.internal:8001
+    reverse_proxy http://host.docker.internal:8000
+}
+
+onton.live, www.onton.live {
+    ${TLS_CONFIG}
+    ${LOG_CONFIG}
+    reverse_proxy http://host.docker.internal:8005
+}
+
 ${MINI_APP_DOMAIN} {
     ${TLS_CONFIG}
     ${LOG_CONFIG}

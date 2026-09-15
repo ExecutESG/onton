@@ -827,16 +827,53 @@ jobs:
         continue-on-error: true
         env:
           BRANCH_NAME: ${{ github.ref_name }}
-          MAIN_CF_TOKEN: ${{ secrets.MAIN_CLOUDFLARE_API_TOKEN }}
-          MAIN_CF_ZONE: ${{ secrets.MAIN_CLOUDFLARE_DNS_ZONE_ID }}
+          CF_ZONE: ${{ secrets.MAIN_CLOUDFLARE_DNS_ZONE_ID }}
+          CF_TOKEN_MAIN: ${{ secrets.MAIN_CLOUDFLARE_API_TOKEN_MAIN }}
+          CF_TOKEN: ${{ secrets.MAIN_CLOUDFLARE_API_TOKEN }}
+          CF_EMAIL_MAIN: ${{ secrets.MAIN_CLOUDFLARE_EMAIL_MAIN }}
+          CF_EMAIL: ${{ secrets.MAIN_CLOUDFLARE_EMAIL }}
         run: |
-          if [[ "$BRANCH_NAME" == "main" ]] && [ -n "$MAIN_CF_ZONE" ] && [ -n "$MAIN_CF_TOKEN" ]; then
-            echo "Purging Cloudflare cache for main (Zone: $MAIN_CF_ZONE)..."
-            response=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$MAIN_CF_ZONE/purge_cache" \
-              -H "Authorization: Bearer $MAIN_CF_TOKEN" \
-              -H "Content-Type: application/json" \
-              --data '{"purge_everything":true}')
-            echo "Cloudflare response: $response"
+          if [[ "$BRANCH_NAME" == "main" ]] && [ -n "$CF_ZONE" ]; then
+            echo "Purging Cloudflare cache for main (Zone: $CF_ZONE)..."
+            purge_success=false
+
+            for token in "$CF_TOKEN_MAIN" "$CF_TOKEN"; do
+              [ -z "$token" ] && continue
+
+              # Try Bearer token
+              echo "Attempting purge with Bearer token..."
+              response=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE/purge_cache" \
+                -H "Authorization: Bearer $token" \
+                -H "Content-Type: application/json" \
+                --data '{"purge_everything":true}')
+              echo "Response: $response"
+              if echo "$response" | grep -q '"success":true'; then
+                echo "Cloudflare cache purged successfully via Bearer token!"
+                purge_success=true
+                break
+              fi
+
+              # Try X-Auth-Key with email
+              for email in "$CF_EMAIL_MAIN" "$CF_EMAIL"; do
+                [ -z "$email" ] && continue
+                echo "Attempting purge with X-Auth-Key ($email)..."
+                response=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE/purge_cache" \
+                  -H "X-Auth-Email: $email" \
+                  -H "X-Auth-Key: $token" \
+                  -H "Content-Type: application/json" \
+                  --data '{"purge_everything":true}')
+                echo "Response: $response"
+                if echo "$response" | grep -q '"success":true'; then
+                  echo "Cloudflare cache purged successfully via X-Auth-Key!"
+                  purge_success=true
+                  break 2
+                fi
+              done
+            done
+
+            if [ "$purge_success" = "false" ]; then
+              echo "Warning: Could not purge Cloudflare cache with available credentials"
+            fi
           fi
 
       - name: Send Telegram Message - Deployment Success

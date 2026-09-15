@@ -183,7 +183,7 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     needs: [determine-services, validate-services]
-    if: ${{ needs.determine-services.outputs.services_to_build != '[]' }}
+    if: ${{ needs.determine-services.outputs.services_to_build != '[]' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
     strategy:
       matrix:
         service: ${{ fromJson(needs.determine-services.outputs.services_to_build) }}
@@ -821,6 +821,23 @@ jobs:
           echo "Cleaning up environment variables script..."
           #rm -f .env
           echo "Environment variables script deleted successfully."
+
+      - name: Purge Cloudflare Cache
+        if: success()
+        continue-on-error: true
+        env:
+          BRANCH_NAME: ${{ github.ref_name }}
+          MAIN_CF_TOKEN: ${{ secrets.MAIN_CLOUDFLARE_API_TOKEN }}
+          MAIN_CF_ZONE: ${{ secrets.MAIN_CLOUDFLARE_DNS_ZONE_ID }}
+        run: |
+          if [[ "$BRANCH_NAME" == "main" ]] && [ -n "$MAIN_CF_ZONE" ] && [ -n "$MAIN_CF_TOKEN" ]; then
+            echo "Purging Cloudflare cache for main (Zone: $MAIN_CF_ZONE)..."
+            response=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$MAIN_CF_ZONE/purge_cache" \
+              -H "Authorization: Bearer $MAIN_CF_TOKEN" \
+              -H "Content-Type: application/json" \
+              --data '{"purge_everything":true}')
+            echo "Cloudflare response: $response"
+          fi
 
       - name: Send Telegram Message - Deployment Success
         if: success()

@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "Action to perform: inspect, disk-cleanup, or custom"
+        description: "Action to perform: inspect, disk-cleanup, purge-cloudflare, or custom"
         required: false
         default: "inspect"
       custom_command:
@@ -16,12 +16,33 @@ jobs:
   inspect:
     runs-on: ubuntu-latest
     steps:
+      - name: Purge Cloudflare Cache
+        if: ${{ github.event.inputs.action == 'purge-cloudflare' }}
+        env:
+          CF_TOKEN: ${{ secrets.MAIN_CLOUDFLARE_API_TOKEN }}
+          CF_ZONE: ${{ secrets.MAIN_CLOUDFLARE_DNS_ZONE_ID }}
+        run: |
+          echo "Purging Cloudflare cache for Zone $CF_ZONE..."
+          response=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE/purge_cache" \
+            -H "Authorization: Bearer $CF_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data '{"purge_everything":true}')
+          echo "Response: $response"
+          if echo "$response" | grep -q '"success":true'; then
+            echo "Cloudflare cache purged successfully!"
+          else
+            echo "Error purging Cloudflare cache: $response"
+            exit 1
+          fi
+
       - name: Start SSH Agent and Add Key
+        if: ${{ github.event.inputs.action != 'purge-cloudflare' }}
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Run Diagnostics on Swarm Manager
+        if: ${{ github.event.inputs.action != 'purge-cloudflare' }}
         env:
           SSH_IP: ${{ secrets.SSH_DEV_IP }}
           SSH_PORT: ${{ secrets.SSH_DEV_PORT }}
@@ -33,7 +54,8 @@ jobs:
             set -o pipefail
 
             ACTION="$1"
-            CUSTOM_COMMAND="$2"
+            shift
+            CUSTOM_COMMAND="$*"
 
             echo "=== CURRENT DISK USAGE ==="
             df -h

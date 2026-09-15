@@ -11,6 +11,10 @@ on:
         description: "Target server: dev or main"
         required: false
         default: "dev"
+      dns_ip:
+        description: "Target IP for Cloudflare DNS update (when action=update-prod-dns)"
+        required: false
+        default: "65.109.212.86"
       custom_command:
         description: "Custom command to run on server (when action=custom)"
         required: false
@@ -54,14 +58,15 @@ jobs:
             -H "Authorization: Bearer $CF_TOKEN" \
             -H "Content-Type: application/json" | jq -r '.result[0].id')
           echo "Found Record ID: $RECORD_ID"
-          echo "Updating prod.onton.live to 65.109.182.13..."
+          TARGET_IP="${{ github.event.inputs.dns_ip || '65.109.212.86' }}"
+          echo "Updating prod.onton.live to $TARGET_IP..."
           RESPONSE=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/$CF_ZONE/dns_records/$RECORD_ID" \
             -H "Authorization: Bearer $CF_TOKEN" \
             -H "Content-Type: application/json" \
-            --data '{"type":"A","name":"prod.onton.live","content":"65.109.182.13","ttl":1,"proxied":true,"comment":"prod main swarm host"}')
+            --data "{\"type\":\"A\",\"name\":\"prod.onton.live\",\"content\":\"$TARGET_IP\",\"ttl\":1,\"proxied\":true,\"comment\":\"prod main swarm host\"}")
           echo "Response: $RESPONSE"
           if echo "$RESPONSE" | grep -q '"success":true'; then
-            echo "DNS updated successfully to 65.109.182.13!"
+            echo "DNS updated successfully to $TARGET_IP!"
           else
             echo "Error updating DNS: $RESPONSE"
             exit 1

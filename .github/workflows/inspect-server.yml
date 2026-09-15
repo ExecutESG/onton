@@ -32,24 +32,15 @@ jobs:
           echo "Purging Cloudflare cache for Zone $CF_ZONE..."
           purge_success=false
 
-          echo "Checking Cloudflare DNS records for app.onton.live..."
-          for token in "$CF_TOKEN_MAIN" "$CF_TOKEN"; do
-            [ -z "$token" ] && continue
-            echo "Querying with Bearer token..."
-            curl -s "https://api.cloudflare.com/client/v4/zones/$CF_ZONE/dns_records?name=app.onton.live" \
-              -H "Authorization: Bearer $token" \
-              -H "Content-Type: application/json"
-            echo ""
-            for email in "$CF_EMAIL_MAIN" "$CF_EMAIL"; do
-              [ -z "$email" ] && continue
-              echo "Querying with X-Auth-Key ($email)..."
-              curl -s "https://api.cloudflare.com/client/v4/zones/$CF_ZONE/dns_records?name=app.onton.live" \
-                -H "X-Auth-Email: $email" \
-                -H "X-Auth-Key: $token" \
-                -H "Content-Type: application/json"
-              echo ""
-            done
-          done
+          echo "Querying prod.onton.live and all DNS records..."
+          curl -s "https://api.cloudflare.com/client/v4/zones/$CF_ZONE/dns_records?name=prod.onton.live" \
+            -H "Authorization: Bearer $CF_TOKEN" \
+            -H "Content-Type: application/json"
+          echo ""
+          curl -s "https://api.cloudflare.com/client/v4/zones/$CF_ZONE/dns_records?name=onton.live" \
+            -H "Authorization: Bearer $CF_TOKEN" \
+            -H "Content-Type: application/json"
+          echo ""
           echo "Done Cloudflare DNS check"
 
           echo "Finished Cloudflare check"

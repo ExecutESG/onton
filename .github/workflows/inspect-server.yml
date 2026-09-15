@@ -32,44 +32,27 @@ jobs:
           echo "Purging Cloudflare cache for Zone $CF_ZONE..."
           purge_success=false
 
+          echo "Checking Cloudflare DNS records for app.onton.live..."
           for token in "$CF_TOKEN_MAIN" "$CF_TOKEN"; do
             [ -z "$token" ] && continue
-
-            # Try Bearer token
-            echo "Attempting purge with Bearer token..."
-            response=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE/purge_cache" \
+            echo "Querying with Bearer token..."
+            curl -s "https://api.cloudflare.com/client/v4/zones/$CF_ZONE/dns_records?name=app.onton.live" \
               -H "Authorization: Bearer $token" \
-              -H "Content-Type: application/json" \
-              --data '{"purge_everything":true}')
-            echo "Response: $response"
-            if echo "$response" | grep -q '"success":true'; then
-              echo "Cloudflare cache purged successfully via Bearer token!"
-              purge_success=true
-              break
-            fi
-
-            # Try X-Auth-Key with email
+              -H "Content-Type: application/json"
+            echo ""
             for email in "$CF_EMAIL_MAIN" "$CF_EMAIL"; do
               [ -z "$email" ] && continue
-              echo "Attempting purge with X-Auth-Key ($email)..."
-              response=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE/purge_cache" \
+              echo "Querying with X-Auth-Key ($email)..."
+              curl -s "https://api.cloudflare.com/client/v4/zones/$CF_ZONE/dns_records?name=app.onton.live" \
                 -H "X-Auth-Email: $email" \
                 -H "X-Auth-Key: $token" \
-                -H "Content-Type: application/json" \
-                --data '{"purge_everything":true}')
-              echo "Response: $response"
-              if echo "$response" | grep -q '"success":true'; then
-                echo "Cloudflare cache purged successfully via X-Auth-Key!"
-                purge_success=true
-                break 2
-              fi
+                -H "Content-Type: application/json"
+              echo ""
             done
           done
+          echo "Done Cloudflare DNS check"
 
-          if [ "$purge_success" = "false" ]; then
-            echo "Error: Failed to purge Cloudflare cache with all available credentials"
-            exit 1
-          fi
+          echo "Finished Cloudflare check"
 
       - name: Start SSH Agent and Add Key
         if: ${{ github.event.inputs.action != 'purge-cloudflare' }}

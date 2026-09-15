@@ -11,6 +11,18 @@ on:
         description: "Target server: dev or main"
         required: false
         default: "dev"
+      target_ip:
+        description: "Override target IP (e.g. 65.109.212.86)"
+        required: false
+        default: ""
+      target_port:
+        description: "Override target port (e.g. 22)"
+        required: false
+        default: ""
+      dns_ip:
+        description: "Target IP for Cloudflare DNS update (when action=update-prod-dns)"
+        required: false
+        default: "65.109.212.86"
       custom_command:
         description: "Custom command to run on server (when action=custom)"
         required: false
@@ -54,14 +66,15 @@ jobs:
             -H "Authorization: Bearer $CF_TOKEN" \
             -H "Content-Type: application/json" | jq -r '.result[0].id')
           echo "Found Record ID: $RECORD_ID"
-          echo "Updating prod.onton.live to 65.109.182.13..."
+          TARGET_IP="${{ github.event.inputs.dns_ip || '65.109.212.86' }}"
+          echo "Updating prod.onton.live to $TARGET_IP..."
           RESPONSE=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/$CF_ZONE/dns_records/$RECORD_ID" \
             -H "Authorization: Bearer $CF_TOKEN" \
             -H "Content-Type: application/json" \
-            --data '{"type":"A","name":"prod.onton.live","content":"65.109.182.13","ttl":1,"proxied":true,"comment":"prod main swarm host"}')
+            --data "{\"type\":\"A\",\"name\":\"prod.onton.live\",\"content\":\"$TARGET_IP\",\"ttl\":1,\"proxied\":true,\"comment\":\"prod main swarm host\"}")
           echo "Response: $RESPONSE"
           if echo "$RESPONSE" | grep -q '"success":true'; then
-            echo "DNS updated successfully to 65.109.182.13!"
+            echo "DNS updated successfully to $TARGET_IP!"
           else
             echo "Error updating DNS: $RESPONSE"
             exit 1
@@ -85,12 +98,34 @@ jobs:
       - name: Run Diagnostics on Swarm Manager
         if: ${{ github.event.inputs.action != 'purge-cloudflare' && github.event.inputs.action != 'update-prod-dns' && github.event.inputs.action != 'update-caddy-prod' }}
         env:
-          SSH_IP: ${{ (github.event.inputs.target_server == 'main') && secrets.SSH_MAIN_IP || secrets.SSH_DEV_IP }}
-          SSH_PORT: ${{ (github.event.inputs.target_server == 'main') && secrets.SSH_MAIN_PORT || secrets.SSH_DEV_PORT }}
+          INPUT_IP: ${{ github.event.inputs.target_ip }}
+          INPUT_PORT: ${{ github.event.inputs.target_port }}
+          DEV_IP: ${{ secrets.SSH_DEV_IP }}
+          DEV_PORT: ${{ secrets.SSH_DEV_PORT }}
+          MAIN_IP: ${{ secrets.SSH_MAIN_IP }}
+          MAIN_PORT: ${{ secrets.SSH_MAIN_PORT }}
+          TARGET_SERVER: ${{ github.event.inputs.target_server || 'dev' }}
           ACTION: ${{ github.event.inputs.action || 'inspect' }}
           CUSTOM_COMMAND: ${{ github.event.inputs.custom_command || '' }}
         run: |
-          ssh -o StrictHostKeyChecking=no -p "$SSH_PORT" tonont@$SSH_IP bash -s -- "$ACTION" "$CUSTOM_COMMAND" << 'EOF'
+          if [ -n "$INPUT_IP" ]; then
+            SSH_IP="$INPUT_IP"
+          elif [ "$TARGET_SERVER" = "main" ]; then
+            SSH_IP="$MAIN_IP"
+          else
+            SSH_IP="$DEV_IP"
+          fi
+
+          if [ -n "$INPUT_PORT" ]; then
+            SSH_PORT="$INPUT_PORT"
+          elif [ "$TARGET_SERVER" = "main" ]; then
+            SSH_PORT="${MAIN_PORT:-22}"
+          else
+            SSH_PORT="$DEV_PORT"
+          fi
+
+          echo "Target server: $TARGET_SERVER (Port: $SSH_PORT)"
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=15 -p "$SSH_PORT" tonont@$SSH_IP bash -s -- "$ACTION" "$CUSTOM_COMMAND" << 'EOF'
             set -o errexit
             set -o pipefail
 

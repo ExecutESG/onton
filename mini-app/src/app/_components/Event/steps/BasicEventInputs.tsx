@@ -1,10 +1,8 @@
 import { KSheet } from "@/components/ui/drawer";
-import { useGetHubsManageEvent } from "@/hooks/events.hooks";
 import { useCreateEventStore } from "@/zustand/createEventStore";
 import { Block, Button, Checkbox, ListInput, ListItem, Toolbar } from "konsta/react";
 import ListLayout from "../../atoms/cards/ListLayout";
 import EventCategoryPicker from "../../molecules/pickers/EventCategoryPicker";
-import TonHubPicker from "../../molecules/pickers/TonHubpicker";
 import { ImageUpload } from "./ImageUpload";
 
 interface Props {
@@ -20,12 +18,10 @@ function BasicEventInputs(props: Props) {
   const { edit: editOptions } = useCreateEventStore();
   const setEventData = useCreateEventStore((state) => state.setEventData);
   const clearImageError = useCreateEventStore((state) => state.clearImageErrors);
-  const hubsResponse = useGetHubsManageEvent();
 
   return (
     <ListLayout
       title=""
-      isLoading={hubsResponse.isLoading}
     >
       <ListInput
         outline
@@ -42,15 +38,6 @@ function BasicEventInputs(props: Props) {
         label="Subtitle"
         defaultValue={eventData?.subtitle}
         error={errors?.subtitle?.join(". ")}
-      />
-      <TonHubPicker
-        onValueChange={(data) => {
-          if (data) {
-            setEventData({ society_hub: data });
-          }
-        }}
-        value={eventData?.society_hub}
-        errors={errors?.hub}
       />
       <EventCategoryPicker
         onValueChange={(data) => {

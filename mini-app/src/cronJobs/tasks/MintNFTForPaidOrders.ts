@@ -80,9 +80,35 @@ export const MintNFTForPaidOrders = async (pushLockTTl: () => any) => {
       }
 
       const mintLockKey = `lock:mint_nft:${event_uuid}`;
-      const lockAcquired = await redisTools.acquireLock(mintLockKey, 30);
+      const lockAcquired = await redisTools.acquireLock(mintLockKey, 120);
       if (!lockAcquired) {
         logger.warn(`MintNFTForPaidOrders: mint lock busy for event ${event_uuid}, skipping order ${ordr.uuid} this cycle`);
+        continue;
+      }
+
+      // Concurrency protection: Verify and lock order row with FOR UPDATE
+      const orderClaimed = await db.transaction(async (trx) => {
+        const [locked] = await trx
+          .select({ uuid: orders.uuid })
+          .from(orders)
+          .where(and(eq(orders.uuid, ordr.uuid), eq(orders.state, "processing")))
+          .for("update")
+          .execute();
+
+        if (!locked) return false;
+
+        await trx
+          .update(orders)
+          .set({ updatedBy: `mint_lock_${Date.now()}` })
+          .where(eq(orders.uuid, ordr.uuid))
+          .execute();
+
+        return true;
+      });
+
+      if (!orderClaimed) {
+        await redisTools.releaseLock(mintLockKey);
+        logger.warn(`MintNFTForPaidOrders: order ${ordr.uuid} already processed or claimed by another worker`);
         continue;
       }
 

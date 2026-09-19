@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { isOriginAllowed, getCorsHeaders, getAllowedOrigins } from "../../src/lib/cors";
+import { safeTimingEqual, apiKeyAuthentication } from "../../src/server/apiKeyAuth";
 import crypto from "crypto";
 
 describe("CORS Allowlist (Issue #943)", () => {
@@ -69,3 +70,43 @@ describe("HMAC Signature Generation & Verification (Issue #940)", () => {
     expect(signature).not.toBe(tamperedSig);
   });
 });
+
+describe("Edge-Safe API Key Authentication (Issue #955)", () => {
+  it("should return true for identical strings", () => {
+    expect(safeTimingEqual("secret-token-123", "secret-token-123")).toBe(true);
+    expect(safeTimingEqual("", "")).toBe(true);
+  });
+
+  it("should return false for different strings or lengths", () => {
+    expect(safeTimingEqual("secret-token-123", "secret-token-456")).toBe(false);
+    expect(safeTimingEqual("secret-token-123", "short")).toBe(false);
+    expect(safeTimingEqual("", "non-empty")).toBe(false);
+  });
+
+  it("should reject request when x-api-key is missing", () => {
+    const req = new Request("https://example.com/api/v1/test");
+    const result = apiKeyAuthentication(req);
+    expect(result).not.toBeNull();
+    expect(result.status).toBe(401);
+  });
+
+  it("should reject request when x-api-key is wrong", () => {
+    process.env.ONTON_API_SECRET = "correct-key-12345";
+    const req = new Request("https://example.com/api/v1/test", {
+      headers: { "x-api-key": "wrong-key" },
+    });
+    const result = apiKeyAuthentication(req);
+    expect(result).not.toBeNull();
+    expect(result.status).toBe(401);
+  });
+
+  it("should allow request when x-api-key matches ONTON_API_SECRET", () => {
+    process.env.ONTON_API_SECRET = "correct-key-12345";
+    const req = new Request("https://example.com/api/v1/test", {
+      headers: { "x-api-key": "correct-key-12345" },
+    });
+    const result = apiKeyAuthentication(req);
+    expect(result).toBeNull();
+  });
+});
+

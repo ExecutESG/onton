@@ -1,7 +1,7 @@
 import eventDB from "@/db/modules/events.db";
 import { z } from "zod";
 import { logger } from "@/server/utils/logger";
-import { getAuthenticatedUserApi } from "@/server/auth";
+import { getAuthenticatedUserApi } from "@/server/userApiKeyAuth";
 import { createUserRewardLink } from "@/lib/ton-society-api";
 import "@/lib/gracefullyShutdown";
 import rewardDB from "@/db/modules/rewards.db";

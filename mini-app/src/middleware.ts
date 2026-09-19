@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { apiKeyAuthentication } from "@/server/auth";
+import { apiKeyAuthentication } from "@/server/apiKeyAuth";
 import { getCorsHeaders } from "@/lib/cors";
 
 // Define protected and public routes

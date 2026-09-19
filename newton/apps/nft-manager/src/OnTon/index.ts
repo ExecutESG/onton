@@ -15,6 +15,19 @@ import {
 import { sleep } from "src/nft/utils/delay";
 
 export class OnTon {
+  static getTonCenterHeaders(): Record<string, string> {
+    const defaultKey =
+      process.env.TON_NETWORK === "testnet"
+        ? "4fb3c0656555c4f63de82e91f978285e88ea0738389c05365220dee7bdfe1c84"
+        : "f8b7d29d6a483410d47e4452caab2e2753fa3950bc9967c865d3b2d8294190cb";
+    const apiKey = process.env.TON_CENTER_TOKEN || defaultKey;
+    return {
+      accept: "application/json",
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Onton/1.0",
+      ...(apiKey ? { "X-Api-Key": apiKey } : {}),
+    };
+  }
+
   static tonClient(): TonClient {
     return new TonClient({
       endpoint: process.env.TON_CENTER_ENDPOINT,
@@ -43,7 +56,6 @@ export class OnTon {
       limit: "128",
       offset: "0",
       sort: "asc",
-      api_key: process.env.TON_CENTER_TOKEN,
       ...(isNaN(parseInt(start_lt)) ? {} : { start_lt }),
       ...(hash ? { hash } : {}),
     });
@@ -55,7 +67,7 @@ export class OnTon {
     const url = `https://${network}toncenter.com/api/v3/transactions?${searchParams.toString()}`;
 
     console.log(url);
-    const res = await fetch(url);
+    const res = await fetch(url, { headers: OnTon.getTonCenterHeaders() });
 
     if (res.status === 429 && attemp < 10) {
       await sleep(1000 * attemp);
@@ -121,11 +133,10 @@ export class OnTon {
       index: index.toString(),
       limit: "100",
       offset: "0",
-      api_key: process.env.TON_CENTER_TOKEN,
     });
     const network = process.env.TON_NETWORK === "testnet" ? "testnet." : "";
     const url = `https://${network}toncenter.com/api/v3/nft/items?${searchParams.toString()}`;
-    const res = await fetch(url);
+    const res = await fetch(url, { headers: OnTon.getTonCenterHeaders() });
 
     console.log(url);
     console.log(res.status, res.statusText);
@@ -153,13 +164,12 @@ export class OnTon {
       limit: options.limit?.toString() || "128",
       offset: "0",
       sort: options.sort || "desc",
-      api_key: process.env.TON_CENTER_TOKEN,
     });
     const network = process.env.TON_NETWORK === "testnet" ? "testnet." : "";
     const url = `https://${network}toncenter.com/api/v3/nft/transfers?${searchParams.toString()}`;
 
     console.log(url);
-    const res = await fetch(url);
+    const res = await fetch(url, { headers: OnTon.getTonCenterHeaders() });
     if (!res.ok) {
       console.error(`--- getItemTransfers error: ${item_address}`, res);
       // handle 429 error

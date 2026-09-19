@@ -16,7 +16,6 @@ ARG NFT_MANAGER_PORT
 ARG PARTICIPANT_TMA_PORT
 ARG MINI_APP_DOMAIN
 ARG MINI_APP_PORT
-ARG NODE_TLS_REJECT_UNAUTHORIZED
 
 # Export arguments as environment variables
 ENV BOT_TOKEN=${BOT_TOKEN}
@@ -27,7 +26,6 @@ ENV NFT_MANAGER_PORT=${NFT_MANAGER_PORT}
 ENV PARTICIPANT_TMA_PORT=${PARTICIPANT_TMA_PORT}
 ENV MINI_APP_DOMAIN=${MINI_APP_DOMAIN}
 ENV MINI_APP_PORT=${MINI_APP_PORT}
-ENV NODE_TLS_REJECT_UNAUTHORIZED=${NODE_TLS_REJECT_UNAUTHORIZED}
 
 # Copy workspace files and install dependencies
 COPY ../../newton /usr/src/app
@@ -47,9 +45,7 @@ RUN pnpm deploy --filter=participant-tma --prod /prod/participant-tma
 # Participant-tma runtime stage
 FROM base AS participant-tma
 ARG PARTICIPANT_TMA_PORT
-ARG NODE_TLS_REJECT_UNAUTHORIZED
 ENV PORT=${PARTICIPANT_TMA_PORT}
-ENV NODE_TLS_REJECT_UNAUTHORIZED=${NODE_TLS_REJECT_UNAUTHORIZED}
 COPY --from=build /prod/participant-tma /prod/participant-tma
 WORKDIR /prod/participant-tma
 EXPOSE ${PARTICIPANT_TMA_PORT}

@@ -101,6 +101,10 @@ const defaultState = {
     }[],
     owner: 0,
     type: 0,
+    society_hub: {
+      id: "33",
+      name: "Onton",
+    },
     hasEnded: true,
     has_registration: false,
     has_approval: false,

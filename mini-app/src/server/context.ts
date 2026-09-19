@@ -3,7 +3,7 @@ import { usersDB } from "@/db/modules/users.db";
 import { logger } from "@/server/utils/logger";
 import { TRPCError } from "@trpc/server";
 import { cookies } from "next/headers";
-import { getAuthenticatedUserApi } from "@/server/auth";
+import { getAuthenticatedUserApi } from "@/server/userApiKeyAuth";
 import { selectUserById } from "@/db/modules/users.db";
 import { verifyToken } from "@/server/utils/jwt";
 

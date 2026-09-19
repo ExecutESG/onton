@@ -102,7 +102,7 @@ export default function BottomNavigation(props: { children: ReactNode }) {
       </div>
 
       {/* Main Content Pane */}
-      <div className="flex-1 p-4 overflow-y-auto isolate pb-[calc(68px+1rem+var(--tg-safe-area-inset-bottom))] md:pb-8 md:pl-72">
+      <div className="flex-1 p-4 overflow-y-auto isolate pb-[calc(92px+var(--tg-safe-area-inset-bottom,0px))] md:pb-8 md:pl-72">
         {props.children}
       </div>
 

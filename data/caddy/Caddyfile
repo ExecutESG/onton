@@ -105,3 +105,25 @@ web.toncloud.observer {
     }
     reverse_proxy website:3000
 }
+
+storage.onton.live {
+    reverse_proxy minio:9003
+}
+
+onton.live {
+    reverse_proxy 65.108.18.155
+}
+
+app.onton.live {
+    reverse_proxy /ptma* participant-tma:3000
+    reverse_proxy mini-app:3000
+}
+
+metabase.onton.live {
+    reverse_proxy metabase:3000
+}
+
+panel.onton.live {
+    reverse_proxy client-web:3002
+}
+

@@ -21,6 +21,7 @@ import { EventRow } from "@/db/schema/events";
 import { ExtendedUser } from "@/types/extendedUserTypes";
 import { eventRegistrantsDB } from "@/db/modules/eventRegistrants.db";
 import userEventFieldsDB from "@/db/modules/userEventFields.db";
+import { sbtService } from "@/services/sbtService";
 
 // --- Helper Validation Functions ----------------------------------
 
@@ -271,68 +272,67 @@ export const CsbtTicketForApi = async (event_uuid: string, user_id: number) => {
   const society_hub_value =
     typeof eventData.society_hub === "string" ? eventData.society_hub : eventData.society_hub?.name || "Onton";
 
-  while (true) {
-    // Brief delay between attempts to avoid spamming the API
-    await sleep(20);
-
+  // Check if user has wallet address for direct native SBT mint
+  const user = await usersDB.selectUserById(user_id);
+  if (user?.wallet_address) {
     try {
-      // 4) Call your external API to create the user reward link
-      const response = await createUserRewardLink(paymentInfo.ticketActivityId, {
-        telegram_user_id: user_id,
+      const sbtBadge = await sbtService.mintSbtBadge({
+        eventUuid: event_uuid,
+        userId: user_id,
+        walletAddress: user.wallet_address,
+        badgeTitle: `${paymentInfo.title} (Ticket)`,
+        badgeDescription: paymentInfo.description || `Soulbound Ticket for ${eventData.title}`,
+        badgeImage: paymentInfo.ticketImage || undefined,
         attributes: [
-          {
-            trait_type: "Organizer",
-            value: society_hub_value,
-          },
+          { trait_type: "Ticket Type", value: "Soulbound Ticket (cSBT)" },
+          { trait_type: "Organizer", value: society_hub_value },
         ],
       });
 
-      // Make sure it's valid
-      if (!response?.data?.data) {
-        throw new Error("Failed to create user reward link: No 'data' returned.");
-      }
+      const rewardData = {
+        reward_link: `https://tonviewer.com/${sbtBadge.itemAddress}`,
+        sbt_address: sbtBadge.itemAddress,
+      };
 
-      // 5) Insert the newly created reward into your DB
       await db
         .insert(rewards)
         .values({
           visitor_id: visitor.id,
           type: "ton_society_csbt_ticket",
-          data: response.data.data as RewardDataTyepe,
+          data: rewardData as any,
           event_end_date: eventData?.end_date!,
           event_start_date: eventData?.start_date!,
           status: "created",
           updatedBy: user_id.toString(),
-          tonSocietyStatus: "NOT_CLAIMED",
+          tonSocietyStatus: "CLAIMED",
         })
         .returning()
         .execute();
-      logger.info(`CSBT Ticket created successfully for user ${user_id}.`);
-      return response.data.data; // Return the reward link data
-    } catch (error) {
-      console.error("Error creating CSBT ticket reward:", error);
-      try {
-        await db
-          .insert(rewards)
-          .values({
-            visitor_id: visitor.id,
-            type: "ton_society_csbt_ticket",
-            data: null,
-            event_end_date: eventData?.end_date!,
-            event_start_date: eventData?.start_date!,
-            status: "pending_creation",
-            updatedBy: user_id.toString(),
-            tonSocietyStatus: "NOT_CLAIMED",
-          })
-          .returning()
-          .execute();
-        break;
-      } catch (insertErr) {
-        // If even that fails, just log it
-        logger.error("Error inserting pending creation reward record", insertErr);
-      }
+
+      logger.info(`Native SBT Ticket minted successfully for user ${user_id} at ${sbtBadge.itemAddress}.`);
+      return rewardData;
+    } catch (mintErr) {
+      logger.error("CsbtTicket: Direct native SBT mint failed, recording pending reward", mintErr);
     }
   }
+
+  // Fallback if wallet not yet bound: insert pending reward
+  await db
+    .insert(rewards)
+    .values({
+      visitor_id: visitor.id,
+      type: "ton_society_csbt_ticket",
+      data: null,
+      event_end_date: eventData?.end_date!,
+      event_start_date: eventData?.start_date!,
+      status: "pending_creation",
+      updatedBy: user_id.toString(),
+      tonSocietyStatus: "NOT_CLAIMED",
+    })
+    .returning()
+    .execute();
+
+  return null;
 };
 const createTonSocietySBTReward = async (event_uuid: string, user_id: number) => {
   try {

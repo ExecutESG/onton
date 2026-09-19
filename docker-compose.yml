@@ -44,7 +44,6 @@ x-common-env: &common-env
   NEXT_PUBLIC_GTM: ${NEXT_PUBLIC_GTM}
   NEXT_PUBLIC_BOT_USERNAME: ${NEXT_PUBLIC_BOT_USERNAME}
   NODE_ENV: ${NODE_ENV}
-  NODE_TLS_REJECT_UNAUTHORIZED: ${NODE_TLS_REJECT_UNAUTHORIZED}
   ONTON_API_KEY: ${ONTON_API_KEY}
   ONTON_DOMAIN: ${ONTON_DOMAIN}
   PARTICIPANT_TMA_PORT: ${PARTICIPANT_TMA_PORT}
@@ -171,7 +170,7 @@ services:
       - expecting-mini-app
       - minimal
       - full
-    command: redis-server --save "" --appendonly no --requirepass ${REDIS_PASSWORD}
+    command: sh -c 'if [ -n "$${REDIS_PASSWORD}" ]; then exec redis-server --save "" --appendonly no --requirepass "$${REDIS_PASSWORD}"; else exec redis-server --save "" --appendonly no; fi'
     environment:
       <<: *common-env
     networks:

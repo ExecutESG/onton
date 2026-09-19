@@ -5,32 +5,6 @@ import { TelegramInitDataJson, TelegramUser } from "./types";
 
 const BOT_TOKEN = process.env.BOT_TOKEN || "";
 
-const TONAPI_BEARER = "Bearer " + process.env.TONAPI_API_KEY;
-
-const TON_API_AUTH_HEADER = {
-  Authorization: TONAPI_BEARER,
-};
-
-export async function fetchBalance(address: string) {
-  const url = `https://tonapi.io/v2/accounts/${address}`;
-
-  try {
-    const response = await fetch(url, { headers: TON_API_AUTH_HEADER });
-    if (!response.ok) {
-      return 0;
-    }
-
-    const jsonResponse = await response.json();
-    const balance = jsonResponse.balance;
-    if (!balance) {
-      return 0;
-    }
-
-    return balance / 1e9;
-  } catch (error: any) {
-    return 0;
-  }
-}
 
 export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 

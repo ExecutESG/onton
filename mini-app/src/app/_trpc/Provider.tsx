@@ -119,7 +119,7 @@ export default function TRPCAPIProvider({ children }: { children: React.ReactNod
 
             /* Session-JWT from ton-proof */
             const jwt = getJwt();
-            if (jwt) headers["x-session-jwt"] = jwt; // <- choose any header name
+            if (jwt) headers["x-session-jwt"] = jwt;
 
             return headers;
           },

@@ -13,6 +13,8 @@ import eventPaymentDB from "@/db/modules/eventPayment.db";
 import { RewardVisitorTypePartial } from "@/db/schema/rewards";
 import { generateTelegramCsv } from "@/cronJobs/helper/generateTelegramCsv";
 import { postTelegramCsvToTonSociety } from "@/cronJobs/helper/postTelegramCsvToTonSociety";
+import { sbtService } from "@/services/sbtService";
+import { usersDB } from "@/db/modules/users.db";
 
 // ---------------------------------------------------------------------
 // HELPER: Build the Ton Society Activity "draft" for updating
@@ -103,26 +105,40 @@ export const processSingleReward = async (pendingReward: RewardVisitorTypePartia
       if (!event) {
         throw new Error(`Event ${visitor.event_uuid} not found`);
       }
-      let activity_id;
-      if (pendingReward.type === "ton_society_sbt") {
-        activity_id = event.activity_id;
-      } else if (pendingReward.type === "ton_society_csbt_ticket") {
-        const paymentInfo = await eventPaymentDB.fetchPaymentInfoForCronjob(event.event_uuid);
-        if (!paymentInfo) {
-          logger.error("error event Does not have payment !!!", event.event_uuid);
-          return;
-        }
-        activity_id = paymentInfo.ticketActivityId;
-      }
-      if (activity_id === undefined) {
-        logger.error(`Activity id is undefined for event ${event.event_uuid}`);
-      }
-      const response = await createUserRewardLink(activity_id as number, {
-        telegram_user_id: visitor.user_id as number,
-        attributes: [{ trait_type: "Organizer", value: event.society_hub.name as string }],
-      });
+      const user = await usersDB.selectUserById(visitor.user_id as number);
+      const userWallet = user?.wallet_address;
 
-      await rewardDB.updateReward(pendingReward.rewardId, response.data.data);
+      if (userWallet) {
+        try {
+          const sbtItem = await sbtService.mintSbtBadge({
+            eventUuid: event.event_uuid,
+            userId: visitor.user_id as number,
+            walletAddress: userWallet,
+            badgeTitle: `${event.title} SBT Badge`,
+            badgeDescription: `Soulbound Proof of Attendance for ${event.title}`,
+            attributes: [
+              { trait_type: "Organizer", value: (event.society_hub as any)?.name || "Onton" },
+              { trait_type: "Event Type", value: event.participationType || "in_person" },
+            ],
+          });
+
+          await rewardDB.updateReward(pendingReward.rewardId, {
+            reward_link: `https://tonviewer.com/${sbtItem.itemAddress}`,
+            sbt_address: sbtItem.itemAddress,
+            status: "MINTED",
+          } as any);
+          return; // success, exit the loop
+        } catch (sbtErr) {
+          logger.error(`Failed to mint native SBT for visitor ${visitor.id}`, sbtErr);
+        }
+      }
+
+      // If user has not bound a wallet yet, provide claim deep link to open mini-app
+      const claimLink = `https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME || "ontonbot"}?startapp=${event.event_uuid}`;
+      await rewardDB.updateReward(pendingReward.rewardId, {
+        reward_link: claimLink,
+        status: "WAITING_FOR_WALLET",
+      } as any);
       return; // success, exit the loop
     } catch (error) {
       // Handle HTTP 429 (rate limit)

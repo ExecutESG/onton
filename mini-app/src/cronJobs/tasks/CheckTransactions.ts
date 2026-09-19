@@ -80,21 +80,24 @@ export const CheckTransactions = async () => {
       }
     }
     const decimals = token.decimals ?? 0;
-    const amount = Number(o.rawAmount) / 10 ** decimals;
-    const normalizedAmount = parseFloat(amount.toFixed(Math.min(decimals, 9)));
-    const orderAmount = Number(orderRow.total_price ?? 0);
-    if (Number.isFinite(orderAmount)) {
-      const diff = Math.abs(orderAmount - normalizedAmount);
-      if (diff > 1e-4) {
-        logger.warn("cron_trx_amount_mismatch", {
-          uuid: o.order_uuid,
-          orderAmount,
-          txAmount: normalizedAmount,
-          diff,
-        });
-        continue;
-      }
+    const txRawAmount = BigInt(o.rawAmount.toString());
+    const expectedRawAmount = BigInt(Math.round(Number(orderRow.total_price ?? 0) * 10 ** decimals));
+
+    // Allow at most 1000 nanotons (1e-6 TON) tolerance for minor network rounding if applicable
+    const maxTolerance = decimals >= 6 ? BigInt(10 ** (decimals - 6)) : BigInt(1);
+    const diffRaw = txRawAmount > expectedRawAmount ? txRawAmount - expectedRawAmount : expectedRawAmount - txRawAmount;
+
+    if (diffRaw > maxTolerance) {
+      logger.warn("cron_trx_amount_mismatch", {
+        uuid: o.order_uuid,
+        expectedRaw: expectedRawAmount.toString(),
+        txRaw: txRawAmount.toString(),
+        diffRaw: diffRaw.toString(),
+      });
+      continue;
     }
+
+    const normalizedAmount = Number(txRawAmount) / 10 ** decimals;
     logger.log("cron_trx_", o.order_uuid, token.symbol, normalizedAmount, {
       order_state: orderRow.state,
       order_total: orderRow.total_price,

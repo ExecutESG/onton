@@ -80,14 +80,17 @@ function EventCard({ event, afterTitle, timeOnly, noClick }: EventCardProps, ref
     hasPayment,
   } = event;
 
-  // Build location display
-  const displayLocation = city && country ? `${city}, ${country}` : location;
-
-  // Format location for display (truncate if needed)
-  const formattedLocation = displayLocation.length > 30 ? `${displayLocation.slice(0, 30)}...` : displayLocation;
-
   // Determine event participation type
   const isOnline = participationType === "online";
+
+  // Build location display
+  const displayLocation = isOnline
+    ? "Online Event"
+    : city && country
+    ? `${city}, ${country}`
+    : location && location !== "No Location"
+    ? location
+    : "Location TBA";
 
   // Determine currency for ticket price
   const normalizedPaymentType = paymentType?.toString().toUpperCase();
@@ -178,7 +181,7 @@ function EventCard({ event, afterTitle, timeOnly, noClick }: EventCardProps, ref
 
             {/* Location */}
             <div
-              title={isOnline ? "Online" : formattedLocation}
+              title={isOnline ? "Online" : displayLocation}
               className="flex items-center text-gray-500 mb-1"
             >
               {isOnline ? (
@@ -190,7 +193,7 @@ function EventCard({ event, afterTitle, timeOnly, noClick }: EventCardProps, ref
                 variant="subheadline2"
                 className="truncate"
               >
-                {isOnline ? "Online" : formattedLocation}
+                {isOnline ? "Online" : displayLocation}
               </Typography>
             </div>
 

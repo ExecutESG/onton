@@ -20,6 +20,11 @@ const MAX_CONCURRENT_API_CALLS = 3;
  *   Otherwise, all events with a non-null activity_id are processed.
  */
 export const syncTonSocietyStatusLargeScale = async (startDateCutoff: number = 0) => {
+  if (process.env.ENABLE_TON_SOCIETY !== "true") {
+    logger.info("CheckSbtStatus skipped: TON Society API is deprecated and disabled.");
+    return;
+  }
+
   try {
     let offset = 0;
     let totalEventsProcessed = 0;

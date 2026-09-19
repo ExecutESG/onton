@@ -22,7 +22,7 @@ import EventPointsGroup from "../points/EventPointsGroup";
 import ConnectTaskCard from "@/app/_components/Tasks/ConnectTaskCard";
 
 /* ───────────────────────── helpers ───────────────────────── */
-const pts = (n: number | null | undefined) => (n ? `${n} Point${n === 1 ? "" : "s"}` : "Points");
+const pts = (n: number | null | undefined) => (typeof n === "number" ? `${n} Point${n === 1 ? "" : "s"}` : "Points");
 const isDone = (t?: { userTaskStatus: { status: string } | null }) => t?.userTaskStatus?.status === "done";
 
 /* instant‑quest types handled by generic quest router */
@@ -183,58 +183,60 @@ export default function MyQuestsPage() {
       <TotalPointsBox totalPoints={totalPtsQ.data ?? 0} />
 
       {/* CONNECT ACCOUNTS ------------------------------------------------ */}
-      <EventPointsGroup title="Connect Your Accounts">
-        {xTaskQ.data?.tasks?.[0] && (
-          <ConnectTaskCard
-            title={xTaskQ.data.tasks[0].title}
-            description={`${xTaskQ.data.tasks[0].description} ( ${xTaskQ.data.tasks[0].rewardPoint} points )`}
-            pointsLabel={pts(xTaskQ.data.tasks[0].rewardPoint)}
-            icon={<FaXTwitter />}
-            done={isDone(xTaskQ.data.tasks[0])}
-            onGo={startX}
-          />
-        )}
-        {ghTaskQ.data?.tasks?.[0] && (
-          <ConnectTaskCard
-            title={ghTaskQ.data.tasks[0].title}
-            description={`${ghTaskQ.data.tasks[0].description} ( ${ghTaskQ.data.tasks[0].rewardPoint} points )`}
-            pointsLabel={pts(ghTaskQ.data.tasks[0].rewardPoint)}
-            icon={<FaGithub />}
-            done={isDone(ghTaskQ.data.tasks[0])}
-            onGo={startGh}
-          />
-        )}
-        {liTaskQ.data?.tasks?.[0] && (
-          <ConnectTaskCard
-            title={liTaskQ.data.tasks[0].title}
-            description={`${liTaskQ.data.tasks[0].description} ( ${liTaskQ.data.tasks[0].rewardPoint} points )`}
-            pointsLabel={pts(liTaskQ.data.tasks[0].rewardPoint)}
-            icon={<FaLinkedinIn />}
-            done={isDone(liTaskQ.data.tasks[0])}
-            onGo={startLi}
-          />
-        )}
-        {gTaskQ.data?.tasks?.[0] && (
-          <ConnectTaskCard
-            title={gTaskQ.data.tasks[0].title}
-            description={`${gTaskQ.data.tasks[0].description} ( ${gTaskQ.data.tasks[0].rewardPoint} points )`}
-            pointsLabel={pts(gTaskQ.data.tasks[0].rewardPoint)}
-            icon={<FaGoogle className="text-xl" />}
-            done={isDone(gTaskQ.data.tasks[0])}
-            onGo={startG}
-          />
-        )}
-        {oTaskQ.data?.tasks?.[0] && (
-          <ConnectTaskCard
-            title={oTaskQ.data.tasks[0].title}
-            description={`${oTaskQ.data.tasks[0].description} ( ${oTaskQ.data.tasks[0].rewardPoint} points )`}
-            pointsLabel={pts(oTaskQ.data.tasks[0].rewardPoint)}
-            icon={<PiMicrosoftOutlookLogoFill className="text-xl text-[#0078d4]" />}
-            done={isDone(oTaskQ.data.tasks[0])}
-            onGo={startO}
-          />
-        )}
-      </EventPointsGroup>
+      {Boolean(xTaskQ.data?.tasks?.[0] || ghTaskQ.data?.tasks?.[0] || liTaskQ.data?.tasks?.[0] || gTaskQ.data?.tasks?.[0] || oTaskQ.data?.tasks?.[0]) && (
+        <EventPointsGroup title="Connect Your Accounts">
+          {xTaskQ.data?.tasks?.[0] && (
+            <ConnectTaskCard
+              title={xTaskQ.data.tasks[0].title}
+              description={`${xTaskQ.data.tasks[0].description} ( ${xTaskQ.data.tasks[0].rewardPoint} points )`}
+              pointsLabel={pts(xTaskQ.data.tasks[0].rewardPoint)}
+              icon={<FaXTwitter />}
+              done={isDone(xTaskQ.data.tasks[0])}
+              onGo={startX}
+            />
+          )}
+          {ghTaskQ.data?.tasks?.[0] && (
+            <ConnectTaskCard
+              title={ghTaskQ.data.tasks[0].title}
+              description={`${ghTaskQ.data.tasks[0].description} ( ${ghTaskQ.data.tasks[0].rewardPoint} points )`}
+              pointsLabel={pts(ghTaskQ.data.tasks[0].rewardPoint)}
+              icon={<FaGithub />}
+              done={isDone(ghTaskQ.data.tasks[0])}
+              onGo={startGh}
+            />
+          )}
+          {liTaskQ.data?.tasks?.[0] && (
+            <ConnectTaskCard
+              title={liTaskQ.data.tasks[0].title}
+              description={`${liTaskQ.data.tasks[0].description} ( ${liTaskQ.data.tasks[0].rewardPoint} points )`}
+              pointsLabel={pts(liTaskQ.data.tasks[0].rewardPoint)}
+              icon={<FaLinkedinIn />}
+              done={isDone(liTaskQ.data.tasks[0])}
+              onGo={startLi}
+            />
+          )}
+          {gTaskQ.data?.tasks?.[0] && (
+            <ConnectTaskCard
+              title={gTaskQ.data.tasks[0].title}
+              description={`${gTaskQ.data.tasks[0].description} ( ${gTaskQ.data.tasks[0].rewardPoint} points )`}
+              pointsLabel={pts(gTaskQ.data.tasks[0].rewardPoint)}
+              icon={<FaGoogle className="text-xl" />}
+              done={isDone(gTaskQ.data.tasks[0])}
+              onGo={startG}
+            />
+          )}
+          {oTaskQ.data?.tasks?.[0] && (
+            <ConnectTaskCard
+              title={oTaskQ.data.tasks[0].title}
+              description={`${oTaskQ.data.tasks[0].description} ( ${oTaskQ.data.tasks[0].rewardPoint} points )`}
+              pointsLabel={pts(oTaskQ.data.tasks[0].rewardPoint)}
+              icon={<PiMicrosoftOutlookLogoFill className="text-xl text-[#0078d4]" />}
+              done={isDone(oTaskQ.data.tasks[0])}
+              onGo={startO}
+            />
+          )}
+        </EventPointsGroup>
+      )}
 
       {/* QUICK QUESTS ---------------------------------------------------- */}
       {questTasks.length > 0 && (

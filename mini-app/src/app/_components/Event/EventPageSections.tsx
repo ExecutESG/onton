@@ -158,7 +158,7 @@ EventDescription.displayName = "EventDescription";
 const EventTitle = React.memo(() => {
   const { eventHash, eventData } = useEventData();
 
-  const isNotPublished = !eventData.data?.activity_id || !!eventData.data?.hidden;
+  const isNotPublished = !!eventData.data?.hidden || !eventData.data?.enabled;
 
   return (
     <div className="mt-4 space-y-4">

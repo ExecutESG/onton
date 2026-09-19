@@ -4,8 +4,11 @@ import time
 import sys
 import select
 
-HOST = "65.109.212.86"
-PASS = "89*evddQFpZXHA7BCnmV"
+HOST = os.environ.get("PROD_HOST", "65.109.212.86")
+PASS = os.environ.get("PROD_PASS")
+if not PASS:
+    import getpass
+    PASS = getpass.getpass(f"Enter root password for {HOST}: ")
 
 CMDS = """
 export TERM=xterm
@@ -18,7 +21,7 @@ LOG_FILE="/root/dump.log"
 
 echo "--> Dumping to $DUMP_FILE (No Gzip)"
 # Use -v (verbose) to see what happens
-docker exec -e PGPASSWORD=@GqjCiFjdywo2hliunXyeLBD $PG_CONTAINER pg_dumpall -c -U onton -v > $DUMP_FILE 2> $LOG_FILE
+docker exec -e PGPASSWORD="${PGPASSWORD}" $PG_CONTAINER pg_dumpall -c -U onton -v > $DUMP_FILE 2> $LOG_FILE
 
 echo "--> Check File Size:"
 ls -lh $DUMP_FILE

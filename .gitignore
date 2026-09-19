@@ -77,10 +77,28 @@ mini-app/bun.lock
 .windsurf
 
 Misc/
-deploy_key
-deploy_key.pub
-id_rsa_onton_dev
-id_rsa_onton_dev.pub
-prod.env
-.env.shadow
+deploy_key*
+id_rsa*
+id_ed25519*
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Environment files
+.env
+.env.*
+*.env
+*.env.*
+!.env.example
+!*.env.example
+!.env*.example
+
+# Operational dumps and temporary scripts
+*.sql.gz
+*.dump
+devops/*dump*.py
+devops/verify_connections.py
+devops/check_prod_env.py
+devops/migrate_phase2_backup*.py
 

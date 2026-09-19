@@ -79,7 +79,10 @@ function ManageEvent({ event }: ManageEventProps) {
                 id: event.society_hub.id,
                 name: event.society_hub.name,
               }
-            : undefined,
+            : {
+                id: "33",
+                name: "Onton",
+              },
           eventLocationType: event.participationType,
           countryId: event.countryId || undefined,
           cityId: event.cityId || undefined,

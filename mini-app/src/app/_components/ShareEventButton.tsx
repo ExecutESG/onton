@@ -7,11 +7,10 @@ import { LoaderIcon, LucideShare2 } from "lucide-react";
 
 const ShareEventButton = ({
   event_uuid,
-  activity_id,
   hidden,
 }: {
   event_uuid: string;
-  activity_id: number | null | undefined;
+  activity_id?: number | null | undefined;
   hidden: boolean | null | undefined;
 }) => {
   const WebApp = useWebApp();
@@ -26,7 +25,7 @@ const ShareEventButton = ({
         "w-9 h-9 justify-self-end flex items-center justify-center rounded-lg bg-brand-fill-bg/15 disabled:opacity-20 disabled:cursor-not-allowed",
         shareEventMutation.isLoading && Boolean(initData) && "opacity-50"
       )}
-      disabled={!initData || shareEventMutation.isLoading || !activity_id || !!hidden}
+      disabled={!initData || shareEventMutation.isLoading || !!hidden}
       onClick={async (e) => {
         e.preventDefault();
         if (!initData) return;

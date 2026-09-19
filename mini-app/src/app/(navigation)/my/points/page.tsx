@@ -154,10 +154,10 @@ export default function MyPointsPage() {
             />
           </EventPointsGroup>
 
-          {/* Organise */}
-          <EventPointsGroup title="Organise Events">
+          {/* Organize */}
+          <EventPointsGroup title="Organize Events">
             <EventPointsCard
-              eventTitle="Organise events"
+              eventTitle="Organize events"
               tasksCount={organise.data?.count ?? 0}
               description="0.2 × participation points × participant count"
               totalPoints={Number(organise.data?.total ?? 0)}

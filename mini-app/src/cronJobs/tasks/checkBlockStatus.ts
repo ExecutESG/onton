@@ -1,8 +1,7 @@
-// checkBlockStatus.ts
-
 import axios from "axios";
 import { logger } from "@/server/utils/logger";
 import { usersDB } from "@/db/modules/users.db";
+import { getTelegramBotBaseUrl, getTelegramBotHeaders } from "@/lib/tgBotConfig";
 
 // Pause execution for `ms` milliseconds
 function sleep(ms: number): Promise<void> {
@@ -15,10 +14,12 @@ function sleep(ms: number): Promise<void> {
  */
 async function requestCheckBlockStatus(userId: number, attempt = 1): Promise<void> {
   try {
+    const body = { user_id: userId };
     const response = await axios.post(
-      `http://${process.env.IP_TELEGRAM_BOT}:${process.env.TELEGRAM_BOT_PORT}/check-block-status`,
+      `${getTelegramBotBaseUrl()}/check-block-status`,
+      body,
       {
-        user_id: userId,
+        headers: getTelegramBotHeaders(body),
       }
     );
     logger.log(`Checked block status for user_id=${userId}`, response.data);
@@ -71,6 +72,10 @@ export const checkAllUsersBlockStatus = async (): Promise<void> => {
 };
 
 export const CheckAllUsersBlock = async () => {
+  if (process.env.CHECK_ALL_USERS_BLOCK_ENABLED !== "true") {
+    logger.log("CheckAllUsersBlock skipped: disabled by default to protect Telegram API rate limits.");
+    return;
+  }
   logger.log("====> Running CheckAllUsersBlock");
   await checkAllUsersBlockStatus();
   logger.log("====> Completed CheckAllUsersBlock");

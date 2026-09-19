@@ -247,10 +247,15 @@ export const EventDataSchema = z
       .url({ message: "Please select a valid reward image URL" }),
 
     /* -------------------------- Organization Info ------------------------- */
-    society_hub: z.object({
-      id: z.string({ required_error: "society_hub.id is required" }),
-      name: z.string({ required_error: "society_hub.name is required" }),
-    }),
+    society_hub: z
+      .object({
+        id: z.string(),
+        name: z.string(),
+      })
+      .default({
+        id: "33",
+        name: "Onton",
+      }),
     owner: z.number({ required_error: "owner is required" }),
     activity_id: z.number({ required_error: "activity ID is required" }).optional(),
 
@@ -324,10 +329,16 @@ export const UpdateEventDataSchema = z.object({
     .optional(),
 
   /* -------------------------- Organization Info ------------------------- */
-  society_hub: z.object({
-    id: z.string({ required_error: "society_hub.id is required" }),
-    name: z.string({ required_error: "society_hub.name is required" }),
-  }),
+  society_hub: z
+    .object({
+      id: z.string(),
+      name: z.string(),
+    })
+    .default({
+      id: "33",
+      name: "Onton",
+    })
+    .optional(),
   owner: z.number({ required_error: "owner is required" }),
   activity_id: z.number().optional(),
 

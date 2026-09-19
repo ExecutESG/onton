@@ -160,13 +160,14 @@ jobs:
         env:
           SERVICES: ${{ needs.determine-services.outputs.services_to_build }}
         run: |
+          set -e
           echo "Validating changed services: $SERVICES"
 
           if echo "$SERVICES" | grep -q -E "mini-app"; then
             echo "--> Validating mini-app..."
             cd mini-app
             yarn install --frozen-lockfile --prefer-offline --ignore-engines || yarn install --ignore-engines
-            yarn lint:quiet || echo "Linting reported warnings"
+            yarn lint:quiet
             cd ..
           fi
 
@@ -174,7 +175,7 @@ jobs:
             echo "--> Validating telegram-bot..."
             cd telegram-bot
             yarn install --prefer-offline || yarn install
-            yarn run build || echo "telegram-bot typecheck warning (service runs via ts-node at runtime)"
+            yarn run build
             cd ..
           fi
 

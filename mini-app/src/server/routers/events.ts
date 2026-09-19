@@ -256,7 +256,11 @@ const addEvent = adminOrganizerProtectedProcedure.input(z.object({ eventData: Ev
   const user_id = opts.ctx.user.user_id;
   const userCacheKey = getUserCacheKey(user_id);
   const is_ts_verified = await organizerTsVerified(user_id);
-  if (!is_ts_verified && !NonVerifiedHubsIds.includes(input_event_data.society_hub.id))
+  if (
+    input_event_data.society_hub?.id &&
+    !is_ts_verified &&
+    !NonVerifiedHubsIds.includes(input_event_data.society_hub.id)
+  )
     throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid HUBS for non verified organizer" });
   const category = await eventCategoriesDB.fetchCategoryById(input_event_data.category_id);
   if (!category || !category.enabled) {
@@ -297,8 +301,8 @@ const addEvent = adminOrganizerProtectedProcedure.input(z.object({ eventData: Ev
           subtitle: input_event_data.subtitle,
           description: input_event_data.description,
           image_url: input_event_data.image_url,
-          society_hub: input_event_data.society_hub.name,
-          society_hub_id: input_event_data.society_hub.id,
+          society_hub: input_event_data.society_hub?.name || "Onton",
+          society_hub_id: input_event_data.society_hub?.id || "33",
           secret_phrase: hashedSecretPhrase,
           start_date: input_event_data.start_date,
           end_date: input_event_data.end_date,
@@ -437,22 +441,31 @@ const addEvent = adminOrganizerProtectedProcedure.input(z.object({ eventData: Ev
        */
       try {
         if (register_to_ts) {
-          const res = await registerActivity(eventDraft);
-          tsActivityId = res.data.activity_id;
+          try {
+            const res = await registerActivity(eventDraft);
+            if (res?.status === "success" && res?.data?.activity_id) {
+              tsActivityId = res.data.activity_id;
 
-          await trx
-            .update(events)
-            .set({
-              activity_id: res.data.activity_id,
-              updatedBy: user_id.toString(),
-              updatedAt: new Date(),
-            })
-            .where(eq(events.event_uuid, newEvent[0].event_uuid as string))
-            .execute();
+              await trx
+                .update(events)
+                .set({
+                  activity_id: res.data.activity_id,
+                  updatedBy: user_id.toString(),
+                  updatedAt: new Date(),
+                })
+                .where(eq(events.event_uuid, newEvent[0].event_uuid as string))
+                .execute();
+            }
+          } catch (tsError) {
+            logger.warn(
+              `Failed to register activity with Ton Society for event ${newEvent[0].event_uuid}. Proceeding without Ton Society.`,
+              tsError
+            );
+          }
         }
 
         /* ------------- Generate the message using the render function ------------- */
-        if (is_ts_verified && !is_paid) {
+        if (!is_paid) {
           /* -------------------------- Just Send The Message ------------------------- */
           const logMessage = renderAddEventMessage(opts.ctx.user.username || user_id, eventData);
 
@@ -474,39 +487,6 @@ const addEvent = adminOrganizerProtectedProcedure.input(z.object({ eventData: Ev
           });
 
           eventsMsg && sentTelegramMsgs.push(eventsMsg);
-        } else if (!is_paid) {
-          /* --------------------------- Moderation Message --------------------------- */
-
-          const moderation_group_id = configProtected?.moderation_group_id;
-          const logMessage = await renderModerationEventMessage(opts.ctx.user.username || user_id, eventData);
-
-          // SEND MESSAGE TO TELEGRAM MODERATION GROUP
-          const moderationMessageResult = await sendLogNotification({
-            group_id: moderation_group_id,
-            image: eventData.image_url,
-            message: logMessage,
-            topic: "no_topic",
-            inline_keyboard: tgBotModerationMenu(eventData.event_uuid),
-            media_group: [
-              { type: "photo", url: eventData.tsRewardImage!! },
-              {
-                type: "video",
-                url: eventData.tsRewardVideo!!,
-              },
-            ],
-          });
-
-          await trx
-            .update(events)
-            .set({ moderationMessageId: moderationMessageResult.message_id })
-            .where(eq(events.event_id, eventData.event_id))
-            .execute();
-
-          sentTelegramMsgs.push(moderationMessageResult);
-
-          logger.log(
-            `moderationMessageResult: for ${eventData.event_id} ${eventData.event_uuid} with message_id ${moderationMessageResult.message_id}`
-          );
         }
       } catch (error) {
         // ❄ THIRD PARTY CLEANUP ❄
@@ -697,8 +677,8 @@ const updateEvent = eventManagerPP
             subtitle: eventData.subtitle,
             description: eventData.description,
             image_url: eventData.image_url,
-            society_hub: eventData.society_hub.name,
-            society_hub_id: eventData.society_hub.id,
+            society_hub: eventData.society_hub?.name || "Onton",
+            society_hub_id: eventData.society_hub?.id || "33",
             secret_phrase: hashedSecretPhrase,
             start_date: eventData.start_date,
             end_date: eventData.end_date,
@@ -828,7 +808,7 @@ const updateEvent = eventManagerPP
           title: eventData.title,
           subtitle: eventData.subtitle,
           description: eventData.description,
-          hub_id: parseInt(eventData.society_hub.id),
+          hub_id: parseInt(eventData.society_hub?.id || "33"),
           start_date: timestampToIsoString(eventData.start_date),
           end_date: timestampToIsoString(eventData.end_date!),
           additional_info,

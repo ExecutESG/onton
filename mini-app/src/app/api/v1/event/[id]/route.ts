@@ -197,15 +197,33 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     }
 
     if (dataOnly === "true") {
+      const [authUserId] = getAuthenticatedUser();
+      const isOwnerOrAdmin = Boolean(
+        authUserId &&
+          (authUserId === eventData.owner ||
+            accessRoles.some((r) => r.user_id === authUserId))
+      );
+
+      const publicOrganizer = organizer
+        ? {
+            username: organizer.username,
+            first_name: organizer.first_name,
+            last_name: organizer.last_name,
+            org_channel_name: organizer.org_channel_name,
+            org_x_link: organizer.org_x_link,
+            org_support_telegram_user_name: organizer.org_support_telegram_user_name,
+          }
+        : null;
+
       return Response.json(
         {
           ...eventData,
           category,
-          organizer,
+          organizer: isOwnerOrAdmin ? organizer : publicOrganizer,
           eventTicket: event_payment_info,
           isSoldOut,
           hasActiveCoupon,
-          accessRoles,
+          ...(isOwnerOrAdmin ? { accessRoles } : {}),
         },
         {
           status: 200,

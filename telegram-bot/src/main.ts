@@ -23,6 +23,7 @@ import { startHandler } from "./handlers/startHandler";
 import { updateAdminOrganizerProfilesHandler } from "./handlers/updateAdminOrganizerProfilesHandler";
 import { isBotNewlyAddedOrPromoted } from "./helpers/isBotNewlyAddedOrPromoted";
 import { connectRedis } from "./lib/redisTools";
+import { hmacAuthMiddleware } from "./middleware/hmacAuth";
 import { MyContext } from "./types/MyContext";
 import { checkRateLimit } from "./utils/checkRateLimit";
 import { logger } from "./utils/logger";
@@ -106,9 +107,18 @@ export const bot = new Bot<MyContext>(process.env.BOT_TOKEN || "");
     bot
       .start({
         drop_pending_updates: true,
+        onStart: (botInfo) => {
+          logger.log(`Bot @${botInfo.username} started polling successfully.`);
+        },
       })
-      .then(() => logger.log("Bot started"))
-      .catch((err) => logger.error("Bot start error:", err));
+      .then(() => logger.log("Bot stopped gracefully"))
+      .catch((err) => {
+        logger.error(
+          "Fatal: Bot polling runner terminated with error. Exiting process for restart:",
+          err,
+        );
+        process.exit(1);
+      });
 
     // 5) Create and configure Express
     const port = process.env.TELEGRAM_BOT_PORT || 3333;
@@ -121,10 +131,25 @@ export const bot = new Bot<MyContext>(process.env.BOT_TOKEN || "");
       req.bot = bot;
       next();
     });
+    app.use(hmacAuthMiddleware);
 
     // 6) Register routes
     app.get("/health", (_, res) => {
-      res.json({ status: "ok", timestamp: Date.now() });
+      const isRunning = bot.isRunning();
+      const isInited = bot.isInited();
+      if (!isRunning) {
+        return res.status(503).json({
+          status: "error",
+          message: "Telegram bot polling is not running",
+          bot: { isInited, isRunning },
+          timestamp: Date.now(),
+        });
+      }
+      return res.json({
+        status: "ok",
+        bot: { isInited, isRunning },
+        timestamp: Date.now(),
+      });
     });
     app.post("/send-file", handleFileSend);
     app.get("/generate-qr", handleSendQRCode);

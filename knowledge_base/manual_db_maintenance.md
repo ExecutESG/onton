@@ -13,7 +13,7 @@ Run this from your local machine (once SSH Keys are installed):
 # 1. SSH in and run the dump (Handling multi-container collision with 'head -n 1')
 ssh -i ~/.ssh/onton_prod_key root@65.109.212.86 \
 "PG_CONTAINER=\$(docker ps -q -f name=postgres -f status=running | head -n 1) && \
-docker exec -e PGPASSWORD='@GqjCiFjdywo2hliunXyeLBD' \$PG_CONTAINER pg_dumpall -c -U ontonont | gzip > /root/manual_dump.sql.gz"
+docker exec -e PGPASSWORD="<PROD_POSTGRES_PASSWORD>" \$PG_CONTAINER pg_dumpall -c -U ontonont | gzip > /root/manual_dump.sql.gz"
 
 # 2. Download the dump locally
 scp -i ~/.ssh/onton_prod_key root@65.109.212.86:/root/manual_dump.sql.gz ./

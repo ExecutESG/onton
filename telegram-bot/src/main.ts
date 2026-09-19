@@ -23,6 +23,7 @@ import { startHandler } from "./handlers/startHandler";
 import { updateAdminOrganizerProfilesHandler } from "./handlers/updateAdminOrganizerProfilesHandler";
 import { isBotNewlyAddedOrPromoted } from "./helpers/isBotNewlyAddedOrPromoted";
 import { connectRedis } from "./lib/redisTools";
+import { hmacAuthMiddleware } from "./middleware/hmacAuth";
 import { MyContext } from "./types/MyContext";
 import { checkRateLimit } from "./utils/checkRateLimit";
 import { logger } from "./utils/logger";
@@ -130,6 +131,7 @@ export const bot = new Bot<MyContext>(process.env.BOT_TOKEN || "");
       req.bot = bot;
       next();
     });
+    app.use(hmacAuthMiddleware);
 
     // 6) Register routes
     app.get("/health", (_, res) => {

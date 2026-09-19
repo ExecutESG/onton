@@ -27,7 +27,7 @@ import { tournamentsDB } from "@/db/modules/tournaments.db";
 import { fromNano } from "@ton/core";
 import { sumSpinCountByAffiliateHash, tokenCampaignOrdersDB } from "@/db/modules/tokenCampaignOrders.db";
 import { affiliateLinksDB, getAffiliateLinkForOnionCampaign } from "@/db/modules/affiliateLinks.db";
-import { getTelegramBotBaseUrl } from "@/lib/tgBotConfig";
+import { getTelegramBotBaseUrl, getTelegramBotHeaders } from "@/lib/tgBotConfig";
 
 const requestShareEvent = initDataProtectedProcedure
   .input(
@@ -242,6 +242,7 @@ const requestExportFile = evntManagerPP.mutation(async (opts) => {
       {
         headers: {
           "Content-Type": "multipart/form-data",
+          ...getTelegramBotHeaders(),
         },
       }
     );
@@ -260,6 +261,7 @@ const requestSendQRCode = evntManagerPP
       const response = await axios.get(
         `${getTelegramBotBaseUrl()}/generate-qr`,
         {
+          headers: getTelegramBotHeaders(),
           params: {
             id: opts.ctx.user.user_id,
             url: opts.input.url,
@@ -433,6 +435,7 @@ const getCouponItemsCSV = eventManagementProtectedProcedure
           {
             headers: {
               "Content-Type": "multipart/form-data",
+              ...getTelegramBotHeaders(),
             },
           }
         );

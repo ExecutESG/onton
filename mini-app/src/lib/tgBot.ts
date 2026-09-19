@@ -9,7 +9,7 @@ import axios, { AxiosError } from "axios";
 import { Bot, InputFile } from "grammy";
 import { InlineKeyboardMarkup, InputMediaPhoto, InputMediaVideo } from "grammy/types";
 
-import { getTelegramBotBaseUrl } from "./tgBotConfig";
+import { getTelegramBotBaseUrl, getTelegramBotHeaders } from "./tgBotConfig";
 
 interface MediaGroupItem {
   type: "photo" | "video";
@@ -18,6 +18,12 @@ interface MediaGroupItem {
 
 const tgClient = axios.create({
   baseURL: getTelegramBotBaseUrl(),
+});
+
+tgClient.interceptors.request.use((config) => {
+  const headers = getTelegramBotHeaders(config.data);
+  Object.assign(config.headers, headers);
+  return config;
 });
 
 // Helper to post to your custom Telegram server

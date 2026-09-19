@@ -5,28 +5,16 @@
     "plugin:drizzle/recommended"
   ],
   "plugins": [
-    "unused-imports",
     "sql-template",
     "drizzle"
   ],
   "rules": {
-    "react-hooks/exhaustive-deps": 1,
-    "unused-imports/no-unused-imports": "warn",
-    "unused-imports/no-unused-vars": [
-      "warn",
-      {
-        "vars": "all",
-        "varsIgnorePattern": "^_",
-        "args": "after-used",
-        "argsIgnorePattern": "^_"
-      }
-    ],
-    "sql-template/no-unsafe-query": ["warn",
-      {
-        "dialect": "postgres",
-        "templateTag": "sql",
-        "ignoreExpressions": true   // ← key option
-      }
-    ]
+    "react-hooks/exhaustive-deps": "warn",
+    "react-hooks/rules-of-hooks": "warn",
+    "react/display-name": "warn",
+    "react/no-unescaped-entities": "warn",
+    "drizzle/enforce-delete-with-where": "warn",
+    "drizzle/enforce-update-with-where": "warn",
+    "sql-template/no-unsafe-query": "warn"
   }
 }

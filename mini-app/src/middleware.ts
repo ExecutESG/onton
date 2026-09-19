@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiKeyAuthentication } from "@/server/auth";
+import { getCorsHeaders } from "@/lib/cors";
 
 // Define protected and public routes
 const protectWithAPIKeyPatterns: ProtectedRoute[] = [
@@ -28,19 +29,16 @@ export function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
   const method = request.method;
+  const origin = request.headers.get("origin");
 
-  // CORS headers for all requests
-  const corsHeaders = {
-    "Access-Control-Allow-Origin": "*", // Replace * with specific frontend domain for security
-    "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Authorization, Content-Type",
-  };
+  // Domain-restricted CORS headers based on allowlist
+  const corsHeaders = getCorsHeaders(origin);
 
   // Handle preflight (OPTIONS) request
   if (method === "OPTIONS") {
     return new NextResponse(null, {
       status: 204,
-      headers: corsHeaders, // Apply CORS headers for OPTIONS request
+      headers: corsHeaders,
     });
   }
 

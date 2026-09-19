@@ -34,3 +34,8 @@
 ## Security & Configuration Tips
 - Copy `.env.example` to `.env`; never commit secrets. Validate envs via `devops/CheckoutEnv.sh`.
 - Local domains/ports come from `.env` and Compose; see `hosts.txt` for host entries.
+
+## Mermaid Diagrams
+- Supported headers ONLY: `flowchart TD/LR`, `graph TD/LR`, `sequenceDiagram`, `stateDiagram-v2`, `classDiagram`, `erDiagram`, `xychart-beta`.
+- NEVER use `mindmap`, `gantt`, `timeline`, or `pie` — use `flowchart TD` or Markdown tables instead.
+

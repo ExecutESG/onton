@@ -3,6 +3,9 @@
 This index tracks the documentation required to fully understand, maintain, and extend the ONTON platform.
 
 ## 01. Architecture & Infrastructure
+- [x] **[AS-IS Technical Blueprint](./as_is_technical_blueprint.md)**: Authoritative architectural audit and current production topology (September 2026).
+- [x] **[TO-BE Technical Blueprint](./to_be_technical_blueprint.md)**: Target architecture: Lu.ma of Telegram & Web3 Event OS, API extraction, Turborepo, event bus, and cSBT.
+- [x] **[Architecture Blueprint & Evaluation](./architecture_blueprint.md)**: Core architectural audit and evaluation document.
 - [x] **[Core Interactions](./onton_core_interactions.md)**: High-level map of user flows (Onboarding, Payments, etc.).
 - [x] **[System Overview](./overview.md)**: High-level architecture, service breakdown, and core patterns.
 - [x] **[Deployment Pipeline](./deployment_pipeline.md)**: CI/CD, GitHub Actions, and environment strategy.

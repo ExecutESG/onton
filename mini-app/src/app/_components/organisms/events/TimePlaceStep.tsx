@@ -2,6 +2,7 @@
 import TimePlaceForm from "@/app/_components/Event/steps/TimePlaceForm";
 import { useMainButton } from "@/hooks/useMainButton";
 import { timeplaceStepValidation } from "@/zodSchema/event/validation";
+import { dataValidationSchema } from "@/zodSchema/dataValidationSchema";
 import { useCreateEventStore } from "@/zustand/createEventStore";
 import { useSectionStore } from "@/zustand/useSectionStore";
 import { useEffect, useRef } from "react";
@@ -36,6 +37,13 @@ export const TimePlaceStep = () => {
     formDataObject.eventLocationType = eventData?.eventLocationType || "online";
     formDataObject.cityId = eventData?.cityId ? Number(eventData.cityId) : undefined;
     formDataObject.countryId = eventData?.countryId ? Number(eventData.countryId) : undefined;
+
+    if (formDataObject.eventLocationType === "online" && typeof formDataObject.location === "string") {
+      const parsedUrl = dataValidationSchema.urlSchema.safeParse(formDataObject.location);
+      if (parsedUrl.success) {
+        formDataObject.location = parsedUrl.data;
+      }
+    }
 
     const secondStepDataSchema = timeplaceStepValidation(editOptions, startDateLimit, eventData, formDataObject);
 

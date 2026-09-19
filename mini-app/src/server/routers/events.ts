@@ -465,7 +465,7 @@ const addEvent = adminOrganizerProtectedProcedure.input(z.object({ eventData: Ev
         }
 
         /* ------------- Generate the message using the render function ------------- */
-        if (is_ts_verified && !is_paid) {
+        if (!is_paid) {
           /* -------------------------- Just Send The Message ------------------------- */
           const logMessage = renderAddEventMessage(opts.ctx.user.username || user_id, eventData);
 
@@ -487,39 +487,6 @@ const addEvent = adminOrganizerProtectedProcedure.input(z.object({ eventData: Ev
           });
 
           eventsMsg && sentTelegramMsgs.push(eventsMsg);
-        } else if (!is_paid) {
-          /* --------------------------- Moderation Message --------------------------- */
-
-          const moderation_group_id = configProtected?.moderation_group_id;
-          const logMessage = await renderModerationEventMessage(opts.ctx.user.username || user_id, eventData);
-
-          // SEND MESSAGE TO TELEGRAM MODERATION GROUP
-          const moderationMessageResult = await sendLogNotification({
-            group_id: moderation_group_id,
-            image: eventData.image_url,
-            message: logMessage,
-            topic: "no_topic",
-            inline_keyboard: tgBotModerationMenu(eventData.event_uuid),
-            media_group: [
-              { type: "photo", url: eventData.tsRewardImage!! },
-              {
-                type: "video",
-                url: eventData.tsRewardVideo!!,
-              },
-            ],
-          });
-
-          await trx
-            .update(events)
-            .set({ moderationMessageId: moderationMessageResult.message_id })
-            .where(eq(events.event_id, eventData.event_id))
-            .execute();
-
-          sentTelegramMsgs.push(moderationMessageResult);
-
-          logger.log(
-            `moderationMessageResult: for ${eventData.event_id} ${eventData.event_uuid} with message_id ${moderationMessageResult.message_id}`
-          );
         }
       } catch (error) {
         // ❄ THIRD PARTY CLEANUP ❄

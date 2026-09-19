@@ -6,7 +6,6 @@ import { roundDateToInterval } from "@/lib/time.utils";
 import { findActivity } from "@/lib/ton-society-api";
 import { removeKey } from "@/lib/utils";
 import eventFieldsDB from "@/db/modules/eventFields.db";
-import { organizerTsVerified } from "@/db/modules/userFlags.db";
 import { selectUserById } from "@/db/modules/users.db";
 import { is_prod_env } from "@/server/utils/evnutils";
 import { validateMiniAppData } from "@/utils";
@@ -720,13 +719,8 @@ export const getPaidEventPrice = (capacity: number, ticketType: EventTicketType)
   }
 };
 
-const shouldEventBeHidden = async (event_is_paid: boolean, user_id: number) => {
+const shouldEventBeHidden = async (event_is_paid: boolean, _user_id: number) => {
   if (event_is_paid) return true;
-
-  const is_ts_verified = await organizerTsVerified(user_id);
-
-  if (!is_ts_verified) return true;
-
   return false;
 };
 const updateActivityId = async (event_uuid: string, activity_id: number) => {

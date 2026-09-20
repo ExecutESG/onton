@@ -10,6 +10,7 @@ import visitorsDB, { addVisitor } from "@/db/modules/visitors.db";
 import telegramService from "@/services/telegramService";
 import { eventManagementProtectedProcedure as evntManagerPP, initDataProtectedProcedure, router } from "@/server/trpc";
 import { logger } from "@/server/utils/logger";
+import { LinkService } from "@/lib/links/linkService";
 import { CombinedEventRegisterSchema } from "@/types";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, like, lt, ne, or } from "drizzle-orm";
@@ -139,7 +140,7 @@ const processRegistrantRequest = evntManagerPP
       .execute();
 
     if (opts.input.status === "approved" || opts.input.status === "rejected") {
-      const share_link = `https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME}/event?startapp=${event_uuid}`;
+      const share_link = LinkService.getEventUrl(event_uuid);
 
       const approved_message = `✅ Your request has been approved for the event : <b>${event.title}</b> \n${share_link}`;
       const rejected_message = `❌ Your request has been rejected for the event : <b>${event.title}</b> \n${share_link}`;

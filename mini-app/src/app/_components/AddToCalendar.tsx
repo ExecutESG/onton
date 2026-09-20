@@ -46,10 +46,10 @@ const AddToCalendar = ({ title, startDate, endDate, description }: Props) => {
 
   // Function to open the link using Telegram Web App API and close drawer
   const openInOSBrowser = (url: string) => {
-    if (window.Telegram.WebApp) {
+    if (window.Telegram?.WebApp?.openLink) {
       window.Telegram.WebApp.openLink(url);
     } else {
-      window.open(url, "_blank", "noopener noreferrer");
+      window.open(url, "_blank", "noopener,noreferrer");
     }
     setIsOpen(false); // Close drawer after clicking link
   };

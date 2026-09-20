@@ -9,6 +9,7 @@ import EventsSkeleton from "./molecules/skeletons/EventsSkeleton";
 import { useUserStore } from "@/context/store/user.store";
 import { useSectionStore } from "@/zustand/useSectionStore";
 import { getClientTelegramInitData, isTelegramClient } from "@/lib/clientTelegramInitData";
+import WebMainButton from "@/app/_components/platform/WebMainButton";
 
 export default function WebAppProvider({ children }: { children: React.ReactNode }) {
   const webApp = useWebApp();
@@ -139,5 +140,10 @@ export default function WebAppProvider({ children }: { children: React.ReactNode
     );
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <WebMainButton />
+    </>
+  );
 }

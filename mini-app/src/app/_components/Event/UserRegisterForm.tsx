@@ -5,11 +5,17 @@ import { useParams } from "next/navigation";
 import React, { useRef, useState } from "react";
 import { toast } from "sonner";
 import CustomButton from "../Button/CustomButton";
+import { useUserStore } from "@/context/store/user.store";
+import { isTelegramEnvironment } from "@/lib/platform/platformBridge";
+import WebAuthModal from "@/app/_components/auth/WebAuthModal";
 
 const UserRegisterForm = () => {
   const params = useParams<{ hash: string }>();
   const registrationForm = useRef<HTMLFormElement>(null);
   const [isOpen, setOpen] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const pendingDataRef = useRef<any>(null);
+  const { user } = useUserStore();
 
   const [formErrors, setErrors] = useState<{
     full_name?: string[];
@@ -32,6 +38,13 @@ const UserRegisterForm = () => {
     },
   });
 
+  const handleAuthSuccess = () => {
+    if (pendingDataRef.current) {
+      registerUser.mutate(pendingDataRef.current);
+      pendingDataRef.current = null;
+    }
+  };
+
   const handleSubmit: React.FormEventHandler = (e) => {
     e.preventDefault();
 
@@ -52,6 +65,13 @@ const UserRegisterForm = () => {
       return;
     }
     setErrors(undefined);
+
+    // If user is unauthenticated on web, prompt 1-click email auth first
+    if (!user && !isTelegramEnvironment()) {
+      pendingDataRef.current = parsedData.data;
+      setAuthModalOpen(true);
+      return;
+    }
 
     registerUser.mutate(parsedData.data);
   };
@@ -148,6 +168,14 @@ const UserRegisterForm = () => {
         </div>
       </form>
       {/*</ReusableSheet>*/}
+
+      <WebAuthModal
+        open={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        onSuccess={handleAuthSuccess}
+        title="Sign in to Complete RSVP"
+        subtitle="Enter your email to receive your event ticket and calendar invite."
+      />
     </>
   );
 };

@@ -10,6 +10,7 @@ import { Bot, InputFile } from "grammy";
 import { InlineKeyboardMarkup, InputMediaPhoto, InputMediaVideo } from "grammy/types";
 
 import { getTelegramBotBaseUrl, getTelegramBotHeaders } from "./tgBotConfig";
+import { LinkService } from "./links/linkService";
 
 interface MediaGroupItem {
   type: "photo" | "video";
@@ -356,7 +357,7 @@ export const renderUpdateEventMessage = (
 ): string => {
   return `
 @${username} <b>Updated</b> event <code>${event_title}</code> successfully
-🔗Event Link: https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME}/event?startapp=${eventUuid}
+🔗Event Link: ${LinkService.getEventUrl(eventUuid)}
 `;
 };
 
@@ -368,7 +369,7 @@ export const renderAddEventMessage = (username: string | number, eventData: Even
 
 <pre><code>${eventDataWithoutDescription}</code></pre>
 
-Open Event: https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME}/event?startapp=${eventUuid}
+Open Event: ${LinkService.getEventUrl(eventUuid)}
 `;
 };
 
@@ -400,7 +401,7 @@ ${circleEmoji} User currently has <b>${totalNotices}</b> notice(s).
 
 @${username}
 
-Open Event: https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME}/event?startapp=${eventUuid}
+Open Event: ${LinkService.getEventUrl(eventUuid)}
 `;
 }
 
@@ -434,7 +435,7 @@ export async function sendToEventsTgChannel(props: {
 
 📍 <i>${props.participationType.split("_").join(" ").charAt(0).toUpperCase() + props.participationType.split("_").join(" ").slice(1)} ${props.ticketPrice ? "Paid" : "Free"}</i>
 ${props.ticketPrice ? `\n${props.ticketPrice.paymentType === "ton" ? "💎" : props.ticketPrice.paymentType === "star" ? "⭐" : "💲"} <b>Ticket Price:</b> ${props.ticketPrice.amount}${props.ticketPrice.paymentType}\n` : ""}
-👉 <a href="https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME}/event?startapp=${props.event_uuid}">Open event on ONTON</a>
+👉 <a href="${LinkService.getEventUrl(props.event_uuid)}">Open event on ONTON</a>
 
 ⏰ <b>Starts at:</b> ${new Date(props.s_date * 1000).toLocaleString("en-US", {
           timeZone: props.timezone || "UTC",

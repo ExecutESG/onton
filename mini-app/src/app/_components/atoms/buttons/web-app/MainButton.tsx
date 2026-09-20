@@ -1,6 +1,7 @@
 "use client";
 import { cn } from "@/utils";
 import useWebApp from "@/hooks/useWebApp";
+import { getPlatformBridge } from "@/lib/platform/platformBridge";
 import { FC, useCallback, useEffect, useMemo } from "react";
 
 export interface MainButtonProps {
@@ -84,6 +85,30 @@ const MainButton: FC<MainButtonProps> = ({
       }
     };
   }, [WebApp, updateButton, onClick, progress, disabled, buttonParams, text, color, textColor]);
+
+  // Synchronize with HostPlatformBridge when running in standard browser/PWA
+  useEffect(() => {
+    const bridge = getPlatformBridge();
+    if (!bridge.isTelegram) {
+      if (text) {
+        bridge.setMainButton({
+          text,
+          color: buttonParams.color,
+          textColor: buttonParams.text_color,
+          isActive: !disabled && !progress,
+          isLoading: progress,
+          isVisible: true,
+          onClick,
+        });
+      } else {
+        bridge.hideMainButton();
+      }
+
+      return () => {
+        bridge.hideMainButton();
+      };
+    }
+  }, [text, buttonParams, disabled, progress, onClick]);
 
   // If running in a web browser without Telegram initData, render sticky on-screen fallback
   if (!WebApp || !WebApp.initData) {

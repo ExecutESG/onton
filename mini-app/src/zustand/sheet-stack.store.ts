@@ -31,11 +31,18 @@ export const useSheetStackStore = create<SheetStackState>()(
           set((state) => {
             state.openCount++;
             state.anyOpen = true;
-            const isVisible = window.Telegram.WebApp.MainButton.isVisible;
-            if (isVisible) {
-              state.wasMainButtonVisible = true;
-              window.Telegram.WebApp.MainButton.hide();
-            } else {
+            if (typeof window === "undefined") return;
+            try {
+              const { getPlatformBridge } = require("@/lib/platform/platformBridge");
+              const bridge = getPlatformBridge();
+              const mbState = bridge.getMainButtonState();
+              if (mbState.isVisible) {
+                state.wasMainButtonVisible = true;
+                bridge.hideMainButton();
+              } else {
+                state.wasMainButtonVisible = false;
+              }
+            } catch {
               state.wasMainButtonVisible = false;
             }
           }),
@@ -44,7 +51,12 @@ export const useSheetStackStore = create<SheetStackState>()(
             if (state.anyOpen) {
               state.openCount--;
               state.anyOpen = state.openCount > 0;
-              !state.anyOpen && state.wasMainButtonVisible && window.Telegram.WebApp.MainButton.show();
+              if (!state.anyOpen && state.wasMainButtonVisible && typeof window !== "undefined") {
+                try {
+                  const { getPlatformBridge } = require("@/lib/platform/platformBridge");
+                  getPlatformBridge().showMainButton();
+                } catch {}
+              }
             }
           });
         },

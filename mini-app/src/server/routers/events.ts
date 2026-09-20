@@ -14,6 +14,7 @@ import { EventTokenRow } from "@/db/schema/eventTokens";
 import { hashPassword } from "@/lib/bcrypt";
 import { timestampToIsoString } from "@/lib/DateAndTime";
 import { redisTools } from "@/lib/redisTools";
+import { LinkService } from "@/lib/links/linkService";
 import {
   getEventsChannelBotInstance,
   renderAddEventMessage,
@@ -813,7 +814,7 @@ const updateEvent = eventManagerPP
           end_date: timestampToIsoString(eventData.end_date!),
           additional_info,
           cta_button: {
-            link: `https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME}/event?startapp=${eventUuid}`,
+            link: LinkService.getEventUrl(eventUuid),
             label: "Enter Event",
           },
         };

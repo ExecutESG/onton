@@ -11,20 +11,20 @@ import { getClientTelegramInitData } from "@/lib/clientTelegramInitData";
 const initDataExpirationAlert = () => {
   sessionStorage.removeItem("telegram:initParams");
 
-  const hasTelegramContext = typeof window !== "undefined" && !!window.Telegram?.WebApp?.initData;
-  if (hasTelegramContext && window.Telegram?.WebApp) {
-    if (!window.Telegram.WebApp?.isVersionAtLeast("6.0")) {
+  const wa = typeof window !== "undefined" ? window.Telegram?.WebApp : undefined;
+  if (wa?.initData) {
+    if (!wa.isVersionAtLeast?.("6.0")) {
       console.error("Telegram WebApp version is lower than 6.0");
       alert("Your Telegram version is too old. Please update the app.");
-      window.Telegram.WebApp.close();
+      wa.close?.();
     }
-    window.Telegram.WebApp.showPopup(
+    wa.showPopup?.(
       {
         message: "Your session has expired. Please restart the app.",
         buttons: [{ type: "close" }],
       },
       () => {
-        window.Telegram.WebApp.close();
+        wa.close?.();
       }
     );
   }

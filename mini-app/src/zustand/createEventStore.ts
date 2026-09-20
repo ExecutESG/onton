@@ -237,19 +237,29 @@ export const useCreateEventStore = create<CreateEventStoreType>()(
            */
           if (!state.eventData.paid_event.has_payment) {
             try {
-              window.Telegram.WebApp.showConfirm(
+              const confirmMsg =
                 "You will need to pay " +
-                  NFT_EVENT_PRICE +
-                  " TON to create a paid event if the ticket type is NFT it will include 0.06 TON for each person buying the ticket (minting fees) this does not include cSBT ticket type",
-                (confirmed) => {
+                NFT_EVENT_PRICE +
+                " TON to create a paid event if the ticket type is NFT it will include 0.06 TON for each person buying the ticket (minting fees) this does not include cSBT ticket type";
+
+              if (window.Telegram?.WebApp?.showConfirm) {
+                window.Telegram.WebApp.showConfirm(confirmMsg, (confirmed: boolean) => {
                   if (confirmed) {
                     set((state) => {
                       state.eventData.paid_event = paidEventInfo;
                       state.eventData.has_registration = true;
                     });
                   }
+                });
+              } else if (typeof window !== "undefined") {
+                const confirmed = window.confirm(confirmMsg);
+                if (confirmed) {
+                  set((state) => {
+                    state.eventData.paid_event = paidEventInfo;
+                    state.eventData.has_registration = true;
+                  });
                 }
-              );
+              }
             } catch {
               state.eventData.paid_event = paidEventInfo;
               state.eventData.has_registration = true;

@@ -13,7 +13,7 @@ import { logger } from "@/server/utils/logger";
 import { LinkService } from "@/lib/links/linkService";
 import { CombinedEventRegisterSchema } from "@/types";
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, like, lt, ne, or } from "drizzle-orm";
+import { and, asc, desc, eq, like, lt, ne, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 const checkinRegistrantRequest = evntManagerPP
@@ -125,6 +125,16 @@ const processRegistrantRequest = evntManagerPP
       throw new TRPCError({ code: "NOT_FOUND", message: "event not found" });
     }
 
+    const prevStatus = (
+      await db
+        .select({ status: eventRegistrants.status })
+        .from(eventRegistrants)
+        .where(and(eq(eventRegistrants.event_uuid, event_uuid), eq(eventRegistrants.user_id, user_id)))
+        .execute()
+    )[0]?.status;
+
+    const wasApproved = prevStatus === "approved";
+
     await db
       .update(eventRegistrants)
       .set({
@@ -154,6 +164,58 @@ const processRegistrantRequest = evntManagerPP
 
       // Clear the organizer user cache so it will be reloaded next time
       await redisTools.deleteCache(getUserCacheKey(user_id));
+    }
+
+    // Auto-promote waitlisted attendee when an approved registration is rejected (#967)
+    if (wasApproved && opts.input.status === "rejected") {
+      try {
+        const approvedCount = await eventRegistrantsDB.getApprovedRequestsCount(event_uuid);
+        const capacityAvailable = !event.capacity || approvedCount < event.capacity;
+
+        if (capacityAvailable && !event.has_approval) {
+          const [nextWaitlisted] = await db
+            .select()
+            .from(eventRegistrants)
+            .where(
+              and(
+                eq(eventRegistrants.event_uuid, event_uuid),
+                eq(eventRegistrants.status, "pending")
+              )
+            )
+            .orderBy(asc(eventRegistrants.created_at))
+            .limit(1)
+            .execute();
+
+          if (nextWaitlisted) {
+            await db
+              .update(eventRegistrants)
+              .set({ status: "approved" })
+              .where(eq(eventRegistrants.registrant_uuid, nextWaitlisted.registrant_uuid))
+              .execute();
+
+            logger.log(
+              `[WAITLIST PROMOTION] Auto-promoted attendee ${nextWaitlisted.user_id} for event ${event_uuid}`
+            );
+
+            const promoUrl = LinkService.getEventUrl(event_uuid);
+            const promoMsg = `🎉 A spot opened up! Your registration has been approved for <b>${event.title}</b>.\n${promoUrl}`;
+
+            await telegramService
+              .sendEventPhoto({
+                event_id: event.event_uuid,
+                user_id: nextWaitlisted.user_id,
+                message: promoMsg,
+              })
+              .catch((err) => {
+                logger.warn(`Failed sending waitlist promotion telegram notification to ${nextWaitlisted.user_id}:`, err);
+              });
+
+            await redisTools.deleteCache(getUserCacheKey(nextWaitlisted.user_id));
+          }
+        }
+      } catch (promotionErr) {
+        logger.error("Waitlist auto-promotion error:", promotionErr);
+      }
     }
 
     return { code: 201, message: "ok" };
@@ -200,36 +262,50 @@ const eventRegister = initDataProtectedProcedure.input(CombinedEventRegisterSche
   }
 
   try {
-    let event_filled_and_has_waiting_list = false;
+    const registrationResult = await db.transaction(async (trx) => {
+      let event_filled_and_has_waiting_list = false;
 
-    if (event.capacity) {
-      const approved_requests_count = await eventRegistrantsDB.getApprovedRequestsCount(event_uuid);
-      const event_cap_filled = approved_requests_count >= event.capacity;
+      if (event.capacity) {
+        const [countRow] = await trx
+          .select({ count: sql`count(*)`.mapWith(Number) })
+          .from(eventRegistrants)
+          .where(
+            and(
+              eq(eventRegistrants.event_uuid, event_uuid),
+              or(eq(eventRegistrants.status, "approved"), eq(eventRegistrants.status, "checkedin"))
+            )
+          )
+          .execute();
 
-      event_filled_and_has_waiting_list = !!(event_cap_filled && event.has_waiting_list);
+        const approved_requests_count = countRow?.count || 0;
+        const event_cap_filled = approved_requests_count >= event.capacity;
 
-      if (event_cap_filled && !event.has_waiting_list) {
-        // Event capacity filled and no waiting list
-        throw new TRPCError({
-          code: "CONFLICT",
-          message: `Event Capacity Reached for event ${event.event_uuid}`,
-        });
+        event_filled_and_has_waiting_list = !!(event_cap_filled && event.has_waiting_list);
+
+        if (event_cap_filled && !event.has_waiting_list) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: `Event Capacity Reached for event ${event.event_uuid}`,
+          });
+        }
       }
-    }
 
-    const request_status = !!event.has_approval || event_filled_and_has_waiting_list ? "pending" : "approved"; // pending if approval is required otherwise auto approve them
+      const request_status = !!event.has_approval || event_filled_and_has_waiting_list ? "pending" : "approved";
 
-    await db.insert(eventRegistrants).values({
-      event_uuid: event_uuid,
-      user_id: userId,
-      status: request_status,
-      register_info: registerInfo,
+      await trx.insert(eventRegistrants).values({
+        event_uuid: event_uuid,
+        user_id: userId,
+        status: request_status,
+        register_info: registerInfo,
+      });
+
+      return { request_status };
     });
+
     await addVisitor(userId, event_uuid);
-    // Clear the organizer user cache so it will be reloaded next time
     await redisTools.deleteCache(getUserCacheKey(userId));
 
-    return { message: "success", code: 201 };
+    return { message: "success", code: 201, status: registrationResult.request_status };
   } finally {
     await redisTools.releaseLock(lockKey);
   }

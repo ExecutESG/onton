@@ -168,6 +168,8 @@ jobs:
             cd mini-app
             yarn install --frozen-lockfile --prefer-offline --ignore-engines || yarn install --ignore-engines
             yarn lint:quiet
+            echo "--> Running mini-app automated API & Unit test suite (Issues #980, #1008)..."
+            yarn test:api
             cd ..
           fi
 
@@ -876,6 +878,21 @@ jobs:
               echo "Warning: Could not purge Cloudflare cache with available credentials"
             fi
           fi
+
+      - name: Run Post-Deploy Playwright Smoke Tests Gate (Issue #1008)
+        if: success() && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
+        timeout-minutes: 5
+        run: |
+          TARGET_URL="https://app.dev.onton.live"
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            TARGET_URL="https://onton.app"
+          fi
+          echo "Executing automated Playwright smoke verification gate against $TARGET_URL..."
+          cd tests/e2e
+          npm install --prefer-offline || npm install
+          npx playwright install --with-deps chromium
+          BASE_URL="$TARGET_URL" npx playwright test smoke.spec.ts
+          echo "✅ Live post-deploy smoke gate passed successfully on $TARGET_URL!"
 
       - name: Send Telegram Message - Deployment Success
         if: success()

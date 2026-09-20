@@ -33,6 +33,8 @@ export const orders = pgTable(
     trx_hash: text("trx_hash"),
 
     utm_source: text("utm_source").default(""),
+    retry_count: integer("retry_count").default(0).notNull(),
+    last_error: text("last_error"),
     created_at: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at", {
       mode: "date",
@@ -48,6 +50,7 @@ export const orders = pgTable(
     ownerAddressIdx: index("orders_owner_address_idx").on(table.owner_address),
     couponIdIdx: index("orders_coupon_id_idx").on(table.coupon_id),
     walletAddressIdx: index("orders_wallet_address_idx").on(table.owner_address),
+    retryCountIdx: index("orders_retry_count_idx").on(table.retry_count),
     //One event_creation per event_uuid
     // uniqueEventCreation: uniqueIndex("unique_event_creation").on(table.event_uuid, table.order_type).where(eq(table.order_type, "event_creation")),
   })

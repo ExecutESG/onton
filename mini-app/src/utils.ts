@@ -38,14 +38,51 @@ export const validateMiniAppData = (rawInitData: string) => {
   const initDataJson: TelegramInitDataJson = {} as TelegramInitDataJson;
   for (const [key, value] of initData) {
     if (key === "user") {
-      initDataJson[key] = JSON.parse(value) as TelegramUser;
+      try {
+        initDataJson[key] = JSON.parse(value) as TelegramUser;
+      } catch {
+        initDataJson[key] = value as any;
+      }
       continue;
     }
 
     initDataJson[key] = value;
   }
+
+  // 1. Explicit 24-Hour Expiration Check (Issue #935)
+  const authDate = Number(initDataJson.auth_date);
+  const now = Math.floor(Date.now() / 1000);
+  const TTL_SECONDS = 86400; // 24 hours
+  const MAX_CLOCK_DRIFT_SECONDS = 300; // 5 minutes
+
+  if (!authDate || isNaN(authDate)) {
+    return {
+      valid: false,
+      initDataJson,
+      error: "MISSING_OR_INVALID_AUTH_DATE",
+    };
+  }
+
+  // Reject expired initData (> 24 hours old)
+  if (now - authDate > TTL_SECONDS) {
+    return {
+      valid: false,
+      initDataJson,
+      error: "AUTH_DATE_EXPIRED",
+    };
+  }
+
+  // Reject future initData (> 5 minutes clock drift)
+  if (authDate - now > MAX_CLOCK_DRIFT_SECONDS) {
+    return {
+      valid: false,
+      initDataJson,
+      error: "AUTH_DATE_FUTURE_DRIFT",
+    };
+  }
+
   try {
-    validate(initData, BOT_TOKEN);
+    validate(initData, BOT_TOKEN, { expiresIn: TTL_SECONDS });
     return {
       valid: true,
       initDataJson,

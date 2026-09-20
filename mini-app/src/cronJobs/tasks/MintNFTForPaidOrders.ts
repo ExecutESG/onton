@@ -17,6 +17,40 @@ import { config } from "@/server/config";
 import { isAxiosError } from "axios";
 import { redisTools } from "@/lib/redisTools";
 
+export const MAX_MINT_RETRIES = 5;
+
+export const recordOrderMintFailure = async (
+  orderUuid: string,
+  currentRetryCount: number,
+  errorMessage: string
+) => {
+  const nextRetries = (currentRetryCount || 0) + 1;
+  const isDlq = nextRetries >= MAX_MINT_RETRIES;
+  const nextState = isDlq ? "failed" : "processing";
+  const updatedBy = isDlq ? "mint_dlq_max_retries" : `mint_retry_${nextRetries}`;
+
+  await db
+    .update(orders)
+    .set({
+      state: nextState,
+      retry_count: nextRetries,
+      last_error: errorMessage.slice(0, 1000),
+      updatedBy,
+    })
+    .where(eq(orders.uuid, orderUuid))
+    .execute();
+
+  if (isDlq) {
+    logger.error(
+      `[DLQ ALERT] Order ${orderUuid} exceeded max mint retries (${MAX_MINT_RETRIES}). Transitioned to 'failed'. Last error: ${errorMessage}`
+    );
+  } else {
+    logger.warn(
+      `MintNFTForPaidOrders: Order ${orderUuid} mint attempt ${nextRetries}/${MAX_MINT_RETRIES} failed: ${errorMessage}`
+    );
+  }
+};
+
 export const MintNFTForPaidOrders = async (pushLockTTl: () => any) => {
   // Get Orders to be Minted
   // Mint NFT
@@ -25,7 +59,14 @@ export const MintNFTForPaidOrders = async (pushLockTTl: () => any) => {
   const results = await db
     .select()
     .from(orders)
-    .where(and(eq(orders.state, "processing"), eq(orders.order_type, "nft_mint"), isNotNull(orders.event_uuid)))
+    .where(
+      and(
+        eq(orders.state, "processing"),
+        eq(orders.order_type, "nft_mint"),
+        isNotNull(orders.event_uuid),
+        sql`${orders.retry_count} < ${MAX_MINT_RETRIES}`
+      )
+    )
     .orderBy(asc(orders.created_at))
     .limit(100)
     .execute();
@@ -76,6 +117,7 @@ export const MintNFTForPaidOrders = async (pushLockTTl: () => any) => {
       }
       if (!paymentInfo.collectionAddress) {
         logger.error("MintNFTForPaidOrders: no collection address for event", event_uuid);
+        await recordOrderMintFailure(ordr.uuid, ordr.retry_count, "No collection address found for event payment");
         continue;
       }
 
@@ -161,6 +203,7 @@ export const MintNFTForPaidOrders = async (pushLockTTl: () => any) => {
       );
       if (!nft_address) {
         logger.log(`minting_nft_${ordr.event_uuid}_${nft_index}_address_miss`);
+        await recordOrderMintFailure(ordr.uuid, ordr.retry_count, "NFT mint failed to return contract address");
         continue;
       }
       logger.log(`minting_nft_${ordr.event_uuid}_${nft_index}_address_${nft_address}`);
@@ -231,7 +274,13 @@ export const MintNFTForPaidOrders = async (pushLockTTl: () => any) => {
       } finally {
         await redisTools.releaseLock(mintLockKey);
       }
-    } catch (error) {
+    } catch (error: any) {
+      const errorMsg = isAxiosError(error)
+        ? `Axios error: ${error.message} (status: ${error.response?.status})`
+        : error instanceof Error
+        ? error.message
+        : String(error);
+
       if (isAxiosError(error)) {
         logger.error("nft_mint_error", {
           message: error.message,
@@ -242,6 +291,8 @@ export const MintNFTForPaidOrders = async (pushLockTTl: () => any) => {
       } else {
         logger.error("nft_mint_error", error);
       }
+
+      await recordOrderMintFailure(ordr.uuid, ordr.retry_count, errorMsg);
     }
   }
 };

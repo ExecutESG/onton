@@ -53,6 +53,7 @@ import { tickets, ticketsRelations } from "./schema/tickets";
 import { user_custom_flags, user_flags, userFlagsType } from "./schema/user_custom_flags";
 import { userEventFieldRelations, userEventFields } from "./schema/userEventFields";
 import { userRelations, users } from "./schema/users";
+import { user_identities, userIdentitiesRelations, UserIdentityRow, UserIdentityInsert } from "./schema/userIdentities";
 import { visitors } from "./schema/visitors";
 import { walletChecks } from "./schema/walletChecks";
 import { affiliateLinks, AffiliateLinksRow, AffiliateItemTypeEnum, affiliateItemType } from "./schema/affiliateLinks";
@@ -402,6 +403,8 @@ export {
   usersOutlook,
   sbtCollections,
   sbtItems,
+  user_identities,
+  userIdentitiesRelations,
 };
 
 // Type Exports
@@ -536,4 +539,6 @@ export type {
   SbtItemRow,
   SbtItemInsert,
   SbtItemUpdate,
+  UserIdentityRow,
+  UserIdentityInsert,
 };

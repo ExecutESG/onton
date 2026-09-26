@@ -10,6 +10,7 @@ import { contractAddressShortener } from "@/lib/contractAddressShortener";
 import TicketTmaSettings from "./_components/TicketTmaSettings";
 import { TicketShareButton } from "./_components/TicketShareButton";
 import { TicketGroupInviteButton } from "./_components/TicketGroupInviteButton";
+import { ClaimSbtButton } from "./_components/ClaimSbtButton";
 import TicketUserAvatar from "./_components/TicketUserAvatar";
 import type { TicketAttributeRow } from "@/types/ticketPass";
 
@@ -131,6 +132,9 @@ export default async function TicketPassPage({ params }: Props) {
           <div className="space-y-2">
             <TicketShareButton eventUuid={ticket.eventUuid} eventTitle={ticket.ticketData.eventTitle} />
             <TicketGroupInviteButton inviteLink={ticket.inviteLink} />
+            {ticket.userSbtTicket?.data?.reward_link && (
+              <ClaimSbtButton rewardLink={ticket.userSbtTicket.data.reward_link} />
+            )}
           </div>
         </div>
       </div>

@@ -1,6 +1,6 @@
 import { db } from "@/db/db";
 import { TicketStatus } from "@/db/enum";
-import { eventPayment, eventRegistrants, events, nftItems, orders, tickets } from "@/db/schema";
+import { eventPayment, eventRegistrants, events, nftItems, orders, rewards, tickets, visitors } from "@/db/schema";
 import { and, eq, or } from "drizzle-orm";
 
 // Function to get a ticket by its UUID (order_uuid, registrant_uuid, or order uuid)
@@ -263,6 +263,29 @@ export const fetchTicketPassByEventUuid = async (eventUuid: string, userId: numb
     .where(eq(events.event_uuid, eventUuid))
     .limit(1)
     .execute();
+  // 5. Get SBT reward if ticket type is TSCSBT
+  let userSbtTicket: { data: { reward_link?: string } | null } | undefined;
+  if (paymentInfo[0].ticket_type === "TSCSBT") {
+    const visitor = await db
+      .select({ id: visitors.id })
+      .from(visitors)
+      .where(and(eq(visitors.user_id, userId), eq(visitors.event_uuid, eventUuid)))
+      .limit(1)
+      .execute();
+
+    if (visitor[0]) {
+      const reward = await db
+        .select({ data: rewards.data })
+        .from(rewards)
+        .where(and(eq(rewards.visitor_id, visitor[0].id), eq(rewards.type, "ton_society_csbt_ticket")))
+        .limit(1)
+        .execute();
+
+      if (reward[0]) {
+        userSbtTicket = { data: (reward[0].data as { reward_link?: string } | null) ?? null };
+      }
+    }
+  }
 
   return {
     full_name: registerInfo?.full_name ?? "",
@@ -282,6 +305,7 @@ export const fetchTicketPassByEventUuid = async (eventUuid: string, userId: numb
       eventDescription: event[0]?.description ?? "",
       collectionAddress: event[0]?.sbt_collection_address ?? null,
     },
+    userSbtTicket,
   };
 };
 

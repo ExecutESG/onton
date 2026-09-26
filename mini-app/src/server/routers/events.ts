@@ -472,7 +472,7 @@ const addEvent = adminOrganizerProtectedProcedure.input(z.object({ eventData: Ev
         if (!is_paid) {
           /* -------------------------- Just Send The Message ------------------------- */
           const logMessage = await renderPostPublishModerationMessage(opts.ctx.user.username || user_id, eventData);
-          const moderation_group_id = configProtected?.moderation_group_id;
+          const moderation_group_id = process.env.MODERATION_GROUP_ID || configProtected?.moderation_group_id;
 
           const notificationMsg = await sendLogNotification({
             group_id: moderation_group_id,
@@ -1043,7 +1043,7 @@ const reportEvent = initDataProtectedProcedure
     }
 
     // Dispatch Telegram alert to moderation group
-    const moderation_group_id = configProtected?.moderation_group_id;
+    const moderation_group_id = process.env.MODERATION_GROUP_ID || configProtected?.moderation_group_id;
     if (moderation_group_id) {
       try {
         const reportAlertText = renderEventReportAlertMessage({

@@ -180,36 +180,35 @@ export const sendLogNotification = async (
     media_group: undefined,
   }
 ) => {
-  // 1) Validate config
-  if (!configProtected?.bot_token_logs || !configProtected?.logs_group_id) {
-    logger.error("Bot token or logs group ID not found in configProtected for this environment");
-    throw new Error("Bot token or logs group ID not found in configProtected for this environment");
+  // 1) Validate config with env fallbacks
+  const BOT_TOKEN_LOGS =
+    configProtected?.bot_token_logs ||
+    process.env.BOT_TOKEN_LOGS ||
+    process.env.TELEGRAM_BOT_TOKEN;
+  let LOGS_GROUP_ID =
+    props.group_id?.toString() ||
+    configProtected?.logs_group_id ||
+    process.env.LOGS_GROUP_ID ||
+    process.env.MODERATION_GROUP_ID;
+
+  if (!BOT_TOKEN_LOGS || !LOGS_GROUP_ID) {
+    logger.error("Bot token or logs group ID not found in configProtected or env for this environment");
+    throw new Error("Bot token or logs group ID not found in configProtected or env for this environment");
   }
 
-  let { bot_token_logs: BOT_TOKEN_LOGS, logs_group_id: LOGS_GROUP_ID } = configProtected;
-
-  // 2) If the caller provided a custom group_id, override
-  if (props.group_id) {
-    LOGS_GROUP_ID = props.group_id.toString();
-  }
-
-  // 3) Determine pinned topic message if any
+  // 2) Determine pinned topic message if any, falling back to no_topic
   const topicMapping: Record<"no_topic" | "event" | "ticket" | "system" | "payments" | "campaign", string | null> = {
-    event: configProtected.events_topic,
-    ticket: configProtected.tickets_topic,
-    system: configProtected.system_topic,
-    payments: configProtected.payments_topic,
-    campaign: configProtected.campaign_topic,
+    event: configProtected?.events_topic || "no_topic",
+    ticket: configProtected?.tickets_topic || "no_topic",
+    system: configProtected?.system_topic || "no_topic",
+    payments: configProtected?.payments_topic || "no_topic",
+    campaign: configProtected?.campaign_topic || "no_topic",
     no_topic: "no_topic",
   };
 
-  const topicMessageId = topicMapping[props.topic];
-  if (!topicMessageId) {
-    logger.error(`Invalid or unconfigured topic: ${props.topic}`);
-    throw new Error(`Invalid or unconfigured topic: ${props.topic}`);
-  }
+  const topicMessageId = topicMapping[props.topic] || "no_topic";
 
-  // 4) Create a grammY bot instance
+  // 3) Create a grammY bot instance
   const logBot = new Bot(BOT_TOKEN_LOGS);
 
   // 5) Decide the final 'reply_to_message_id'

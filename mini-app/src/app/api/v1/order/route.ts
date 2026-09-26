@@ -12,6 +12,7 @@ import { z } from "zod";
 import { logger } from "@/server/utils/logger";
 import { applyCouponDiscount } from "@/lib/applyCouponDiscount";
 import { issueAndSendEventInviteLink } from "@/lib/eventInviteService";
+import { checkRateLimit } from "@/lib/checkRateLimit";
 
 const addOrderSchema = z.object({
   event_uuid: z.string().uuid(),
@@ -46,6 +47,15 @@ export async function POST(request: Request) {
   const [userId, error] = getAuthenticatedUser();
   if (error) {
     return error;
+  }
+
+  // Application-level rate limiting: max 20 order creation attempts per minute per user
+  const rl = await checkRateLimit(String(userId), "create_order", 20, 60);
+  if (!rl.allowed) {
+    return Response.json(
+      { error: "too_many_requests", message: "Too many order requests. Please wait a minute." },
+      { status: 429 }
+    );
   }
 
   const rawBody = await request.json();

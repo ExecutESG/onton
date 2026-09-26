@@ -87,7 +87,7 @@ describe("Edge-Safe API Key Authentication (Issue #955)", () => {
     const req = new Request("https://example.com/api/v1/test");
     const result = apiKeyAuthentication(req);
     expect(result).not.toBeNull();
-    expect(result.status).toBe(401);
+    expect(result?.status).toBe(401);
   });
 
   it("should reject request when x-api-key is wrong", () => {
@@ -97,7 +97,7 @@ describe("Edge-Safe API Key Authentication (Issue #955)", () => {
     });
     const result = apiKeyAuthentication(req);
     expect(result).not.toBeNull();
-    expect(result.status).toBe(401);
+    expect(result?.status).toBe(401);
   });
 
   it("should allow request when x-api-key matches ONTON_API_SECRET", () => {

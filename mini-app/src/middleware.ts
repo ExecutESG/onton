@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiKeyAuthentication } from "@/server/apiKeyAuth";
 import { getCorsHeaders } from "@/lib/cors";
+import { checkEdgeRateLimit, extractClientIp } from "@/lib/edgeRateLimiter";
 
 // Define protected and public routes
 const protectWithAPIKeyPatterns: ProtectedRoute[] = [
@@ -40,6 +41,49 @@ export function middleware(request: NextRequest) {
       status: 204,
       headers: corsHeaders,
     });
+  }
+
+  // Edge Rate Limiting for Public / Critical APIs
+  let rateLimitCategory: string | null = null;
+  let rateLimitMax = 60;
+
+  if (pathname.startsWith("/api/v1/auth")) {
+    rateLimitCategory = "auth";
+    rateLimitMax = 30; // 30 req/min for auth
+  } else if (pathname.startsWith("/api/v1/order")) {
+    rateLimitCategory = "order";
+    rateLimitMax = 20; // 20 req/min for orders
+  } else if (pathname.startsWith("/api/client/v1")) {
+    rateLimitCategory = "client_api";
+    rateLimitMax = 60; // 60 req/min for client API
+  }
+
+  if (rateLimitCategory) {
+    const clientIp = extractClientIp(request.headers);
+    const rl = checkEdgeRateLimit(clientIp, rateLimitCategory, rateLimitMax, 60_000);
+
+    if (!rl.allowed) {
+      return NextResponse.json(
+        {
+          error: "too_many_requests",
+          message: "Rate limit exceeded. Please wait a moment before retrying.",
+        },
+        {
+          status: 429,
+          headers: {
+            ...corsHeaders,
+            "Retry-After": String(Math.max(1, rl.reset - Math.floor(Date.now() / 1000))),
+            "X-RateLimit-Limit": String(rl.limit),
+            "X-RateLimit-Remaining": "0",
+            "X-RateLimit-Reset": String(rl.reset),
+          },
+        }
+      );
+    }
+
+    requestHeaders.set("X-RateLimit-Limit", String(rl.limit));
+    requestHeaders.set("X-RateLimit-Remaining", String(rl.remaining));
+    requestHeaders.set("X-RateLimit-Reset", String(rl.reset));
   }
 
   // Check if the request matches any of the protected routes

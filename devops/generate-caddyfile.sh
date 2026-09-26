@@ -27,17 +27,17 @@ if [ "${USE_MAIN_IP_TO_EXPOSE}" = "true" ]; then
     PROXY_KIBANA='host.docker.internal'
     PROXY_SWAGGER_UI='host.docker.internal'
 else
-    PROXY_MINI_APP=${IP_MINI_APP}
-    PROXY_PARTICIPANT_TMA=${IP_PARTICIPANT_TMA}
-    PROXY_METABASE=${IP_METABASE}
-    PROXY_MINIO=${IP_MINIO}
-    PROXY_PGADMIN=${IP_PGADMIN}
-    PROXY_CLIENT_WEB=${IP_CLIENT_WEB}
-    PROXY_WEBSITE=${IP_WEBSITE}
-    PROXY_RABBITMQ=${IP_RABBITMQ}
-    PROXY_SOCKET=${IP_SOCKET}
-    PROXY_KIBANA=${IP_KIBANA}
-    PROXY_SWAGGER_UI=${IP_SWAGGER_UI}
+    PROXY_MINI_APP=${IP_MINI_APP:-mini-app}
+    PROXY_PARTICIPANT_TMA=${IP_PARTICIPANT_TMA:-participant-tma}
+    PROXY_METABASE=${IP_METABASE:-metabase}
+    PROXY_MINIO=${IP_MINIO:-minio}
+    PROXY_PGADMIN=${IP_PGADMIN:-pgadmin}
+    PROXY_CLIENT_WEB=${IP_CLIENT_WEB:-client-web}
+    PROXY_WEBSITE=${IP_WEBSITE:-website}
+    PROXY_RABBITMQ=${IP_RABBITMQ:-rabbitmq}
+    PROXY_SOCKET=${IP_SOCKET:-mini-app-notification-socket}
+    PROXY_KIBANA=${IP_KIBANA:-kibana}
+    PROXY_SWAGGER_UI=${IP_SWAGGER_UI:-swagger-ui}
 fi
 
 # Define log configuration

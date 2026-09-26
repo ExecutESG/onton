@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authEngine } from "@/lib/auth/authEngine";
+import { checkRateLimit } from "@/lib/checkRateLimit";
 import { cookies } from "next/headers";
 import "@/lib/gracefullyShutdown";
 
@@ -20,6 +21,14 @@ export async function POST(req: NextRequest) {
     }
 
     const { telegramUser } = verification;
+
+    const rl = await checkRateLimit(String(telegramUser.id), "auth_telegram", 30, 60);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "Too many authentication attempts. Please wait a minute." },
+        { status: 429 }
+      );
+    }
     const resolved = await authEngine.resolveOrCreateUser({
       provider: "telegram",
       providerUserId: String(telegramUser.id),

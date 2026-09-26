@@ -2,7 +2,8 @@
 FROM caddy:builder AS builder
 ENV GOPROXY=https://goproxy.io,direct
 RUN xcaddy build \
-    --with github.com/caddy-dns/cloudflare
+    --with github.com/caddy-dns/cloudflare \
+    --with github.com/mholt/caddy-ratelimit
 
 # Stage 2: Copy the built Caddy binary to a new Caddy image
 FROM caddy:latest AS production

@@ -1,7 +1,7 @@
 import { db } from "@/db/db";
 import { TicketStatus } from "@/db/enum";
-import { eventRegistrants, orders, tickets } from "@/db/schema";
-import { and, eq } from "drizzle-orm";
+import { eventPayment, eventRegistrants, events, nftItems, orders, tickets } from "@/db/schema";
+import { and, eq, or } from "drizzle-orm";
 
 // Function to get a ticket by its UUID (order_uuid, registrant_uuid, or order uuid)
 const getTicketByUuid = async (ticketUuid: string) => {
@@ -206,10 +206,90 @@ export const checkInTicket = async (ticketUuid: string): Promise<CheckInTicketRe
   return null;
 };
 
+/**
+ * Fetches ticket pass data for the attendee-facing ticket view.
+ * Replaces the participant-tma HTTP loopback to /api/v1/event/:id/ticket
+ * with a direct Drizzle ORM query.
+ */
+export const fetchTicketPassByEventUuid = async (eventUuid: string, userId: number) => {
+  // 1. Get approved/checked-in registrant
+  const registrant = await db
+    .select()
+    .from(eventRegistrants)
+    .where(
+      and(
+        or(eq(eventRegistrants.status, "approved"), eq(eventRegistrants.status, "checkedin")),
+        eq(eventRegistrants.event_uuid, eventUuid),
+        eq(eventRegistrants.user_id, userId)
+      )
+    )
+    .limit(1)
+    .execute();
+
+  if (!registrant[0]) return null;
+
+  const reg = registrant[0];
+  const registerInfo = (typeof reg.register_info === "object"
+    ? reg.register_info
+    : JSON.parse(String(reg.register_info || "{}"))) as Record<string, string | null>;
+
+  // 2. Get event payment/ticket info
+  const paymentInfo = await db
+    .select()
+    .from(eventPayment)
+    .where(eq(eventPayment.event_uuid, eventUuid))
+    .limit(1)
+    .execute();
+
+  if (!paymentInfo[0]) return null;
+
+  // 3. Get NFT address if exists
+  const nft = await db
+    .select({ nft_address: nftItems.nft_address })
+    .from(nftItems)
+    .where(and(eq(nftItems.event_uuid, eventUuid), eq(nftItems.owner, userId)))
+    .limit(1)
+    .execute();
+
+  // 4. Get event data
+  const event = await db
+    .select({
+      title: events.title,
+      subtitle: events.subtitle,
+      description: events.description,
+      sbt_collection_address: events.sbt_collection_address,
+    })
+    .from(events)
+    .where(eq(events.event_uuid, eventUuid))
+    .limit(1)
+    .execute();
+
+  return {
+    full_name: registerInfo?.full_name ?? "",
+    telegram: registerInfo?.telegram ?? "",
+    company: registerInfo?.company ?? null,
+    position: registerInfo?.position ?? null,
+    nftAddress: nft[0]?.nft_address ?? null,
+    status: reg.status ?? "approved",
+    orderUuid: reg.registrant_uuid,
+    eventUuid,
+    needsInfoUpdate: !registerInfo?.full_name,
+    inviteLink: reg.telegram_invite_link ?? null,
+    ticketData: {
+      ticketImage: paymentInfo[0].ticketImage ?? "",
+      eventTitle: event[0]?.title ?? "",
+      eventSubtitle: event[0]?.subtitle ?? null,
+      eventDescription: event[0]?.description ?? "",
+      collectionAddress: event[0]?.sbt_collection_address ?? null,
+    },
+  };
+};
+
 // Exporting the functions as part of ticketDB
 const ticketDB = {
   getTicketByUuid,
   checkInTicket,
+  fetchTicketPassByEventUuid,
 };
 
 export default ticketDB;

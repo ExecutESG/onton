@@ -17,7 +17,7 @@ app.toncloud.observer {
         output stdout
         format json
     }
-    reverse_proxy /ptma* participant-tma:3000
+    # /ptma/* routes handled by mini-app's Next.js rewrites (epic #1022)
     reverse_proxy mini-app:3000
 }
 
@@ -40,7 +40,7 @@ toncloud.observer {
         output stdout
        format json
     }
-    reverse_proxy /ptma* participant-tma:3000
+    # /ptma/* routes handled by mini-app's Next.js rewrites (epic #1022)
     reverse_proxy mini-app:3000
 }
 
@@ -115,7 +115,7 @@ onton.live {
 }
 
 app.onton.live {
-    reverse_proxy /ptma* participant-tma:3000
+    # /ptma/* routes handled by mini-app's Next.js rewrites (epic #1022)
     reverse_proxy mini-app:3000
 }
 

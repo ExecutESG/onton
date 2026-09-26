@@ -477,7 +477,7 @@ const addEvent = adminOrganizerProtectedProcedure.input(z.object({ eventData: Ev
           const notificationMsg = await sendLogNotification({
             group_id: moderation_group_id,
             message: logMessage,
-            topic: "event",
+            topic: "no_topic",
             inline_keyboard: tgBotPostPublishModerationMenu(eventData.event_uuid, user_id),
           });
           sentTelegramMsgs.push(notificationMsg);
@@ -711,7 +711,7 @@ const updateEvent = eventManagerPP
         await eventDB.deleteEventCache(eventUuid);
         if (canSendModerationMessage) {
           const followUpText = renderModerationFlowup(opts.ctx.user.username || opts.ctx.user.user_id);
-          const moderation_group_id = configProtected?.moderation_group_id;
+          const moderation_group_id = process.env.MODERATION_GROUP_ID || configProtected?.moderation_group_id;
           try {
             const moderationMessageResponse = await sendLogNotification({
               group_id: moderation_group_id,
@@ -1059,7 +1059,7 @@ const reportEvent = initDataProtectedProcedure
         await sendLogNotification({
           group_id: moderation_group_id,
           message: reportAlertText,
-          topic: "event",
+          topic: "no_topic",
           inline_keyboard: tgBotReportedEventMenu(event_uuid),
         });
       } catch (err) {

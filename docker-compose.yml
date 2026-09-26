@@ -17,7 +17,6 @@ x-common-env: &common-env
   IP_METABASE: ${IP_METABASE:-metabase}
   IP_MINI_APP: ${IP_MINI_APP:-mini-app}
   IP_MINIO: ${IP_MINIO:-minio}
-  IP_PARTICIPANT_TMA: ${IP_PARTICIPANT_TMA:-participant-tma}
   IP_PGADMIN: ${IP_PGADMIN:-pgadmin}
   IP_RANGE_BASE: ${IP_RANGE_BASE:-127.0.0.1}
   IP_SWAGGER_UI: ${IP_SWAGGER_UI:-swagger-ui}
@@ -437,24 +436,14 @@ services:
       - onton-network
     command: [ "yarn", "run", "start:socket" ]
 
-  participant-tma:
-    hostname: participant-tma
-    container_name: ${ENV}-participant-tma
-    <<: *default-extra-hosts
-    ports:
-      - "${PARTICIPANT_TMA_PORT}:${PARTICIPANT_TMA_PORT}"
-    profiles:
-      - full
-    build:
-      context: ./newton/
-      dockerfile: ./apps/participant-tma/Dockerfile
-      args:
-        <<: *common-env
-    restart: "unless-stopped"
-    environment:
-      <<: *common-env
-    networks:
-      - onton-network
+  # participant-tma: DECOMMISSIONED — consolidated into mini-app (epic #1022)
+  # hostname: participant-tma
+  # container_name: ${ENV}-participant-tma
+  # profiles:
+  #   - full
+  # build:
+  #   context: ./newton/
+  #   dockerfile: ./apps/participant-tma/Dockerfile
 
   website:
     hostname: website

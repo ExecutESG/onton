@@ -660,38 +660,9 @@ services:
         #fluentd-async-connect: "true"
 
 
-  participant-tma:
-    hostname: participant-tma
-    image: ghcr.io/executesg/onton/participant-tma:${BRANCH_NAME}-latest
-    ports:
-      - "${PARTICIPANT_TMA_PORT}:${PARTICIPANT_TMA_PORT}"
-    deploy:
-      resources:
-        limits:
-          memory: 3000M
-          cpus: "2.0"
-      replicas: "${SYS_PARTICIPANT_TMA_REPLICAS-1}"
-      update_config:
-        failure_action: rollback
-        order: start-first
-      restart_policy:
-        condition: any
-        delay: 3s
-    depends_on:
-      - mini-app
-      - fluentd
-    environment:
-      <<: *common-env
-    networks:
-      - onton-network
-    secrets:
-      - registry-onton-config
-    logging:
-      driver: "fluentd"
-      options:
-        fluentd-address: "127.0.0.1:24224"
-        tag: "docker.${BRANCH_NAME}-participant-tma"
-        #fluentd-async-connect: "true"
+  # participant-tma: DECOMMISSIONED — consolidated into mini-app (epic #1022)
+  # hostname: participant-tma
+  # image: ghcr.io/executesg/onton/participant-tma:${BRANCH_NAME}-latest
 
   website:
     hostname: website

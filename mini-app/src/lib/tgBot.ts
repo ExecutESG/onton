@@ -198,12 +198,13 @@ export const sendLogNotification = async (
   }
 
   // 2) Determine pinned topic message if any, falling back to no_topic
+  const isCustomGroup = Boolean(props.group_id && String(props.group_id) !== String(configProtected?.logs_group_id));
   const topicMapping: Record<"no_topic" | "event" | "ticket" | "system" | "payments" | "campaign", string | null> = {
-    event: configProtected?.events_topic || "no_topic",
-    ticket: configProtected?.tickets_topic || "no_topic",
-    system: configProtected?.system_topic || "no_topic",
-    payments: configProtected?.payments_topic || "no_topic",
-    campaign: configProtected?.campaign_topic || "no_topic",
+    event: isCustomGroup ? "no_topic" : (configProtected?.events_topic || "no_topic"),
+    ticket: isCustomGroup ? "no_topic" : (configProtected?.tickets_topic || "no_topic"),
+    system: isCustomGroup ? "no_topic" : (configProtected?.system_topic || "no_topic"),
+    payments: isCustomGroup ? "no_topic" : (configProtected?.payments_topic || "no_topic"),
+    campaign: isCustomGroup ? "no_topic" : (configProtected?.campaign_topic || "no_topic"),
     no_topic: "no_topic",
   };
 
@@ -214,12 +215,12 @@ export const sendLogNotification = async (
 
   // 5) Decide the final 'reply_to_message_id'
   //    - if props.reply_to_message_id is provided, use it
-  //    - else if topic != "no_topic", use pinned topic message_id
+  //    - else if not a custom group and topic != "no_topic", use pinned topic message_id
   //    - else undefined (no reply)
   let finalReplyTo: number | undefined;
   if (typeof props.reply_to_message_id === "number") {
     finalReplyTo = props.reply_to_message_id;
-  } else if (topicMessageId !== "no_topic") {
+  } else if (!isCustomGroup && topicMessageId !== "no_topic") {
     finalReplyTo = Number(topicMessageId);
   }
 
@@ -249,13 +250,20 @@ export const sendLogNotification = async (
 
     // 6b) sendMediaGroup has no 'reply_markup' support
     //     We can optionally thread it via reply_to_message_id
-    const mediaGroupMessageId = await logBot.api.sendMediaGroup(Number(LOGS_GROUP_ID), mediaArray, {
-      reply_to_message_id: finalReplyTo,
-    });
-    logger.log("Sent media group message", Number(LOGS_GROUP_ID), mediaGroupMessageId);
-    // Note: If you want a single “caption” for the entire media group, you can put it
-    // on the *first* item’s caption field. But then you can't do multiple separate captions
-    // for each item in the group.
+    try {
+      const mediaGroupMessageId = await logBot.api.sendMediaGroup(Number(LOGS_GROUP_ID), mediaArray, {
+        reply_to_message_id: finalReplyTo,
+      });
+      logger.log("Sent media group message", Number(LOGS_GROUP_ID), mediaGroupMessageId);
+    } catch (err: any) {
+      if (finalReplyTo && err?.message?.includes("message to be replied not found")) {
+        logger.warn("sendMediaGroup reply failed; retrying without reply_to_message_id", err?.message);
+        const mediaGroupMessageId = await logBot.api.sendMediaGroup(Number(LOGS_GROUP_ID), mediaArray);
+        logger.log("Sent media group message without reply", Number(LOGS_GROUP_ID), mediaGroupMessageId);
+      } else {
+        throw err;
+      }
+    }
   }
   // 6) If sending an image
   if (props.image) {
@@ -269,21 +277,45 @@ export const sendLogNotification = async (
       parse_mode: "HTML",
     });
 
-    return await logBot.api.sendPhoto(Number(LOGS_GROUP_ID), new InputFile(buffer), {
-      caption: props.message,
-      reply_to_message_id: finalReplyTo, // optional
-      reply_markup: props.inline_keyboard,
-      parse_mode: "HTML",
-    });
+    try {
+      return await logBot.api.sendPhoto(Number(LOGS_GROUP_ID), new InputFile(buffer), {
+        caption: props.message,
+        reply_to_message_id: finalReplyTo, // optional
+        reply_markup: props.inline_keyboard,
+        parse_mode: "HTML",
+      });
+    } catch (err: any) {
+      if (finalReplyTo && err?.message?.includes("message to be replied not found")) {
+        logger.warn("sendPhoto reply failed; retrying without reply_to_message_id", err?.message);
+        return await logBot.api.sendPhoto(Number(LOGS_GROUP_ID), new InputFile(buffer), {
+          caption: props.message,
+          reply_markup: props.inline_keyboard,
+          parse_mode: "HTML",
+        });
+      }
+      throw err;
+    }
   }
 
   // 7) Otherwise, plain text message
-  return await logBot.api.sendMessage(Number(LOGS_GROUP_ID), props.message, {
-    parse_mode: "HTML",
-    reply_to_message_id: finalReplyTo, // optional
-    reply_markup: props.inline_keyboard,
-    link_preview_options: { is_disabled: true },
-  });
+  try {
+    return await logBot.api.sendMessage(Number(LOGS_GROUP_ID), props.message, {
+      parse_mode: "HTML",
+      reply_to_message_id: finalReplyTo, // optional
+      reply_markup: props.inline_keyboard,
+      link_preview_options: { is_disabled: true },
+    });
+  } catch (err: any) {
+    if (finalReplyTo && err?.message?.includes("message to be replied not found")) {
+      logger.warn("sendMessage reply failed; retrying without reply_to_message_id", err?.message);
+      return await logBot.api.sendMessage(Number(LOGS_GROUP_ID), props.message, {
+        parse_mode: "HTML",
+        reply_markup: props.inline_keyboard,
+        link_preview_options: { is_disabled: true },
+      });
+    }
+    throw err;
+  }
 };
 // CSV log sender
 export type CsvLogProps = {

@@ -18,10 +18,7 @@ services:
     volumes:
       - client-web-node-modules:/app/node_modules
 
-  participant-tma:
-    volumes:
-      - participant-tma-node-modules:/app/node_modules
-      - participant-tma-next:/app/.next
+  # participant-tma: DECOMMISSIONED (epic #1022)
 
   nft-microservice:
     volumes:

@@ -146,24 +146,11 @@ services:
     networks:
       - onton-network
 
-  participant-tma:
-    image: ghcr.io/executesg/onton/participant-tma:${BRANCH_NAME}-latest
-    hostname: participant-tma
-    ports:
-      - "127.0.0.1:${PARTICIPANT_TMA_PORT-3001}:3001"
-    <<: *default-extra-hosts
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-          cpus: "0.5"
-      replicas: 1
-    environment:
-      <<: *common-env
-      NEXT_PUBLIC_APP_BASE_URL: https://${MINI_APP_DOMAIN}
-      PORT: 3000
-    networks:
-      - onton-network
+  # participant-tma: DECOMMISSIONED — consolidated into mini-app (epic #1022)
+  # image: ghcr.io/executesg/onton/participant-tma:${BRANCH_NAME}-latest
+  # hostname: participant-tma
+  # ports:
+  #   - "127.0.0.1:${PARTICIPANT_TMA_PORT-3001}:3001"
 
   telegram-bot:
     image: ghcr.io/executesg/onton/telegram-bot:${BRANCH_NAME}-latest

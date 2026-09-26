@@ -75,10 +75,9 @@ test.describe("MTProto Telegram Bot Interaction Suite (@ontonadmin)", () => {
     expect(incoming.text).toContain("Welcome to ONTON");
   });
 
-  test("TG-5: Document #968 regression - unhandled affiliate/channel prefix fallthrough", async () => {
-    // LinkService generates 'campaign-aff-<hash>' but startHandler only knows 'join_'/'event_'/'tournament_'
-    const unhandledParam = "campaign-aff-test123";
-    execTgAdmin(`send "${TARGET_BOT}" "/start ${unhandledParam}"`);
+  test("TG-5: Verify /start with campaign affiliate parameter (Issue #968)", async () => {
+    const affiliateParam = "campaign-aff-test123";
+    execTgAdmin(`send "${TARGET_BOT}" "/start ${affiliateParam}"`);
 
     await new Promise((r) => setTimeout(r, 2500));
 
@@ -87,7 +86,6 @@ test.describe("MTProto Telegram Bot Interaction Suite (@ontonadmin)", () => {
 
     const incoming = messages.find((m: any) => !m.out);
     expect(incoming).toBeDefined();
-    // Confirms fallback behavior: message is still sent, but parameter is discarded by startHandler.ts
     expect(incoming.text).toContain("Welcome to ONTON");
   });
 });

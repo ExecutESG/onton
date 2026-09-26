@@ -1,10 +1,10 @@
 # ONTON Platform: User Personas QA Test Instructions & Process Gallery
 
-**Document Version:** 3.0.0  
+**Document Version:** 4.0.0  
 **Target Environment:** Staging (`https://app.dev.onton.live`) & Production (`https://onton.app`)  
 **Associated Test Harness:** Playwright E2E (`tests/e2e`) & Vitest Unit (`mini-app/__tests__`)  
-**Visual Evidence Directory:** `tests/quality-portal/assets/videos/` (55 Recorded Sessions) & `assets/screenshots/` (248 High-Resolution Retina Captures)  
-**Deliberate Multi-Step Scenarios:** 35 Validated Flows (198 Detailed Process Steps)  
+**Visual Evidence Directory:** `tests/quality-portal/assets/videos/` (55 Recorded Sessions) & `assets/screenshots/` (290 High-Resolution Retina Captures)  
+**Deliberate Multi-Step Scenarios:** 41 Validated Flows (234 Detailed Process Steps)  
 **Interactive Portal:** `http://localhost:4000` via `cd tests/e2e && npm run portal`
 
 ---
@@ -16,6 +16,7 @@ This document establishes the official QA execution procedures for all **6 Platf
 To provide comprehensive, uncompromised visibility across the product lifecycle:
 - **No Artificial 4-Step Cap:** Every user journey is broken down into deliberate, granular steps (5–10 steps per scenario) capturing every micro-interaction, sheet transition, form input, validation gate, and receipt.
 - **Zero Clone Screenshots:** Every single screenshot in the gallery represents a distinct DOM state, elimination of visual overlay artifacts, and full UI state transitions.
+- **Lu.ma Benchmark Content:** High-resolution magazine-grade posters, typography, and rich markdown agendas replicated authentically inside ONTON.
 - **Dual Visual Evidence:** All journeys are backed by both high-resolution retina screenshots (`@2x` mobile viewport `390x844`) and automated headless Playwright video recordings (`.webm`).
 
 ---
@@ -25,20 +26,31 @@ To provide comprehensive, uncompromised visibility across the product lifecycle:
 ```mermaid
 flowchart TD
     subgraph Personas["ONTON Platform Personas (6 Roles + Web3)"]
-        P1["1. Guest / Visitor<br/>(7 Flows • 42 Steps)"]
-        P2["2. Registered Attendee<br/>(8 Flows • 51 Steps)"]
-        P3["3. Event Organizer<br/>(6 Flows • 38 Steps)"]
-        P4["4. Check-in Officer<br/>(3 Flows • 16 Steps)"]
-        P5["5. Platform Admin<br/>(4 Flows • 22 Steps)"]
-        P6["6. Partner & Affiliate<br/>(3 Flows • 15 Steps)"]
-        P7["7. Web3 Credentials<br/>(FLOW-W1 • 6 Steps)"]
+        P1["1. Guest / Visitor
+(7 Flows • 42 Steps)"]
+        P2["2. Registered Attendee
+(8 Flows • 51 Steps)"]
+        P3["3. Event Organizer
+(12 Flows • 75 Steps)"]
+        P4["4. Check-in Officer
+(3 Flows • 16 Steps)"]
+        P5["5. Platform Admin
+(4 Flows • 22 Steps)"]
+        P6["6. Partner & Affiliate
+(3 Flows • 15 Steps)"]
+        P7["7. Web3 Credentials
+(FLOW-W1 • 6 Steps)"]
     end
 
     subgraph Verification["Test & Evidence Layer"]
-        PORTAL["Interactive Quality Portal<br/>http://localhost:4000"]
-        E2E["136 Playwright Scenarios<br/>(Chromium & Mobile Viewports)"]
-        VID["55 WebM Video Recordings<br/>(Full User Sessions)"]
-        SHOTS["248 High-Resolution Screenshots<br/>(assets/screenshots)"]
+        PORTAL["Interactive Quality Portal
+http://localhost:4000"]
+        E2E["136 Playwright Scenarios
+(Chromium & Mobile Viewports)"]
+        VID["55 WebM Video Recordings
+(Full User Sessions)"]
+        SHOTS["290 High-Resolution Screenshots
+(tests/quality-portal/assets/screenshots)"]
     end
 
     Personas --> Verification
@@ -376,9 +388,30 @@ An authenticated Telegram Mini App user. They have an active session, can connec
 ## 5. Persona 3: Event Organizer (Host)
 
 ### Persona Description
-A community leader, brand, or host creating and managing events. They access the Hosted Events hub, configure multi-step event details (Time/Place, MinIO cover upload, Custom Registration Questionnaire, Proof of Attendance SBT rewards), manage attendee approvals, monitor check-in analytics, configure promo codes, and export guest lists to CSV/Excel.
+A community leader, brand, or host creating and managing events. They complete new organizer onboarding (wallet connect, activation fee, channel setup), author events across all formats (flagship tech summit, private VIP dinner, online masterclass, esports tournament, community meetup), manage attendee approvals, configure custom questionnaires, set up paid tickets & promo codes, and distribute Proof of Attendance SBT badges.
 
 ### Granular Process Flows & Evidence
+
+#### `FLOW-ONB`: New Organizer Onboarding & Channel Setup
+- **Category:** Onboarding | **Criticality:** Critical | **Steps:** 5 Deliberate Actions
+- **Description:** Step-by-step onboarding: wallet connection, 1.00 TON activation fee, channel customization, and + FAB launcher.
+- **Cover Screenshot:** [`organizer_onb_cover.png`](file:///assets/screenshots/organizer_onb_cover.png)
+
+| Step | Action & Interface State | Verified Screenshot | Detailed Description |
+| :---: | :--- | :--- | :--- |
+| **1** | **Early Organizer Access Banner** | [`organizer_onb_step1_profile_intro.png`](file:///assets/screenshots/organizer_onb_step1_profile_intro.png) | Profile view with step 1: Connect your wallet prompt |
+| **2** | **Connect TON Wallet** | [`organizer_onb_step2_wallet_connected.png`](file:///assets/screenshots/organizer_onb_step2_wallet_connected.png) | TON Connect wallet integration with active address |
+| **3** | **Activation Fee Payment Card** | [`organizer_onb_step3_fee_payment.png`](file:///assets/screenshots/organizer_onb_step3_fee_payment.png) | Step 2: Pay one-time 1.00 TON organizer activation fee |
+| **4** | **Organizer Channel Setup** | [`organizer_onb_step4_channel_setup.png`](file:///assets/screenshots/organizer_onb_step4_channel_setup.png) | Channel branding form with name, handles, bio, and avatar |
+| **5** | **Onboarded Profile & Create FAB** | [`organizer_onb_step5_ready_profile.png`](file:///assets/screenshots/organizer_onb_step5_ready_profile.png) | Verified channel card and floating + button to create events |
+
+**Validation Criteria:**
+- [x] OrganizerProgress displays step 1 and step 2 progression accurately
+- [x] PaymentCard activates organizer privileges via on-chain contract
+- [x] Channel metadata syncs with Telegram and X social links
+- [x] Create FAB router targets /events/create
+
+---
 
 #### `FLOW-O1`: Hosted Events Hub
 - **Category:** Management | **Criticality:** High | **Steps:** 5 Deliberate Actions
@@ -421,6 +454,113 @@ A community leader, brand, or host creating and managing events. They access the
 - [x] Image uploads return valid MinIO URL
 - [x] Event creation mutation events.createEvent responds with event UUID
 - [x] Event is instantly published or queued for post-moderation
+
+---
+
+#### `FLOW-O2A`: Scenario 1: Flagship Hackathon / Tech Summit
+- **Category:** Creation Scenarios | **Criticality:** Critical | **Steps:** 10 Deliberate Actions
+- **Description:** Creation of TON Hacker House Dubai 2026: $100k prize tracks, curated waitlist, screening questions, paid VIP tier (15 TON NFT), and 3D crystal SBT.
+- **Cover Screenshot:** [`organizer_o2a_cover.png`](file:///assets/screenshots/organizer_o2a_cover.png)
+
+| Step | Action & Interface State | Verified Screenshot | Detailed Description |
+| :---: | :--- | :--- | :--- |
+| **1** | **General Info Blank Form** | [`organizer_o2a_step1_general_empty.png`](file:///assets/screenshots/organizer_o2a_step1_general_empty.png) | Initial creation stepper view for flagship hackathon |
+| **2** | **Hackathon Title & $100k Agenda** | [`organizer_o2a_step2_title_desc.png`](file:///assets/screenshots/organizer_o2a_step2_title_desc.png) | Luma-grade markdown agenda with DeFi, Gaming, and ZK prize tracks |
+| **3** | **Poster Artwork Upload** | [`organizer_o2a_step3_banner_upload.png`](file:///assets/screenshots/organizer_o2a_step3_banner_upload.png) | 1200x675 high-res cyber grid hackathon poster upload |
+| **4** | **Terms & Conditions Drawer** | [`organizer_o2a_step4_terms_modal.png`](file:///assets/screenshots/organizer_o2a_step4_terms_modal.png) | Organizer code of conduct and ecosystem compliance terms |
+| **5** | **Dates, Grand Hyatt Venue & TON Hub** | [`organizer_o2a_step5_datetime_venue.png`](file:///assets/screenshots/organizer_o2a_step5_datetime_venue.png) | 3-day in-person schedule at Grand Hyatt Dubai Conference Center |
+| **6** | **Registration, Approval & 300 Capacity** | [`organizer_o2a_step6_waitlist_approval.png`](file:///assets/screenshots/organizer_o2a_step6_waitlist_approval.png) | Curated host approval required with 300-seat over-capacity waitlist |
+| **7** | **Builder Screening Questionnaire** | [`organizer_o2a_step7_builder_questions.png`](file:///assets/screenshots/organizer_o2a_step7_builder_questions.png) | Custom fields: GitHub repo, track selection, and team roster |
+| **8** | **Paid VIP Tier (15 TON NFT)** | [`organizer_o2a_step8_paid_vip_tier.png`](file:///assets/screenshots/organizer_o2a_step8_paid_vip_tier.png) | VIP pass smart contract: 15 TON price, transferable NFT, custom artwork |
+| **9** | **Custom 3D Crystal SBT Credential** | [`organizer_o2a_step9_sbt_reward.png`](file:///assets/screenshots/organizer_o2a_step9_sbt_reward.png) | TEP-85 Soulbound Token attendance badge with door secret passcode |
+| **10** | **Review & Instant Publish** | [`organizer_o2a_step10_live_dashboard.png`](file:///assets/screenshots/organizer_o2a_step10_live_dashboard.png) | Order checklist review and 1-click Instant Publish confirmation |
+
+**Validation Criteria:**
+- [x] All 4 stepper steps validate with zero schema errors
+- [x] Custom questionnaire schema accepts required URL and track select fields
+- [x] Paid event configuration binds recipient wallet and ticket NFT metadata
+- [x] Event instantly publishes without moderation blockage
+
+---
+
+#### `FLOW-O2B`: Scenario 2: Exclusive Private VIP Dinner & Roundtable
+- **Category:** Creation Scenarios | **Criticality:** High | **Steps:** 6 Deliberate Actions
+- **Description:** Creation of Founders & Investors Sunset Soirée: secret venue toggle, strict 40-seat limit, executive vetting, and non-transferable cSBT.
+- **Cover Screenshot:** [`organizer_o2b_cover.png`](file:///assets/screenshots/organizer_o2b_cover.png)
+
+| Step | Action & Interface State | Verified Screenshot | Detailed Description |
+| :---: | :--- | :--- | :--- |
+| **1** | **Luxury Sunset Poster & Title** | [`organizer_o2b_step1_luxury_meta.png`](file:///assets/screenshots/organizer_o2b_step1_luxury_meta.png) | Golden-hour dinner poster and private soirée title |
+| **2** | **Secret Venue & Sunset Schedule** | [`organizer_o2b_step2_secret_venue.png`](file:///assets/screenshots/organizer_o2b_step2_secret_venue.png) | Hidden venue address revealed only to approved ticket holders |
+| **3** | **Strict 40-Seat Banquet Capacity** | [`organizer_o2b_step3_strict_capacity.png`](file:///assets/screenshots/organizer_o2b_step3_strict_capacity.png) | Non-expandable banquet seating with waitlist disabled |
+| **4** | **Executive Vetting Screening** | [`organizer_o2b_step4_executive_vetting.png`](file:///assets/screenshots/organizer_o2b_step4_executive_vetting.png) | Vetting fields: Fund name, partner accreditation, and thesis |
+| **5** | **Executive cSBT Credential** | [`organizer_o2b_step5_executive_csbt.png`](file:///assets/screenshots/organizer_o2b_step5_executive_csbt.png) | Non-transferable Soulbound credential preventing ticket scalping |
+| **6** | **Published VIP Soirée Page** | [`organizer_o2b_step6_published_private.png`](file:///assets/screenshots/organizer_o2b_step6_published_private.png) | Live VIP event page with Request to Join gate |
+
+**Validation Criteria:**
+- [x] Secret venue address is protected from unauthenticated guests
+- [x] Registration cap cannot exceed 40 seats
+- [x] Executive cSBT mints as non-transferable Soulbound token
+
+---
+
+#### `FLOW-O2C`: Scenario 3: Global Online Masterclass & Livestream
+- **Category:** Creation Scenarios | **Criticality:** High | **Steps:** 5 Deliberate Actions
+- **Description:** Creation of TON Mini App Mastery: broadcast stream URL, frictionless 1-tap RSVP, unlimited capacity, and on-air passphrase SBT.
+- **Cover Screenshot:** [`organizer_o2c_cover.png`](file:///assets/screenshots/organizer_o2c_cover.png)
+
+| Step | Action & Interface State | Verified Screenshot | Detailed Description |
+| :---: | :--- | :--- | :--- |
+| **1** | **Developer Masterclass Banner** | [`organizer_o2c_step1_developer_meta.png`](file:///assets/screenshots/organizer_o2c_step1_developer_meta.png) | Dark-mode Next.js 15 technical masterclass banner |
+| **2** | **Livestream Broadcast URL** | [`organizer_o2c_step2_stream_link.png`](file:///assets/screenshots/organizer_o2c_step2_stream_link.png) | Online stream link and global broadcast schedule |
+| **3** | **Frictionless 1-Tap RSVP** | [`organizer_o2c_step3_frictionless_rsvp.png`](file:///assets/screenshots/organizer_o2c_step3_frictionless_rsvp.png) | Zero-friction instant registration with unlimited capacity |
+| **4** | **Virtual SBT Passphrase** | [`organizer_o2c_step4_passkey_sbt.png`](file:///assets/screenshots/organizer_o2c_step4_passkey_sbt.png) | On-air stream secret passphrase (TON_BUILDER_2026) |
+| **5** | **Published Stream Portal** | [`organizer_o2c_step5_live_stream_view.png`](file:///assets/screenshots/organizer_o2c_step5_live_stream_view.png) | Live online masterclass room with broadcast link |
+
+**Validation Criteria:**
+- [x] Broadcast stream link validates as secure URL
+- [x] Registration requires zero approval friction
+- [x] SBT passcode gate validates against secret passphrase
+
+---
+
+#### `FLOW-O2D`: Scenario 4: Competitive Esports Tournament
+- **Category:** Creation Scenarios | **Criticality:** High | **Steps:** 5 Deliberate Actions
+- **Description:** Creation of Onion Arena Cyber Cup 2026: 32-team tournament bracket, 5.00 TON team entry fee, and ARENA50 promo discount.
+- **Cover Screenshot:** [`organizer_o2d_cover.png`](file:///assets/screenshots/organizer_o2d_cover.png)
+
+| Step | Action & Interface State | Verified Screenshot | Detailed Description |
+| :---: | :--- | :--- | :--- |
+| **1** | **Cyberpunk Tournament Banner** | [`organizer_o2d_step1_cyber_meta.png`](file:///assets/screenshots/organizer_o2d_step1_cyber_meta.png) | Cyber arena poster and 5,000 TON prize pool format |
+| **2** | **Tournament Bracket Schedule** | [`organizer_o2d_step2_bracket_schedule.png`](file:///assets/screenshots/organizer_o2d_step2_bracket_schedule.png) | Double elimination bracket feed and match times |
+| **3** | **5.00 TON Squad Entry Fee** | [`organizer_o2d_step3_paid_entry_fee.png`](file:///assets/screenshots/organizer_o2d_step3_paid_entry_fee.png) | Paid entry fee per squad with 32 tournament slots |
+| **4** | **ARENA50 Promo Code (50% Off)** | [`organizer_o2d_step4_promo_discount.png`](file:///assets/screenshots/organizer_o2d_step4_promo_discount.png) | Early bird promo code and captain Telegram handle field |
+| **5** | **Published Tournament Hub** | [`organizer_o2d_step5_tournament_hub.png`](file:///assets/screenshots/organizer_o2d_step5_tournament_hub.png) | Live Cyber Cup arena with prize breakdown and bracket |
+
+**Validation Criteria:**
+- [x] Paid squad entry fee correctly calculates 5.00 TON smart contract transfer
+- [x] ARENA50 discount applies 50% price reduction
+- [x] Tournament slots cap strictly at 32 squads
+
+---
+
+#### `FLOW-O2E`: Scenario 5: Casual Community Builder Meetup
+- **Category:** Creation Scenarios | **Criticality:** High | **Steps:** 5 Deliberate Actions
+- **Description:** Creation of TON Community Coffee & Demos: Alserkal Avenue venue, free open RSVP, and door check-in officer delegation.
+- **Cover Screenshot:** [`organizer_o2e_cover.png`](file:///assets/screenshots/organizer_o2e_cover.png)
+
+| Step | Action & Interface State | Verified Screenshot | Detailed Description |
+| :---: | :--- | :--- | :--- |
+| **1** | **Community Coffee Poster** | [`organizer_o2e_step1_community_meta.png`](file:///assets/screenshots/organizer_o2e_step1_community_meta.png) | Warm community coffee poster and lightning demo format |
+| **2** | **Alserkal Avenue Venue** | [`organizer_o2e_step2_coffee_venue.png`](file:///assets/screenshots/organizer_o2e_step2_coffee_venue.png) | Nightjar Coffee Roasters venue details and map pin |
+| **3** | **Free Open Admission** | [`organizer_o2e_step3_free_open_rsvp.png`](file:///assets/screenshots/organizer_o2e_step3_free_open_rsvp.png) | Instant registration with 75 attendee capacity |
+| **4** | **Check-in Officer Delegation** | [`organizer_o2e_step4_officer_delegation.png`](file:///assets/screenshots/organizer_o2e_step4_officer_delegation.png) | Delegating door QR scanner rights to co-organizers |
+| **5** | **Published Community Meetup** | [`organizer_o2e_step5_published_meetup.png`](file:///assets/screenshots/organizer_o2e_step5_published_meetup.png) | Live community meetup card with 1-tap RSVP |
+
+**Validation Criteria:**
+- [x] Free admission requires 0 TON payment
+- [x] Officer delegation grants door scanning permissions
+- [x] QR pass generates instantly upon RSVP
 
 ---
 

@@ -912,6 +912,62 @@ const flowsCatalog = [
     ]
   },
   {
+    "id": "FLOW-ONB",
+    "role": "Organizer",
+    "title": "New Organizer Onboarding & Channel Setup",
+    "description": "Step-by-step onboarding: wallet connection, 1.00 TON activation fee, channel customization, and + FAB launcher.",
+    "category": "Onboarding",
+    "criticality": "Critical",
+    "screenshot": "assets/screenshots/organizer_onb_cover.png",
+    "videoKeyword": "organizer_onb",
+    "stepScreenshots": [
+      {
+        "step": 1,
+        "label": "Early Organizer Access Banner",
+        "path": "assets/screenshots/organizer_onb_step1_profile_intro.png",
+        "description": "Profile view with step 1: Connect your wallet prompt"
+      },
+      {
+        "step": 2,
+        "label": "Connect TON Wallet",
+        "path": "assets/screenshots/organizer_onb_step2_wallet_connected.png",
+        "description": "TON Connect wallet integration with active address"
+      },
+      {
+        "step": 3,
+        "label": "Activation Fee Payment Card",
+        "path": "assets/screenshots/organizer_onb_step3_fee_payment.png",
+        "description": "Step 2: Pay one-time 1.00 TON organizer activation fee"
+      },
+      {
+        "step": 4,
+        "label": "Organizer Channel Setup",
+        "path": "assets/screenshots/organizer_onb_step4_channel_setup.png",
+        "description": "Channel branding form with name, handles, bio, and avatar"
+      },
+      {
+        "step": 5,
+        "label": "Onboarded Profile & Create FAB",
+        "path": "assets/screenshots/organizer_onb_step5_ready_profile.png",
+        "description": "Verified channel card and floating + button to create events"
+      }
+    ],
+    "steps": [
+      "Navigate to /my as standard user",
+      "Inspect OrganizerProgress banner displaying step 1 Connect Wallet",
+      "Connect TON wallet and observe transition to step 2 Activation Fee",
+      "Inspect PaymentCard for one-time 1.00 TON organizer fee",
+      "Navigate to /my/edit to configure channel branding and social handles",
+      "Confirm transition to organizer profile with persistent create FAB (+)"
+    ],
+    "assertions": [
+      "OrganizerProgress displays step 1 and step 2 progression accurately",
+      "PaymentCard activates organizer privileges via on-chain contract",
+      "Channel metadata syncs with Telegram and X social links",
+      "Create FAB router targets /events/create"
+    ]
+  },
+  {
     "id": "FLOW-O1",
     "role": "Organizer",
     "title": "Hosted Events Hub",
@@ -1046,6 +1102,317 @@ const flowsCatalog = [
       "Image uploads return valid MinIO URL",
       "Event creation mutation events.createEvent responds with event UUID",
       "Event is instantly published or queued for post-moderation"
+    ]
+  },
+  {
+    "id": "FLOW-O2A",
+    "role": "Organizer",
+    "title": "Scenario 1: Flagship Hackathon / Tech Summit",
+    "description": "Creation of TON Hacker House Dubai 2026: $100k prize tracks, curated waitlist, screening questions, paid VIP tier (15 TON NFT), and 3D crystal SBT.",
+    "category": "Creation Scenarios",
+    "criticality": "Critical",
+    "screenshot": "assets/screenshots/organizer_o2a_cover.png",
+    "videoKeyword": "organizer_o2a",
+    "stepScreenshots": [
+      {
+        "step": 1,
+        "label": "General Info Blank Form",
+        "path": "assets/screenshots/organizer_o2a_step1_general_empty.png",
+        "description": "Initial creation stepper view for flagship hackathon"
+      },
+      {
+        "step": 2,
+        "label": "Hackathon Title & $100k Agenda",
+        "path": "assets/screenshots/organizer_o2a_step2_title_desc.png",
+        "description": "Luma-grade markdown agenda with DeFi, Gaming, and ZK prize tracks"
+      },
+      {
+        "step": 3,
+        "label": "Poster Artwork Upload",
+        "path": "assets/screenshots/organizer_o2a_step3_banner_upload.png",
+        "description": "1200x675 high-res cyber grid hackathon poster upload"
+      },
+      {
+        "step": 4,
+        "label": "Terms & Conditions Drawer",
+        "path": "assets/screenshots/organizer_o2a_step4_terms_modal.png",
+        "description": "Organizer code of conduct and ecosystem compliance terms"
+      },
+      {
+        "step": 5,
+        "label": "Dates, Grand Hyatt Venue & TON Hub",
+        "path": "assets/screenshots/organizer_o2a_step5_datetime_venue.png",
+        "description": "3-day in-person schedule at Grand Hyatt Dubai Conference Center"
+      },
+      {
+        "step": 6,
+        "label": "Registration, Approval & 300 Capacity",
+        "path": "assets/screenshots/organizer_o2a_step6_waitlist_approval.png",
+        "description": "Curated host approval required with 300-seat over-capacity waitlist"
+      },
+      {
+        "step": 7,
+        "label": "Builder Screening Questionnaire",
+        "path": "assets/screenshots/organizer_o2a_step7_builder_questions.png",
+        "description": "Custom fields: GitHub repo, track selection, and team roster"
+      },
+      {
+        "step": 8,
+        "label": "Paid VIP Tier (15 TON NFT)",
+        "path": "assets/screenshots/organizer_o2a_step8_paid_vip_tier.png",
+        "description": "VIP pass smart contract: 15 TON price, transferable NFT, custom artwork"
+      },
+      {
+        "step": 9,
+        "label": "Custom 3D Crystal SBT Credential",
+        "path": "assets/screenshots/organizer_o2a_step9_sbt_reward.png",
+        "description": "TEP-85 Soulbound Token attendance badge with door secret passcode"
+      },
+      {
+        "step": 10,
+        "label": "Review & Instant Publish",
+        "path": "assets/screenshots/organizer_o2a_step10_live_dashboard.png",
+        "description": "Order checklist review and 1-click Instant Publish confirmation"
+      }
+    ],
+    "steps": [
+      "Configure title 'TON Hacker House Dubai 2026' with full markdown agenda",
+      "Upload 1200x675 flagship poster and accept terms of service",
+      "Set in-person venue at Grand Hyatt Dubai and select TON Society MEA Hub",
+      "Enable attendee approval, set capacity to 300, and activate waitlist",
+      "Add custom screening questions for GitHub repo and developer track",
+      "Configure paid VIP ticket tier at 15.00 TON with transferable NFT pass",
+      "Configure Genesis Crystal 3D SBT attendance credential",
+      "Submit instant publish mutation and verify management redirect"
+    ],
+    "assertions": [
+      "All 4 stepper steps validate with zero schema errors",
+      "Custom questionnaire schema accepts required URL and track select fields",
+      "Paid event configuration binds recipient wallet and ticket NFT metadata",
+      "Event instantly publishes without moderation blockage"
+    ]
+  },
+  {
+    "id": "FLOW-O2B",
+    "role": "Organizer",
+    "title": "Scenario 2: Exclusive Private VIP Dinner & Roundtable",
+    "description": "Creation of Founders & Investors Sunset Soirée: secret venue toggle, strict 40-seat limit, executive vetting, and non-transferable cSBT.",
+    "category": "Creation Scenarios",
+    "criticality": "High",
+    "screenshot": "assets/screenshots/organizer_o2b_cover.png",
+    "videoKeyword": "organizer_o2b",
+    "stepScreenshots": [
+      {
+        "step": 1,
+        "label": "Luxury Sunset Poster & Title",
+        "path": "assets/screenshots/organizer_o2b_step1_luxury_meta.png",
+        "description": "Golden-hour dinner poster and private soirée title"
+      },
+      {
+        "step": 2,
+        "label": "Secret Venue & Sunset Schedule",
+        "path": "assets/screenshots/organizer_o2b_step2_secret_venue.png",
+        "description": "Hidden venue address revealed only to approved ticket holders"
+      },
+      {
+        "step": 3,
+        "label": "Strict 40-Seat Banquet Capacity",
+        "path": "assets/screenshots/organizer_o2b_step3_strict_capacity.png",
+        "description": "Non-expandable banquet seating with waitlist disabled"
+      },
+      {
+        "step": 4,
+        "label": "Executive Vetting Screening",
+        "path": "assets/screenshots/organizer_o2b_step4_executive_vetting.png",
+        "description": "Vetting fields: Fund name, partner accreditation, and thesis"
+      },
+      {
+        "step": 5,
+        "label": "Executive cSBT Credential",
+        "path": "assets/screenshots/organizer_o2b_step5_executive_csbt.png",
+        "description": "Non-transferable Soulbound credential preventing ticket scalping"
+      },
+      {
+        "step": 6,
+        "label": "Published VIP Soirée Page",
+        "path": "assets/screenshots/organizer_o2b_step6_published_private.png",
+        "description": "Live VIP event page with Request to Join gate"
+      }
+    ],
+    "steps": [
+      "Enter title 'Founders & Investors Sunset Soirée' with luxury dinner poster",
+      "Activate secret venue toggle for CÉ LA VI Dubai",
+      "Enforce strict 40-capacity limit and disable over-capacity waitlist",
+      "Add executive accreditation screening questionnaire",
+      "Issue non-transferable cSBT credential to approved attendees",
+      "Publish private event with Request to Join approval gate"
+    ],
+    "assertions": [
+      "Secret venue address is protected from unauthenticated guests",
+      "Registration cap cannot exceed 40 seats",
+      "Executive cSBT mints as non-transferable Soulbound token"
+    ]
+  },
+  {
+    "id": "FLOW-O2C",
+    "role": "Organizer",
+    "title": "Scenario 3: Global Online Masterclass & Livestream",
+    "description": "Creation of TON Mini App Mastery: broadcast stream URL, frictionless 1-tap RSVP, unlimited capacity, and on-air passphrase SBT.",
+    "category": "Creation Scenarios",
+    "criticality": "High",
+    "screenshot": "assets/screenshots/organizer_o2c_cover.png",
+    "videoKeyword": "organizer_o2c",
+    "stepScreenshots": [
+      {
+        "step": 1,
+        "label": "Developer Masterclass Banner",
+        "path": "assets/screenshots/organizer_o2c_step1_developer_meta.png",
+        "description": "Dark-mode Next.js 15 technical masterclass banner"
+      },
+      {
+        "step": 2,
+        "label": "Livestream Broadcast URL",
+        "path": "assets/screenshots/organizer_o2c_step2_stream_link.png",
+        "description": "Online stream link and global broadcast schedule"
+      },
+      {
+        "step": 3,
+        "label": "Frictionless 1-Tap RSVP",
+        "path": "assets/screenshots/organizer_o2c_step3_frictionless_rsvp.png",
+        "description": "Zero-friction instant registration with unlimited capacity"
+      },
+      {
+        "step": 4,
+        "label": "Virtual SBT Passphrase",
+        "path": "assets/screenshots/organizer_o2c_step4_passkey_sbt.png",
+        "description": "On-air stream secret passphrase (TON_BUILDER_2026)"
+      },
+      {
+        "step": 5,
+        "label": "Published Stream Portal",
+        "path": "assets/screenshots/organizer_o2c_step5_live_stream_view.png",
+        "description": "Live online masterclass room with broadcast link"
+      }
+    ],
+    "steps": [
+      "Configure developer masterclass title and Next.js 15 curriculum",
+      "Set online event mode with broadcast URL and global schedule",
+      "Enable frictionless 1-tap RSVP with unlimited capacity",
+      "Configure Proof of Attendance SBT with secret on-air passphrase",
+      "Publish global masterclass room with calendar sync"
+    ],
+    "assertions": [
+      "Broadcast stream link validates as secure URL",
+      "Registration requires zero approval friction",
+      "SBT passcode gate validates against secret passphrase"
+    ]
+  },
+  {
+    "id": "FLOW-O2D",
+    "role": "Organizer",
+    "title": "Scenario 4: Competitive Esports Tournament",
+    "description": "Creation of Onion Arena Cyber Cup 2026: 32-team tournament bracket, 5.00 TON team entry fee, and ARENA50 promo discount.",
+    "category": "Creation Scenarios",
+    "criticality": "High",
+    "screenshot": "assets/screenshots/organizer_o2d_cover.png",
+    "videoKeyword": "organizer_o2d",
+    "stepScreenshots": [
+      {
+        "step": 1,
+        "label": "Cyberpunk Tournament Banner",
+        "path": "assets/screenshots/organizer_o2d_step1_cyber_meta.png",
+        "description": "Cyber arena poster and 5,000 TON prize pool format"
+      },
+      {
+        "step": 2,
+        "label": "Tournament Bracket Schedule",
+        "path": "assets/screenshots/organizer_o2d_step2_bracket_schedule.png",
+        "description": "Double elimination bracket feed and match times"
+      },
+      {
+        "step": 3,
+        "label": "5.00 TON Squad Entry Fee",
+        "path": "assets/screenshots/organizer_o2d_step3_paid_entry_fee.png",
+        "description": "Paid entry fee per squad with 32 tournament slots"
+      },
+      {
+        "step": 4,
+        "label": "ARENA50 Promo Code (50% Off)",
+        "path": "assets/screenshots/organizer_o2d_step4_promo_discount.png",
+        "description": "Early bird promo code and captain Telegram handle field"
+      },
+      {
+        "step": 5,
+        "label": "Published Tournament Hub",
+        "path": "assets/screenshots/organizer_o2d_step5_tournament_hub.png",
+        "description": "Live Cyber Cup arena with prize breakdown and bracket"
+      }
+    ],
+    "steps": [
+      "Configure tournament title, prize pool, and cyberpunk artwork",
+      "Set double elimination tournament bracket URL and schedule",
+      "Set paid squad entry fee at 5.00 TON with 32-slot capacity",
+      "Configure ARENA50 discount code for 50% early bird registration",
+      "Publish competitive gaming arena to Play2Win ecosystem"
+    ],
+    "assertions": [
+      "Paid squad entry fee correctly calculates 5.00 TON smart contract transfer",
+      "ARENA50 discount applies 50% price reduction",
+      "Tournament slots cap strictly at 32 squads"
+    ]
+  },
+  {
+    "id": "FLOW-O2E",
+    "role": "Organizer",
+    "title": "Scenario 5: Casual Community Builder Meetup",
+    "description": "Creation of TON Community Coffee & Demos: Alserkal Avenue venue, free open RSVP, and door check-in officer delegation.",
+    "category": "Creation Scenarios",
+    "criticality": "High",
+    "screenshot": "assets/screenshots/organizer_o2e_cover.png",
+    "videoKeyword": "organizer_o2e",
+    "stepScreenshots": [
+      {
+        "step": 1,
+        "label": "Community Coffee Poster",
+        "path": "assets/screenshots/organizer_o2e_step1_community_meta.png",
+        "description": "Warm community coffee poster and lightning demo format"
+      },
+      {
+        "step": 2,
+        "label": "Alserkal Avenue Venue",
+        "path": "assets/screenshots/organizer_o2e_step2_coffee_venue.png",
+        "description": "Nightjar Coffee Roasters venue details and map pin"
+      },
+      {
+        "step": 3,
+        "label": "Free Open Admission",
+        "path": "assets/screenshots/organizer_o2e_step3_free_open_rsvp.png",
+        "description": "Instant registration with 75 attendee capacity"
+      },
+      {
+        "step": 4,
+        "label": "Check-in Officer Delegation",
+        "path": "assets/screenshots/organizer_o2e_step4_officer_delegation.png",
+        "description": "Delegating door QR scanner rights to co-organizers"
+      },
+      {
+        "step": 5,
+        "label": "Published Community Meetup",
+        "path": "assets/screenshots/organizer_o2e_step5_published_meetup.png",
+        "description": "Live community meetup card with 1-tap RSVP"
+      }
+    ],
+    "steps": [
+      "Enter title 'TON Community Coffee & Demos' with coffee poster",
+      "Set venue at Nightjar Coffee Roasters in Alserkal Avenue",
+      "Enable free open admission with 75 attendee capacity",
+      "Authorize co-organizer check-in officers for door QR scanning",
+      "Publish community meetup to local chapter feed"
+    ],
+    "assertions": [
+      "Free admission requires 0 TON payment",
+      "Officer delegation grants door scanning permissions",
+      "QR pass generates instantly upon RSVP"
     ]
   },
   {
@@ -2332,15 +2699,15 @@ const flawsCatalog = [
   {
     id: "FLAW-26",
     severity: "High",
-    status: "Open",
+    status: "Resolved",
     category: "Bot Routing",
     title: "Deep Link Routing Discards Non-Standard Prefixes (Issue #968 Regression)",
     route: "telegram-bot/src/handlers/startHandler.ts",
     role: "User",
     screenshot: "assets/screenshots/guest_g1_homepage.png",
-    description: "startHandler.ts only matches event_, join_, and tournament_ (singular). LinkService produces channels_*, tournaments_* (plural), and campaign-aff-* prefixes. Incoming users with these links get dumped to the generic welcome prompt instead of the target screen.",
+    description: "startHandler.ts only matched event_, join_, and tournament_ (singular). LinkService produces channels_*, tournaments_* (plural), and campaign-aff-* prefixes. Incoming users with these links got dumped to the generic welcome prompt instead of the target screen.",
     remediation: "Update startHandler.ts to parse channels_*, tournaments_*, and campaign-aff-* prefixes matching LinkService specifications.",
-    resolution: "Documented with regression test TG-5 in tests/e2e/telegram-bot-loop.spec.ts. Pending fix in startHandler.ts."
+    resolution: "Fixed in `telegram-bot/src/utils/deepLink.ts` & `startHandler.ts`: Built universal deep-link resolver supporting channels_*, tournaments_*, campaign-aff-*, join_*, raw UUIDs, and _ref_ parameters. Verified via 8 Vitest unit tests in `deep-link-resolution.test.ts` and E2E MTProto test TG-5."
   }
 ];
 

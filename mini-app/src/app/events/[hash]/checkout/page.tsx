@@ -1,5 +1,6 @@
 import { getAuthenticatedUser } from "@/server/auth";
 import eventDB from "@/db/modules/events.db";
+import { config } from "@/server/config";
 import CheckoutForm from "./_components/CheckoutForm";
 
 type Props = { params: { hash: string } };
@@ -26,7 +27,15 @@ export default async function CheckoutPage({ params }: Props) {
     );
   }
 
-  return <CheckoutForm eventUuid={event.event_uuid} eventHash={params.hash} />;
+  const walletAddress = config?.ONTON_WALLET_ADDRESS ?? null;
+
+  return (
+    <CheckoutForm
+      eventUuid={event.event_uuid}
+      eventHash={params.hash}
+      paymentWalletAddress={walletAddress}
+    />
+  );
 }
 
 export const dynamic = "force-dynamic";

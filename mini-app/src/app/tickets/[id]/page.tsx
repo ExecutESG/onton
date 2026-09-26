@@ -92,14 +92,20 @@ export default async function TicketPassPage({ params }: Props) {
     <div className="min-h-screen bg-[#f0f0f0]">
       <div className="bg-white pb-4">
         <div className="mx-auto max-w-md px-4 pt-4">
-          <Image
-            priority
-            width={358}
-            height={358}
-            src={ticket.ticketData.ticketImage}
-            alt={`ticket-${params.id}`}
-            className="w-full rounded-xl border border-gray-100 object-contain shadow-sm"
-          />
+          {ticket.ticketData.ticketImage ? (
+            <Image
+              priority
+              width={358}
+              height={358}
+              src={ticket.ticketData.ticketImage}
+              alt={`ticket-${params.id}`}
+              className="w-full rounded-xl border border-gray-100 object-contain shadow-sm"
+            />
+          ) : (
+            <div className="flex h-48 w-full items-center justify-center rounded-xl bg-gradient-to-br from-blue-100 to-indigo-100 text-4xl">
+              🎟️
+            </div>
+          )}
         </div>
         <div className="mx-auto max-w-md space-y-3 px-4 pt-4">
           {attributes.map(([label, value], index) => (

@@ -87,7 +87,7 @@ class TonConnectSender implements Sender {
 const isTestnet = !(/*NOT*/ ["production", "stage", "staging"].includes(process.env.NEXT_PUBLIC_ENV || "development"));
 
 const NETWORK = isTestnet ? "testnet" : "mainnet";
-const assetsSdk = async (provider: TonConnectUI) => {
+export const assetsSdk = async (provider: TonConnectUI) => {
   const api = await createApi(NETWORK);
   const sender = new TonConnectSender(provider);
 

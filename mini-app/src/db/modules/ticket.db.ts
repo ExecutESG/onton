@@ -303,7 +303,7 @@ export const fetchTicketPassByEventUuid = async (eventUuid: string, userId: numb
       eventTitle: event[0]?.title ?? "",
       eventSubtitle: event[0]?.subtitle ?? null,
       eventDescription: event[0]?.description ?? "",
-      collectionAddress: event[0]?.sbt_collection_address ?? null,
+      collectionAddress: paymentInfo[0].collectionAddress ?? event[0]?.sbt_collection_address ?? null,
     },
     userSbtTicket,
   };

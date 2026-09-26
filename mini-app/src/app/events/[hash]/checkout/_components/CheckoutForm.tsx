@@ -4,7 +4,6 @@ import { Input } from "@/components/ui/input";
 import useWebApp from "@/hooks/useWebApp";
 import { useUserStore } from "@/context/store/user.store";
 import { useTonConnectUI, useTonWallet } from "@tonconnect/ui-react";
-import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -13,16 +12,40 @@ import MainButton from "@/app/_components/atoms/buttons/web-app/MainButton";
 
 type PaymentRail = "STARS" | "CRYPTO";
 
+interface OrderResponse {
+  order_id: string;
+  state?: string;
+  is_free?: boolean;
+  total_price?: number;
+  token?: {
+    symbol: string;
+    decimals: number;
+    is_native: boolean;
+    master_address: string | null;
+  };
+}
+
 interface CheckoutFormProps {
   eventUuid: string;
   eventHash: string;
+  /** ONTON_WALLET_ADDRESS — destination for crypto payments. Passed from SSR. */
+  paymentWalletAddress: string | null;
 }
+
+/**
+ * Converts a human-readable token amount to its smallest unit (e.g. TON → nanoTON).
+ * Matches participant-tma's `toTokenUnits`.
+ */
+const toTokenUnits = (amount: number, decimals: number): bigint => {
+  const factor = 10 ** Math.max(decimals, 0);
+  return BigInt(Math.round(amount * factor));
+};
 
 /**
  * Multi-rail checkout form ported from participant-tma.
  * Supports: Free RSVP, Telegram Stars, TON/USDT crypto.
  */
-export default function CheckoutForm({ eventUuid, eventHash }: CheckoutFormProps) {
+export default function CheckoutForm({ eventUuid, eventHash, paymentWalletAddress }: CheckoutFormProps) {
   const webApp = useWebApp();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -40,13 +63,8 @@ export default function CheckoutForm({ eventUuid, eventHash }: CheckoutFormProps
   const [paymentRail, setPaymentRail] = useState<PaymentRail>("STARS");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [processingState, setProcessingState] = useState<"idle" | "processing" | "success" | "error">("idle");
-  const [orderData, setOrderData] = useState<{
-    order_id: string;
-    state?: string;
-    is_free?: boolean;
-    total_price?: number;
-    token?: { symbol: string; decimals: number; is_native: boolean; master_address: string | null };
-  } | null>(null);
+  const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Auto-fill from Telegram user data
   useEffect(() => {
@@ -68,6 +86,38 @@ export default function CheckoutForm({ eventUuid, eventHash }: CheckoutFormProps
       webApp.BackButton.offClick(handleBack);
     };
   }, [webApp, eventHash, router]);
+
+  // Poll order status after crypto tx is sent
+  useEffect(() => {
+    if (!pendingOrderId || processingState !== "processing") return;
+
+    pollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/v1/order/${pendingOrderId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.state === "completed") {
+          clearInterval(pollRef.current!);
+          setPendingOrderId(null);
+          toast.success("Payment confirmed!");
+          setProcessingState("success");
+          setTimeout(() => router.push(`/tickets/${eventUuid}`), 1500);
+        } else if (data.state === "failed" || data.state === "cancelled") {
+          clearInterval(pollRef.current!);
+          setPendingOrderId(null);
+          toast.error("Payment failed");
+          setProcessingState("error");
+          setIsSubmitting(false);
+        }
+      } catch {
+        // Ignore transient fetch errors during polling
+      }
+    }, 3000);
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [pendingOrderId, processingState, eventUuid, router]);
 
   const handleSubmit = useCallback(async () => {
     if (!fullName.trim()) {
@@ -101,8 +151,7 @@ export default function CheckoutForm({ eventUuid, eventHash }: CheckoutFormProps
         throw new Error(errData.message || errData.error || "Failed to create order");
       }
 
-      const order = await orderRes.json();
-      setOrderData(order);
+      const order: OrderResponse = await orderRes.json();
 
       // 2. Free ticket — done
       if (order.is_free || order.state === "completed" || Number(order.total_price) === 0) {
@@ -136,6 +185,7 @@ export default function CheckoutForm({ eventUuid, eventHash }: CheckoutFormProps
               setProcessingState("error");
               setIsSubmitting(false);
             } else {
+              // User closed the invoice dialog (cancelled)
               setProcessingState("idle");
               setIsSubmitting(false);
             }
@@ -148,7 +198,7 @@ export default function CheckoutForm({ eventUuid, eventHash }: CheckoutFormProps
         return;
       }
 
-      // 4. Crypto payment flow
+      // 4. Crypto payment flow (TON / USDT)
       if (!wallet?.account.address) {
         toast.info("Connect your wallet to pay with crypto");
         await tonConnectUI.openModal();
@@ -157,36 +207,61 @@ export default function CheckoutForm({ eventUuid, eventHash }: CheckoutFormProps
         return;
       }
 
-      // Dynamic import to avoid loading TON SDK on every page
-      const { default: useTransferTonFn } = await import("@/app/(navigation)/my/useTransfer");
-      // Can't use hooks dynamically, so use tonConnectUI directly
-      const { Address, beginCell, toNano } = await import("@ton/core");
+      if (!order.token) {
+        throw new Error("Payment token information is missing");
+      }
 
-      const destinationAddress = Address.parse(order.token?.master_address ? order.token.master_address : eventUuid);
+      if (!paymentWalletAddress) {
+        throw new Error("Payment wallet not configured");
+      }
 
-      const body = beginCell()
-        .storeUint(0, 32)
-        .storeStringTail(`onton_order=${order.order_id}`)
-        .endCell()
-        .toBoc();
+      const { Address, beginCell } = await import("@ton/core");
+      const destinationAddress = Address.parse(paymentWalletAddress);
+      const tokenAmount = toTokenUnits(Number(order.total_price), order.token.decimals ?? 9);
 
-      await tonConnectUI.sendTransaction({
-        validUntil: Math.floor(Date.now() / 1000) + 360,
-        messages: [
-          {
-            address: destinationAddress.toString(),
-            amount: String(order.total_price),
-            payload: body.toString("base64"),
-          },
-        ],
-      });
+      if (!order.token.is_native && order.token.master_address) {
+        // Jetton (USDT) transfer via assets-sdk
+        const { assetsSdk } = await import("@/app/(navigation)/my/useTransfer");
+        const sdk = await assetsSdk(tonConnectUI);
+        if (!sdk.sender?.address) throw new Error("Wallet not connected");
 
-      toast.success("Transaction sent!");
-      // Poll for confirmation
+        const forwardPayload = beginCell()
+          .storeUint(0, 32)
+          .storeStringTail(`onton_order=${order.order_id}`)
+          .endCell();
+
+        const jetton = sdk.openJetton(Address.parse(order.token.master_address));
+        const myJettonWallet = await jetton.getWallet(sdk.sender.address);
+        await myJettonWallet.send(sdk.sender, destinationAddress, tokenAmount, {
+          notify: { payload: forwardPayload },
+        });
+      } else {
+        // Native TON transfer
+        const body = beginCell()
+          .storeUint(0, 32)
+          .storeStringTail(`onton_order=${order.order_id}`)
+          .endCell()
+          .toBoc();
+
+        await tonConnectUI.sendTransaction({
+          validUntil: Math.floor(Date.now() / 1000) + 360,
+          messages: [
+            {
+              address: destinationAddress.toString(),
+              amount: tokenAmount.toString(),
+              payload: body.toString("base64"),
+            },
+          ],
+        });
+      }
+
+      // Transaction submitted — start polling for confirmation
+      toast.success("Transaction sent! Waiting for confirmation...");
+      setPendingOrderId(order.order_id);
       setProcessingState("processing");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Checkout failed";
-      if (!message.includes("Cancelled")) {
+      if (!message.includes("Cancelled") && !message.includes("Rejected")) {
         toast.error(message);
         setProcessingState("error");
       } else {
@@ -195,7 +270,7 @@ export default function CheckoutForm({ eventUuid, eventHash }: CheckoutFormProps
       }
       setIsSubmitting(false);
     }
-  }, [eventUuid, fullName, telegram, company, position, couponCode, paymentRail, wallet, affiliateId, webApp, tonConnectUI, router]);
+  }, [eventUuid, fullName, telegram, company, position, couponCode, paymentRail, wallet, affiliateId, webApp, tonConnectUI, router, paymentWalletAddress]);
 
   // Processing overlay
   if (processingState === "processing") {

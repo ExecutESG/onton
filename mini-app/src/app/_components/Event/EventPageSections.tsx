@@ -426,13 +426,43 @@ const MainButtonHandler = React.memo(() => {
   const { user } = useUserStore();
   const router = useRouter();
 
+  const registrantStatus = eventData.data?.registrant_status ?? "";
+  const isRegistered = ["approved", "checkedin"].includes(registrantStatus);
+  const isPaid = Boolean(
+    eventData.data?.has_payment ||
+      (eventData.data?.payment_details?.price && eventData.data.payment_details.price > 0)
+  );
+
   const userCompletedTasks =
-    (["approved", "checkedin"].includes(eventData.data?.registrant_status!) || !eventData.data?.has_registration) &&
+    (isRegistered || !eventData.data?.has_registration) &&
     user?.wallet_address;
 
   const isOnlineEvent = eventData.data?.participationType === "online";
   const isCheckedIn = eventData.data?.registrant_status === "checkedin" || isOnlineEvent;
   const isEventActive = isStarted && isNotEnded;
+
+  // Paid event: user has ticket → view ticket pass
+  if (isPaid && isRegistered && isNotEnded) {
+    return (
+      <MainButton
+        text="View Ticket Pass"
+        onClick={() => router.push(`/tickets/${eventData.data?.event_uuid}`)}
+      />
+    );
+  }
+
+  // Paid event: user hasn't bought ticket yet → checkout
+  if (isPaid && !isRegistered && isNotEnded) {
+    const price = eventData.data?.payment_details?.price ?? 0;
+    const symbol = eventData.data?.payment_details?.token?.symbol ?? "";
+    const label = price > 0 ? `Buy Ticket — ${price} ${symbol}` : "Get Free Ticket";
+    return (
+      <MainButton
+        text={label}
+        onClick={() => router.push(`/events/${eventData.data?.event_uuid}/checkout`)}
+      />
+    );
+  }
 
   if (userCompletedTasks && hasEnteredPassword) {
     if (isCheckedIn) {

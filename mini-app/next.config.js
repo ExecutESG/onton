@@ -30,6 +30,19 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  async rewrites() {
+    return [
+      // Participant-TMA backward compatibility rewrites
+      // Ticket pass: /ptma/ticket/:id → /tickets/:id
+      { source: "/ptma/ticket/:id", destination: "/tickets/:id" },
+      // QR code: /ptma/ticket/:id/qrcode → /tickets/:id/qrcode
+      { source: "/ptma/ticket/:id/qrcode", destination: "/tickets/:id/qrcode" },
+      // Buy ticket: /ptma/event/:id/buy-ticket → /events/:id/checkout
+      { source: "/ptma/event/:id/buy-ticket", destination: "/events/:id/checkout" },
+      // Event page: /ptma/event/:id → /events/:id
+      { source: "/ptma/event/:id", destination: "/events/:id" },
+    ];
+  },
   webpack: (config, { isServer, webpack }) => {
     if (!isServer) {
       config.resolve.fallback = {

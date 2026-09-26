@@ -46,7 +46,7 @@ const addOrderSchema = z.object({
 //reactivate order with current price
 
 export async function POST(request: Request) {
-  const [userId, error] = getAuthenticatedUser();
+  const [userId, error] = getAuthenticatedUser(request);
   if (error) {
     return error;
   }

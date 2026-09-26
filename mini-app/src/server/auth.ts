@@ -2,19 +2,32 @@ import { verify } from "jsonwebtoken";
 import { cookies } from "next/headers";
 import { TRPCError } from "@trpc/server";
 import { AuthToken, verifyToken, AUTH_JWT_SECRET } from "@/server/utils/jwt";
+import { validateMiniAppData } from "@/utils";
 
 export { apiKeyAuthentication, safeTimingEqual } from "@/server/apiKeyAuth";
 
 /**
  * Validates authenticated user from session cookies or optional request headers.
- * Supports modern omnichannel platform tokens, onton_session, and legacy bot-signed tokens.
+ * Supports modern omnichannel platform tokens, Telegram initData, onton_session, and legacy bot-signed tokens.
  */
 export function getAuthenticatedUser(req?: Request): [number, null] | [null, Response] {
   let tokenStr: string | undefined;
 
-  // 1. Check Authorization: Bearer <token> if req is provided
+  // 1. Check headers if req is provided
   if (req) {
     const authHeader = req.headers.get("Authorization");
+    const initDataHeader = req.headers.get("x-init-data");
+    const rawInitData = initDataHeader || (authHeader && !authHeader.startsWith("Bearer ") ? authHeader : undefined);
+
+    // Validate raw Telegram Mini App initData
+    if (rawInitData) {
+      const validation = validateMiniAppData(rawInitData);
+      if (validation.valid && validation.initDataJson?.user?.id) {
+        return [Number(validation.initDataJson.user.id), null];
+      }
+    }
+
+    // Check Authorization: Bearer <token>
     if (authHeader && authHeader.startsWith("Bearer ")) {
       tokenStr = authHeader.slice(7).trim();
     }

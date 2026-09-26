@@ -118,6 +118,19 @@ describe("Wave 2: Multi-Provider Platform Authentication (#1015, #1016)", () => 
       expect(authError).not.toBeNull();
       expect(authError?.status).toBe(401);
     });
+
+    it("should reject request with malformed or invalid Telegram initData in Authorization header", () => {
+      const req = new Request("https://app.dev.onton.live/api/v1/order", {
+        headers: {
+          Authorization: "query_id=123&user=%7B%22id%22%3A12345%7D&hash=invalid_hash",
+        },
+      });
+
+      const [userId, authError] = getAuthenticatedUser(req);
+      expect(userId).toBeNull();
+      expect(authError).not.toBeNull();
+      expect(authError?.status).toBe(401);
+    });
   });
 
   describe("Email OTP Constant-Time Verification", () => {

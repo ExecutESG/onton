@@ -10,7 +10,7 @@ const starsInvoiceSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const [userId, unauthorized] = getAuthenticatedUser();
+  const [userId, unauthorized] = getAuthenticatedUser(req);
   if (unauthorized) {
     return unauthorized;
   }

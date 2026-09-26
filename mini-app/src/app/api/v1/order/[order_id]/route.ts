@@ -12,7 +12,7 @@ type OptionsProps = {
 export async function GET(req: NextRequest, { params }: OptionsProps) {
   const orderId = params.order_id;
 
-  const [, error] = getAuthenticatedUser();
+  const [, error] = getAuthenticatedUser(req);
   const apiKeyError = apiKeyAuthentication(req);
   if (error && apiKeyError) return error || apiKeyError;
 

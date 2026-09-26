@@ -93,7 +93,16 @@ export default function CheckoutForm({ eventUuid, eventHash, paymentWalletAddres
 
     pollRef.current = setInterval(async () => {
       try {
-        const res = await fetch(`/api/v1/order/${pendingOrderId}`);
+        const authHeader = webApp?.initData || (typeof window !== "undefined" ? sessionStorage.getItem("telegram:initParams") : "") || "";
+        const pollHeaders: Record<string, string> = {};
+        if (authHeader) {
+          pollHeaders["Authorization"] = authHeader;
+          pollHeaders["x-init-data"] = authHeader;
+        }
+        const res = await fetch(`/api/v1/order/${pendingOrderId}`, {
+          headers: pollHeaders,
+          credentials: "include",
+        });
         if (!res.ok) return;
         const data = await res.json();
         if (data.state === "completed") {
@@ -117,7 +126,20 @@ export default function CheckoutForm({ eventUuid, eventHash, paymentWalletAddres
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [pendingOrderId, processingState, eventUuid, router]);
+  }, [pendingOrderId, processingState, eventUuid, router, webApp?.initData]);
+
+  // Sync Telegram session cookie on mount
+  useEffect(() => {
+    const rawInit = webApp?.initData || (typeof window !== "undefined" ? sessionStorage.getItem("telegram:initParams") : "");
+    if (rawInit) {
+      fetch("/api/v1/auth/telegram", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ init_data: rawInit }),
+        credentials: "include",
+      }).catch(() => {});
+    }
+  }, [webApp?.initData]);
 
   const handleSubmit = useCallback(async () => {
     if (!fullName.trim()) {
@@ -129,10 +151,20 @@ export default function CheckoutForm({ eventUuid, eventHash, paymentWalletAddres
     setProcessingState("processing");
 
     try {
+      const authHeader = webApp?.initData || (typeof window !== "undefined" ? sessionStorage.getItem("telegram:initParams") : "") || "";
+      const requestHeaders: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (authHeader) {
+        requestHeaders["Authorization"] = authHeader;
+        requestHeaders["x-init-data"] = authHeader;
+      }
+
       // 1. Create order via REST API
       const orderRes = await fetch("/api/v1/order", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: requestHeaders,
+        credentials: "include",
         body: JSON.stringify({
           event_uuid: eventUuid,
           full_name: fullName.trim(),
@@ -165,7 +197,8 @@ export default function CheckoutForm({ eventUuid, eventHash, paymentWalletAddres
       if (paymentRail === "STARS") {
         const invoiceRes = await fetch("/api/v1/order/stars-invoice", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: requestHeaders,
+          credentials: "include",
           body: JSON.stringify({ order_id: order.order_id }),
         });
         const invoiceData = await invoiceRes.json();

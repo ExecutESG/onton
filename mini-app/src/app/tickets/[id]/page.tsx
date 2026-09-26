@@ -12,6 +12,7 @@ import { TicketShareButton } from "./_components/TicketShareButton";
 import { TicketGroupInviteButton } from "./_components/TicketGroupInviteButton";
 import { ClaimSbtButton } from "./_components/ClaimSbtButton";
 import TicketUserAvatar from "./_components/TicketUserAvatar";
+import TicketAuthGate from "./_components/TicketAuthGate";
 import type { TicketAttributeRow } from "@/types/ticketPass";
 
 type Props = { params: { id: string } };
@@ -19,13 +20,8 @@ type Props = { params: { id: string } };
 export default async function TicketPassPage({ params }: Props) {
   const [userId, unauthorized] = getAuthenticatedUser();
 
-  if (unauthorized) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-[#f0f0f0] px-4 text-center">
-        <p className="text-lg font-semibold text-gray-800">Authentication Required</p>
-        <p className="mt-2 text-sm text-gray-500">Please open this page through the Telegram bot.</p>
-      </div>
-    );
+  if (unauthorized || !userId) {
+    return <TicketAuthGate eventId={params.id} />;
   }
 
   const ticket = await fetchTicketPassByEventUuid(params.id, userId);

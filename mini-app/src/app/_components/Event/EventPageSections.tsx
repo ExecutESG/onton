@@ -595,13 +595,15 @@ const ContextualWalletSection = React.memo(() => {
   );
   const hasSbt = Boolean(eventData.data?.sbt_collection_address);
 
+  const isStarsOnly = eventData.data?.payment_details?.token?.symbol === "STAR";
+
   // 1. If user already has a connected wallet, show the standard wallet card
   if (hasWallet) {
     return <ConnectWalletCard />;
   }
 
-  // 2. If the event requires crypto payment, show the wallet card (mandatory for payment)
-  if (isPaid) {
+  // 2. If the event requires crypto payment, show the wallet card (mandatory for crypto payment)
+  if (isPaid && !isStarsOnly) {
     return <ConnectWalletCard />;
   }
 

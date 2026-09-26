@@ -23,7 +23,7 @@ export default function WebAppProvider({ children }: { children: React.ReactNode
   // Access multi-level stack from the store
   const { goBack } = useSectionStore();
 
-  // 1) Sentry + initialization
+  // 1) Sentry + initialization & session cookie sync
   useEffect(() => {
     const activeData = (webApp?.initDataUnsafe?.user?.id && webApp.initData) || getClientTelegramInitData();
     if (activeData) {
@@ -31,10 +31,23 @@ export default function WebAppProvider({ children }: { children: React.ReactNode
       if (typeof window !== "undefined") {
         sessionStorage.setItem("telegram:initParams", activeData);
       }
+      // Establish session cookie in background
+      fetch("/api/v1/auth/telegram", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ init_data: activeData }),
+        credentials: "include",
+      }).catch(() => {});
     } else if (typeof window !== "undefined") {
       const stored = sessionStorage.getItem("telegram:initParams");
       if (stored && !initData) {
         setInitData(stored);
+        fetch("/api/v1/auth/telegram", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ init_data: stored }),
+          credentials: "include",
+        }).catch(() => {});
       }
     }
   }, [setInitData, initData, webApp?.initData, webApp?.initDataUnsafe?.user?.id, webApp?.initDataUnsafe?.user?.username]);

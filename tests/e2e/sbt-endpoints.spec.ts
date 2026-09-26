@@ -39,5 +39,34 @@ test.describe("SBT Engine API & Endpoint Tests", () => {
     expect(body[0]).toBeDefined();
     expect(Array.isArray(body[0]?.result?.data?.badges)).toBe(true);
   });
+
+  test("tRPC sbt.getUserBadges responds with array of badges for a user", async ({ request }) => {
+    const input = encodeURIComponent(JSON.stringify({ "0": { userId: 987654321 } }));
+    const response = await request.get(`${BASE_URL}/api/trpc/sbt.getUserBadges?batch=1&input=${input}`);
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expect(body[0]).toBeDefined();
+    expect(Array.isArray(body[0]?.result?.data?.badges)).toBe(true);
+  });
+
+  test("tRPC sbt.verifyOwnership returns valid shape for non-holder check", async ({ request }) => {
+    const input = encodeURIComponent(
+      JSON.stringify({
+        "0": {
+          walletAddress: "0:0000000000000000000000000000000000000000000000000000000000000000",
+          eventUuid: "4b287361-a06f-43dd-87c1-2d3a68f99fa7",
+        },
+      })
+    );
+    const response = await request.get(`${BASE_URL}/api/trpc/sbt.verifyOwnership?batch=1&input=${input}`);
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expect(body[0]).toBeDefined();
+    const result = body[0]?.result?.data;
+    expect(result).toBeDefined();
+    expect(result.isOwner).toBe(false);
+    expect(result.sbtItem).toBeNull();
+    expect(result.onChainVerified).toBe(false);
+  });
 });
 

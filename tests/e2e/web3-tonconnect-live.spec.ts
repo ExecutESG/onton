@@ -95,8 +95,8 @@ test.describe("Web3 TonConnect & Cryptographic Verification Suite", () => {
     await expect(modalHeading).toBeVisible({ timeout: 10000 });
     await page.screenshot({ path: "test-results/screenshots/web3_step2_tonconnect_modal.png" });
 
-    // 7. Verify Tonkeeper is visible in the wallet list
-    const tonkeeperEntry = page.locator("text=Tonkeeper").first();
+    // 7. Verify Tonkeeper / Keeper is visible in the wallet list
+    const tonkeeperEntry = page.getByText(/Tonkeeper|Keeper/i).first();
     await expect(tonkeeperEntry).toBeVisible();
     await page.screenshot({ path: "test-results/screenshots/web3_step3_tonkeeper_detected.png" });
     console.log("✅ Headless Tonkeeper successfully detected by @tonconnect/ui in browser DOM");

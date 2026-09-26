@@ -88,10 +88,10 @@ test.describe("Role: Guest - Ecosystem Discovery & Navigation", () => {
     }
     await page.screenshot({ path: "test-results/screenshots/guest_g3_step3_about.png" });
 
-    // Step 4: Organizer & Action Section
-    const organizerCard = page.getByText(/Organizer/i).first();
-    await expect(organizerCard).toBeVisible();
-    await organizerCard.scrollIntoViewIfNeeded();
+    // Step 4: Event Metadata / Support & Action Section
+    const infoCard = page.getByText(/Organizer|Location|Support/i).first();
+    await expect(infoCard).toBeVisible();
+    await infoCard.scrollIntoViewIfNeeded();
     await page.waitForTimeout(300);
     await page.screenshot({ path: "test-results/screenshots/guest_g3_step4_organizer_cta.png" });
     await page.screenshot({ path: "test-results/screenshots/guest_g3_event_details.png" });

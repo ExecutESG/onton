@@ -11,6 +11,7 @@ This index tracks the documentation required to fully understand, maintain, and 
 - [x] **[Deployment Pipeline](./deployment_pipeline.md)**: CI/CD, GitHub Actions, and environment strategy.
 - [x] **[Deployment & Infrastructure](./deployment_and_infrastructure.md)**: Live server details, SSL/Caddy config.
 - [x] **[Development & QA](./development_and_qa.md)**: Local setup, testing standards, and PR guidelines.
+- [x] **[QA Persona Test Instructions & Video Gallery](../docs/QA_PERSONA_TEST_INSTRUCTIONS.md)**: Official testing manual and 55 video recordings mapped across all 6 platform personas.
 - [x] **[Database Schema & Information Architecture](./database_schema.md)**: Split-DB pattern, Drizzle schemas.
 - [x] **[System Audit](./SYSTEM_AUDIT.md)**: Architectural map, tech stack, and module breakdown.
 - [x] **[Developer Guide](./DEVELOPER_GUIDE.md)**: Onboarding, code structure, and contribution guidelines.

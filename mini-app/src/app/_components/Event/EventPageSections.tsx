@@ -8,6 +8,7 @@ import LoadableImage from "@/components/LoadableImage";
 import Typography from "@/components/Typography";
 import { useUserStore } from "@/context/store/user.store";
 import { useLoginStore } from "@/context/store/login.store";
+import { useTonConnectModal, useTonWallet } from "@tonconnect/ui-react";
 import { Address } from "@ton/core";
 import { Block, List, ListItem } from "konsta/react";
 import { useRouter } from "next/navigation";
@@ -21,6 +22,7 @@ import { ConnectWalletCard } from "../organisms/ConnectWallet";
 import EventKeyValue from "../organisms/events/EventKewValue";
 import ShareEventButton from "../ShareEventButton";
 import { ClaimRewardButton } from "./ClaimRewardButton";
+import ReportEventButton from "./ReportEventButton";
 import { EventActions } from "./EventActions";
 import { useEventData } from "./eventPageContext";
 import { EventPasswordAndWalletInput } from "./EventPasswordInput";
@@ -550,9 +552,60 @@ const EventHeader = React.memo(() => {
 });
 EventHeader.displayName = "EventHeader";
 
+const ContextualWalletSection = React.memo(() => {
+  const { eventData } = useEventData();
+  const tonWallet = useTonWallet();
+  const walletModal = useTonConnectModal();
+  const hasWallet = Boolean(tonWallet?.account.address);
+  const registrantStatus = eventData.data?.registrant_status ?? "";
+  const isRegistered = registrantStatus !== "" && registrantStatus !== "rejected";
+  const isPaid = Boolean(
+    eventData.data?.has_payment ||
+      (eventData.data?.payment_details?.price && eventData.data.payment_details.price > 0)
+  );
+  const hasSbt = Boolean(eventData.data?.sbt_collection_address);
+
+  // 1. If user already has a connected wallet, show the standard wallet card
+  if (hasWallet) {
+    return <ConnectWalletCard />;
+  }
+
+  // 2. If the event requires crypto payment, show the wallet card (mandatory for payment)
+  if (isPaid) {
+    return <ConnectWalletCard />;
+  }
+
+  // 3. If user is registered and event has SBT attendance credentials, show contextual claim prompt
+  if (isRegistered && hasSbt) {
+    return (
+      <CustomCard title="Soulbound Attendance Badge" className="w-full !mx-0">
+        <div className="p-4 flex flex-col items-center text-center gap-2.5">
+          <Typography variant="body" weight="medium" className="text-gray-900 dark:text-gray-100">
+            Claim your verified attendance badge on TON
+          </Typography>
+          <p className="text-xs text-gray-500 dark:text-gray-400 max-w-xs">
+            Connect your wallet to receive your soulbound credential (SBT) upon event check-in.
+          </p>
+          <button
+            onClick={() => walletModal.open()}
+            type="button"
+            className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs transition"
+          >
+            Connect TON Wallet
+          </button>
+        </div>
+      </CustomCard>
+    );
+  }
+
+  // 4. Free events for unregistered users: Suppress blocking wallet prompt (Progressive Disclosure)
+  return null;
+});
+ContextualWalletSection.displayName = "ContextualWalletSection";
+
 // Main component
 export const EventSections = () => {
-  const { eventData } = useEventData();
+  const { eventData, eventHash } = useEventData();
 
   return (
     <div
@@ -568,10 +621,18 @@ export const EventSections = () => {
       <ManageEventButton />
       <OrganizerCard />
       <SbtCollectionLink />
-      <ConnectWalletCard />
       <EventRegistrationStatus />
+      <ContextualWalletSection />
 
-      <SupportButtons orgSupportTelegramUserName={eventData.data?.organizer?.org_support_telegram_user_name || undefined} />
+      <div className="flex items-center justify-between px-1 pt-1">
+        <SupportButtons orgSupportTelegramUserName={eventData.data?.organizer?.org_support_telegram_user_name || undefined} />
+        {eventHash && (
+          <ReportEventButton
+            eventUuid={eventHash}
+            eventTitle={eventData.data?.title ?? "Event"}
+          />
+        )}
+      </div>
 
       {/* --------------------------------------- */}
       {/* ---------- MainButtonHandler ---------- */}

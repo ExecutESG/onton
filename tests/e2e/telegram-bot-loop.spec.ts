@@ -1,7 +1,14 @@
 import { test, expect } from "@playwright/test";
 import { execSync } from "child_process";
 
-const TARGET_BOT = process.env.TELEGRAM_TARGET_BOT || "@theontonbot";
+const rawBot = process.env.TELEGRAM_TARGET_BOT || process.env.NEXT_PUBLIC_BOT_USERNAME;
+if (!rawBot) {
+  throw new Error("No bot configured: TELEGRAM_TARGET_BOT or NEXT_PUBLIC_BOT_USERNAME must be set");
+}
+const TARGET_BOT = rawBot.startsWith("@") ? rawBot : `@${rawBot}`;
+if (TARGET_BOT.toLowerCase() === "@theontonbot" && process.env.NODE_ENV !== "production") {
+  throw new Error("Safety violation: attempted to run non-prod tests against production bot @theontonbot");
+}
 const ADMIN_ID = 7013087032;
 
 function execTgAdmin(args: string): any {

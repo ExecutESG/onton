@@ -113,14 +113,14 @@ On **October 21, 2025 ([Post #525](https://t.me/ontonlive/525))**, we announced 
 
 For nearly a year, `@ontonlive` stood silent. We didn't exit scam. We didn't dump tokens. But our silence hurt our community just as much. Early NFT holders who had supported us felt stranded. The ruins of the past were all that remained.
 
----
-
 ## Part 6: The Return to First Principles
 
-During the quiet months of 2026, we relocated, restructured our engineering foundation, and went back to the drawing board. We realized two fundamental truths:
+During the quiet months of 2026, we relocated, restructured our engineering foundation, and went back to the drawing board. We rebuilt ONTON from the ground up:
 
-1. **The Problem is Bigger Than Ever:** In 2026, Web3 events are larger than ever (Token2049, Devcon, ETHDenver, KBW), but legacy ticketing platforms like Eventbrite and Luma still charge up to 8% fees and suffer from massive wallet-connect friction.
-2. **Telegram Stars Solved the Web3 Onboarding Problem:** With [telegram-stars](/resources/glossary/telegram-stars), attendees can pay in 1 tap using Apple Pay, Google Pay, or local cards without ever needing a crypto wallet extension.
+1. **Lu.ma-Style Instant Auto-Publishing:** We eliminated all pre-moderation friction. Non-admin organizers no longer get stuck in review queues or blocked by legacy third-party hub pickers. Create an event, set ticket tiers, and your shareable live link is active in under 60 seconds.
+2. **Zero-Gas cSBT Attendance Credentials:** We engineered a compressed Soulbound Token (cSBT) engine anchored to the TON blockchain via Merkle trees and FunC contracts. Attendees receive verifiable, tamper-proof [proof-of-attendance](/resources/glossary/proof-of-attendance) diplomas directly in their Telegram wallets with near-zero gas costs.
+3. **Universal LinkService & HostPlatformBridge:** Universal share links that route attendees seamlessly across Telegram iOS, Android, and Desktop, complete with automated private chat gating and direct bot push reminders.
+4. **Frictionless Telegram Stars Ticketing:** With [telegram-stars](/resources/glossary/telegram-stars), attendees pay in 1 tap using Apple Pay, Google Play, or local cards without third-party wallet friction or chargeback risks.
 
 **We are not building a meme coin. We are building the indispensable event operating system for Telegram and Web3.**
 

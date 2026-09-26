@@ -18,6 +18,11 @@ import { pendingCustomReplyPrompts } from "@/moderationBot/types";
 import { handleUpdateEventData } from "@/moderationBot/handlers/handleUpdateEventData";
 import { handleCustomRejectText } from "@/moderationBot/handlers/handleCustomRejectText";
 import { handleSendNoticeText } from "@/moderationBot/handlers/handleSendNoticeText";
+import { handleDelistEvent } from "./handlers/handleDelistEvent";
+import { handleRelistEvent } from "./handlers/handleRelistEvent";
+import { handleWarnOrganizer } from "./handlers/handleWarnOrganizer";
+import { handleBanOrganizer } from "./handlers/handleBanOrganizer";
+import { handleDismissReport } from "./handlers/handleDismissReport";
 
 export async function startBot() {
   while (true) {
@@ -91,6 +96,26 @@ export async function startBot() {
               const evUuid = parts[2];
               await handleCancelCustomReject(ctx, userId, promptId, evUuid);
             }
+            break;
+          case "delist":
+          case "confirmDelist":
+            await handleDelistEvent(ctx, userId, originalCaption, user_details, eventUuid);
+            break;
+          case "relist":
+            await handleRelistEvent(ctx, userId, originalCaption, user_details, eventUuid);
+            break;
+          case "warn":
+            if (parts.length >= 3) {
+              await handleWarnOrganizer(ctx, userId, parts[1], parts[2]);
+            }
+            break;
+          case "ban":
+            if (parts.length >= 3) {
+              await handleBanOrganizer(ctx, userId, originalCaption, user_details, parts[1], parts[2]);
+            }
+            break;
+          case "dismissReport":
+            await handleDismissReport(ctx, userId, originalCaption, user_details, eventUuid);
             break;
           case "updateEventData":
             await handleUpdateEventData(ctx, originalCaption, eventUuid);

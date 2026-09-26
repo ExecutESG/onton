@@ -405,6 +405,51 @@ Open Event: ${LinkService.getEventUrl(eventUuid)}
 `;
 }
 
+export async function renderPostPublishModerationMessage(
+  username: string | number,
+  eventData: EventRow
+): Promise<string> {
+  const eventUuid = eventData.event_uuid;
+  const totalNotices = await moderationLogDB.getNoticeCountForOwner(eventData.owner);
+  const circleEmoji = getNoticeEmoji(totalNotices);
+
+  return `
+🆕 <b>New Event Published (Lu.ma Instant Model)</b>
+
+📌 <b>Title:</b> ${eventData.title}
+👤 <b>Organizer:</b> @${username} (ID: <code>${eventData.owner}</code>)
+📍 <b>Location:</b> ${eventData.location || "Online"} (${eventData.participationType})
+🎟️ <b>Format:</b> ${eventData.participationType}
+${circleEmoji} <b>Trust Score:</b> ${totalNotices} prior notice(s)
+
+🔗 <b>Public Link:</b> ${LinkService.getEventUrl(eventUuid)}
+`;
+}
+
+export function renderEventReportAlertMessage(props: {
+  eventTitle: string;
+  eventUuid: string;
+  reporterUsername: string | number;
+  reason: string;
+  notes?: string;
+  totalReports: number;
+  isQuarantined: boolean;
+}): string {
+  const quarantineTag = props.isQuarantined ? "🚨 <b>[AUTO-QUARANTINED]</b>\n" : "";
+  return `
+${quarantineTag}⚠️ <b>COMMUNITY EVENT REPORT</b>
+
+📌 <b>Event:</b> "${props.eventTitle}"
+🆔 <b>UUID:</b> <code>${props.eventUuid}</code>
+⚠️ <b>Reason:</b> ${props.reason}
+📝 <b>Notes:</b> ${props.notes || "None provided"}
+👤 <b>Reported by:</b> @${props.reporterUsername}
+📊 <b>Total Reports:</b> ${props.totalReports}${props.isQuarantined ? " (Exceeded threshold: Hidden from public discovery)" : ""}
+
+🔗 <b>Review:</b> ${LinkService.getEventUrl(props.eventUuid)}
+`;
+}
+
 // ======================================== //
 //     PUBLISH EVENT ON EVENTS CHANNEL      //
 // ======================================== //

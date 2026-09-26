@@ -21,12 +21,15 @@ import {
   renderModerationEventMessage,
   renderModerationFlowup,
   renderUpdateEventMessage,
+  renderPostPublishModerationMessage,
+  renderEventReportAlertMessage,
   sendLogNotification,
   sendToEventsTgChannel,
 } from "@/lib/tgBot";
 import { registerActivity, tonSocietyClient, updateActivity } from "@/lib/ton-society-api";
 import { getObjectDifference, removeKey } from "@/lib/utils";
-import { tgBotModerationMenu } from "@/moderationBot/menu";
+import { tgBotModerationMenu, tgBotPostPublishModerationMenu, tgBotReportedEventMenu } from "@/moderationBot/menu";
+import eventReportsDB from "@/db/modules/eventReports.db";
 import { logger } from "@/server/utils/logger";
 import { CreateTonSocietyDraft } from "@/services/tonSocietyService";
 import { EventDataSchema, UpdateEventDataSchema } from "@/types";
@@ -468,11 +471,14 @@ const addEvent = adminOrganizerProtectedProcedure.input(z.object({ eventData: Ev
         /* ------------- Generate the message using the render function ------------- */
         if (!is_paid) {
           /* -------------------------- Just Send The Message ------------------------- */
-          const logMessage = renderAddEventMessage(opts.ctx.user.username || user_id, eventData);
+          const logMessage = await renderPostPublishModerationMessage(opts.ctx.user.username || user_id, eventData);
+          const moderation_group_id = configProtected?.moderation_group_id;
 
           const notificationMsg = await sendLogNotification({
+            group_id: moderation_group_id,
             message: logMessage,
             topic: "event",
+            inline_keyboard: tgBotPostPublishModerationMenu(eventData.event_uuid, user_id),
           });
           sentTelegramMsgs.push(notificationMsg);
 
@@ -985,6 +991,90 @@ const getCategories = publicProcedure.query(async () => {
     });
   }
 });
+const reportEvent = initDataProtectedProcedure
+  .input(
+    z.object({
+      event_uuid: z.string(),
+      reason: z.enum(["phishing", "impersonation", "inappropriate", "spam", "other"]),
+      notes: z.string().max(500).optional(),
+    })
+  )
+  .mutation(async (opts) => {
+    const userId = opts.ctx.user.user_id;
+    const { event_uuid, reason, notes } = opts.input;
+
+    const event = await eventDB.selectEventByUuid(event_uuid);
+    if (!event) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Event not found" });
+    }
+
+    // 1 report per user per event
+    const alreadyReported = await eventReportsDB.hasUserReported(event_uuid, userId);
+    if (alreadyReported) {
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "You have already submitted a report for this event.",
+      });
+    }
+
+    // Insert report
+    await eventReportsDB.createReport({
+      event_uuid,
+      user_id: userId,
+      reason,
+      notes: notes || "",
+      status: "pending",
+    });
+
+    // Check 1-hour reports threshold (>= 3 unique reports)
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const recentReportCount = await eventReportsDB.getRecentReportsCount(event_uuid, oneHourAgo);
+    const isQuarantined = recentReportCount >= 3;
+
+    if (isQuarantined && !event.hidden) {
+      // Auto-quarantine: hide event and flush cache
+      await db
+        .update(events)
+        .set({ hidden: true, enabled: false, updatedAt: new Date(), updatedBy: "system_auto_quarantine" })
+        .where(eq(events.event_uuid, event_uuid))
+        .execute();
+      await eventDB.deleteEventCache(event_uuid);
+      logger.warn(`[Trust & Safety] Event ${event_uuid} automatically quarantined after ${recentReportCount} reports.`);
+    }
+
+    // Dispatch Telegram alert to moderation group
+    const moderation_group_id = configProtected?.moderation_group_id;
+    if (moderation_group_id) {
+      try {
+        const reportAlertText = renderEventReportAlertMessage({
+          eventTitle: event.title,
+          eventUuid: event.event_uuid,
+          reporterUsername: opts.ctx.user.username || userId,
+          reason,
+          notes,
+          totalReports: recentReportCount,
+          isQuarantined,
+        });
+
+        await sendLogNotification({
+          group_id: moderation_group_id,
+          message: reportAlertText,
+          topic: "event",
+          inline_keyboard: tgBotReportedEventMenu(event_uuid),
+        });
+      } catch (err) {
+        logger.error("Failed to send moderation telegram alert for report:", err);
+      }
+    }
+
+    return {
+      success: true,
+      quarantined: isQuarantined,
+      totalReports: recentReportCount,
+      message: "Report received. Thank you for keeping the community safe.",
+    };
+  });
+
 /* -------------------------------------------------------------------------- */
 /*                                   Router                                   */
 /* -------------------------------------------------------------------------- */
@@ -997,4 +1087,5 @@ export const eventsRouter = router({
   getEventsWithFiltersInfinite,
   getCategories,
   listPaymentTokens,
+  reportEvent,
 });

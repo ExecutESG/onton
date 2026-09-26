@@ -55,6 +55,7 @@ import { user_custom_flags, user_flags, userFlagsType } from "./schema/user_cust
 import { userEventFieldRelations, userEventFields } from "./schema/userEventFields";
 import { userRelations, users } from "./schema/users";
 import { user_identities, userIdentitiesRelations, UserIdentityRow, UserIdentityInsert } from "./schema/userIdentities";
+import { eventReports, eventReportsRelations, EventReportRow, EventReportInsert } from "./schema/eventReports";
 import { visitors } from "./schema/visitors";
 import { walletChecks } from "./schema/walletChecks";
 import { affiliateLinks, AffiliateLinksRow, AffiliateItemTypeEnum, affiliateItemType } from "./schema/affiliateLinks";
@@ -408,6 +409,8 @@ export {
   sbtItems,
   user_identities,
   userIdentitiesRelations,
+  eventReports,
+  eventReportsRelations,
 };
 
 // Type Exports
@@ -545,4 +548,6 @@ export type {
   UserIdentityRow,
   UserIdentityInsert,
   EventTicketTierRow,
+  EventReportRow,
+  EventReportInsert,
 };

@@ -35,6 +35,12 @@
 - Copy `.env.example` to `.env`; never commit secrets. Validate envs via `devops/CheckoutEnv.sh`.
 - Local domains/ports come from `.env` and Compose; see `hosts.txt` for host entries.
 
+## Bot Identities & Environment Mapping (STRICT GUARDRAIL)
+- **Production**: `@theontonbot` — NEVER send commands, test invoices, or mutations to production.
+- **Staging**: `@notnonstagebot` — Staging bot entity for integration testing on staging environment.
+- **Local Dev**: `@ontonlocaldevbot` — Configured in local `.env` (`NEXT_PUBLIC_BOT_USERNAME`, `BOT_TOKEN`).
+- **Rule for Agents**: NEVER infer bot identities from marketing websites, blogs, or mock data. Runtime `.env` and environment variables are the sole sources of truth. Non-prod automated tests must reject `@theontonbot`.
+
 ## Mermaid Diagrams
 - Supported headers ONLY: `flowchart TD/LR`, `graph TD/LR`, `sequenceDiagram`, `stateDiagram-v2`, `classDiagram`, `erDiagram`, `xychart-beta`.
 - NEVER use `mindmap`, `gantt`, `timeline`, or `pie` — use `flowchart TD` or Markdown tables instead.

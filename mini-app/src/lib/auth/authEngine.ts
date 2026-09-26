@@ -6,7 +6,7 @@ import { safeTimingEqual } from "@/server/apiKeyAuth";
 import { redisTools } from "@/lib/redisTools";
 import { logger } from "@/server/utils/logger";
 import { validate } from "@tma.js/init-data-node";
-import { eq } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
 import crypto from "crypto";
 
 export type AuthProviderType = "telegram" | "google" | "email" | "ton_wallet";
@@ -201,6 +201,42 @@ export const authEngine = {
           isNewUser: false,
           provider,
         };
+      }
+    }
+
+    // 2.5. Check if legacy user already exists in users table (e.g. created prior to user_identities)
+    if (provider === "telegram" || telegramId) {
+      const targetId = telegramId || Number(providerUserId);
+      if (!isNaN(targetId) && targetId > 0) {
+        const legacyUser = await db.query.users.findFirst({
+          where: or(eq(users.user_id, targetId), eq(users.telegram_id, targetId)),
+        });
+
+        if (legacyUser) {
+          await userIdentitiesDB.createIdentity({
+            user_id: legacyUser.user_id,
+            provider: "telegram",
+            provider_user_id: providerUserId,
+            provider_metadata: metadata,
+            verified: true,
+          }).catch(() => {});
+
+          const token = await createPlatformToken({
+            userId: legacyUser.user_id,
+            userUuid: legacyUser.uuid || undefined,
+            provider,
+            email: legacyUser.email || undefined,
+            telegramId: legacyUser.telegram_id || undefined,
+            role: legacyUser.role || "user",
+          });
+
+          return {
+            user: legacyUser,
+            token,
+            isNewUser: false,
+            provider,
+          };
+        }
       }
     }
 

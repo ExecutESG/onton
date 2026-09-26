@@ -697,6 +697,35 @@ const flowsCatalog = [
     ]
   },
   {
+    id: "FLOW-O2F",
+    role: "Organizer",
+    title: "Scenario 6: Zero-Friction Open Online Global AMA & Keynote",
+    description: "Creation of TON Global Ecosystem All-Hands: Livestream embed, zero-friction open access, unlimited capacity, and 1-tap calendar sync.",
+    category: "Creation Scenarios",
+    criticality: "Critical",
+    screenshot: "assets/screenshots/organizer_o2f_cover.png",
+    videoKeyword: "organizer_o2f",
+    stepScreenshots: [
+      { step: 1, label: "Online Keynote Meta & Poster", path: "assets/screenshots/organizer_o2f_step1_online_meta.png", description: "Global ecosystem all-hands poster and keynote format" },
+      { step: 2, label: "Livestream Destination & Schedule", path: "assets/screenshots/organizer_o2f_step2_stream_embed.png", description: "Telegram live stream channel link and UTC broadcast schedule" },
+      { step: 3, label: "Zero-Friction Access Model", path: "assets/screenshots/organizer_o2f_step3_zero_friction_access.png", description: "Open public access: 0 TON fee, 0 forms, unlimited global viewers" },
+      { step: 4, label: "1-Tap Calendar Sync Setup", path: "assets/screenshots/organizer_o2f_step4_calendar_sync.png", description: "Auto-generated .ics link and 15-minute bot ping setup" },
+      { step: 5, label: "Published Open Online AMA", path: "assets/screenshots/organizer_o2f_step5_published_ama.png", description: "Published event page with direct Join Livestream CTA without barriers" }
+    ],
+    steps: [
+      "Enter title 'TON Global Ecosystem All-Hands & Keynote' with broadcast poster",
+      "Configure Telegram Live stream destination URL and broadcast schedule",
+      "Set access model to Open Public Access with unlimited viewer capacity and 0 fee",
+      "Enable 1-tap Apple/Google calendar sync with .ics file export",
+      "Publish open online event with direct livestream join action"
+    ],
+    assertions: [
+      "Access requires 0 wallet connection and 0 questionnaires",
+      "Livestream CTA links directly to broadcast without gating",
+      "Calendar sync file generates with valid UTC start and end timestamps"
+    ]
+  },
+  {
     id: "FLOW-O3",
     role: "Organizer",
     title: "Event Management Dashboard & Sub-modules",

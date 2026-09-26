@@ -4,12 +4,53 @@ import { eventPayment } from "@/db/schema/eventPayment";
 import { asc, eq, sql } from "drizzle-orm";
 import { logger } from "@/server/utils/logger";
 
+let tiersTableEnsured = false;
+
+export async function ensureTicketTiersTable(): Promise<void> {
+  if (tiersTableEnsured) return;
+  try {
+    await db.execute(sql`
+      DO $$ BEGIN
+        CREATE TYPE "ticket_types" AS ENUM('NFT', 'SBT');
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
+
+      CREATE TABLE IF NOT EXISTS "public"."event_ticket_tiers" (
+        "id" serial PRIMARY KEY NOT NULL,
+        "event_uuid" uuid NOT NULL,
+        "tier_name" text NOT NULL,
+        "price" real DEFAULT 0 NOT NULL,
+        "capacity" integer DEFAULT 0 NOT NULL,
+        "sold_count" integer DEFAULT 0 NOT NULL,
+        "ticket_type" "ticket_types" DEFAULT 'NFT' NOT NULL,
+        "description" text DEFAULT '' NOT NULL,
+        "sort_order" integer DEFAULT 0 NOT NULL,
+        "created_at" timestamp DEFAULT now() NOT NULL,
+        "updated_at" timestamp(3) DEFAULT now() NOT NULL,
+        "updated_by" text DEFAULT 'system' NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS "event_ticket_tiers_event_uuid_idx" ON "public"."event_ticket_tiers" ("event_uuid");
+      CREATE INDEX IF NOT EXISTS "event_ticket_tiers_sort_order_idx" ON "public"."event_ticket_tiers" ("sort_order");
+      ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "tier_id" integer;
+      ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "retry_count" integer DEFAULT 0 NOT NULL;
+      ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "last_error" text;
+      CREATE INDEX IF NOT EXISTS "orders_tier_id_idx" ON "orders" ("tier_id");
+      CREATE INDEX IF NOT EXISTS "orders_retry_count_idx" ON "orders" ("retry_count");
+    `);
+    tiersTableEnsured = true;
+  } catch (error) {
+    logger.error("Error ensuring event_ticket_tiers table:", error);
+  }
+}
+
 /**
  * Fetch all ticket tiers for an event, ordered by sort_order.
  * If no explicit tiers exist, transparently synthesizes a fallback
  * General Admission tier from event_payment_info for 100% backward compatibility.
  */
 export const getTiersByEventUuid = async (eventUuid: string): Promise<EventTicketTierRow[]> => {
+  await ensureTicketTiersTable();
   try {
     const tiers = await db
       .select()
@@ -58,6 +99,7 @@ export const getTiersByEventUuid = async (eventUuid: string): Promise<EventTicke
  * Fetch a single ticket tier by ID.
  */
 export const getTierById = async (id: number): Promise<EventTicketTierRow | undefined> => {
+  await ensureTicketTiersTable();
   try {
     const [tier] = await db
       .select()
@@ -78,6 +120,7 @@ export const getTierById = async (id: number): Promise<EventTicketTierRow | unde
 export const createTier = async (
   data: typeof eventTicketTiers.$inferInsert
 ): Promise<EventTicketTierRow | undefined> => {
+  await ensureTicketTiersTable();
   try {
     const [created] = await db
       .insert(eventTicketTiers)
@@ -98,6 +141,7 @@ export const createTier = async (
 export const checkTierCapacity = async (
   tierId: number
 ): Promise<{ isSoldOut: boolean; soldCount: number; capacity: number }> => {
+  await ensureTicketTiersTable();
   try {
     const tier = await getTierById(tierId);
     if (!tier) {
@@ -124,6 +168,7 @@ export const incrementTierSoldCount = async (
   delta: number = 1
 ): Promise<void> => {
   if (tierId <= 0) return; // Ignore synthesized fallback tiers
+  await ensureTicketTiersTable();
 
   try {
     await db

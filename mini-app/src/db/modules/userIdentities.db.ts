@@ -1,14 +1,46 @@
 import { db } from "@/db/db";
 import { user_identities, UserIdentityInsert, UserIdentityRow } from "@/db/schema/userIdentities";
 import { users } from "@/db/schema/users";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { logger } from "@/server/utils/logger";
+
+let identitiesTableEnsured = false;
+
+export async function ensureUserIdentitiesTable(): Promise<void> {
+  if (identitiesTableEnsured) return;
+  try {
+    await db.execute(sql`
+      CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+      CREATE TABLE IF NOT EXISTS "public"."user_identities" (
+        "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        "user_id" bigint NOT NULL,
+        "provider" varchar(50) NOT NULL,
+        "provider_user_id" text NOT NULL,
+        "provider_metadata" jsonb,
+        "verified" boolean DEFAULT true NOT NULL,
+        "created_at" timestamp DEFAULT now() NOT NULL,
+        "updated_at" timestamp DEFAULT now() NOT NULL
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS "user_identities_provider_user_id_uq" ON "public"."user_identities" ("provider","provider_user_id");
+      CREATE INDEX IF NOT EXISTS "user_identities_user_id_idx" ON "public"."user_identities" ("user_id");
+      CREATE INDEX IF NOT EXISTS "user_identities_provider_idx" ON "public"."user_identities" ("provider");
+      ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "uuid" uuid DEFAULT gen_random_uuid();
+      ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "email" varchar(255);
+      ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "auth_provider" varchar(50) DEFAULT 'telegram';
+      ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "telegram_id" bigint;
+    `);
+    identitiesTableEnsured = true;
+  } catch (error) {
+    logger.error("Error ensuring user_identities table:", error);
+  }
+}
 
 export const userIdentitiesDB = {
   /**
    * Find an identity record by provider and external provider user ID.
    */
   async findIdentity(provider: string, provider_user_id: string): Promise<UserIdentityRow | null> {
+    await ensureUserIdentitiesTable();
     try {
       const result = await db.query.user_identities.findFirst({
         where: and(
@@ -47,6 +79,7 @@ export const userIdentitiesDB = {
    * Insert a new user identity record.
    */
   async createIdentity(data: UserIdentityInsert): Promise<UserIdentityRow | null> {
+    await ensureUserIdentitiesTable();
     try {
       const [inserted] = await db
         .insert(user_identities)
@@ -76,6 +109,7 @@ export const userIdentitiesDB = {
    * Get all identities linked to a specific ONTON user.
    */
   async getIdentitiesByUserId(userId: number): Promise<UserIdentityRow[]> {
+    await ensureUserIdentitiesTable();
     try {
       return await db.query.user_identities.findMany({
         where: eq(user_identities.user_id, userId),

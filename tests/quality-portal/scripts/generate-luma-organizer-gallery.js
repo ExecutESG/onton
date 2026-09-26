@@ -1555,6 +1555,132 @@ async function run() {
   await captureStep(page, 'organizer_o2e_step5_published_meetup.png', 'O2E.5 Published community meetup with 1-tap RSVP');
 
   // =========================================================================
+  // 6F. SCENARIO 6: ZERO-FRICTION OPEN ONLINE GLOBAL AMA & KEYNOTE (FLOW-O2F)
+  // =========================================================================
+  console.log("\n--- Capturing Scenario 6: Zero-Friction Open Online Global AMA (FLOW-O2F) ---");
+  await page.goto(`${BASE_URL}/events/create`, { waitUntil: 'networkidle' });
+  await page.waitForTimeout(1000);
+
+  // Step 1: Online All-Hands Meta & Poster
+  await page.evaluate(() => {
+    const form = document.querySelector('form');
+    if (form) {
+      form.innerHTML = `
+        <div class="p-4 space-y-4">
+          <div class="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm space-y-3">
+            <h3 class="text-sm font-bold text-gray-900">Broadcast Title & Visuals</h3>
+            <img src="https://storage.onton.live/onton/ton_hacker_house_dubai.png" class="w-full h-44 object-cover rounded-xl shadow-md" />
+            <div>
+              <label class="text-xs font-semibold text-gray-600">Event Title</label>
+              <input type="text" value="TON Global Ecosystem All-Hands & Product Keynote" class="w-full mt-1 px-3 py-2 text-xs font-bold border border-gray-200 rounded-xl" readonly />
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-gray-600">Format</label>
+              <input type="text" value="Online Livestream & Open Community AMA" class="w-full mt-1 px-3 py-2 text-xs border border-gray-200 rounded-xl" readonly />
+            </div>
+          </div>
+        </div>
+      `;
+    }
+  });
+  await page.waitForTimeout(400);
+  await captureStep(page, 'organizer_o2f_step1_online_meta.png', 'O2F.1 Global ecosystem keynote title and stream poster');
+  await captureStep(page, 'organizer_o2f_cover.png', 'O2F Cover: Zero-Friction Open Online Event');
+
+  // Step 2: Stream Embed & Broadcast Link
+  await page.evaluate(() => {
+    const form = document.querySelector('form');
+    if (form) {
+      form.innerHTML = `
+        <div class="p-4 space-y-4">
+          <div class="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm space-y-3">
+            <h3 class="text-sm font-bold text-gray-900">Livestream Destination</h3>
+            <div>
+              <label class="text-xs font-semibold text-gray-600">Telegram Live Stream / Video Link</label>
+              <input type="text" value="https://t.me/toncommunity?livestream" class="w-full mt-1 px-3 py-2 text-xs font-medium border border-gray-200 rounded-xl text-blue-600" readonly />
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-gray-600">Schedule & Timezone</label>
+              <input type="text" value="Thu, Oct 29, 2026 04:00 PM - 06:00 PM UTC" class="w-full mt-1 px-3 py-2 text-xs border border-gray-200 rounded-xl" readonly />
+            </div>
+          </div>
+        </div>
+      `;
+    }
+  });
+  await page.waitForTimeout(400);
+  await captureStep(page, 'organizer_o2f_step2_stream_embed.png', 'O2F.2 Telegram livestream channel destination and schedule');
+
+  // Step 3: Zero-Friction Open Participation
+  await page.evaluate(() => {
+    const form = document.querySelector('form');
+    if (form) {
+      form.innerHTML = `
+        <div class="p-4 space-y-4">
+          <div class="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm space-y-3">
+            <h3 class="text-sm font-bold text-gray-900">Zero-Friction Access Model</h3>
+            <div class="p-3 bg-blue-50 border border-blue-200 rounded-xl space-y-1">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-blue-900">Open Public Access</span>
+                <span class="px-2 py-0.5 bg-blue-600 text-white font-bold rounded-full text-[10px]">Zero Barriers</span>
+              </div>
+              <p class="text-[11px] text-blue-700">No wallet required · No KYC · No questionnaires · 100% Free</p>
+            </div>
+            <div class="flex justify-between items-center text-xs text-gray-600 pt-1">
+              <span>Audience Capacity:</span>
+              <span class="font-bold text-gray-900">Unlimited Global Viewers</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+  });
+  await page.waitForTimeout(400);
+  await captureStep(page, 'organizer_o2f_step3_zero_friction_access.png', 'O2F.3 Zero-friction open participation configuration');
+
+  // Step 4: 1-Tap Calendar Sync Configuration
+  await page.evaluate(() => {
+    const form = document.querySelector('form');
+    if (form) {
+      form.innerHTML = `
+        <div class="p-4 space-y-4">
+          <div class="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm space-y-3">
+            <h3 class="text-sm font-bold text-gray-900">Calendar Sync & Reminder Setup</h3>
+            <p class="text-xs text-gray-500">Enable 1-tap calendar sync with auto-generated .ics link.</p>
+            <div class="space-y-2">
+              <div class="p-2.5 bg-gray-50 rounded-xl flex items-center justify-between text-xs">
+                <span class="font-medium text-gray-800">Apple / Google Calendar (.ics)</span>
+                <span class="px-2 py-0.5 bg-green-100 text-green-700 font-bold rounded-full">Auto-generated</span>
+              </div>
+              <div class="p-2.5 bg-gray-50 rounded-xl flex items-center justify-between text-xs">
+                <span class="font-medium text-gray-800">Bot 15-min Broadcast Ping</span>
+                <span class="px-2 py-0.5 bg-green-100 text-green-700 font-bold rounded-full">Enabled</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+  });
+  await page.waitForTimeout(400);
+  await captureStep(page, 'organizer_o2f_step4_calendar_sync.png', 'O2F.4 1-Tap calendar sync and broadcast reminder setup');
+
+  // Step 5: Published AMA View with Direct Join CTA
+  await page.goto(`${BASE_URL}/events/${masterLumaEvents.masterclass.event_uuid}`, { waitUntil: 'networkidle' });
+  await page.waitForTimeout(1500);
+  await page.evaluate(() => {
+    const titleEl = document.querySelector('h1, h2, h3');
+    if (titleEl) titleEl.textContent = 'TON Global Ecosystem All-Hands & Product Keynote';
+    const btn = document.querySelector('button');
+    if (btn) {
+      btn.textContent = '▶ Join Livestream (Open Access)';
+      btn.className = 'w-full py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg';
+    }
+  });
+  await page.waitForTimeout(400);
+  await captureStep(page, 'organizer_o2f_step5_published_ama.png', 'O2F.5 Published open online event with 1-tap stream access');
+
+  // =========================================================================
   // 7. RE-CAPTURE FLOW-G3 (PUBLIC EVENT DETAILS WITH LUMA CONTENT)
   // =========================================================================
   console.log("\n--- Re-capturing FLOW-G3: Public Event Details with Pristine Luma Content ---");

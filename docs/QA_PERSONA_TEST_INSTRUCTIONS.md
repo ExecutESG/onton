@@ -1,10 +1,10 @@
 # ONTON Platform: User Personas QA Test Instructions & Process Gallery
 
-**Document Version:** 4.0.0  
+**Document Version:** 4.1.0  
 **Target Environment:** Staging (`https://app.dev.onton.live`) & Production (`https://onton.app`)  
 **Associated Test Harness:** Playwright E2E (`tests/e2e`) & Vitest Unit (`mini-app/__tests__`)  
-**Visual Evidence Directory:** `tests/quality-portal/assets/videos/` (55 Recorded Sessions) & `assets/screenshots/` (290 High-Resolution Retina Captures)  
-**Deliberate Multi-Step Scenarios:** 41 Validated Flows (234 Detailed Process Steps)  
+**Visual Evidence Directory:** `tests/quality-portal/assets/videos/` (55 Recorded Sessions) & `assets/screenshots/` (296 High-Resolution Retina Captures)  
+**Deliberate Multi-Step Scenarios:** 42 Validated Flows (239 Detailed Process Steps)  
 **Interactive Portal:** `http://localhost:4000` via `cd tests/e2e && npm run portal`
 
 ---
@@ -31,7 +31,7 @@ flowchart TD
         P2["2. Registered Attendee
 (8 Flows • 51 Steps)"]
         P3["3. Event Organizer
-(12 Flows • 75 Steps)"]
+(13 Flows • 80 Steps)"]
         P4["4. Check-in Officer
 (3 Flows • 16 Steps)"]
         P5["5. Platform Admin
@@ -564,6 +564,26 @@ A community leader, brand, or host creating and managing events. They complete n
 
 ---
 
+#### `FLOW-O2F`: Scenario 6: Zero-Friction Open Online Global AMA & Keynote
+- **Category:** Creation Scenarios | **Criticality:** Critical | **Steps:** 5 Deliberate Actions
+- **Description:** Creation of TON Global Ecosystem All-Hands: Livestream embed, zero-friction open access, unlimited capacity, and 1-tap calendar sync.
+- **Cover Screenshot:** [`organizer_o2f_cover.png`](file:///assets/screenshots/organizer_o2f_cover.png)
+
+| Step | Action & Interface State | Verified Screenshot | Detailed Description |
+| :---: | :--- | :--- | :--- |
+| **1** | **Online Keynote Meta & Poster** | [`organizer_o2f_step1_online_meta.png`](file:///assets/screenshots/organizer_o2f_step1_online_meta.png) | Global ecosystem all-hands poster and keynote format |
+| **2** | **Livestream Destination & Schedule** | [`organizer_o2f_step2_stream_embed.png`](file:///assets/screenshots/organizer_o2f_step2_stream_embed.png) | Telegram live stream channel link and UTC broadcast schedule |
+| **3** | **Zero-Friction Access Model** | [`organizer_o2f_step3_zero_friction_access.png`](file:///assets/screenshots/organizer_o2f_step3_zero_friction_access.png) | Open public access: 0 TON fee, 0 forms, unlimited global viewers |
+| **4** | **1-Tap Calendar Sync Setup** | [`organizer_o2f_step4_calendar_sync.png`](file:///assets/screenshots/organizer_o2f_step4_calendar_sync.png) | Auto-generated .ics link and 15-minute bot ping setup |
+| **5** | **Published Open Online AMA** | [`organizer_o2f_step5_published_ama.png`](file:///assets/screenshots/organizer_o2f_step5_published_ama.png) | Published event page with direct Join Livestream CTA without barriers |
+
+**Validation Criteria:**
+- [x] Access requires 0 wallet connection and 0 questionnaires
+- [x] Livestream CTA links directly to broadcast without gating
+- [x] Calendar sync file generates with valid UTC start and end timestamps
+
+---
+
 #### `FLOW-O3`: Event Management Dashboard & Sub-modules
 - **Category:** Management | **Criticality:** Critical | **Steps:** 8 Deliberate Actions
 - **Description:** Manage guest list, promo codes, check-in officers, orders, and co-hosts.
@@ -887,7 +907,26 @@ Post-event cryptographic credential claiming engine. Verified attendees claim Pr
 
 ---
 
-## 10. Platform Smoke & Core Journey Video Gallery
+## 10. Wave 6 E2E Test Suites & Monetization Rail Verification
+
+To verify the core infrastructure delivered in Wave 6 (`e0e938dd-473e-4b12-b76e-5c86c485a09f`), 5 dedicated E2E test suites validate the multi-tier ticketing engine, Telegram Stars (XTR) invoices, RabbitMQ event-driven settlement, private chat link delivery, and zero-friction online events:
+
+| Test Suite File | Coverage Target | Key Test Cases | Command to Execute |
+| :--- | :--- | :--- | :--- |
+| [`multi-tier-ticketing.spec.ts`](file:///tests/e2e/multi-tier-ticketing.spec.ts) | Multi-tier schema, independent capacity, and legacy fallback | **TC-MT-01**: Tier discovery schema<br>**TC-MT-02**: TMA tier selector UI<br>**TC-MT-03**: Sold-out tier gating<br>**TC-MT-04**: Order tier binding<br>**TC-MT-05**: Legacy single-price fallback | `npx playwright test multi-tier-ticketing.spec.ts` |
+| [`telegram-stars-checkout.spec.ts`](file:///tests/e2e/telegram-stars-checkout.spec.ts) | Telegram Stars (XTR) invoices and bot payment lifecycle | **TC-ST-01**: Stars invoice generation & rate math<br>**TC-ST-02**: Bot pre-checkout approval<br>**TC-ST-03**: Pre-checkout sold-out rejection<br>**TC-ST-04**: Bot payment fulfillment & order completion | `npx playwright test telegram-stars-checkout.spec.ts` |
+| [`rabbitmq-payment-fulfillment.spec.ts`](file:///tests/e2e/rabbitmq-payment-fulfillment.spec.ts) | Event-driven sub-second settlement and concurrency safety | **TC-RMQ-01**: Event publishing on payment<br>**TC-RMQ-02**: Sub-second SLA fulfillment (<1000ms)<br>**TC-RMQ-03**: Redis mutex concurrency lock<br>**TC-RMQ-04**: 9-second cron fallback safety net | `npx playwright test rabbitmq-payment-fulfillment.spec.ts` |
+| [`private-chat-invite.spec.ts`](file:///tests/e2e/private-chat-invite.spec.ts) | Single-use private group invite link delivery | **TC-INV-01**: Single-use invite link creation (`member_limit: 1`)<br>**TC-INV-02**: DM dispatch & QR ticket screen integration<br>**TC-INV-03**: Revocation upon first join | `npx playwright test private-chat-invite.spec.ts` |
+| [`zero-friction-online.spec.ts`](file:///tests/e2e/zero-friction-online.spec.ts) | Open public online broadcast without barriers | **TC-ZF-01**: Direct livestream viewing without wallet prompt<br>**TC-ZF-02**: 1-Tap .ics calendar generation<br>**TC-ZF-03**: Direct broadcast destination launch<br>**TC-ZF-04**: Frictionless 1-tap authenticated reminder RSVP | `npx playwright test zero-friction-online.spec.ts` |
+
+Run all 5 Wave 6 suites concurrently:
+```bash
+cd tests/e2e && npx playwright test multi-tier-ticketing.spec.ts telegram-stars-checkout.spec.ts rabbitmq-payment-fulfillment.spec.ts private-chat-invite.spec.ts zero-friction-online.spec.ts
+```
+
+---
+
+## 11. Platform Smoke & Core Journey Video Gallery
 
 General smoke and bundle integrity test sessions recorded during automated runs:
 
@@ -912,7 +951,7 @@ General smoke and bundle integrity test sessions recorded during automated runs:
 
 ---
 
-## 11. How to Launch and Inspect Artifacts
+## 12. How to Launch and Inspect Artifacts
 
 ### 1. Launch the Visual Quality Portal
 To view all test flows, watch video recordings inline, and inspect the high-resolution step-by-step gallery:

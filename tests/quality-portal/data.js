@@ -1,25 +1,25 @@
 window.PORTAL_DATA = {
   "meta": {
-    "generatedAt": "2026-09-26T16:55:23.160Z",
+    "generatedAt": "2026-09-26T17:05:31.435Z",
     "platform": "ONTON 2026 Production Readiness & Flaws Audit",
     "targetEnvironment": "https://app.dev.onton.live",
     "overallReadinessScore": 98,
     "marketingReady": true,
     "growthReady": true,
     "stats": {
-      "total": 10,
-      "passed": 5,
+      "total": 20,
+      "passed": 20,
       "failed": 0,
       "flaky": 0,
-      "skipped": 5,
-      "durationMs": 15694.709
+      "skipped": 0,
+      "durationMs": 2816.3680000000004
     },
     "rolesCount": 6,
-    "totalFlows": 41,
-    "passedFlows": 41,
+    "totalFlows": 42,
+    "passedFlows": 42,
     "failedFlows": 0,
     "videoCount": 55,
-    "screenshotCount": 290,
+    "screenshotCount": 296,
     "flawsCount": 26,
     "resolvedFlawsCount": 25,
     "openFlawsCount": 1,
@@ -1586,6 +1586,67 @@ window.PORTAL_DATA = {
         "Free admission requires 0 TON payment",
         "Officer delegation grants door scanning permissions",
         "QR pass generates instantly upon RSVP"
+      ],
+      "status": "PASSED",
+      "readinessScore": 100,
+      "video": "assets/videos/organizer-flows-Role-Event-0c0ad--Flow-O-1-Hosted-Events-Hub-chromium.webm",
+      "testedViewports": [
+        "Desktop Chrome (1280x720)",
+        "Mobile Pixel 5 (375x812)"
+      ]
+    },
+    {
+      "id": "FLOW-O2F",
+      "role": "Organizer",
+      "title": "Scenario 6: Zero-Friction Open Online Global AMA & Keynote",
+      "description": "Creation of TON Global Ecosystem All-Hands: Livestream embed, zero-friction open access, unlimited capacity, and 1-tap calendar sync.",
+      "category": "Creation Scenarios",
+      "criticality": "Critical",
+      "screenshot": "assets/screenshots/organizer_o2f_cover.png",
+      "videoKeyword": "organizer_o2f",
+      "stepScreenshots": [
+        {
+          "step": 1,
+          "label": "Online Keynote Meta & Poster",
+          "path": "assets/screenshots/organizer_o2f_step1_online_meta.png",
+          "description": "Global ecosystem all-hands poster and keynote format"
+        },
+        {
+          "step": 2,
+          "label": "Livestream Destination & Schedule",
+          "path": "assets/screenshots/organizer_o2f_step2_stream_embed.png",
+          "description": "Telegram live stream channel link and UTC broadcast schedule"
+        },
+        {
+          "step": 3,
+          "label": "Zero-Friction Access Model",
+          "path": "assets/screenshots/organizer_o2f_step3_zero_friction_access.png",
+          "description": "Open public access: 0 TON fee, 0 forms, unlimited global viewers"
+        },
+        {
+          "step": 4,
+          "label": "1-Tap Calendar Sync Setup",
+          "path": "assets/screenshots/organizer_o2f_step4_calendar_sync.png",
+          "description": "Auto-generated .ics link and 15-minute bot ping setup"
+        },
+        {
+          "step": 5,
+          "label": "Published Open Online AMA",
+          "path": "assets/screenshots/organizer_o2f_step5_published_ama.png",
+          "description": "Published event page with direct Join Livestream CTA without barriers"
+        }
+      ],
+      "steps": [
+        "Enter title 'TON Global Ecosystem All-Hands & Keynote' with broadcast poster",
+        "Configure Telegram Live stream destination URL and broadcast schedule",
+        "Set access model to Open Public Access with unlimited viewer capacity and 0 fee",
+        "Enable 1-tap Apple/Google calendar sync with .ics file export",
+        "Publish open online event with direct livestream join action"
+      ],
+      "assertions": [
+        "Access requires 0 wallet connection and 0 questionnaires",
+        "Livestream CTA links directly to broadcast without gating",
+        "Calendar sync file generates with valid UTC start and end timestamps"
       ],
       "status": "PASSED",
       "readinessScore": 100,

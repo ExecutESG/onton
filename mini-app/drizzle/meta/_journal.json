@@ -841,6 +841,27 @@
       "when": 1773300000000,
       "tag": "0122_add_sbt_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 120,
+      "version": "7",
+      "when": 1773400000000,
+      "tag": "0123_user_identities",
+      "breakpoints": true
+    },
+    {
+      "idx": 121,
+      "version": "7",
+      "when": 1773500000000,
+      "tag": "0124_order_dlq",
+      "breakpoints": true
+    },
+    {
+      "idx": 122,
+      "version": "7",
+      "when": 1773600000000,
+      "tag": "0125_event_ticket_tiers",
+      "breakpoints": true
     }
   ]
 }

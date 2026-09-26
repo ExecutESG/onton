@@ -29,7 +29,8 @@ export async function startBot() {
     const BOT_TOKEN_LOGS =
       configProtected?.bot_token_logs ||
       process.env.BOT_TOKEN_LOGS ||
-      process.env.TELEGRAM_BOT_TOKEN;
+      process.env.TELEGRAM_BOT_TOKEN ||
+      process.env.BOT_TOKEN;
     const LOGS_GROUP_ID =
       configProtected?.logs_group_id ||
       process.env.LOGS_GROUP_ID ||
@@ -61,8 +62,11 @@ export async function startBot() {
         const user_details = `\n<b>${first_name} ${last_name}</b> <code>${username}</code> <code>${userId}</code>`;
 
         // Verify user is a moderator
-        // Allow @ontonadmin (7013087032) or users with db moderation access
-        const isSuperAdmin = userId === 7013087032 || userId === Number(process.env.ADMIN_TELEGRAM_ID);
+        // Allow @ontonadmin (7013087032), Mahdi Farimani (23932283), or users with db moderation access
+        const isSuperAdmin =
+          userId === 7013087032 ||
+          userId === 23932283 ||
+          userId === Number(process.env.ADMIN_TELEGRAM_ID);
         if (!isSuperAdmin && !(await userHasModerationAccess(userId, "user"))) {
           await ctx.answerCallbackQuery({ text: "Unauthorized Moderator" });
           return;

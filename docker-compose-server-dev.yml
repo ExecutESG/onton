@@ -8,7 +8,8 @@ x-common-env: &common-env
   DATABASE_URL: ${DATABASE_URL}
   DATABASE_URL_NFT_MANAGER: ${DATABASE_URL_NFT_MANAGER}
   REDIS_URL: ${REDIS_URL}
-  TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+  TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-${BOT_TOKEN}}
+  BOT_TOKEN: ${BOT_TOKEN}
   SOCIETY_HUB_API_KEY: ${SOCIETY_HUB_API_KEY}
   SOCIETY_HUB_ADMIN_CHAT_ID: ${SOCIETY_HUB_ADMIN_CHAT_ID}
   SOCIETY_HUB_CHAT_ID: ${SOCIETY_HUB_CHAT_ID}
@@ -267,6 +268,7 @@ services:
           memory: 512M
           cpus: "0.2"
       replicas: 1
+    command: [ "yarn", "run", "start:moderation" ]
     environment:
       <<: *common-env
     networks:

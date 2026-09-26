@@ -184,7 +184,8 @@ export const sendLogNotification = async (
   const BOT_TOKEN_LOGS =
     configProtected?.bot_token_logs ||
     process.env.BOT_TOKEN_LOGS ||
-    process.env.TELEGRAM_BOT_TOKEN;
+    process.env.TELEGRAM_BOT_TOKEN ||
+    process.env.BOT_TOKEN;
   let LOGS_GROUP_ID =
     props.group_id?.toString() ||
     configProtected?.logs_group_id ||

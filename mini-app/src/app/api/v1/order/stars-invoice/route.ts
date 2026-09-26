@@ -1,5 +1,5 @@
 import { db } from "@/db/db";
-import { events, eventTokens, orders } from "@/db/schema";
+import { events, eventTicketTiers, eventTokens, orders } from "@/db/schema";
 import { getAuthenticatedUser } from "@/server/auth";
 import { callCreateStarsInvoiceLink } from "@/lib/tgBot";
 import { eq } from "drizzle-orm";
@@ -68,8 +68,16 @@ export async function POST(req: Request) {
       starsAmount = Math.max(1, Math.ceil(price * 50));
     }
 
-    const title = (event.title || "Event Ticket").slice(0, 30);
-    const description = `Admission ticket for ${event.title || "event"}`.slice(0, 250);
+    let tierInfo;
+    if (order.tier_id) {
+      tierInfo = await db.query.eventTicketTiers.findFirst({
+        where: eq(eventTicketTiers.id, order.tier_id),
+      });
+    }
+
+    const tierPrefix = tierInfo ? `[${tierInfo.tier_name}] ` : "";
+    const title = `${tierPrefix}${event.title || "Event Ticket"}`.slice(0, 30);
+    const description = `Admission ticket for ${event.title || "event"}${tierInfo ? ` (${tierInfo.tier_name})` : ""}`.slice(0, 250);
 
     const invoiceResult = await callCreateStarsInvoiceLink({
       title,

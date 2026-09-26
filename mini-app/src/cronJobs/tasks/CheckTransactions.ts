@@ -8,6 +8,7 @@ import { Address } from "@ton/core";
 import { orders } from "@/db/schema/orders";
 import { tokenCampaignOrders, TokenCampaignOrdersStatus } from "@/db/schema";
 import { eventTokens } from "@/db/schema/eventTokens";
+import { publishOrderPaidEvent } from "@/lib/orderEvents";
 
 export const CheckTransactions = async () => {
   // Get Orders to be Checked (Sort By Order.TicketDetails.Id)
@@ -116,7 +117,15 @@ export const CheckTransactions = async () => {
       )
       .returning({ uuid: orders.uuid });
 
-    if (updated.length === 0) {
+    if (updated.length > 0) {
+      // Sub-second fulfillment: publish order.paid event to RabbitMQ
+      await publishOrderPaidEvent({
+        orderUuid: o.order_uuid,
+        eventUuid: orderRow.event_uuid || undefined,
+        userId: orderRow.user_id ? Number(orderRow.user_id) : undefined,
+        paymentMethod: token.symbol,
+      });
+    } else {
       logger.warn("cron_trx_update_skipped", {
         uuid: o.order_uuid,
         expectedAmount: normalizedAmount,

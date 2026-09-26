@@ -19,6 +19,7 @@ import { logger } from "@/server/utils/logger";
 import { and, eq } from "drizzle-orm";
 import { type NextRequest } from "next/server";
 import eventCategoriesDB from "@/db/modules/eventCategories.db";
+import eventTicketTiersDB from "@/db/modules/eventTicketTiers.db";
 
 // Helper function for retrying the HTTP request
 async function getRequestWithRetry(uri: string, retries: number = 3): Promise<any> {
@@ -196,6 +197,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       category = await eventCategoriesDB.fetchCategoryById(eventData.category_id);
     }
 
+    const ticketTiers = await eventTicketTiersDB.getTiersByEventUuid(eventData.event_uuid);
+
     if (dataOnly === "true") {
       const [authUserId] = getAuthenticatedUser();
       const isOwnerOrAdmin = Boolean(
@@ -221,6 +224,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
           category,
           organizer: isOwnerOrAdmin ? organizer : publicOrganizer,
           eventTicket: event_payment_info,
+          ticket_tiers: ticketTiers,
           isSoldOut,
           hasActiveCoupon,
           ...(isOwnerOrAdmin ? { accessRoles } : {}),
@@ -356,6 +360,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       orderAlreadyPlace: !!userOrder,
       organizer,
       eventTicket: event_payment_info,
+      ticket_tiers: ticketTiers,
       isSoldOut,
       hasActiveCoupon,
       ownerAddress,

@@ -4,8 +4,8 @@ export type UserId = number;
 export const prefetchCount = Number(process.env.PREFETCH_COUNT) || 70;
 export const rabbitMQUser = process.env.RABBITMQ_DEFAULT_USER || "";
 export const rabbitMQPass = process.env.RABBITMQ_DEFAULT_PASS || "";
-export const rabbitMQUrl = process.env.IP_RABBITMQ || "";
-export const rabbitMQPort = Number(process.env.RABBITMQ_NODE_PORT) || 0;
+export const rabbitMQUrl = process.env.RABBITMQ_HOST || process.env.IP_RABBITMQ || "rabbitmq";
+export const rabbitMQPort = Number(process.env.RABBITMQ_NODE_PORT) || 5672;
 // Notification constants
 export const retryLimit = 20;
 // Retry interval for socket connections
@@ -37,6 +37,7 @@ export const SocketEvents = {
 export const QueueNames = {
   NOTIFICATIONS: `${process.env.STAGE_NAME || "onton"}-notifications`,
   TG_MESSAGES: `${process.env.STAGE_NAME || "onton"}-tg_messages`,
+  ORDER_PAID: `${process.env.STAGE_NAME || "onton"}-order_paid`,
 } as const;
 
 // Define the dead-letter exchange and queue names

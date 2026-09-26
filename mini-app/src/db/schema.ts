@@ -33,6 +33,7 @@ import { coupon_item_status, coupon_items, couponMessageSendStatus, CouponMessag
 import { event_details_search_list } from "./schema/event_details_search_list";
 import { eventFieldRelations, eventFields } from "./schema/eventFields";
 import { eventPayment, EventTicketType, organizerPaymentStatus, pgTicketTypes, ticketTypes } from "./schema/eventPayment";
+import { eventTicketTiers, eventTicketTiersRelations, EventTicketTierRow } from "./schema/eventTicketTiers";
 import { eventPoaResults, eventPoaResultsIndexes } from "./schema/eventPoaResults";
 import { eventPoaTriggers, eventPoaTriggersIndexes } from "./schema/eventPoaTriggers";
 import { eventRegistrants, eventRegistrantStatus } from "./schema/eventRegistrants";
@@ -333,6 +334,8 @@ export {
   eventFieldRelations,
   eventFields,
   eventPayment,
+  eventTicketTiers,
+  eventTicketTiersRelations,
   eventPoaResults,
   eventPoaResultsIndexes,
   eventPoaTriggers,
@@ -541,4 +544,5 @@ export type {
   SbtItemUpdate,
   UserIdentityRow,
   UserIdentityInsert,
+  EventTicketTierRow,
 };

@@ -5,6 +5,7 @@ import { logger } from "@/server/utils/logger";
 import "@/lib/gracefullyShutdown";
 import cronJobs, { cronJobRunner } from "@/cronJobs";
 import { redisTools } from "@/lib/redisTools";
+import { startOrderPaidConsumer } from "./orderPaidConsumer";
 
 process.on("unhandledRejection", (err) => {
   const messages = getErrorMessages(err);
@@ -26,6 +27,9 @@ async function MainCronJob() {
   logger.log("====> RUNNING Cron jobs on", process.env.ENV);
   // this method will delete all the lock keys on startup to avoid any stale locks
   await deleteLockKeys();
+
+  // Instant event-driven payment fulfillment via RabbitMQ (<1s latency)
+  await startOrderPaidConsumer();
 
   new CronJob("0 */4 * * *", cronJobs.sendPaymentReminder, null, true);
   new CronJob("*/7 * * * * *", cronJobs.CheckTransactions, null, true);

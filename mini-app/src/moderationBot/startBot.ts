@@ -26,15 +26,13 @@ import { handleDismissReport } from "./handlers/handleDismissReport";
 
 export async function startBot() {
   while (true) {
+    const isValidToken = (token?: string | null): token is string => Boolean(token && !token.startsWith("$") && !token.includes("${"));
     const BOT_TOKEN_LOGS =
-      configProtected?.bot_token_logs ||
-      process.env.BOT_TOKEN_LOGS ||
-      process.env.TELEGRAM_BOT_TOKEN ||
-      process.env.BOT_TOKEN;
+      [process.env.BOT_TOKEN, process.env.TELEGRAM_BOT_TOKEN, process.env.BOT_TOKEN_LOGS, configProtected?.bot_token_logs].find(isValidToken);
     const LOGS_GROUP_ID =
-      configProtected?.logs_group_id ||
+      process.env.MODERATION_GROUP_ID ||
       process.env.LOGS_GROUP_ID ||
-      process.env.MODERATION_GROUP_ID;
+      configProtected?.logs_group_id;
 
     if (!BOT_TOKEN_LOGS || !LOGS_GROUP_ID) {
       logger.error("Bot token or logs group ID not found in configProtected or env");

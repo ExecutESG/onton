@@ -1,3 +1,4 @@
+import { InlineKeyboard } from "grammy";
 import { MyContext } from "../types/MyContext";
 import { pool } from "../db/pool";
 import { logger } from "../utils/logger";
@@ -140,8 +141,13 @@ export async function handleStarsSuccessfulPayment(ctx: MyContext) {
     }
 
     // 5) Send confirmation message to user with button to view ticket
-    const botUsername = process.env.NEXT_PUBLIC_BOT_USERNAME || "OntonBot";
-    const appUrl = `https://t.me/${botUsername}/ticket?startapp=${eventUuid}`;
+    const appBaseUrl = (
+      process.env.NEXT_PUBLIC_APP_BASE_URL ||
+      process.env.APP_BASE_URL ||
+      "https://app.onton.live"
+    ).replace(/\/$/, "");
+
+    const ticketWebUrl = `${appBaseUrl}/tickets/${eventUuid}`;
 
     const replyText =
       `🎉 <b>Payment Received! (${starsPaid} Stars)</b>\n\n` +
@@ -151,30 +157,15 @@ export async function handleStarsSuccessfulPayment(ctx: MyContext) {
         : "") +
       `\nTap the button below to view your ticket and QR check-in code.`;
 
-    const replyMarkup = {
-      inline_keyboard: [
-        [
-          {
-            text: "🎟 View My Ticket",
-            url: appUrl,
-          },
-        ],
-        ...(inviteLink
-          ? [
-              [
-                {
-                  text: "💬 Join Event Chat",
-                  url: inviteLink,
-                },
-              ],
-            ]
-          : []),
-      ],
-    };
+    const keyboard = new InlineKeyboard().webApp("🎟 View My Ticket", ticketWebUrl);
+
+    if (inviteLink) {
+      keyboard.row().url("💬 Join Event Chat", inviteLink);
+    }
 
     await ctx.reply(replyText, {
       parse_mode: "HTML",
-      reply_markup: replyMarkup,
+      reply_markup: keyboard,
     });
   } catch (error) {
     await client.query("ROLLBACK");

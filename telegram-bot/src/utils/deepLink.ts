@@ -48,7 +48,16 @@ export function resolveDeepLink(rawParam: string, baseUrl?: string): DeepLinkRes
     };
   }
 
-  // 3. Channels: channels_<id> or channel_<id>
+  // 3. Ticket Pass: ticket_<uuid> or ticket-<uuid>
+  if (rawParam.startsWith("ticket_") || rawParam.startsWith("ticket-")) {
+    const eventUuid = rawParam.replace(/^ticket[_-]/, "");
+    return {
+      targetUrl: `${appBaseUrl}/tickets/${eventUuid}`,
+      buttonText: "🎟 View Ticket",
+    };
+  }
+
+  // 4. Channels: channels_<id> or channel_<id>
   if (rawParam.startsWith("channels_") || rawParam.startsWith("channel_")) {
     const channelId = rawParam.replace(/^channels?_/, "");
     return {

@@ -65,10 +65,23 @@ describe("Universal Telegram Bot Deep Link Resolution (Issue #968)", () => {
     expect(resJoin?.buttonText).toBe("Join ONTON");
   });
 
-  it("DL-8: returns null for invalid or empty parameters", () => {
+  it("DL-9: resolves ticket deep link (ticket_ and ticket-) to /tickets/<uuid>", () => {
+    const resUnderscore = resolveDeepLink("ticket_4b287361-a06f-43dd-87c1-2d3a68f99fa7", BASE_URL);
+    expect(resUnderscore).not.toBeNull();
+    expect(resUnderscore?.targetUrl).toBe("https://app.onton.live/tickets/4b287361-a06f-43dd-87c1-2d3a68f99fa7");
+    expect(resUnderscore?.buttonText).toBe("🎟 View Ticket");
+
+    const resDash = resolveDeepLink("ticket-4b287361-a06f-43dd-87c1-2d3a68f99fa7", BASE_URL);
+    expect(resDash).not.toBeNull();
+    expect(resDash?.targetUrl).toBe("https://app.onton.live/tickets/4b287361-a06f-43dd-87c1-2d3a68f99fa7");
+    expect(resDash?.buttonText).toBe("🎟 View Ticket");
+  });
+
+  it("DL-10: returns null for invalid or empty parameters", () => {
     expect(resolveDeepLink("", BASE_URL)).toBeNull();
     expect(resolveDeepLink("unknown-random-gibberish", BASE_URL)).toBeNull();
     // @ts-expect-error test invalid type
     expect(resolveDeepLink(null, BASE_URL)).toBeNull();
   });
 });
+

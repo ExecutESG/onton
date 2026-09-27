@@ -25,11 +25,34 @@ interface OrderResponse {
   };
 }
 
+interface TicketTierItem {
+  id: number;
+  tier_name: string;
+  price: number;
+  ticket_type: "NFT" | "TSCSBT";
+  description?: string;
+}
+
+interface PaymentDetailsProp {
+  price: number;
+  title: string | null;
+  ticket_type: "NFT" | "TSCSBT";
+  token: {
+    symbol: string;
+    decimals: number;
+    is_native: boolean;
+  } | null;
+}
+
 interface CheckoutFormProps {
   eventUuid: string;
   eventHash: string;
+  eventTitle?: string;
+  eventSubtitle?: string | null;
   /** ONTON_WALLET_ADDRESS — destination for crypto payments. Passed from SSR. */
   paymentWalletAddress: string | null;
+  paymentDetails?: PaymentDetailsProp | null;
+  ticketTiers?: TicketTierItem[];
 }
 
 /**
@@ -45,7 +68,15 @@ const toTokenUnits = (amount: number, decimals: number): bigint => {
  * Multi-rail checkout form ported from participant-tma.
  * Supports: Free RSVP, Telegram Stars, TON/USDT crypto.
  */
-export default function CheckoutForm({ eventUuid, eventHash, paymentWalletAddress }: CheckoutFormProps) {
+export default function CheckoutForm({
+  eventUuid,
+  eventHash,
+  eventTitle,
+  eventSubtitle,
+  paymentWalletAddress,
+  paymentDetails,
+  ticketTiers = [],
+}: CheckoutFormProps) {
   const webApp = useWebApp();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -55,16 +86,35 @@ export default function CheckoutForm({ eventUuid, eventHash, paymentWalletAddres
 
   const affiliateId = searchParams.get("affiliate_id");
 
+  // Tier selection
+  const paramTierId = searchParams.get("tier_id") ? Number(searchParams.get("tier_id")) : null;
+  const initialTier = ticketTiers.find((t) => t.id === paramTierId) || ticketTiers[0] || null;
+  const [selectedTierId, setSelectedTierId] = useState<number | null>(initialTier?.id ?? null);
+
+  const selectedTier = ticketTiers.find((t) => t.id === selectedTierId) || initialTier;
+
+  // Pricing & currency resolution
+  const effectivePrice = selectedTier ? selectedTier.price : (paymentDetails?.price ?? 0);
+  const effectiveTicketType = selectedTier ? selectedTier.ticket_type : (paymentDetails?.ticket_type ?? "NFT");
+  const tokenSymbol = paymentDetails?.token?.symbol || (effectiveTicketType === "TSCSBT" ? "STAR" : "TON");
+  const isStars = tokenSymbol === "STAR" || effectiveTicketType === "TSCSBT";
+  const isFree = effectivePrice === 0;
+
   const [fullName, setFullName] = useState("");
   const [telegram, setTelegram] = useState("");
   const [company, setCompany] = useState("");
   const [position, setPosition] = useState("");
   const [couponCode, setCouponCode] = useState("");
-  const [paymentRail, setPaymentRail] = useState<PaymentRail>("STARS");
+  const [paymentRail, setPaymentRail] = useState<PaymentRail>(isStars ? "STARS" : "CRYPTO");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [processingState, setProcessingState] = useState<"idle" | "processing" | "success" | "error">("idle");
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Sync payment rail if tier changes
+  useEffect(() => {
+    setPaymentRail(isStars ? "STARS" : "CRYPTO");
+  }, [isStars]);
 
   // Auto-fill from Telegram user data
   useEffect(() => {
@@ -167,12 +217,13 @@ export default function CheckoutForm({ eventUuid, eventHash, paymentWalletAddres
         credentials: "include",
         body: JSON.stringify({
           event_uuid: eventUuid,
+          tier_id: selectedTierId && selectedTierId > 0 ? selectedTierId : undefined,
           full_name: fullName.trim(),
           telegram: telegram.trim(),
           company: company.trim(),
           position: position.trim(),
           owner_address: wallet?.account.address || null,
-          payment_method: paymentRail === "STARS" ? "STAR" : "TON",
+          payment_method: isFree ? undefined : isStars ? "STAR" : tokenSymbol === "USDT" ? "USDT" : "TON",
           coupon_code: couponCode || null,
           affiliate_id: affiliateId,
         }),
@@ -303,7 +354,25 @@ export default function CheckoutForm({ eventUuid, eventHash, paymentWalletAddres
       }
       setIsSubmitting(false);
     }
-  }, [eventUuid, fullName, telegram, company, position, couponCode, paymentRail, wallet, affiliateId, webApp, tonConnectUI, router, paymentWalletAddress]);
+  }, [
+    eventUuid,
+    selectedTierId,
+    fullName,
+    telegram,
+    company,
+    position,
+    couponCode,
+    paymentRail,
+    isFree,
+    isStars,
+    tokenSymbol,
+    wallet,
+    affiliateId,
+    webApp,
+    tonConnectUI,
+    router,
+    paymentWalletAddress,
+  ]);
 
   // Processing overlay
   if (processingState === "processing") {
@@ -347,9 +416,84 @@ export default function CheckoutForm({ eventUuid, eventHash, paymentWalletAddres
     );
   }
 
+  const formattedPrice = isFree ? "Free" : isStars ? `⭐ ${effectivePrice}` : `${effectivePrice} ${tokenSymbol}`;
+  const tierDisplayName = selectedTier?.tier_name || paymentDetails?.title || "Standard Ticket";
+
+  const buttonText = isSubmitting
+    ? "Processing..."
+    : isFree
+    ? "Get Free Ticket"
+    : paymentRail === "STARS"
+    ? `Pay ${effectivePrice} ⭐`
+    : !wallet
+    ? "Connect Wallet"
+    : `Pay ${effectivePrice} ${tokenSymbol} 💎`;
+
   return (
     <div className="min-h-screen bg-[#EFEFF4] pb-24">
       <div className="mx-auto max-w-md space-y-4 p-4">
+        {/* Order Summary Card */}
+        <div className="overflow-hidden rounded-xl bg-white p-4 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Order Summary</span>
+              <h2 className="mt-0.5 truncate text-base font-bold text-gray-900">{eventTitle || "Event Admission"}</h2>
+              <p className="mt-0.5 text-xs text-gray-500">{tierDisplayName}</p>
+            </div>
+            <div className="text-right">
+              <span className="inline-block rounded-lg bg-blue-50 px-2.5 py-1 text-sm font-bold text-blue-600">
+                {formattedPrice}
+              </span>
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3 text-xs text-gray-500">
+            <span>Payment Method</span>
+            <span className="font-medium text-gray-800">
+              {isFree ? "Free RSVP" : isStars ? "⭐ Telegram Stars" : `💎 ${tokenSymbol} Crypto`}
+            </span>
+          </div>
+        </div>
+
+        {/* Ticket Tier Selector (shown if event has multiple tiers) */}
+        {ticketTiers.length > 1 && (
+          <div className="overflow-hidden rounded-xl bg-white p-3 shadow-sm">
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-wider text-gray-400">Select Ticket Tier</span>
+            <div className="space-y-2">
+              {ticketTiers.map((tier) => {
+                const tierIsFree = Number(tier.price) === 0;
+                const tierIsStars = tier.ticket_type === "TSCSBT" || tokenSymbol === "STAR";
+                const tierPriceDisplay = tierIsFree
+                  ? "Free"
+                  : tierIsStars
+                  ? `⭐ ${tier.price}`
+                  : `${tier.price} ${tokenSymbol}`;
+                const isSelected = (selectedTier?.id ?? null) === tier.id;
+
+                return (
+                  <button
+                    key={tier.id}
+                    type="button"
+                    onClick={() => setSelectedTierId(tier.id)}
+                    className={`flex w-full items-center justify-between rounded-xl border p-3 text-left transition-all ${
+                      isSelected
+                        ? "border-blue-500 bg-blue-50/50 shadow-sm"
+                        : "border-gray-100 bg-gray-50/50 hover:border-gray-200"
+                    }`}
+                  >
+                    <div>
+                      <div className="text-sm font-semibold text-gray-900">{tier.tier_name}</div>
+                      {tier.description && (
+                        <div className="mt-0.5 text-xs text-gray-500">{tier.description}</div>
+                      )}
+                    </div>
+                    <div className="text-sm font-bold text-blue-600">{tierPriceDisplay}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Registration Fields */}
         <div className="overflow-hidden rounded-xl bg-white shadow-sm">
           <div className="divide-y p-0">
@@ -379,39 +523,11 @@ export default function CheckoutForm({ eventUuid, eventHash, paymentWalletAddres
             </div>
         </div>
 
-        {/* Payment Rail Selector */}
-        <div className="overflow-hidden rounded-xl bg-white p-3 shadow-sm">
-            <span className="mb-2 block text-xs font-medium text-gray-500">PAYMENT METHOD</span>
-            <div className="grid grid-cols-2 gap-2 rounded-xl bg-gray-100 p-1">
-              <button
-                type="button"
-                onClick={() => setPaymentRail("STARS")}
-                className={`rounded-lg py-2 px-3 text-sm font-semibold transition-all ${
-                  paymentRail === "STARS"
-                    ? "bg-white text-blue-600 shadow-sm"
-                    : "text-gray-500 hover:text-gray-800"
-                }`}
-              >
-                ⭐ Stars
-              </button>
-              <button
-                type="button"
-                onClick={() => setPaymentRail("CRYPTO")}
-                className={`rounded-lg py-2 px-3 text-sm font-semibold transition-all ${
-                  paymentRail === "CRYPTO"
-                    ? "bg-white text-blue-600 shadow-sm"
-                    : "text-gray-500 hover:text-gray-800"
-                }`}
-              >
-                💎 Crypto
-              </button>
-            </div>
-        </div>
       </div>
 
       {/* Checkout Button */}
       <MainButton
-        text={paymentRail === "STARS" ? "Pay with Stars ⭐" : wallet ? "Pay with Crypto 💎" : "Connect Wallet"}
+        text={buttonText}
         onClick={handleSubmit}
         disabled={isSubmitting}
         progress={isSubmitting}

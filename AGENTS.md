@@ -1,9 +1,8 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- `mini-app/`: Next.js (TypeScript) Telegram Mini App with workers and sockets; Drizzle migrations in `drizzle/`.
+- `mini-app/`: Next.js (TypeScript) Telegram Mini App with workers, sockets, attendee ticketing/checkout, and Drizzle migrations in `drizzle/`.
 - `telegram-bot/`: Node/TypeScript bot service.
-- `newton/apps/participant-tma/`: Next.js participant-facing TMA (pnpm workspace).
 - `client-web-panel/`: Next.js admin/client panel.
 - `website/`: Next.js marketing site.
 - `devops/`: Docker, Caddy, env helpers; `docker-compose.yml` orchestrates services. Assets and volumes under `data/`. API docs in `swagger/`.
@@ -12,7 +11,6 @@
 - Docker (full stack): `docker compose --profile full up -d` | down: `docker compose down -v`.
 - Mini App: `cd mini-app && yarn dev` (uses `../.env`); build/start: `yarn build && yarn start:local`.
 - Telegram Bot: `cd telegram-bot && yarn dev` or `yarn start:local`.
-- Participant TMA: `cd newton/apps/participant-tma && pnpm dev`; build: `pnpm build`.
 - Client Web: `cd client-web-panel && yarn dev`; Website: `cd website && yarn dev`.
 - MinIO init (first run): `cd mini-app && yarn run init:minio:local`.
 

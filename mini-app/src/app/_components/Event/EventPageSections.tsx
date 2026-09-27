@@ -212,7 +212,12 @@ const EventRegistrationStatus = () => {
   const capacityFilled = Boolean(eventData.data?.capacity_filled);
   const hasWaitingList = Boolean(eventData.data?.has_waiting_list);
 
-  if (!isNotEnded || !eventData.data?.has_registration) {
+  const isPaid = Boolean(
+    eventData.data?.has_payment ||
+      (eventData.data?.payment_details?.price && eventData.data.payment_details.price > 0)
+  );
+
+  if (!isNotEnded || !eventData.data?.has_registration || isPaid) {
     return null;
   }
 

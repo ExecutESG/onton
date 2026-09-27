@@ -16,7 +16,6 @@ fi
 # Set the IP for services based on the USE_MAIN_IP_TO_EXPOSE variable
 if [ "${USE_MAIN_IP_TO_EXPOSE}" = "true" ]; then
     PROXY_MINI_APP='host.docker.internal'
-    PROXY_PARTICIPANT_TMA='host.docker.internal'
     PROXY_METABASE='host.docker.internal'
     PROXY_MINIO='host.docker.internal'
     PROXY_PGADMIN='host.docker.internal'
@@ -28,7 +27,6 @@ if [ "${USE_MAIN_IP_TO_EXPOSE}" = "true" ]; then
     PROXY_SWAGGER_UI='host.docker.internal'
 else
     PROXY_MINI_APP=${IP_MINI_APP:-mini-app}
-    PROXY_PARTICIPANT_TMA=${IP_PARTICIPANT_TMA:-participant-tma}
     PROXY_METABASE=${IP_METABASE:-metabase}
     PROXY_MINIO=${IP_MINIO:-minio}
     PROXY_PGADMIN=${IP_PGADMIN:-pgadmin}
@@ -52,7 +50,6 @@ echo "
 ${MINI_APP_DOMAIN} {
     ${TLS_CONFIG}
     ${LOG_CONFIG}
-    reverse_proxy /ptma* http://${PROXY_PARTICIPANT_TMA}:${PARTICIPANT_TMA_PORT}
     reverse_proxy /swagger* http://${PROXY_SWAGGER_UI}:${SWAGGER_UI_PORT}
     reverse_proxy http://${PROXY_MINI_APP}:${MINI_APP_PORT}
 }

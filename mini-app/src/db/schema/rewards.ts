@@ -7,7 +7,8 @@ import { RewardStatus, RewardType } from "@/db/enum";
 export type RewardDataTyepe =
   | {
       reward_link: string;
-      ok: true;
+      sbt_address?: string | null;
+      ok?: boolean;
     }
   | { fail_reason: string; ok: false };
 

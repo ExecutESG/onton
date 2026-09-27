@@ -2,6 +2,7 @@ import { db } from "@/db/db";
 import { TicketStatus } from "@/db/enum";
 import { eventPayment, eventRegistrants, events, nftItems, orders, rewards, tickets, visitors } from "@/db/schema";
 import { and, eq, or } from "drizzle-orm";
+import { sbtDB } from "@/db/modules/sbt.db";
 
 // Function to get a ticket by its UUID (order_uuid, registrant_uuid, or order uuid)
 const getTicketByUuid = async (ticketUuid: string) => {
@@ -258,11 +259,18 @@ export const fetchTicketPassByEventUuid = async (eventUuid: string, userId: numb
       subtitle: events.subtitle,
       description: events.description,
       sbt_collection_address: events.sbt_collection_address,
+      participationType: events.participationType,
+      location: events.location,
     })
     .from(events)
     .where(eq(events.event_uuid, eventUuid))
     .limit(1)
     .execute();
+
+  const isOnline = event[0]?.participationType === "online";
+  const meetingUrl =
+    isOnline && (reg.status === "approved" || reg.status === "checkedin") ? event[0]?.location ?? null : null;
+
   // 5. Get SBT reward if ticket type is TSCSBT
   let userSbtTicket: { data: { reward_link?: string } | null } | undefined;
   if (paymentInfo[0].ticket_type === "TSCSBT") {
@@ -287,6 +295,62 @@ export const fetchTicketPassByEventUuid = async (eventUuid: string, userId: numb
     }
   }
 
+  // 6. Get Attendance SBT Badge info if checked in
+  let attendanceSbt: {
+    status: string;
+    itemAddress: string | null;
+    rewardLink: string | null;
+  } | null = null;
+
+  if (reg.status === "checkedin") {
+    const nativeSbt = await sbtDB.findUserSbtForEvent(userId, eventUuid);
+    if (nativeSbt && nativeSbt.status === "minted") {
+      attendanceSbt = {
+        status: "minted",
+        itemAddress: nativeSbt.itemAddress,
+        rewardLink: `https://tonviewer.com/${nativeSbt.itemAddress}`,
+      };
+    } else {
+      const visitor = await db
+        .select({ id: visitors.id })
+        .from(visitors)
+        .where(and(eq(visitors.user_id, userId), eq(visitors.event_uuid, eventUuid)))
+        .limit(1)
+        .execute();
+
+      if (visitor[0]) {
+        const rewardRow = await db
+          .select()
+          .from(rewards)
+          .where(and(eq(rewards.visitor_id, visitor[0].id), eq(rewards.type, "ton_society_sbt")))
+          .limit(1)
+          .execute();
+
+        if (rewardRow[0]) {
+          const rewardData = rewardRow[0].data as { reward_link?: string; sbt_address?: string } | null;
+          const isMinted = rewardRow[0].status === "created" || Boolean(rewardData?.reward_link);
+          attendanceSbt = {
+            status: isMinted ? "minted" : "waiting_for_wallet",
+            itemAddress: rewardData?.sbt_address || null,
+            rewardLink: rewardData?.reward_link || null,
+          };
+        } else {
+          attendanceSbt = {
+            status: "waiting_for_wallet",
+            itemAddress: null,
+            rewardLink: null,
+          };
+        }
+      } else {
+        attendanceSbt = {
+          status: "waiting_for_wallet",
+          itemAddress: null,
+          rewardLink: null,
+        };
+      }
+    }
+  }
+
   return {
     full_name: registerInfo?.full_name ?? "",
     telegram: registerInfo?.telegram ?? "",
@@ -298,6 +362,8 @@ export const fetchTicketPassByEventUuid = async (eventUuid: string, userId: numb
     eventUuid,
     needsInfoUpdate: !registerInfo?.full_name,
     inviteLink: reg.telegram_invite_link ?? null,
+    meetingUrl,
+    attendanceSbt,
     ticketData: {
       ticketImage: paymentInfo[0].ticketImage ?? "",
       eventTitle: event[0]?.title ?? "",

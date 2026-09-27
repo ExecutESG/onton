@@ -10,6 +10,7 @@ import { contractAddressShortener } from "@/lib/contractAddressShortener";
 import TicketTmaSettings from "./_components/TicketTmaSettings";
 import { TicketShareButton } from "./_components/TicketShareButton";
 import { TicketGroupInviteButton } from "./_components/TicketGroupInviteButton";
+import { TicketMeetingButton } from "./_components/TicketMeetingButton";
 import { ClaimSbtButton } from "./_components/ClaimSbtButton";
 import TicketUserAvatar from "./_components/TicketUserAvatar";
 import TicketAuthGate from "./_components/TicketAuthGate";
@@ -132,10 +133,15 @@ export default async function TicketPassPage({ params }: Props) {
         <div className="mx-auto max-w-md">
           <h3 className="mb-3 text-sm font-semibold text-gray-900">Actions</h3>
           <div className="space-y-2">
-            <TicketShareButton eventUuid={ticket.eventUuid} eventTitle={ticket.ticketData.eventTitle} />
+            {ticket.meetingUrl && <TicketMeetingButton meetingUrl={ticket.meetingUrl} />}
             <TicketGroupInviteButton inviteLink={ticket.inviteLink} />
-            {ticket.userSbtTicket?.data?.reward_link && (
-              <ClaimSbtButton rewardLink={ticket.userSbtTicket.data.reward_link} />
+            <TicketShareButton eventUuid={ticket.eventUuid} eventTitle={ticket.ticketData.eventTitle} />
+            {ticket.status === "checkedin" && (
+              <ClaimSbtButton
+                ticketUuid={ticket.orderUuid}
+                rewardLink={ticket.attendanceSbt?.rewardLink || ticket.userSbtTicket?.data?.reward_link}
+                isMinted={ticket.attendanceSbt?.status === "minted" || Boolean(ticket.userSbtTicket?.data?.reward_link)}
+              />
             )}
           </div>
         </div>

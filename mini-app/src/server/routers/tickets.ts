@@ -7,6 +7,8 @@ import { logger } from "../utils/logger";
 import visitorsDB from "@/db/modules/visitors.db";
 import rewardDB from "@/db/modules/rewards.db";
 import eventDB from "@/db/modules/events.db";
+import { usersDB } from "@/db/modules/users.db";
+import { sbtService } from "@/services/sbtService";
 
 // Type guard to check if result is alreadyCheckedIn type
 function isAlreadyCheckedIn(result: any): result is { alreadyCheckedIn: boolean } {
@@ -60,32 +62,60 @@ export const ticketRouter = router({
           logger.error(`Visitor ${userId} not found for event ${ticketData.event_uuid} in handleNotificationReply`);
           throw new Error(`Visitor ${userId} not found`);
         }
+
+        const eventData = await eventDB.fetchEventByUuid(ticketData.event_uuid);
+        if (!eventData) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Event not found",
+          });
+        }
+
+        const user = await usersDB.selectUserById(userId);
+        let sbtStatus: "pending_creation" | "created" = "pending_creation";
+        let rewardLink: string | null = null;
+        let sbtAddress: string | null = null;
+
+        if (user?.wallet_address) {
+          try {
+            const mintedItem = await sbtService.mintSbtBadge({
+              eventUuid: ticketData.event_uuid,
+              userId,
+              walletAddress: user.wallet_address,
+              badgeTitle: `${eventData.title} Attendance Badge`,
+              badgeDescription: `Official Soulbound Proof of Attendance for ${eventData.title}`,
+              badgeImage: eventData.tsRewardImage || eventData.image_url || undefined,
+            });
+            sbtAddress = mintedItem.itemAddress;
+            rewardLink = `https://tonviewer.com/${mintedItem.itemAddress}`;
+            sbtStatus = "created";
+          } catch (mintErr) {
+            logger.error(`CHECKIN::SBT::Auto-mint failed for user ${userId}`, mintErr);
+          }
+        }
+
         const existingReward = await rewardDB.checkExistingRewardWithType(visitor?.id, "ton_society_sbt");
         if (!existingReward) {
-          const eventData = await eventDB.fetchEventByUuid(ticketData.event_uuid);
-          if (!eventData) {
-            throw new TRPCError({
-              code: "NOT_FOUND",
-              message: "Event not found",
-            });
-          }
           const reward = await rewardDB.insertRewardRow(
             visitor.id,
-            null,
+            rewardLink ? { reward_link: rewardLink, sbt_address: sbtAddress } : null,
             userId,
             "ton_society_sbt",
-            "pending_creation",
+            sbtStatus,
             eventData
           );
           logger.log(
-            `CHECKIN::SBT::Reward::Created user reward for user ${userId} and event uuid ${ticketData.event_uuid} with reward ID ${reward.id}`,
+            `CHECKIN::SBT::Reward::Created user reward for user ${userId} and event uuid ${ticketData.event_uuid} with reward ID ${reward.id} (status: ${sbtStatus})`,
             reward
           );
-        } else {
-          logger.log(
-            `CHECKIN::SBT::Reward::User reward already exists for user ${userId} and event uuid ${ticketData.event_uuid}`
-          );
+        } else if (existingReward && sbtStatus === "created" && rewardLink) {
+          await rewardDB.updateReward(existingReward.id, {
+            reward_link: rewardLink,
+            sbt_address: sbtAddress,
+            status: "created",
+          } as any);
         }
+
         if (isAlreadyCheckedIn(result)) {
           return { alreadyCheckedIn: true, result: result };
         }
@@ -94,6 +124,9 @@ export const ticketRouter = router({
           checkInSuccess: true,
           result: result,
           rewardResult: "success",
+          sbtStatus,
+          sbtAddress,
+          rewardLink,
         };
       }
     }),

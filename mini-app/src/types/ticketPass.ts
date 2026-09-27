@@ -11,6 +11,12 @@ export interface TicketPassData {
   eventUuid: string;
   needsInfoUpdate: boolean;
   inviteLink: string | null;
+  meetingUrl?: string | null;
+  attendanceSbt?: {
+    status: string;
+    itemAddress: string | null;
+    rewardLink: string | null;
+  } | null;
   ticketData: {
     ticketImage: string;
     eventTitle: string;

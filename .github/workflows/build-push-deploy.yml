@@ -146,10 +146,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'yarn'
-          cache-dependency-path: |
-            mini-app/yarn.lock
-            telegram-bot/yarn.lock
 
       - name: Validate TypeScript & Linters
         env:

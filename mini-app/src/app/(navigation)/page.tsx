@@ -5,10 +5,8 @@ import "@/app/page.css";
 import EventBanner from "@/components/EventBanner";
 import Typography from "@/components/Typography";
 import { useConfig } from "@/context/ConfigContext";
-import { Skeleton } from "@mui/material";
 import { ChevronRightIcon } from "lucide-react";
 import Link from "next/link";
-import TournamentCard from "../_components/tournaments/TournamentCard";
 import CustomCard from "../_components/atoms/cards/CustomCard";
 import DataStatus from "../_components/molecules/alerts/DataStatus";
 import { trpc } from "../_trpc/client";
@@ -16,8 +14,6 @@ import { trpc } from "../_trpc/client";
 import CustomSwiper from "../_components/CustomSwiper";
 import EventsTimeline from "../_components/Event/EventsTImeline";
 import EventCardSkeleton from "../_components/EventCard/EventCardSkeleton";
-import FeaturedBanners from "../_components/FeaturedBanners";
-import { Banner } from "@/app/(landing-pages)/genesis-onions/_components/Banner";
 
 export default function Home() {
   return (
@@ -26,14 +22,11 @@ export default function Home() {
         <div className="w-full pb-3">
           <SearchBar />
         </div>
-        <Banner />
-        <FeaturedBanners className="mb-4" />
 
         <div className=" flex-grow">
           <div className="flex-grow flex flex-col gap-6">
             {/* Slider Event */}
             <PromotedEventsSlider />
-            <FeaturedContests />
             <OngoingEvents />
             <UpcomingEvents />
           </div>
@@ -122,81 +115,6 @@ function PromotedEventsSlider() {
     </div>
   );
 }
-
-const FeaturedContests = () => {
-  const tournomantsQuery = trpc.tournaments.getFeaturedTournaments.useQuery(undefined, {
-    staleTime: Infinity,
-  });
-
-  const tournaments = tournomantsQuery.data;
-
-  if (tournomantsQuery.isSuccess && !tournaments?.length) {
-    return null;
-  }
-
-  return (
-    <div>
-      <div className="w-full pb-2 flex justify-between items-center">
-        <Typography variant="title2">Featured Contests</Typography>
-        <Link
-          href={"/play-2-win/"}
-          className={`text-primary font-medium flex align-center`}
-        >
-          <span>All Contests</span>
-          <ChevronRightIcon
-            width={20}
-            className="ml-1 -my-0.5"
-          />
-        </Link>
-      </div>
-      {tournomantsQuery.isError && (
-        <CustomCard
-          className="col-span-2"
-          defaultPadding
-        >
-          <DataStatus
-            status="searching"
-            title={`Error${tournomantsQuery.error instanceof Error ? `: ${tournomantsQuery.error.name}` : ""}`}
-            description={
-              tournomantsQuery.error instanceof Error ? tournomantsQuery.error.message : "Error loading tournaments."
-            }
-          />
-        </CustomCard>
-      )}
-      {tournomantsQuery.isLoading ? (
-        <div className="grid grid-cols-2 gap-4">
-          {Array.from({ length: 2 }).map((_, index) => (
-            <div
-              key={index}
-              className="bg-white rounded-md p-4 flex flex-col gap-3 items-center"
-            >
-              <Skeleton
-                width={120}
-                height={120}
-                className="rounded-md"
-              />
-              <Skeleton
-                variant="rectangular"
-                width={80}
-                height={36}
-                className="rounded-md mt-2"
-              />
-            </div>
-          ))}
-        </div>
-      ) : (
-        <CustomSwiper>
-          {tournaments?.map((tournament, idx) => (
-            <TournamentCard
-              key={`${tournament.id}-${idx}-1`}
-              tournament={tournament}
-            />
-          ))}
-        </CustomSwiper>
-      )}
-    </div>
-  );
-};
 
 const OngoingEvents = () => {
   const ongoingEvents = trpc.events.getEventsWithFilters.useQuery(

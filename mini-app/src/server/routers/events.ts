@@ -262,11 +262,21 @@ const listPaymentTokens = adminOrganizerProtectedProcedure.query(async () => {
 /*                                  🆕Add Event🆕                            */
 /* -------------------------------------------------------------------------- */
 // private
-const addEvent = adminOrganizerProtectedProcedure.input(z.object({ eventData: EventDataSchema })).mutation(async (opts) => {
+const addEvent = initDataProtectedProcedure.input(z.object({ eventData: EventDataSchema })).mutation(async (opts) => {
   const input_event_data = opts.input.eventData;
 
   const user_id = opts.ctx.user.user_id;
   const userCacheKey = getUserCacheKey(user_id);
+
+  // Auto-promote user to organizer role upon creating their first event
+  if (opts.ctx.user.role === "user") {
+    try {
+      await usersDB.updateUserRole(user_id, "organizer");
+    } catch (err) {
+      logger.error("Failed to auto-promote user to organizer:", err);
+    }
+  }
+
   const is_ts_verified = await organizerTsVerified(user_id);
   if (
     input_event_data.society_hub?.id &&

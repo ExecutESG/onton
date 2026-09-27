@@ -111,17 +111,13 @@ test.describe("Role: Guest - Ecosystem Discovery & Navigation", () => {
     await page.screenshot({ path: "test-results/screenshots/guest_g4_channels.png" });
   });
 
-  test("Flow G-5: Play2Win Tournaments & Global Leaderboard", async ({ page }) => {
+  test("Flow G-5: Retired Play2Win Route Graceful Redirection", async ({ page }) => {
     await page.goto(`${BASE_URL}/play-2-win`, { waitUntil: "networkidle" });
     await expect(page.locator("body")).toBeVisible();
 
-    // Step 1: Play2Win Header & Filters
-    await page.screenshot({ path: "test-results/screenshots/guest_g5_step1_header.png" });
-
-    // Step 2: Tournament Container
-    await page.evaluate(() => window.scrollBy(0, 300));
+    // Step 1: Verify redirect or clean landing
     await page.waitForTimeout(300);
-    await page.screenshot({ path: "test-results/screenshots/guest_g5_step2_games.png" });
+    await page.screenshot({ path: "test-results/screenshots/guest_g5_step1_redirect.png" });
     await page.screenshot({ path: "test-results/screenshots/guest_g5_play2win.png" });
   });
 

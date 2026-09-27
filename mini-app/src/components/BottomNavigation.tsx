@@ -4,7 +4,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useEffect } from "react";
 import CalendarIcon from "./icons/navigation/calendar-icon";
 import PeopleIcon from "./icons/navigation/people-icon";
-import PlayIcon from "./icons/navigation/play-icon";
 import UserIcon from "./icons/navigation/user-icon";
 import Typography from "./Typography";
 import { useUserStore } from "@/context/store/user.store";
@@ -26,11 +25,6 @@ const tabs: Tab[] = [
     title: "Channels",
     icon: <PeopleIcon />,
     urls: ["/channels"],
-  },
-  {
-    title: "Play2Win",
-    icon: <PlayIcon />,
-    urls: ["/play-2-win"],
   },
   {
     title: "My ONTON",

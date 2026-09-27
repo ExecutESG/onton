@@ -30,6 +30,15 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  async redirects() {
+    return [
+      { source: "/play-2-win", destination: "/", permanent: true },
+      { source: "/play-2-win/:path*", destination: "/", permanent: true },
+      { source: "/task-sample", destination: "/", permanent: true },
+      { source: "/sample", destination: "/", permanent: true },
+      { source: "/test", destination: "/", permanent: true },
+    ];
+  },
   async rewrites() {
     return [
       // Participant-TMA backward compatibility rewrites

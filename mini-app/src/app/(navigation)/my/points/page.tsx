@@ -138,21 +138,23 @@ export default function MyPointsPage() {
             </Link>
           </EventPointsGroup>
 
-          {/* Play‑to‑Win */}
-          <EventPointsGroup title="Play‑to‑Win Games">
-            <EventPointsCard
-              eventTitle="Paid play‑to‑win games"
-              tasksCount={paidP2W.data?.count ?? 0}
-              description={pts(10)}
-              totalPoints={Number(paidP2W.data?.total ?? 0)}
-            />
-            <EventPointsCard
-              eventTitle="Free play‑to‑win games"
-              tasksCount={freeP2W.data?.count ?? 0}
-              description={pts(1)}
-              totalPoints={Number(freeP2W.data?.total ?? 0)}
-            />
-          </EventPointsGroup>
+          {/* Play‑to‑Win (Historical points only) */}
+          {(Number(paidP2W.data?.total || 0) > 0 || Number(freeP2W.data?.total || 0) > 0) && (
+            <EventPointsGroup title="Play‑to‑Win Games">
+              <EventPointsCard
+                eventTitle="Paid play‑to‑win games"
+                tasksCount={paidP2W.data?.count ?? 0}
+                description={pts(10)}
+                totalPoints={Number(paidP2W.data?.total ?? 0)}
+              />
+              <EventPointsCard
+                eventTitle="Free play‑to‑win games"
+                tasksCount={freeP2W.data?.count ?? 0}
+                description={pts(1)}
+                totalPoints={Number(freeP2W.data?.total ?? 0)}
+              />
+            </EventPointsGroup>
+          )}
 
           {/* Organize */}
           <EventPointsGroup title="Organize Events">

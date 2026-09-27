@@ -41,11 +41,6 @@ const footerLinks = [
         target: "_blank",
       },
       {
-        text: "TON Society",
-        href: "https://society.ton.org/",
-        target: "_blank",
-      },
-      {
         text: "ONTON Community",
         href: "https://t.me/ontonsupport",
         target: "_blank",

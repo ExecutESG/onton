@@ -1,25 +1,25 @@
 window.PORTAL_DATA = {
   "meta": {
-    "generatedAt": "2026-09-26T17:05:31.435Z",
+    "generatedAt": "2026-09-27T06:58:45.577Z",
     "platform": "ONTON 2026 Production Readiness & Flaws Audit",
     "targetEnvironment": "https://app.dev.onton.live",
     "overallReadinessScore": 98,
     "marketingReady": true,
     "growthReady": true,
     "stats": {
-      "total": 20,
-      "passed": 20,
+      "total": 21,
+      "passed": 21,
       "failed": 0,
       "flaky": 0,
       "skipped": 0,
-      "durationMs": 2816.3680000000004
+      "durationMs": 5784.423
     },
     "rolesCount": 6,
     "totalFlows": 42,
     "passedFlows": 42,
     "failedFlows": 0,
     "videoCount": 55,
-    "screenshotCount": 296,
+    "screenshotCount": 302,
     "flawsCount": 26,
     "resolvedFlawsCount": 25,
     "openFlawsCount": 1,

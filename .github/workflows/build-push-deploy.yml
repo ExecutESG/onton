@@ -880,7 +880,7 @@ jobs:
         run: |
           TARGET_URL="https://app.dev.onton.live"
           if [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            TARGET_URL="https://onton.app"
+            TARGET_URL="https://app.onton.live"
           fi
           echo "Executing automated Playwright smoke verification gate against $TARGET_URL..."
           cd tests/e2e

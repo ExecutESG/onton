@@ -38,7 +38,7 @@ jobs:
         id: target
         run: |
           if [ "${{ github.event.inputs.target_env }}" == "production" ]; then
-            echo "url=https://onton.app" >> $GITHUB_OUTPUT
+            echo "url=https://app.onton.live" >> $GITHUB_OUTPUT
             echo "env_name=Production" >> $GITHUB_OUTPUT
           else
             echo "url=https://app.dev.onton.live" >> $GITHUB_OUTPUT

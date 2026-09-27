@@ -17,24 +17,33 @@ export const toIdComposer = new Composer<MyContext>();
   - "askText"   -> expecting multiline text
   - "done"      -> reset or finish
 */
-// 1) Admin Check Middleware
+// 1) Admin Check Middleware for /2id tool
 toIdComposer.use(async (ctx, next) => {
-  // If there's no user data (e.g. a channel post?), skip or block.
-  if (!ctx.from) {
-    // You could either silently skip or do something else:
-    return; // ignoring this update
+  const is2IdCommand = Boolean(ctx.hasCommand?.("2id") || ctx.message?.text?.startsWith("/2id"));
+  const is2IdCallback = Boolean(ctx.callbackQuery?.data?.startsWith("toid_"));
+  const is2IdSession = Boolean(ctx.session?.toIdStep);
+
+  // If this update is not related to the 2id tool, pass through immediately
+  if (!is2IdCommand && !is2IdCallback && !is2IdSession) {
+    return next();
   }
 
-  // Convert ID to string, call isUserAdmin
+  if (!ctx.from) {
+    return next();
+  }
+
   const userIdString = ctx.from.id.toString();
   const { isAdmin } = await isUserAdmin(userIdString);
 
   if (!isAdmin) {
-
-    return; // Stop here, do not proceed to next
+    if (is2IdCommand) {
+      await ctx.reply("You are not authorized to use the 2id admin tool.");
+    } else if (ctx.callbackQuery) {
+      await ctx.answerCallbackQuery({ text: "Unauthorized: Admin role required." });
+    }
+    return;
   }
 
-  // If admin, proceed
   return next();
 });
 /**

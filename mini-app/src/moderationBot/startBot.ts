@@ -27,17 +27,25 @@ import { handleDismissReport } from "./handlers/handleDismissReport";
 export async function startBot() {
   while (true) {
     const isValidToken = (token?: string | null): token is string => Boolean(token && !token.startsWith("$") && !token.includes("${"));
+    // Dedicated log/moderation bot tokens MUST come first so we never conflict with telegram-bot's main polling
     const BOT_TOKEN_LOGS =
-      [process.env.BOT_TOKEN, process.env.TELEGRAM_BOT_TOKEN, process.env.BOT_TOKEN_LOGS, configProtected?.bot_token_logs].find(isValidToken);
+      [
+        process.env.TG_LOG_BOT_TOKEN,
+        process.env.BOT_TOKEN_LOGS,
+        configProtected?.bot_token_logs,
+        // Only fallback to BOT_TOKEN if explicitly enabled or in non-production local development
+        process.env.RUN_MODERATION_ON_MAIN_BOT === "true" ? process.env.BOT_TOKEN : undefined,
+      ].find(isValidToken);
+
     const LOGS_GROUP_ID =
       process.env.MODERATION_GROUP_ID ||
       process.env.LOGS_GROUP_ID ||
       configProtected?.logs_group_id;
 
     if (!BOT_TOKEN_LOGS || !LOGS_GROUP_ID) {
-      logger.error("Bot token or logs group ID not found in configProtected or env");
-      logger.error("Retrying in 5 seconds...");
-      await sleep(5000);
+      logger.error("Dedicated moderation bot token or logs group ID not found. Waiting before retry...");
+      logger.error("Retrying in 10 seconds...");
+      await sleep(10000);
       continue;
     }
 

@@ -77,6 +77,10 @@ export const bot = new Bot<MyContext>(process.env.BOT_TOKEN || "");
     });
 
 
+    // --- TELEGRAM STARS PAYMENT HANDLERS (CRITICAL: MUST PRECEDE ALL COMPOSERS) ---
+    bot.on("pre_checkout_query", handleStarsPreCheckout);
+    bot.on(":successful_payment", handleStarsSuccessfulPayment);
+
     // 3) Register commands, handlers, etc.
     bot.command("update_profiles", updateAdminOrganizerProfilesHandler);
     bot.command("org", orgHandler);
@@ -96,10 +100,6 @@ export const bot = new Bot<MyContext>(process.env.BOT_TOKEN || "");
     });
 
     bot.use(mainComposer);
-
-    // Stars payment handlers
-    bot.on("pre_checkout_query", handleStarsPreCheckout);
-    bot.on(":successful_payment", handleStarsSuccessfulPayment);
 
     bot.catch((e) => console.log(e));
 

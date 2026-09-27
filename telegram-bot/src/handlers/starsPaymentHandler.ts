@@ -44,7 +44,7 @@ export async function handleStarsSuccessfulPayment(ctx: MyContext) {
       `UPDATE orders
        SET state = 'completed',
            trx_hash = $1,
-           "updatedAt" = NOW(),
+           updated_at = NOW(),
            updated_by = 'stars_payment'
        WHERE uuid = $2
        RETURNING *`,
@@ -65,7 +65,7 @@ export async function handleStarsSuccessfulPayment(ctx: MyContext) {
     const regRes = await client.query(
       `UPDATE event_registrants
        SET status = 'approved',
-           "updatedAt" = NOW(),
+           updated_at = NOW(),
            updated_by = 'stars_payment'
        WHERE event_uuid = $1 AND user_id = $2
        RETURNING id, registrant_uuid, register_info`,
@@ -94,8 +94,8 @@ export async function handleStarsSuccessfulPayment(ctx: MyContext) {
       const ticketId = payInfoRes.rows[0]?.id || 1;
 
       await client.query(
-        `INSERT INTO tickets (name, telegram, company, position, order_uuid, status, event_uuid, event_ticket_id, user_id, updated_by)
-         VALUES ($1, $2, $3, $4, $5, 'UNUSED', $6, $7, $8, 'stars_payment')
+        `INSERT INTO tickets (name, telegram, company, position, order_uuid, status, event_uuid, event_ticket_id, user_id, updated_by, updated_at)
+         VALUES ($1, $2, $3, $4, $5, 'UNUSED', $6, $7, $8, 'stars_payment', NOW())
          ON CONFLICT DO NOTHING`,
         [
           registerInfo.full_name || ctx.from?.first_name || "",

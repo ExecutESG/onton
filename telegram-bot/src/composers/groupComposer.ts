@@ -82,7 +82,7 @@ groupComposer.command("invitor", async (ctx) => {
   }
 
   if (!eventsList || !eventsList.length) {
-    await ctx.reply("No upcoming online events with registration found for you.");
+    await ctx.reply("No upcoming events with registration found for you.");
     return;
   }
 

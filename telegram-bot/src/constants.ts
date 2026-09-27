@@ -1,6 +1,22 @@
 import "dotenv/config";
 
-export const BOT_TOKEN = process.env.BOT_TOKEN || "";
+function resolveBotToken(): string {
+  const candidates = [
+    process.env.TELEGRAM_BOT_TOKEN,
+    process.env.BOT_TOKEN,
+  ];
+  for (const c of candidates) {
+    if (c && !c.includes("${") && c.includes(":")) {
+      return c.trim();
+    }
+  }
+  return "";
+}
+
+export const BOT_TOKEN = resolveBotToken();
+if (BOT_TOKEN) {
+  process.env.BOT_TOKEN = BOT_TOKEN;
+}
 export const JWT_SECRET = process.env.ONTON_API_SECRET || ""; // for signing upload auth
 export const API_BASE_URL = process.env.NEXT_PUBLIC_APP_BASE_URL || "";
 // 5 requests/second => 200 ms per request for update profiles

@@ -4,7 +4,7 @@ import express from "express";
 import fileUpload from "express-fileupload";
 import { Bot, session } from "grammy";
 import { mainComposer } from "./composers";
-import { RATE_LIMIT_OPTIONS } from "./constants";
+import { BOT_TOKEN, RATE_LIMIT_OPTIONS } from "./constants";
 import { checkBotAdminHandler } from "./controllers/checkBotAdminHandler";
 import { createInviteLinkHandler } from "./controllers/createInviteLinkHandler";
 import { deleteInviteLinkHandler } from "./controllers/deleteInviteLinkHandler";
@@ -35,7 +35,7 @@ import { createStarsInvoiceHandler } from "./controllers/starsInvoiceHandler";
 import { handleStarsPreCheckout, handleStarsSuccessfulPayment } from "./handlers/starsPaymentHandler";
 
 import { startPollSenderCron } from "./cronJobs/initializer";
-export const bot = new Bot<MyContext>(process.env.BOT_TOKEN || "");
+export const bot = new Bot<MyContext>(BOT_TOKEN);
 
 (async function bootstrap() {
   try {

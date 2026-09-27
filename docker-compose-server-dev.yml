@@ -175,9 +175,10 @@ services:
       - onton-network
 
   mini-app-ordinary-worker:
-    image: ghcr.io/executesg/onton/mini-app-ordinary-worker:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
     hostname: mini-app-ordinary-worker
     <<: *default-extra-hosts
+    command: [ "yarn", "run", "start-cron-ordinary" ]
     deploy:
       resources:
         limits:
@@ -190,9 +191,10 @@ services:
       - onton-network
 
   mini-app-reward-worker:
-    image: ghcr.io/executesg/onton/mini-app-reward-worker:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
     hostname: mini-app-reward-worker
     <<: *default-extra-hosts
+    command: [ "yarn", "run", "start-cron-reward" ]
     deploy:
       resources:
         limits:
@@ -205,9 +207,10 @@ services:
       - onton-network
 
   mini-app-poa-worker:
-    image: ghcr.io/executesg/onton/mini-app-poa-worker:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
     hostname: mini-app-poa-worker
     <<: *default-extra-hosts
+    command: [ "yarn", "run", "start:poa" ]
     deploy:
       resources:
         limits:
@@ -220,9 +223,10 @@ services:
       - onton-network
 
   mini-app-sbt-worker:
-    image: ghcr.io/executesg/onton/mini-app-sbt-worker:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
     hostname: mini-app-sbt-worker
     <<: *default-extra-hosts
+    command: [ "yarn", "run", "start-cron-payment" ]
     deploy:
       resources:
         limits:
@@ -235,9 +239,10 @@ services:
       - onton-network
 
   mini-app-nft-api-worker:
-    image: ghcr.io/executesg/onton/mini-app-nft-api-worker:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
     hostname: mini-app-nft-api-worker
     <<: *default-extra-hosts
+    command: [ "yarn", "run", "local:start-cron-nft-api" ]
     deploy:
       resources:
         limits:
@@ -249,25 +254,10 @@ services:
     networks:
       - onton-network
 
-  mini-app-moderation-bot:
-    image: ghcr.io/executesg/onton/mini-app-moderation-bot:${BRANCH_NAME}-latest
-    hostname: mini-app-moderation-bot
-    <<: *default-extra-hosts
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: "0.2"
-      replicas: 1
-    command: [ "yarn", "run", "start:moderation" ]
-    environment:
-      <<: *common-env
-    networks:
-      - onton-network
-
   mini-app-notification-socket:
-    image: ghcr.io/executesg/onton/mini-app-notification-socket:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
     hostname: mini-app-notification-socket
+    command: [ "yarn", "run", "start:socket" ]
     ports:
       - "127.0.0.1:${SOCKET_PORT}:${SOCKET_PORT}"
     <<: *default-extra-hosts

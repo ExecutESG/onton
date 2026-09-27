@@ -348,7 +348,7 @@ services:
 
   mini-app-sbt-worker:
     hostname: mini-app-sbt-worker
-    image: ghcr.io/executesg/onton/mini-app-sbt-worker:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
     <<: *default-extra-hosts
     deploy:
       resources:
@@ -392,7 +392,7 @@ services:
 
   mini-app-nft-api-worker:
     hostname: mini-app-nft-api-worker
-    image: ghcr.io/executesg/onton/mini-app-nft-api-worker:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
     <<: *default-extra-hosts
     deploy:
       resources:
@@ -437,7 +437,7 @@ services:
 
   mini-app-reward-worker:
     hostname: mini-app-reward-worker
-    image: ghcr.io/executesg/onton/mini-app-reward-worker:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
     <<: *default-extra-hosts
     deploy:
       resources:
@@ -481,7 +481,7 @@ services:
 
   mini-app-ordinary-worker:
     hostname: mini-app-ordinary-worker
-    image: ghcr.io/executesg/onton/mini-app-ordinary-worker:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
     <<: *default-extra-hosts
     deploy:
       resources:
@@ -523,53 +523,9 @@ services:
         tag: "docker.${BRANCH_NAME}-mini-app-ordinary-worker"
         #fluentd-async-connect: "true"
 
-  mini-app-moderation-bot:
-    hostname: mini-app-moderation-bot
-    image: ghcr.io/executesg/onton/mini-app-moderation-bot:${BRANCH_NAME}-latest
-    <<: *default-extra-hosts
-    deploy:
-      resources:
-        limits:
-          memory: 2000M
-          cpus: "1.0"
-      mode: global
-      update_config:
-        failure_action: rollback
-        order: stop-first
-      restart_policy:
-        condition: on-failure
-        delay: 10s
-        max_attempts: 20
-        window: 40s
-    stop_grace_period: 10s
-    stop_signal: SIGTERM
-    environment:
-      <<: *common-env
-      MNEMONIC: ${MNEMONIC}
-      TON_SOCIETY_API_KEY: ${TON_SOCIETY_API_KEY}
-      TON_SOCIETY_BASE_URL: ${TON_SOCIETY_BASE_URL}
-    depends_on:
-      - postgres
-      - redis
-      - minio
-      - fluentd
-    volumes:
-      - drizzle_data_cron:/app/drizzle
-    networks:
-      - onton-network
-    command: [ "yarn", "run", "start:moderation" ]
-    secrets:
-      - registry-onton-config
-    logging:
-      driver: "fluentd"
-      options:
-        fluentd-address: "127.0.0.1:24224"
-        tag: "docker.${BRANCH_NAME}-mini-app-moderation-bot"
-        #fluentd-async-connect: "true"
-
   mini-app-poa-worker:
     hostname: mini-app-poa-worker
-    image: ghcr.io/executesg/onton/mini-app-poa-worker:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
     <<: *default-extra-hosts
     deploy:
       resources:
@@ -615,7 +571,7 @@ services:
 
   mini-app-notification-socket:
     hostname: mini-app-notification-socket
-    image: ghcr.io/executesg/onton/mini-app-notification-socket:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
     <<: *default-extra-hosts
     ports:
       - "${SOCKET_PORT}:${SOCKET_PORT}"

@@ -361,30 +361,8 @@ services:
       - onton-network
     command: [ "yarn", "run", "start-cron-ordinary" ]
 
-  mini-app-moderation-bot:
-    hostname: mini-app-moderation-bot
-    container_name: ${ENV}-mini-app-moderation-bot
-    build:
-      context: ./mini-app
-      target: production
-      args:
-        <<: *common-env
-    restart: "unless-stopped"
-    stop_grace_period: 10s
-    stop_signal: SIGTERM
-    profiles:
-      - full
-    environment:
-      <<: *common-env
-    depends_on:
-      - postgres
-      - redis
-    volumes:
-      - ./data/drizzle_data:/app/drizzle
-    networks:
-      - onton-network
-    command: [ "yarn", "run", "start:moderation" ]
   mini-app-poa-worker:
+
     hostname: mini-app-poa-worker
     container_name: ${ENV}-mini-app-poa-worker
     build:

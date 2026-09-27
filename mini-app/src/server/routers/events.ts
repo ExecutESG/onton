@@ -5,6 +5,8 @@ import eventFieldsDB from "@/db/modules/eventFields.db";
 import { eventRegistrantsDB } from "@/db/modules/eventRegistrants.db";
 import eventDB from "@/db/modules/events.db";
 import eventTokensDB from "@/db/modules/eventTokens.db";
+import eventTicketTiersDB from "@/db/modules/eventTicketTiers.db";
+import { EventTicketTierRow } from "@/db/schema/eventTicketTiers";
 import { organizerTsVerified, userHasModerationAccess } from "@/db/modules/userFlags.db";
 import { userRolesDB } from "@/db/modules/userRoles.db";
 import { getUserCacheKey, usersDB } from "@/db/modules/users.db";
@@ -63,6 +65,7 @@ const getEvent = publicProcedure.input(z.object({ event_uuid: z.string() })).que
   let eventData = {
     payment_details: {} as PaymentDetailsWithToken,
     category: {} as EventCategoryRow,
+    ticket_tiers: [] as EventTicketTierRow[],
     ...(await eventDB.selectEventByUuid(event_uuid)),
   };
   let capacity_filled = false;
@@ -153,23 +156,28 @@ const getEvent = publicProcedure.input(z.object({ event_uuid: z.string() })).que
   const userIsAdminOrOwner = userId ? (eventData.owner == userId || userRole == "admin") : false;
   let mask_event_capacity = !userIsAdminOrOwner;
 
-  if (userIsAdminOrOwner) {
-    //event payment info
-    if (eventData.has_payment) {
-      const payment_details = (
-        await db.select().from(eventPayment).where(eq(eventPayment.event_uuid, event_uuid)).execute()
-      ).pop();
-      if (!payment_details) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Event Payment Data Not found (Corrupted Event)",
-        });
-      }
+  // Event payment info & ticket tiers (public pricing for all attendees)
+  try {
+    eventData.ticket_tiers = await eventTicketTiersDB.getTiersByEventUuid(event_uuid);
+  } catch (err) {
+    logger.warn(`Failed to fetch ticket tiers for ${event_uuid}:`, err);
+  }
+
+  if (eventData.has_payment) {
+    const payment_details = (
+      await db.select().from(eventPayment).where(eq(eventPayment.event_uuid, event_uuid)).execute()
+    ).pop();
+    if (payment_details) {
       const token = await eventTokensDB.getTokenById(payment_details.token_id);
       eventData.payment_details = {
         ...payment_details,
         token,
       };
+    } else if (userIsAdminOrOwner) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Event Payment Data Not found (Corrupted Event)",
+      });
     }
   }
 

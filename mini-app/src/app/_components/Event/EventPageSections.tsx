@@ -119,10 +119,36 @@ const EventWebsiteLink = React.memo(() => {
 EventCategory.displayName = "EventWebsiteLink";
 
 const EventTicketPrice = React.memo(() => {
+  const { eventData } = useEventData();
+  const tiers = (eventData.data?.ticket_tiers as Array<{ price: number }>) || [];
+
+  let priceDisplay = "Free";
+  if (tiers.length > 0) {
+    const prices = tiers.map((t) => Number(t.price || 0));
+    const minPrice = Math.min(...prices);
+    const maxPrice = Math.max(...prices);
+    if (maxPrice === 0) {
+      priceDisplay = "Free";
+    } else if (minPrice === 0) {
+      priceDisplay = `Free – ⭐ ${maxPrice}`;
+    } else if (minPrice === maxPrice) {
+      priceDisplay = `⭐ ${minPrice}`;
+    } else {
+      priceDisplay = `From ⭐ ${minPrice}`;
+    }
+  } else if (eventData.data?.has_payment) {
+    const ticket = eventData.data?.payment_details;
+    const price = Number(ticket?.price || 0);
+    const symbol = ticket?.token?.symbol || (ticket?.ticket_type === "TSCSBT" ? "⭐" : "TON");
+    if (price > 0) {
+      priceDisplay = symbol === "STAR" || symbol === "⭐" ? `⭐ ${price}` : `${price} ${symbol}`;
+    }
+  }
+
   return (
     <EventKeyValue
       label="Ticket Price"
-      value={"Free"}
+      value={priceDisplay}
     />
   );
 });
@@ -212,8 +238,11 @@ const EventRegistrationStatus = () => {
   const capacityFilled = Boolean(eventData.data?.capacity_filled);
   const hasWaitingList = Boolean(eventData.data?.has_waiting_list);
 
+  const tiers = (eventData.data?.ticket_tiers as Array<{ price: number }>) || [];
+  const hasPaidTiers = tiers.some((t) => Number(t.price || 0) > 0);
   const isPaid = Boolean(
     eventData.data?.has_payment ||
+      hasPaidTiers ||
       (eventData.data?.payment_details?.price && eventData.data.payment_details.price > 0)
   );
 
@@ -433,8 +462,11 @@ const MainButtonHandler = React.memo(() => {
 
   const registrantStatus = eventData.data?.registrant_status ?? "";
   const isRegistered = ["approved", "checkedin"].includes(registrantStatus);
+  const tiers = (eventData.data?.ticket_tiers as Array<{ price: number }>) || [];
+  const hasPaidTiers = tiers.some((t) => Number(t.price || 0) > 0);
   const isPaid = Boolean(
     eventData.data?.has_payment ||
+      hasPaidTiers ||
       (eventData.data?.payment_details?.price && eventData.data.payment_details.price > 0)
   );
 
@@ -456,11 +488,28 @@ const MainButtonHandler = React.memo(() => {
     );
   }
 
-  // Paid event: user hasn't bought ticket yet → checkout
+  // Paid or tiered event: user hasn't bought ticket yet → checkout
   if (isPaid && !isRegistered && isNotEnded) {
-    const price = eventData.data?.payment_details?.price ?? 0;
-    const symbol = eventData.data?.payment_details?.token?.symbol ?? "";
-    const label = price > 0 ? `Buy Ticket — ${price} ${symbol}` : "Get Free Ticket";
+    let label = "Get Tickets";
+    if (tiers.length > 0) {
+      const prices = tiers.map((t) => Number(t.price || 0));
+      const minPrice = Math.min(...prices);
+      const maxPrice = Math.max(...prices);
+      if (maxPrice === 0) {
+        label = "Get Free Ticket";
+      } else if (minPrice === 0) {
+        label = "Get Tickets";
+      } else if (minPrice === maxPrice) {
+        label = `Buy Ticket — ⭐ ${minPrice}`;
+      } else {
+        label = `Get Tickets — From ⭐ ${minPrice}`;
+      }
+    } else {
+      const price = Number(eventData.data?.payment_details?.price ?? 0);
+      const symbol = eventData.data?.payment_details?.token?.symbol ?? "TON";
+      label = price > 0 ? `Buy Ticket — ${price} ${symbol}` : "Get Free Ticket";
+    }
+
     return (
       <MainButton
         text={label}
@@ -594,13 +643,18 @@ const ContextualWalletSection = React.memo(() => {
   const hasWallet = Boolean(tonWallet?.account.address);
   const registrantStatus = eventData.data?.registrant_status ?? "";
   const isRegistered = registrantStatus !== "" && registrantStatus !== "rejected";
+  const tiers = (eventData.data?.ticket_tiers as Array<{ price: number; ticket_type: string }>) || [];
+  const hasPaidTiers = tiers.some((t) => Number(t.price || 0) > 0);
   const isPaid = Boolean(
     eventData.data?.has_payment ||
+      hasPaidTiers ||
       (eventData.data?.payment_details?.price && eventData.data.payment_details.price > 0)
   );
   const hasSbt = Boolean(eventData.data?.sbt_collection_address);
 
-  const isStarsOnly = eventData.data?.payment_details?.token?.symbol === "STAR";
+  const isStarsOnly =
+    eventData.data?.payment_details?.token?.symbol === "STAR" ||
+    (tiers.length > 0 && tiers.every((t) => Number(t.price) === 0 || t.ticket_type === "TSCSBT"));
 
   // 1. If user already has a connected wallet, show the standard wallet card
   if (hasWallet) {

@@ -21,13 +21,13 @@ import DataStatus from "../molecules/alerts/DataStatus";
 import { ConnectWalletCard } from "../organisms/ConnectWallet";
 import EventKeyValue from "../organisms/events/EventKewValue";
 import ShareEventButton from "../ShareEventButton";
-import { ClaimRewardButton } from "./ClaimRewardButton";
+import { ClaimSbtButton } from "@/app/tickets/[id]/_components/ClaimSbtButton";
+import { trpc } from "@/app/_trpc/client";
 import ReportEventButton from "./ReportEventButton";
 import { EventActions } from "./EventActions";
 import { useEventData } from "./eventPageContext";
 import { EventPasswordAndWalletInput } from "./EventPasswordInput";
 import { ManageEventButton } from "./ManageEventButton";
-import PreRegistrationTasks from "./PreRegistrationTasks";
 import UserRegisterForm from "./UserRegisterForm";
 
 // Base components with memoization where beneficial
@@ -477,6 +477,17 @@ const MainButtonHandler = React.memo(() => {
   const isOnlineEvent = eventData.data?.participationType === "online";
   const isCheckedIn = eventData.data?.registrant_status === "checkedin" || isOnlineEvent;
   const isEventActive = isStarted && isNotEnded;
+  const hasSbt = Boolean(eventData.data?.sbt_collection_address);
+
+  const badgeStatus = trpc.sbt.getAttendeeBadgeStatus.useQuery(
+    {
+      eventUuid: eventData.data?.event_uuid ?? "",
+      registrantUuid: eventData.data?.registrant_uuid || undefined,
+    },
+    {
+      enabled: Boolean(isCheckedIn && hasSbt && eventData.data?.event_uuid),
+    }
+  );
 
   // Paid event: user has ticket → view ticket pass
   if (isPaid && isRegistered && isNotEnded) {
@@ -518,17 +529,29 @@ const MainButtonHandler = React.memo(() => {
     );
   }
 
-  if (userCompletedTasks && hasEnteredPassword) {
-    if (isCheckedIn) {
+  // Checked in attendee: directly claim or view attendance SBT badge
+  if (isCheckedIn && hasEnteredPassword) {
+    if (hasSbt) {
       return (
-        <PreRegistrationTasks>
-          <ClaimRewardButton
-            initData={initData}
-            eventId={eventData.data?.event_uuid ?? ""}
-          />
-        </PreRegistrationTasks>
+        <ClaimSbtButton
+          ticketUuid={eventData.data?.registrant_uuid}
+          rewardLink={badgeStatus.data?.rewardLink}
+          isMinted={badgeStatus.data?.status === "minted"}
+        />
       );
-    } else if (isEventActive && eventData.data?.registrant_uuid) {
+    }
+    return (
+      <MainButton
+        text="Checked In ✅"
+        disabled
+        color="secondary"
+      />
+    );
+  }
+
+  // Approved attendee before check-in: show QR pass to check in
+  if (userCompletedTasks && hasEnteredPassword) {
+    if (isEventActive && eventData.data?.registrant_uuid) {
       return (
         <MainButton
           text="Check In"

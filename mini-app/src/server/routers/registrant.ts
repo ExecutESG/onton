@@ -8,6 +8,7 @@ import rewardDB from "@/db/modules/rewards.db";
 import { getUserCacheKey } from "@/db/modules/users.db";
 import visitorsDB, { addVisitor } from "@/db/modules/visitors.db";
 import telegramService from "@/services/telegramService";
+import { sendTelegramMessage } from "@/lib/tgBot";
 import { eventManagementProtectedProcedure as evntManagerPP, initDataProtectedProcedure, router } from "@/server/trpc";
 import { logger } from "@/server/utils/logger";
 import { LinkService } from "@/lib/links/linkService";
@@ -55,13 +56,13 @@ const checkinRegistrantRequest = evntManagerPP
       if (!registrant) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: `Registrant Not Found/Invalid for ${event_uuid} and registrant_uuid ${registrant_uuid}`,
+          message: "Attendee pass not found or invalid",
         });
       }
       if (registrant.event_uuid !== event_uuid) {
         throw new TRPCError({
           code: "CONFLICT",
-          message: `Registrant Not for this event ${event_uuid} and registrant_uuid ${registrant_uuid}`,
+          message: "This attendee pass belongs to a different event",
         });
       }
 
@@ -71,7 +72,7 @@ const checkinRegistrantRequest = evntManagerPP
       if (registrant.status !== "approved") {
         throw new TRPCError({
           code: "CONFLICT",
-          message: `Registrant Not Approved for this event ${event_uuid} and registrant_uuid ${registrant_uuid}`,
+          message: "Registrant is not approved for this event",
         });
       }
 
@@ -100,6 +101,25 @@ const checkinRegistrantRequest = evntManagerPP
         })
         .where(eq(eventRegistrants.registrant_uuid, registrant_uuid))
         .execute();
+
+      // Send instant check-in Telegram notification to attendee
+      try {
+        const botUsername = process.env.NEXT_PUBLIC_BOT_USERNAME || "notnonstagebot";
+        const claimLink = `https://t.me/${botUsername}/event?startapp=${event_uuid}`;
+        const hasSbtBadge = Boolean(event.sbt_collection_address);
+        const notificationMsg = hasSbtBadge
+          ? `🎉 You're Checked In!\n\nWelcome to ${event.title}! You are now eligible to claim your official Soulbound Proof of Attendance badge (SBT).\n\nTap below to connect your TON wallet and claim your badge.`
+          : `🎉 You're Checked In!\n\nWelcome to ${event.title}! Your attendance has been successfully confirmed.`;
+
+        await sendTelegramMessage({
+          chat_id: userId,
+          message: notificationMsg,
+          link: hasSbtBadge ? claimLink : undefined,
+          linkText: hasSbtBadge ? "Claim SBT Badge 🎖️" : undefined,
+        });
+      } catch (tgErr) {
+        logger.error(`CHECKIN::Notification failed for user ${userId} and event ${event_uuid}`, tgErr);
+      }
 
       const final_message = event.has_payment ? "Reward Link will be sent to user" : "User can claim reward on the event page";
       return { code: 200, message: final_message };

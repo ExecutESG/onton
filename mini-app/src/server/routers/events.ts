@@ -7,7 +7,7 @@ import eventDB from "@/db/modules/events.db";
 import eventTokensDB from "@/db/modules/eventTokens.db";
 import eventTicketTiersDB from "@/db/modules/eventTicketTiers.db";
 import { EventTicketTierRow } from "@/db/schema/eventTicketTiers";
-import { organizerTsVerified, userHasModerationAccess } from "@/db/modules/userFlags.db";
+import { userHasModerationAccess } from "@/db/modules/userFlags.db";
 import { userRolesDB } from "@/db/modules/userRoles.db";
 import { getUserCacheKey, usersDB } from "@/db/modules/users.db";
 import { EventCategoryRow, eventFields, eventPayment, events, orders } from "@/db/schema";
@@ -105,7 +105,7 @@ const getEvent = publicProcedure.input(z.object({ event_uuid: z.string() })).que
   //    We'll rename org_* fields to 'organizer: { ... }' in the returned object.
   const ownerUserId = eventData.owner; // This is the user_id who created the event
   const ownerUser = await usersDB.selectUserById(Number(ownerUserId));
-  const is_ts_verified = await organizerTsVerified(Number(ownerUserId));
+  const is_ts_verified = false;
 
   // Build an organizer object with the org_* fields (or null if no user found)
   const organizer = ownerUser
@@ -277,13 +277,6 @@ const addEvent = initDataProtectedProcedure.input(z.object({ eventData: EventDat
     }
   }
 
-  const is_ts_verified = await organizerTsVerified(user_id);
-  if (
-    input_event_data.society_hub?.id &&
-    !is_ts_verified &&
-    !NonVerifiedHubsIds.includes(input_event_data.society_hub.id)
-  )
-    throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid HUBS for non verified organizer" });
   const category = await eventCategoriesDB.fetchCategoryById(input_event_data.category_id);
   if (!category || !category.enabled) {
     throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid or disabled category" });
@@ -604,9 +597,9 @@ const updateEvent = eventManagerPP
 
         const canUpdateRegistrationSetting = oldEvent.has_registration;
         const is_paid = oldEvent.has_payment;
-        const is_ts_verified = await organizerTsVerified(user_id);
+        const is_ts_verified = false;
         const canSendModerationMessage = Boolean(
-          oldEvent.moderationMessageId && !is_paid && !is_ts_verified && !oldEvent.activity_id
+          oldEvent.moderationMessageId && !is_paid && !oldEvent.activity_id
         );
 
         /* -------------------------------------------------------------------------- */

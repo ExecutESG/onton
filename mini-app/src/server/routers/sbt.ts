@@ -50,6 +50,57 @@ export const sbtRouter = router({
       return result;
     }),
 
+  getAttendeeBadgeStatus: publicProcedure
+    .input(
+      z.object({
+        eventUuid: z.string(),
+        userId: z.number().optional(),
+        registrantUuid: z.string().optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      let resolvedUserId = input.userId;
+      if (!resolvedUserId && input.registrantUuid) {
+        const ticket = await ticketDB.getTicketByUuid(input.registrantUuid);
+        resolvedUserId = ticket?.user_id || undefined;
+      }
+      if (!resolvedUserId) {
+        return null;
+      }
+
+      const item = await sbtDB.findUserSbtForEvent(resolvedUserId, input.eventUuid);
+      if (item && item.status === "minted") {
+        return {
+          status: "minted",
+          itemAddress: item.itemAddress,
+          rewardLink: `https://tonviewer.com/${item.itemAddress}`,
+        };
+      }
+
+      // Check fallback reward row
+      const visitor = await visitorsDB.findVisitorByUserAndEvent(resolvedUserId, input.eventUuid);
+      if (visitor) {
+        const rewardRow = await rewardDB.checkExistingRewardWithType(visitor.id, "ton_society_sbt");
+        if (rewardRow) {
+          const rewardData = rewardRow.data as { reward_link?: string; sbt_address?: string } | null;
+          const isMinted = rewardRow.status === "created" || Boolean(rewardData?.reward_link);
+          if (isMinted && rewardData?.reward_link) {
+            return {
+              status: "minted",
+              itemAddress: rewardData.sbt_address || null,
+              rewardLink: rewardData.reward_link,
+            };
+          }
+        }
+      }
+
+      return {
+        status: "eligible",
+        itemAddress: null,
+        rewardLink: null,
+      };
+    }),
+
   mintBadge: publicProcedure
     .input(
       z.object({

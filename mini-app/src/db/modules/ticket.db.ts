@@ -242,7 +242,7 @@ export const fetchTicketPassByEventUuid = async (eventUuid: string, userId: numb
     .limit(1)
     .execute();
 
-  if (!paymentInfo[0]) return null;
+  const payment = paymentInfo[0] || null;
 
   // 3. Get NFT address if exists
   const nft = await db
@@ -258,6 +258,7 @@ export const fetchTicketPassByEventUuid = async (eventUuid: string, userId: numb
       title: events.title,
       subtitle: events.subtitle,
       description: events.description,
+      image_url: events.image_url,
       sbt_collection_address: events.sbt_collection_address,
       participationType: events.participationType,
       location: events.location,
@@ -273,7 +274,7 @@ export const fetchTicketPassByEventUuid = async (eventUuid: string, userId: numb
 
   // 5. Get SBT reward if ticket type is TSCSBT
   let userSbtTicket: { data: { reward_link?: string } | null } | undefined;
-  if (paymentInfo[0].ticket_type === "TSCSBT") {
+  if (payment?.ticket_type === "TSCSBT") {
     const visitor = await db
       .select({ id: visitors.id })
       .from(visitors)
@@ -365,11 +366,11 @@ export const fetchTicketPassByEventUuid = async (eventUuid: string, userId: numb
     meetingUrl,
     attendanceSbt,
     ticketData: {
-      ticketImage: paymentInfo[0].ticketImage ?? "",
+      ticketImage: payment?.ticketImage || event[0]?.image_url || "",
       eventTitle: event[0]?.title ?? "",
       eventSubtitle: event[0]?.subtitle ?? null,
       eventDescription: event[0]?.description ?? "",
-      collectionAddress: paymentInfo[0].collectionAddress ?? event[0]?.sbt_collection_address ?? null,
+      collectionAddress: payment?.collectionAddress ?? event[0]?.sbt_collection_address ?? null,
     },
     userSbtTicket,
   };

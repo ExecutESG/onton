@@ -97,6 +97,32 @@ export async function POST(req: NextRequest) {
       ? `${subfolder}/${filePrefix()}${formFile.originalFilename}`
       : `${filePrefix()}${formFile.originalFilename}`;
 
+    // Ensure bucket exists and has public read policy for public metadata buckets like sbt-collections
+    try {
+      const exists = await minioClient.bucketExists(bucketName);
+      if (!exists) {
+        await minioClient.makeBucket(bucketName);
+      }
+      if (bucketName === 'sbt-collections') {
+        const publicReadPolicy = JSON.stringify({
+          Version: "2012-10-17",
+          Statement: [
+            {
+              Sid: "PublicReadGetObject",
+              Effect: "Allow",
+              Principal: "*",
+              Action: ["s3:GetObject"],
+              Resource: [`arn:aws:s3:::${bucketName}/*`],
+            },
+          ],
+        });
+        await minioClient.setBucketPolicy(bucketName, publicReadPolicy);
+      }
+    } catch (bucketErr) {
+      // Non-fatal: log and proceed
+      console.warn(`upload-json: Bucket check/policy update failed for ${bucketName}:`, bucketErr);
+    }
+
     // Upload to MinIO
     await minioClient.putObject(bucketName, finalFilename, fileData, formFile.size, {
       'Content-Type': 'application/json',

@@ -15,5 +15,24 @@ export async function ensureBucketsExist(bucketNames: string[], region?: string)
     if (!exists) {
       await minioClient.makeBucket(bucket, region);
     }
+
+    try {
+      const publicReadPolicy = JSON.stringify({
+        Version: "2012-10-17",
+        Statement: [
+          {
+            Sid: "PublicReadGetObject",
+            Effect: "Allow",
+            Principal: "*",
+            Action: ["s3:GetObject"],
+            Resource: [`arn:aws:s3:::${bucket}/*`],
+          },
+        ],
+      });
+      await minioClient.setBucketPolicy(bucket, publicReadPolicy);
+    } catch (policyErr) {
+      // Non-fatal if policy cannot be updated
+      console.warn(`ensureBucketsExist: could not set public policy for bucket ${bucket}:`, policyErr);
+    }
   }
 }

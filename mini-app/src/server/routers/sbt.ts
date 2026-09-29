@@ -9,6 +9,12 @@ import visitorsDB from "@/db/modules/visitors.db";
 import rewardDB from "@/db/modules/rewards.db";
 import { logger } from "../utils/logger";
 import { TRPCError } from "@trpc/server";
+import { is_mainnet } from "@/services/tonCenter";
+
+export function getExplorerLink(address: string): string {
+  const domain = is_mainnet ? "tonviewer.com" : "testnet.tonviewer.com";
+  return `https://${domain}/${address}`;
+}
 
 export const sbtRouter = router({
   getEventCollection: publicProcedure
@@ -23,7 +29,21 @@ export const sbtRouter = router({
   getUserBadges: publicProcedure
     .input(z.object({ userId: z.number() }))
     .query(async ({ input }) => {
-      const badges = await sbtDB.findUserSbtItems(input.userId);
+      const rows = await sbtDB.findUserSbtItemsWithEvent(input.userId);
+      const badges = rows.map((r) => ({
+        ...r.item,
+        explorerUrl: getExplorerLink(r.item.itemAddress),
+        collectionName: r.collection.name,
+        collectionAddress: r.collection.collectionAddress,
+        eventTitle: r.eventTitle,
+        eventImage: r.eventImage,
+        eventStartDate: r.eventStartDate,
+        eventEndDate: r.eventEndDate,
+        eventDateFrom: r.eventStartDate ? new Date(r.eventStartDate) : null,
+        eventDateTo: r.eventEndDate ? new Date(r.eventEndDate) : null,
+        eventLocation: r.eventLocation,
+        eventParticipationType: r.eventParticipationType,
+      }));
       return {
         badges,
       };
@@ -73,7 +93,11 @@ export const sbtRouter = router({
         return {
           status: "minted",
           itemAddress: item.itemAddress,
-          rewardLink: `https://tonviewer.com/${item.itemAddress}`,
+          rewardLink: getExplorerLink(item.itemAddress),
+          item: {
+            ...item,
+            explorerUrl: getExplorerLink(item.itemAddress),
+          },
         };
       }
 
@@ -89,6 +113,7 @@ export const sbtRouter = router({
               status: "minted",
               itemAddress: rewardData.sbt_address || null,
               rewardLink: rewardData.reward_link,
+              item: null,
             };
           }
         }
@@ -98,6 +123,7 @@ export const sbtRouter = router({
         status: "eligible",
         itemAddress: null,
         rewardLink: null,
+        item: null,
       };
     }),
 
@@ -182,7 +208,7 @@ export const sbtRouter = router({
         // 6. Record/update reward row
         const visitor = await visitorsDB.addVisitor(ticket.user_id, ticket.event_uuid);
         if (visitor) {
-          const rewardLink = `https://tonviewer.com/${item.itemAddress}`;
+          const rewardLink = getExplorerLink(item.itemAddress);
           const existingReward = await rewardDB.checkExistingRewardWithType(visitor.id, "ton_society_sbt");
           if (existingReward) {
             await rewardDB.updateReward(existingReward.id, {
@@ -205,7 +231,7 @@ export const sbtRouter = router({
         return {
           success: true,
           itemAddress: item.itemAddress,
-          rewardLink: `https://tonviewer.com/${item.itemAddress}`,
+          rewardLink: getExplorerLink(item.itemAddress),
         };
       } catch (error) {
         const message = error instanceof Error ? error.message : "Failed to mint SBT badge";

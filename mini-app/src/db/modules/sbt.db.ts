@@ -221,6 +221,28 @@ export const sbtDB = {
       .execute();
   },
 
+  async findUserSbtItemsWithEvent(userId: number) {
+    await ensureSbtTables();
+    return db
+      .select({
+        item: sbtItems,
+        collection: sbtCollections,
+        eventTitle: events.title,
+        eventImage: events.image_url,
+        eventStartDate: events.start_date,
+        eventEndDate: events.end_date,
+        eventLocation: events.location,
+        eventParticipationType: events.participationType,
+      })
+      .from(sbtItems)
+      .innerJoin(sbtCollections, eq(sbtItems.sbtCollectionId, sbtCollections.id))
+      .leftJoin(events, eq(sql`${events.event_uuid}::text`, sbtCollections.eventUuid))
+      .where(eq(sbtItems.recipientUserId, userId))
+      .orderBy(desc(sbtItems.createdAt))
+      .execute();
+  },
+
+
   async findWalletSbtItems(walletAddress: string): Promise<SbtItemRow[]> {
     await ensureSbtTables();
     return db

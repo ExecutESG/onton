@@ -29,6 +29,8 @@ import { useEventData } from "./eventPageContext";
 import { EventPasswordAndWalletInput } from "./EventPasswordInput";
 import { ManageEventButton } from "./ManageEventButton";
 import UserRegisterForm from "./UserRegisterForm";
+import BadgeDetailModal, { BadgeItemData } from "@/components/sbt/BadgeDetailModal";
+import { ShieldCheck, Award } from "lucide-react";
 
 // Base components with memoization where beneficial
 const EventImage = React.memo(() => {
@@ -393,9 +395,22 @@ const OrganizerCard = React.memo(() => {
 OrganizerCard.displayName = "OrganizerCard";
 
 const SbtCollectionLink = React.memo(() => {
-  const { eventData } = useEventData();
+  const { eventData, startUTC } = useEventData();
+  const [showBadgeModal, setShowBadgeModal] = React.useState(false);
 
   const collectionAddress = eventData.data?.sbt_collection_address;
+  const registrantUuid = eventData.data?.registrant_uuid || undefined;
+  const hasSbt = Boolean(collectionAddress);
+
+  const badgeStatus = trpc.sbt.getAttendeeBadgeStatus.useQuery(
+    {
+      eventUuid: eventData.data?.event_uuid ?? "",
+      registrantUuid: registrantUuid,
+    },
+    {
+      enabled: Boolean(hasSbt && eventData.data?.event_uuid),
+    }
+  );
 
   const isValidAddress = useMemo(() => {
     try {
@@ -409,9 +424,74 @@ const SbtCollectionLink = React.memo(() => {
 
   if (!isValidAddress) return null;
 
+  const isMinted = badgeStatus.data?.status === "minted";
+  const badgeItem = badgeStatus.data?.item;
+
+  if (isMinted && badgeItem) {
+    const badgeImageSrc = eventData.data?.tsRewardImage || eventData.data?.image_url || undefined;
+    const badgeData: BadgeItemData = {
+      ...badgeItem,
+      eventTitle: eventData.data?.title,
+      eventImage: badgeImageSrc,
+      eventDateFrom: startUTC ? new Date(startUTC) : null,
+      collectionAddress: collectionAddress,
+      collectionName: eventData.data?.title,
+    };
+
+    return (
+      <>
+        <CustomCard
+          title="Your Attendance Badge"
+          description="Verified Soulbound Proof of Attendance (TEP-85) minted to your wallet."
+        >
+          <div
+            onClick={() => setShowBadgeModal(true)}
+            className="w-full flex items-center gap-3 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 cursor-pointer hover:bg-emerald-500/15 transition group"
+          >
+            <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-black flex-shrink-0 flex items-center justify-center">
+              {badgeImageSrc ? (
+                <LoadableImage
+                  alt={eventData.data?.title}
+                  src={badgeImageSrc}
+                  width={48}
+                  height={48}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <Award className="w-6 h-6 text-emerald-500" />
+              )}
+            </div>
+            <div className="flex flex-col flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="font-semibold text-xs text-gray-900 dark:text-gray-100 truncate">
+                  {eventData.data?.title} Badge
+                </span>
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+              </div>
+              <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                Claimed &amp; Verified on TON
+              </span>
+            </div>
+            <button
+              type="button"
+              className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-xs font-medium group-hover:bg-emerald-700 transition"
+            >
+              View
+            </button>
+          </div>
+        </CustomCard>
+        <BadgeDetailModal
+          badge={badgeData}
+          open={showBadgeModal}
+          onClose={() => setShowBadgeModal(false)}
+        />
+      </>
+    );
+  }
+
   return (
     <CustomCard
-      title={"SBTs"}
+      title={"SBT Attendance Reward"}
       description="Reward you receive by attending the event and submitting proof of attendance."
     >
       <Block

@@ -20,6 +20,7 @@ import { ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import calendarStarIcon from "./calendar-star.svg";
+import badgeAwardIcon from "./badge-award.svg";
 import LoginRequired from "@/app/_components/auth/LoginRequired";
 
 export default function ProfilePage() {
@@ -29,11 +30,16 @@ export default function ProfilePage() {
   const { data: totalPoints, isLoading: loadingTotalPoints } = trpc.usersScore.getTotalScoreByUserId.useQuery(undefined, {
     enabled: !!user,
   });
+  const { data: userBadgesData } = trpc.sbt.getUserBadges.useQuery(
+    { userId: user?.user_id ?? 0 },
+    { enabled: Boolean(user?.user_id) }
+  );
 
   useEffect(() => {
     router.prefetch("/events/create");
     router.prefetch("/my/participated");
     router.prefetch("/my/hosted/");
+    router.prefetch("/my/badges");
     router.prefetch("/my/points/");
   }, [router]);
 
@@ -69,6 +75,17 @@ export default function ProfilePage() {
         subtitle="You Created"
         footerTexts={[
           { items: "Events", count: user?.hosted_event_count || 0 },
+        ]}
+      />
+      <ActionCard
+        onClick={(e) => {
+          router.push("/my/badges");
+        }}
+        iconSrc={badgeAwardIcon}
+        title="My Badges"
+        subtitle="Proof of Attendance"
+        footerTexts={[
+          { items: "Badges", count: userBadgesData?.badges?.length || 0 },
         ]}
       />
       <ActionCard

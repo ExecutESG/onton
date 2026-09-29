@@ -95,41 +95,40 @@ RUN apk add --no-cache \
 ##
 FROM base AS dependencies
 
-# Copy package files for dependency installation
-COPY ./package.json /app/
-
 # Set the working directory
 WORKDIR /app
 
-# Install production dependencies only using Yarn
-RUN yarn install --production --ignore-engines
+# Copy package files for dependency installation (both package.json and yarn.lock)
+COPY ./package.json ./yarn.lock* /app/
 
-##
-# Stage: with-files
-##
-FROM dependencies AS with-files
-
-# Copy the entire project
-COPY . /app
+# Install all dependencies with frozen lockfile for deterministic, fast builds
+RUN yarn install --frozen-lockfile --ignore-engines
 
 ##
 # Stage: build-stage
 ##
-FROM with-files AS build-stage
+FROM dependencies AS build-stage
 
-# Double check the content
-RUN echo "Build stage files:" && ls -la /app
+# Copy the entire project (node_modules is excluded by .dockerignore)
+COPY . /app
 
-# Install all dependencies (including dev) and build
-RUN yarn install --ignore-engines
-# eslint 9  is not supported in next 14
-#RUN yarn lint:quiet
-RUN yarn build
+# Build Next.js application, then prune build cache to keep image small
+RUN yarn build && \
+    rm -rf /app/.next/cache && \
+    yarn cache clean
 
 ##
 # Stage: production
 ##
 FROM build-stage AS production
+
+ARG COMMIT_SHA=""
+ARG COMMIT_AUTHOR=""
+
+# Write commit details if provided at build time (won't invalidate build-stage cache)
+RUN if [ -n "$COMMIT_SHA" ]; then \
+      printf "Commit SHA: %s\nCommit Author: %s\n" "$COMMIT_SHA" "$COMMIT_AUTHOR" > /app/commit_details.txt; \
+    fi
 
 # Expose the port for your Next.js app
 EXPOSE $MINI_APP_PORT

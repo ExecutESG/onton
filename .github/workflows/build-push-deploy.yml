@@ -340,17 +340,6 @@ jobs:
           fi
 
           if [ -f "$dockerfile_path" ]; then
-            echo "Using Dockerfile at $dockerfile_path"
-            # Create commit details file
-            COMMIT_DETAILS_FILE=$(mktemp)
-            echo "Commit SHA: ${{ github.sha }}" > "$COMMIT_DETAILS_FILE"
-            echo "Commit Author: ${{ github.actor }}" >> "$COMMIT_DETAILS_FILE"
-            echo "Commit Message: ${{ github.event.head_commit.message }}" >> "$COMMIT_DETAILS_FILE"
-            echo "Commit Date: ${{ github.event.head_commit.timestamp }}" >> "$COMMIT_DETAILS_FILE"
-
-            # Move the commit details file to the appropriate build context
-            mv "$COMMIT_DETAILS_FILE" "$build_context/commit_details.txt"
-            chmod 644 "$build_context/commit_details.txt"
             # Create temporary build args file
             BUILD_ARGS_FILE=$(mktemp)
 
@@ -361,8 +350,10 @@ jobs:
             # Process environment variables for build args
             python3 devops/export_env.py build_args "$branch_prefix" "$BUILD_ARGS_FILE"
 
-            # Add package manager
+            # Add package manager and commit metadata
             echo "PACKAGE_MANAGER=pnpm" >> "$BUILD_ARGS_FILE"
+            echo "COMMIT_SHA=${{ github.sha }}" >> "$BUILD_ARGS_FILE"
+            echo "COMMIT_AUTHOR=${{ github.actor }}" >> "$BUILD_ARGS_FILE"
 
             # Debug output (without showing sensitive values)
             echo "Generated build args file with $(wc -l < "$BUILD_ARGS_FILE") variables"
@@ -673,8 +664,6 @@ jobs:
             echo "$CR_PAT" | docker login ghcr.io -u ${{ github.actor }} --password-stdin 
           
             echo "services to build: $services_to_build"
-            echo "Cleaning up dangling images before pull..."
-            docker image prune -f || true
 
             # Remove the square brackets and split by comma
             echo "Pulling latest images of changed services..."
@@ -802,6 +791,8 @@ jobs:
               esac
             done
             echo "Services deployed successfully."
+            echo "Cleaning up dangling images after deployment..."
+            docker image prune -f || true
           EOF
 
           echo "Services deployed successfully."

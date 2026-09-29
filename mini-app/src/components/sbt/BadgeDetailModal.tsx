@@ -6,11 +6,11 @@ import OntonDialog from "@/components/OntonDialog";
 import Typography from "@/components/Typography";
 import useWebApp from "@/hooks/useWebApp";
 import { toast } from "sonner";
-import { Check, Copy, ExternalLink, Send, ShieldCheck } from "lucide-react";
+import { Award, Check, Copy, ExternalLink, Send, ShieldCheck } from "lucide-react";
 
 export interface BadgeItemData {
-  id?: number;
-  itemAddress: string;
+  id?: number | string;
+  itemAddress?: string | null;
   collectionAddress?: string | null;
   collectionName?: string | null;
   itemIndex?: number;
@@ -22,8 +22,13 @@ export interface BadgeItemData {
   eventTitle?: string | null;
   eventImage?: string | null;
   eventDateFrom?: string | Date | null;
+  eventDateTo?: string | Date | null;
   eventLocation?: string | null;
   eventParticipationType?: string | null;
+  isTonSociety?: boolean;
+  issuer?: string;
+  network?: string;
+  rewardLink?: string | null;
 }
 
 interface BadgeDetailModalProps {
@@ -38,19 +43,32 @@ function truncateAddress(addr?: string | null): string {
   return `${addr.slice(0, 6)}...${addr.slice(-6)}`;
 }
 
+export function parseDate(d: string | Date | number | null | undefined): Date | null {
+  if (!d) return null;
+  if (typeof d === "number") {
+    return new Date(d > 1e11 ? d : d * 1000);
+  }
+  const dateObj = new Date(d);
+  return isNaN(dateObj.getTime()) ? null : dateObj;
+}
+
 export default function BadgeDetailModal({ badge, open, onClose }: BadgeDetailModalProps) {
   const webApp = useWebApp();
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   if (!badge) return null;
 
-  const isMainnet = badge.explorerUrl
-    ? !badge.explorerUrl.includes("testnet")
-    : process.env.NEXT_PUBLIC_ENV === "production";
+  const isMainnet = badge.network
+    ? badge.network === "TON Mainnet"
+    : badge.explorerUrl
+      ? !badge.explorerUrl.includes("testnet")
+      : process.env.NEXT_PUBLIC_ENV === "production";
 
   const explorerUrl =
     badge.explorerUrl ||
-    `https://${isMainnet ? "tonviewer.com" : "testnet.tonviewer.com"}/${badge.itemAddress}`;
+    (badge.itemAddress
+      ? `https://${isMainnet ? "tonviewer.com" : "testnet.tonviewer.com"}/${badge.itemAddress}`
+      : badge.rewardLink || "#");
 
   const metadata = ((badge.metadata || badge.metadataJson) as Record<string, any>) || {};
   const badgeTitle = metadata.name || badge.eventTitle || "Attendance Badge";
@@ -86,7 +104,7 @@ export default function BadgeDetailModal({ badge, open, onClose }: BadgeDetailMo
 
   const handleShare = () => {
     const text = encodeURIComponent(
-      `🎖️ I earned my Soulbound Proof of Attendance badge for "${badge.eventTitle || badgeTitle}" on ONTON!\n\nContract: ${badge.itemAddress}`
+      `🎖️ I earned my ${badge.isTonSociety ? "TON Society" : "Soulbound Proof of Attendance"} badge for "${badge.eventTitle || badgeTitle}" on ONTON!${badge.itemAddress ? `\n\nContract: ${badge.itemAddress}` : ""}`
     );
     const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(explorerUrl)}&text=${text}`;
     try {
@@ -127,11 +145,18 @@ export default function BadgeDetailModal({ badge, open, onClose }: BadgeDetailMo
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-white/0 via-white/10 to-transparent mix-blend-overlay" />
         </div>
 
-        {/* TEP-85 Verified Chip */}
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs font-semibold">
-          <ShieldCheck className="w-3.5 h-3.5" />
-          <span>TEP-85 Soulbound Credential</span>
-        </div>
+        {/* Verification Provenance Chip */}
+        {badge.isTonSociety ? (
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 text-xs font-semibold">
+            <Award className="w-3.5 h-3.5" />
+            <span>TON Society Verified Credential</span>
+          </div>
+        ) : (
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs font-semibold">
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>TEP-85 Soulbound Credential</span>
+          </div>
+        )}
 
         {/* Title & Description */}
         <div className="flex flex-col gap-1 w-full">
@@ -154,11 +179,11 @@ export default function BadgeDetailModal({ badge, open, onClose }: BadgeDetailMo
             </div>
           )}
 
-          {badge.eventDateFrom && (
+          {parseDate(badge.eventDateFrom) && (
             <div className="flex justify-between items-center py-1 border-b border-gray-100 dark:border-neutral-700/50">
               <span className="text-gray-500 dark:text-gray-400">Date</span>
               <span className="font-medium text-gray-900 dark:text-gray-200">
-                {new Date(badge.eventDateFrom).toLocaleDateString(undefined, {
+                {parseDate(badge.eventDateFrom)!.toLocaleDateString(undefined, {
                   year: "numeric",
                   month: "short",
                   day: "numeric",
@@ -168,30 +193,46 @@ export default function BadgeDetailModal({ badge, open, onClose }: BadgeDetailMo
           )}
 
           <div className="flex justify-between items-center py-1 border-b border-gray-100 dark:border-neutral-700/50">
-            <span className="text-gray-500 dark:text-gray-400">Network</span>
-            <span className="inline-flex items-center gap-1 font-semibold text-blue-600 dark:text-blue-400">
-              <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-              {isMainnet ? "TON Mainnet" : "TON Testnet"}
+            <span className="text-gray-500 dark:text-gray-400">Issuer</span>
+            <span className="font-medium text-gray-900 dark:text-gray-200">
+              {badge.issuer || (badge.isTonSociety ? "TON Society" : "ONTON Native")}
             </span>
           </div>
 
           <div className="flex justify-between items-center py-1 border-b border-gray-100 dark:border-neutral-700/50">
-            <span className="text-gray-500 dark:text-gray-400">SBT Item Address</span>
-            <button
-              onClick={() => handleCopy(badge.itemAddress, "item")}
-              className="inline-flex items-center gap-1 font-mono text-[11px] text-gray-800 dark:text-gray-200 hover:text-blue-600 transition"
-              title={badge.itemAddress}
-            >
-              <span>{truncateAddress(badge.itemAddress)}</span>
-              {copiedKey === "item" ? (
-                <Check className="w-3.5 h-3.5 text-emerald-500" />
-              ) : (
-                <Copy className="w-3.5 h-3.5 opacity-60" />
-              )}
-            </button>
+            <span className="text-gray-500 dark:text-gray-400">Network</span>
+            <span className="inline-flex items-center gap-1 font-semibold text-blue-600 dark:text-blue-400">
+              <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+              {badge.network || (isMainnet ? "TON Mainnet" : "TON Testnet")}
+            </span>
           </div>
 
-          {badge.collectionAddress && (
+          {badge.itemAddress ? (
+            <div className="flex justify-between items-center py-1 border-b border-gray-100 dark:border-neutral-700/50">
+              <span className="text-gray-500 dark:text-gray-400">SBT Item Address</span>
+              <button
+                onClick={() => handleCopy(badge.itemAddress!, "item")}
+                className="inline-flex items-center gap-1 font-mono text-[11px] text-gray-800 dark:text-gray-200 hover:text-blue-600 transition"
+                title={badge.itemAddress}
+              >
+                <span>{truncateAddress(badge.itemAddress)}</span>
+                {copiedKey === "item" ? (
+                  <Check className="w-3.5 h-3.5 text-emerald-500" />
+                ) : (
+                  <Copy className="w-3.5 h-3.5 opacity-60" />
+                )}
+              </button>
+            </div>
+          ) : badge.isTonSociety ? (
+            <div className="flex justify-between items-center py-1 border-b border-gray-100 dark:border-neutral-700/50">
+              <span className="text-gray-500 dark:text-gray-400">Credential Status</span>
+              <span className="font-medium text-purple-600 dark:text-purple-400">
+                Claimed via TON Society
+              </span>
+            </div>
+          ) : null}
+
+          {badge.collectionAddress ? (
             <div className="flex justify-between items-center py-1">
               <span className="text-gray-500 dark:text-gray-400">Collection</span>
               <button
@@ -207,7 +248,14 @@ export default function BadgeDetailModal({ badge, open, onClose }: BadgeDetailMo
                 )}
               </button>
             </div>
-          )}
+          ) : badge.collectionName ? (
+            <div className="flex justify-between items-center py-1">
+              <span className="text-gray-500 dark:text-gray-400">Collection</span>
+              <span className="font-medium text-gray-900 dark:text-gray-200">
+                {badge.collectionName}
+              </span>
+            </div>
+          ) : null}
         </div>
 
         {/* Actions */}
@@ -220,13 +268,21 @@ export default function BadgeDetailModal({ badge, open, onClose }: BadgeDetailMo
             <span>Share Badge in Telegram</span>
           </button>
 
-          <button
-            onClick={handleOpenExplorer}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-gray-800 dark:text-gray-200 font-medium text-xs transition"
-          >
-            <ExternalLink className="w-3.5 h-3.5 opacity-70" />
-            <span>View on Explorer ({isMainnet ? "Tonviewer" : "Testnet Tonviewer"})</span>
-          </button>
+          {explorerUrl && explorerUrl !== "#" && (
+            <button
+              onClick={handleOpenExplorer}
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-gray-800 dark:text-gray-200 font-medium text-xs transition"
+            >
+              <ExternalLink className="w-3.5 h-3.5 opacity-70" />
+              <span>
+                {badge.itemAddress
+                  ? `View on Explorer (${isMainnet ? "Tonviewer" : "Testnet Tonviewer"})`
+                  : badge.isTonSociety
+                    ? "View on TON Society"
+                    : "View Credential"}
+              </span>
+            </button>
+          )}
         </div>
       </div>
     </OntonDialog>

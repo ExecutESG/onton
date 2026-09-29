@@ -13,7 +13,7 @@ import CustomCard from "@/app/_components/atoms/cards/CustomCard";
 import CustomButton from "@/app/_components/Button/CustomButton";
 import DataStatus from "@/app/_components/molecules/alerts/DataStatus";
 import Typography from "@/components/Typography";
-import BadgeDetailModal, { BadgeItemData } from "@/components/sbt/BadgeDetailModal";
+import BadgeDetailModal, { BadgeItemData, parseDate } from "@/components/sbt/BadgeDetailModal";
 
 export default function MyBadgesPage() {
   const { user } = useUserStore();
@@ -101,8 +101,9 @@ export default function MyBadgesPage() {
             const image =
               metadata.image || badge.eventImage || "https://dev-storage.dev.onton.live/ontonimage/approved.lottie";
 
-            const formattedDate = badge.eventDateFrom
-              ? new Date(badge.eventDateFrom).toLocaleDateString(undefined, {
+            const parsedDate = parseDate(badge.eventDateFrom || badge.eventStartDate);
+            const formattedDate = parsedDate
+              ? parsedDate.toLocaleDateString(undefined, {
                   month: "short",
                   day: "numeric",
                   year: "numeric",
@@ -129,11 +130,18 @@ export default function MyBadgesPage() {
                       unoptimized
                     />
                   )}
-                  {/* Verified TEP-85 Pill on top of artwork */}
-                  <div className="absolute top-2 left-2 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-[10px] text-emerald-400 font-medium border border-emerald-500/30">
-                    <ShieldCheck className="w-3 h-3" />
-                    <span>TEP-85</span>
-                  </div>
+                  {/* Provenance Pill on top of artwork */}
+                  {badge.isTonSociety ? (
+                    <div className="absolute top-2 left-2 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-[10px] text-purple-400 font-medium border border-purple-500/30">
+                      <Award className="w-3 h-3" />
+                      <span>TON Society</span>
+                    </div>
+                  ) : (
+                    <div className="absolute top-2 left-2 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-[10px] text-emerald-400 font-medium border border-emerald-500/30">
+                      <ShieldCheck className="w-3 h-3" />
+                      <span>TEP-85</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Badge Info */}

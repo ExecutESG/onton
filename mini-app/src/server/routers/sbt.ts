@@ -16,6 +16,33 @@ export function getExplorerLink(address: string): string {
   return `https://${domain}/${address}`;
 }
 
+export interface UnifiedBadge {
+  id: number | string;
+  itemAddress: string | null;
+  itemIndex: number;
+  metadata: any;
+  metadataUrl?: string | null;
+  status: string;
+  transactionHash?: string | null;
+  createdAt: Date | null;
+  explorerUrl: string;
+  collectionName: string;
+  collectionAddress: string | null;
+  eventUuid: string;
+  eventTitle: string | null;
+  eventImage: string | null;
+  eventStartDate: number | null;
+  eventEndDate: number | null;
+  eventDateFrom: Date | null;
+  eventDateTo: Date | null;
+  eventLocation: string | null;
+  eventParticipationType: "in_person" | "online" | null;
+  isTonSociety: boolean;
+  issuer: string;
+  network: string;
+  rewardLink: string | null;
+}
+
 export const sbtRouter = router({
   getEventCollection: publicProcedure
     .input(z.object({ eventUuid: z.string() }))
@@ -29,23 +56,101 @@ export const sbtRouter = router({
   getUserBadges: publicProcedure
     .input(z.object({ userId: z.number() }))
     .query(async ({ input }) => {
-      const rows = await sbtDB.findUserSbtItemsWithEvent(input.userId);
-      const badges = rows.map((r) => ({
-        ...r.item,
+      const nativeRows = await sbtDB.findUserSbtItemsWithEvent(input.userId);
+      const nativeBadges: UnifiedBadge[] = nativeRows.map((r) => ({
+        id: r.item.id,
+        itemAddress: r.item.itemAddress as string | null,
+        itemIndex: Number(r.item.itemIndex),
+        metadata: r.item.metadata,
+        metadataUrl: r.item.metadataUrl,
+        status: r.item.status,
+        transactionHash: r.item.transactionHash,
+        createdAt: r.item.createdAt,
         explorerUrl: getExplorerLink(r.item.itemAddress),
         collectionName: r.collection.name,
         collectionAddress: r.collection.collectionAddress,
+        eventUuid: r.collection.eventUuid,
         eventTitle: r.eventTitle,
         eventImage: r.eventImage,
         eventStartDate: r.eventStartDate,
         eventEndDate: r.eventEndDate,
-        eventDateFrom: r.eventStartDate ? new Date(r.eventStartDate) : null,
-        eventDateTo: r.eventEndDate ? new Date(r.eventEndDate) : null,
+        eventDateFrom: r.eventStartDate ? new Date(r.eventStartDate > 1e11 ? r.eventStartDate : r.eventStartDate * 1000) : null,
+        eventDateTo: r.eventEndDate ? new Date(r.eventEndDate > 1e11 ? r.eventEndDate : r.eventEndDate * 1000) : null,
         eventLocation: r.eventLocation,
         eventParticipationType: r.eventParticipationType,
+        isTonSociety: false,
+        issuer: "ONTON Native",
+        network: is_mainnet ? "TON Mainnet" : "TON Testnet",
+        rewardLink: null,
       }));
+
+      // Collect native event UUIDs to deduplicate against legacy rows
+      const nativeEventUuids = new Set(
+        nativeRows.map((r) => r.collection.eventUuid).filter(Boolean)
+      );
+
+      // Fetch historical TON Society badges
+      let legacyBadges: UnifiedBadge[] = [];
+      try {
+        const legacyRows = await rewardDB.findUserClaimedTonSocietyBadges(input.userId);
+        legacyBadges = legacyRows
+          .filter((r) => !nativeEventUuids.has(r.eventUuid))
+          .map((r) => {
+            const data = (r.rewardData as { reward_link?: string; sbt_address?: string } | null) || {};
+            const sbtAddress = data.sbt_address || null;
+            const rewardLink = data.reward_link || null;
+            const explorerUrl = sbtAddress
+              ? `https://tonviewer.com/${sbtAddress}`
+              : (rewardLink || "https://society.ton.org");
+
+            const badgeTitle = r.eventTitle ? `${r.eventTitle} Badge` : "TON Society Attendance Badge";
+            const badgeDesc = r.eventDescription || "Official Soulbound Proof of Attendance for this event.";
+            const badgeImg = r.eventRewardImage || r.eventImage || "https://dev-storage.dev.onton.live/ontonimage/approved.lottie";
+
+            return {
+              id: `ts_${r.rewardId}`,
+              itemAddress: sbtAddress,
+              itemIndex: 0,
+              metadata: {
+                name: badgeTitle,
+                description: badgeDesc,
+                image: badgeImg,
+              },
+              metadataUrl: null,
+              status: "minted",
+              transactionHash: null,
+              createdAt: r.createdAt,
+              explorerUrl,
+              collectionName: "TON Society",
+              collectionAddress: r.sbtCollectionAddress || null,
+              eventUuid: r.eventUuid,
+              eventTitle: r.eventTitle,
+              eventImage: badgeImg,
+              eventStartDate: r.eventStartDate,
+              eventEndDate: r.eventEndDate,
+              eventDateFrom: r.eventStartDate ? new Date(r.eventStartDate > 1e11 ? r.eventStartDate : r.eventStartDate * 1000) : null,
+              eventDateTo: r.eventEndDate ? new Date(r.eventEndDate > 1e11 ? r.eventEndDate : r.eventEndDate * 1000) : null,
+              eventLocation: r.eventLocation,
+              eventParticipationType: r.eventParticipationType,
+              isTonSociety: true,
+              issuer: "TON Society",
+              network: "TON Mainnet",
+              rewardLink,
+            };
+          });
+      } catch (err) {
+        logger.error(`getUserBadges: Failed to fetch legacy TON Society badges for user ${input.userId}`, err);
+      }
+
+      // Merge and sort badges descending by date
+      const allBadges = [...nativeBadges, ...legacyBadges].sort((a, b) => {
+        const timeA = a.eventDateFrom ? a.eventDateFrom.getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+        const timeB = b.eventDateFrom ? b.eventDateFrom.getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+        return timeB - timeA;
+      });
+
       return {
-        badges,
+        badges: allBadges,
       };
     }),
 
@@ -205,28 +310,8 @@ export const sbtRouter = router({
           badgeImage: eventData.tsRewardImage || eventData.image_url || undefined,
         });
 
-        // 6. Record/update reward row
-        const visitor = await visitorsDB.addVisitor(ticket.user_id, ticket.event_uuid);
-        if (visitor) {
-          const rewardLink = getExplorerLink(item.itemAddress);
-          const existingReward = await rewardDB.checkExistingRewardWithType(visitor.id, "ton_society_sbt");
-          if (existingReward) {
-            await rewardDB.updateReward(existingReward.id, {
-              reward_link: rewardLink,
-              sbt_address: item.itemAddress,
-              status: "created",
-            } as any);
-          } else {
-            await rewardDB.insertRewardRow(
-              visitor.id,
-              { reward_link: rewardLink, sbt_address: item.itemAddress },
-              ticket.user_id,
-              "ton_society_sbt",
-              "created",
-              eventData
-            );
-          }
-        }
+        // 6. Record visitor check-in
+        await visitorsDB.addVisitor(ticket.user_id, ticket.event_uuid);
 
         return {
           success: true,

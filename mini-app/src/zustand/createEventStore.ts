@@ -67,6 +67,10 @@ export type CreateEventStoreType = {
   // REGISTRATION
   toggleHasRegistration: () => void;
 
+  // WEB3 / SBT
+  toggleHasWeb3: () => void;
+  setHasWeb3: (enabled: boolean) => void;
+
   /**
    * PAID EVENT CREATION ACTIONS
    */
@@ -105,6 +109,7 @@ const defaultState = {
       id: "33",
       name: "Onton",
     },
+    has_web3: false,
     hasEnded: true,
     has_registration: false,
     has_approval: false,
@@ -222,6 +227,32 @@ export const useCreateEventStore = create<CreateEventStoreType>()(
           }
         });
       },
+      toggleHasWeb3: () => {
+        set((state) => {
+          state.eventData.has_web3 = !state.eventData.has_web3;
+          if (!state.eventData.has_web3) {
+            state.eventData.ts_reward_url = undefined;
+            state.eventData.video_url = undefined;
+            if (state.eventData.paid_event?.has_payment) {
+              state.eventData.paid_event.has_payment = false;
+              state.eventData.capacity = null;
+            }
+          }
+        });
+      },
+      setHasWeb3: (enabled: boolean) => {
+        set((state) => {
+          state.eventData.has_web3 = enabled;
+          if (!enabled) {
+            state.eventData.ts_reward_url = undefined;
+            state.eventData.video_url = undefined;
+            if (state.eventData.paid_event?.has_payment) {
+              state.eventData.paid_event.has_payment = false;
+              state.eventData.capacity = null;
+            }
+          }
+        });
+      },
       togglePaidEvent: () => {
         set((state) => {
           const paidEventInfo = {
@@ -248,6 +279,7 @@ export const useCreateEventStore = create<CreateEventStoreType>()(
                     set((state) => {
                       state.eventData.paid_event = paidEventInfo;
                       state.eventData.has_registration = true;
+                      state.eventData.has_web3 = true;
                     });
                   }
                 });
@@ -257,15 +289,18 @@ export const useCreateEventStore = create<CreateEventStoreType>()(
                   set((state) => {
                     state.eventData.paid_event = paidEventInfo;
                     state.eventData.has_registration = true;
+                    state.eventData.has_web3 = true;
                   });
                 }
               }
             } catch {
               state.eventData.paid_event = paidEventInfo;
               state.eventData.has_registration = true;
+              state.eventData.has_web3 = true;
             }
 
             state.eventData.capacity = 5;
+            state.eventData.has_web3 = true;
           } else {
             state.eventData.paid_event = paidEventInfo;
             state.eventData.capacity = null;

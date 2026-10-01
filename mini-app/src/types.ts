@@ -244,7 +244,11 @@ export const EventDataSchema = z
       .optional(),
     ts_reward_url: z
       .string({ required_error: "reward URL is required" })
-      .url({ message: "Please select a valid reward image URL" }),
+      .url({ message: "Please select a valid reward image URL" })
+      .optional(),
+
+    /* ------------------------------ Web3 Features ----------------------------- */
+    has_web3: z.boolean().default(false),
 
     /* -------------------------- Organization Info ------------------------- */
     society_hub: z
@@ -281,12 +285,21 @@ export const EventDataSchema = z
       .positive(),
   })
   .superRefine((data, ctx) => {
-    // Validate secret_phrase is required for non-paid events
+    // Validate secret_phrase is required for non-paid events without registration
     if (!data.paid_event?.has_payment && !data.has_registration && !data.secret_phrase) {
       ctx.addIssue({
         code: "custom",
         path: ["secret_phrase"],
         message: "Secret phrase is required for free events.",
+      });
+    }
+
+    // Require reward badge only when Web3 is enabled
+    if (data.has_web3 && !data.ts_reward_url) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["ts_reward_url"],
+        message: "Reward badge image is required when Web3 features are enabled.",
       });
     }
   });
@@ -327,6 +340,9 @@ export const UpdateEventDataSchema = z.object({
       message: "Please upload a valid reward image URL",
     })
     .optional(),
+
+  /* ------------------------------ Web3 Features ----------------------------- */
+  has_web3: z.boolean().default(false).optional(),
 
   /* -------------------------- Organization Info ------------------------- */
   society_hub: z

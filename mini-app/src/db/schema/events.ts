@@ -70,6 +70,9 @@ export const events = pgTable(
     /* ------------------------------- Paid Event ------------------------------- */
     has_payment: boolean("has_payment").notNull().default(false),
     /* ------------------------------- Paid Event ------------------------------- */
+    /* ------------------------------ Web3 Features ----------------------------- */
+    has_web3: boolean("has_web3").default(false).notNull(),
+    /* ------------------------------ Web3 Features ----------------------------- */
     moderationMessageId: bigint("moderation_message_id", { mode: "number" }),
     created_at: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at", {
@@ -95,6 +98,7 @@ export const events = pgTable(
     moderationMessageIdIndex: index("events_moderation_message_id_idx").on(table.moderationMessageId),
     categoryIdIdx: index("events_category_id_idx").on(table.category_id),
     giveaway_wallet_address_idx: index("events_giveaway_wallet_address_idx").on(table.giveaway_wallet_address),
+    hasWeb3Idx: index("events_has_web3_idx").on(table.has_web3),
   })
 );
 

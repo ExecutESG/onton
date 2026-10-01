@@ -343,6 +343,9 @@ const addEvent = initDataProtectedProcedure.input(z.object({ eventData: EventDat
           ticketToCheckIn: is_paid, // Duplicated Column same as has_payment 😐
           wallet_address: is_paid ? config?.ONTON_WALLET_ADDRESS : null,
           /* ------------------------------- Paid Event ------------------------------- */
+          /* ------------------------------ Web3 Features ----------------------------- */
+          has_web3: Boolean(input_event_data.has_web3),
+          /* ------------------------------ Web3 Features ----------------------------- */
         })
         .returning();
 
@@ -707,6 +710,10 @@ const updateEvent = eventManagerPP
             cityId: eventData.cityId,
             updatedBy: opts.ctx.user.user_id.toString(),
             updatedAt: new Date(),
+
+            /* ------------------------------ Web3 Features ----------------------------- */
+            has_web3: eventData.has_web3 !== undefined ? eventData.has_web3 : oldEvent.has_web3,
+            /* ------------------------------ Web3 Features ----------------------------- */
 
             /* ------------------------ Event Registration Update ----------------------- */
             // Updating has_registration is not allowed

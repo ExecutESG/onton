@@ -181,8 +181,8 @@ function TicketType() {
       footer={
         <>
           <p>
-            Ticket details cannot be changed after event is created. Ticked will be minted as NFT (Transferable) or cSBT
-            (Soul-Bound, users can not transfer or sell the tickets).
+            Ticket details cannot be changed after event is created. Tickets will be minted as NFT (Transferable) or SBT
+            (Soulbound, non-transferable attendee credentials).
           </p>
           <Segmented
             strong
@@ -210,7 +210,7 @@ function TicketType() {
               itemType="button"
               className={cn(ticketType === "TSCSBT" && "text-black font-extrabold")}
             >
-              cSBT
+              SBT (Soulbound)
             </SegmentedButton>
           </Segmented>
         </>
@@ -227,7 +227,7 @@ function NFTImage() {
     isEdit: Boolean(state.edit?.eventHash),
   }));
   const { payment } = useCreateEventStore((state) => ({ payment: state.eventData.paid_event }));
-  const label = payment.ticket_type === "TSCSBT" ? "cSBT" : "NFT";
+  const label = payment.ticket_type === "TSCSBT" ? "SBT" : "NFT";
 
   return (
     <UploadImageFile
@@ -250,7 +250,7 @@ function NFTVideo() {
     isEdit: Boolean(state.edit?.eventHash),
   }));
   const { payment } = useCreateEventStore((state) => ({ payment: state.eventData.paid_event }));
-  const label = payment.ticket_type === "TSCSBT" ? "cSBT" : "NFT";
+  const label = payment.ticket_type === "TSCSBT" ? "SBT" : "NFT";
 
   return (
     <UploadVideoFile
@@ -287,7 +287,7 @@ function NFTInfo() {
     isEdit: Boolean(state.edit?.eventHash),
   }));
 
-  const ticketLabel = payment.ticket_type === "TSCSBT" ? "cSBT" : "NFT";
+  const ticketLabel = payment.ticket_type === "TSCSBT" ? "SBT" : "NFT";
 
   return (
     <>
@@ -332,7 +332,7 @@ function Capacity() {
     eventData: state.eventData,
   }));
 
-  const ticketLabel = eventData?.paid_event?.ticket_type === "TSCSBT" ? "cSBT" : "NFT";
+  const ticketLabel = eventData?.paid_event?.ticket_type === "TSCSBT" ? "SBT" : "NFT";
 
   return (
     <>

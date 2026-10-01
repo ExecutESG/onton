@@ -96,7 +96,8 @@ export const RewardStep = () => {
     }
     const isPaid = eventData?.paid_event?.has_payment ?? false;
     const hasRegistration = eventData?.has_registration ?? false;
-    const thirdStepDataSchema = rewardStepValidation(isPaid, hasRegistration, Boolean(editOptions?.eventHash));
+    const hasWeb3 = Boolean(eventData?.has_web3);
+    const thirdStepDataSchema = rewardStepValidation(isPaid, hasRegistration, Boolean(editOptions?.eventHash), hasWeb3);
     const formDataParsed = thirdStepDataSchema.safeParse(stepInputsObject);
 
     if (!formDataParsed.success) {
@@ -130,6 +131,7 @@ export const RewardStep = () => {
     const dataToSubmit = {
       ...eventData,
       ...formDataParsed.data,
+      has_web3: hasWeb3,
       secret_phrase: eventData?.secret_phrase || formDataParsed.data.secret_phrase,
     };
 

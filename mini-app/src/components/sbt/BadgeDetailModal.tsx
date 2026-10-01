@@ -114,9 +114,12 @@ export default function BadgeDetailModal({ badge, open, onClose }: BadgeDetailMo
 
   const handleShare = () => {
     const text = encodeURIComponent(
-      `🎖️ I earned my ${badge.isTonSociety ? "TON Society" : "Soulbound Proof of Attendance"} badge for "${badge.eventTitle || badgeTitle}" on ONTON!${badge.itemAddress ? `\n\nContract: ${badge.itemAddress}` : ""}`
+      `🎖️ I earned my Proof of Attendance badge for "${badge.eventTitle || badgeTitle}" on ONTON!${badge.itemAddress ? `\n\nContract: ${badge.itemAddress}` : ""}`
     );
-    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(explorerUrl)}&text=${text}`;
+    const shareLink = badge.itemAddress
+      ? `https://${isMainnet ? "tonviewer.com" : "testnet.tonviewer.com"}/${badge.itemAddress}`
+      : (badge.eventUuid ? `https://t.me/${botUsername}/event?startapp=${badge.eventUuid}` : `https://t.me/${botUsername}`);
+    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(shareLink)}&text=${text}`;
     try {
       if (webApp?.openTelegramLink) {
         webApp.openTelegramLink(shareUrl);
@@ -198,15 +201,15 @@ export default function BadgeDetailModal({ badge, open, onClose }: BadgeDetailMo
         </div>
 
         {/* Verification Provenance Chip */}
-        {badge.isTonSociety ? (
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 text-xs font-semibold">
-            <Award className="w-3.5 h-3.5" />
-            <span>TON Society Verified Credential</span>
-          </div>
-        ) : (
+        {badge.itemAddress ? (
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs font-semibold">
             <ShieldCheck className="w-3.5 h-3.5" />
             <span>TEP-85 Soulbound Credential</span>
+          </div>
+        ) : (
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 text-xs font-semibold">
+            <Award className="w-3.5 h-3.5" />
+            <span>Verified Attendance Credential</span>
           </div>
         )}
 
@@ -247,7 +250,7 @@ export default function BadgeDetailModal({ badge, open, onClose }: BadgeDetailMo
           <div className="flex justify-between items-center py-1 border-b border-gray-100 dark:border-neutral-700/50">
             <span className="text-gray-500 dark:text-gray-400">Issuer</span>
             <span className="font-medium text-gray-900 dark:text-gray-200">
-              {badge.issuer || (badge.isTonSociety ? "TON Society" : "ONTON Native")}
+              {badge.issuer || "ONTON"}
             </span>
           </div>
 
@@ -274,13 +277,6 @@ export default function BadgeDetailModal({ badge, open, onClose }: BadgeDetailMo
                   <Copy className="w-3.5 h-3.5 opacity-60" />
                 )}
               </button>
-            </div>
-          ) : badge.isTonSociety ? (
-            <div className="flex justify-between items-center py-1 border-b border-gray-100 dark:border-neutral-700/50">
-              <span className="text-gray-500 dark:text-gray-400">Credential Status</span>
-              <span className="font-medium text-purple-600 dark:text-purple-400">
-                Claimed via TON Society
-              </span>
             </div>
           ) : null}
 
@@ -347,9 +343,7 @@ export default function BadgeDetailModal({ badge, open, onClose }: BadgeDetailMo
               <span>
                 {badge.itemAddress
                   ? `View on Explorer (${isMainnet ? "Tonviewer" : "Testnet Tonviewer"})`
-                  : badge.isTonSociety
-                    ? "View on TON Society"
-                    : "View Credential"}
+                  : "View Credential"}
               </span>
             </button>
           )}

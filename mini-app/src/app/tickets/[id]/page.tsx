@@ -56,11 +56,14 @@ export default async function TicketPassPage({ params }: Props) {
     const ticketAddress = Address.parse(ticket.nftAddress).toString();
     const collectionAddress = Address.parse(ticket.ticketData.collectionAddress).toString();
 
+    const isTestnet = process.env.NEXT_PUBLIC_TON_NETWORK === "testnet" || process.env.NODE_ENV === "development";
+    const explorerHost = isTestnet ? "testnet.tonviewer.com" : "tonviewer.com";
+
     attributes.push([
       "Contract address",
       <Link
         key="contract"
-        href={`https://${process.env.NODE_ENV === "development" ? "testnet." : ""}getgems.io/collection/${collectionAddress}/${ticketAddress}`}
+        href={`https://${explorerHost}/${ticketAddress}`}
         target="_blank"
         className="inline-flex items-center gap-1.5 text-blue-600 hover:underline"
       >

@@ -498,7 +498,9 @@ const SbtCollectionLink = React.memo(() => {
         className="!mt-0 mb-4 cursor-pointer"
         onClick={(e) => {
           e.preventDefault();
-          window.open(`https://getgems.io/collection/${collectionAddress}`, "_blank");
+          const isTestnet = process.env.NEXT_PUBLIC_TON_NETWORK === "testnet";
+          const explorerHost = isTestnet ? "testnet.tonviewer.com" : "tonviewer.com";
+          window.open(`https://${explorerHost}/${collectionAddress}`, "_blank");
         }}
       >
         <div className="w-full flex gap-2 items-stretch bg-brand-fill-bg/10 p-2 rounded-lg">

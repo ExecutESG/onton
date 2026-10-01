@@ -227,7 +227,7 @@ export const processSinglePaidOrder = async (orderUuid: string): Promise<boolean
 <b>${paymentInfo.title}</b>
 👤user_id : <code>${ordr.user_id}</code>
 👤username : @${username}
-<a href='https://${prefix}getgems.io/collection/${paymentInfo.collectionAddress}'>🎨Collection</a>
+<a href='https://${prefix}tonviewer.com/${paymentInfo.collectionAddress}'>🎨Collection</a>
 <a href='https://${prefix}tonviewer.com/transaction/${trxHashUrl}'>💰TRX</a>
 <a href='https://${prefix}tonviewer.com/${nft_address}'>📦NFT</a>
         `,

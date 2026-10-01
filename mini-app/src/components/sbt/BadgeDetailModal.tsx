@@ -6,7 +6,9 @@ import OntonDialog from "@/components/OntonDialog";
 import Typography from "@/components/Typography";
 import useWebApp from "@/hooks/useWebApp";
 import { toast } from "sonner";
-import { Award, Check, Copy, ExternalLink, Send, ShieldCheck } from "lucide-react";
+import { Award, Check, Copy, ExternalLink, Send, ShieldCheck, Share2, Sparkles, ArrowLeft } from "lucide-react";
+import useTelegramStory from "@/hooks/useTelegramStory";
+import StoryCardPreview from "./StoryCardPreview";
 
 export interface BadgeItemData {
   id?: number | string;
@@ -19,6 +21,7 @@ export interface BadgeItemData {
   metadataUri?: string | null;
   explorerUrl?: string;
   createdAt?: string | Date | null;
+  eventUuid?: string | null;
   eventTitle?: string | null;
   eventImage?: string | null;
   eventDateFrom?: string | Date | null;
@@ -55,6 +58,13 @@ export function parseDate(d: string | Date | number | null | undefined): Date | 
 export default function BadgeDetailModal({ badge, open, onClose }: BadgeDetailModalProps) {
   const webApp = useWebApp();
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [showStoryCard, setShowStoryCard] = useState(false);
+  const { shareToStory } = useTelegramStory();
+  const botUsername = process.env.NEXT_PUBLIC_BOT_USERNAME || "notnonstagebot";
+
+  React.useEffect(() => {
+    if (!open) setShowStoryCard(false);
+  }, [open]);
 
   if (!badge) return null;
 
@@ -124,9 +134,51 @@ export default function BadgeDetailModal({ badge, open, onClose }: BadgeDetailMo
     }
   };
 
+  const handleShareStory = () => {
+    const deepLink = badge.eventUuid
+      ? `https://t.me/${botUsername}/event?startapp=${badge.eventUuid}`
+      : `https://t.me/${botUsername}`;
+
+    shareToStory({
+      mediaUrl: badgeImage.startsWith("http") ? badgeImage : `https://app.onton.live${badgeImage}`,
+      text: `Just collected my official soulbound badge for ${badge.eventTitle || badgeTitle}! 🎟️✨`,
+      widgetLink: {
+        url: deepLink,
+        name: "View Event on ONTON",
+      },
+    });
+  };
+
   return (
-    <OntonDialog open={open} onClose={onClose} title="Proof of Attendance">
-      <div className="flex flex-col items-center gap-4 text-center">
+    <OntonDialog
+      open={open}
+      onClose={onClose}
+      title={showStoryCard ? "Telegram Story Preview" : "Proof of Attendance"}
+    >
+      {showStoryCard ? (
+        <div className="flex flex-col items-center w-full">
+          <div className="w-full flex items-center justify-between mb-3 px-1">
+            <button
+              onClick={() => setShowStoryCard(false)}
+              className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back to Details</span>
+            </button>
+            <span className="text-xs font-semibold text-blue-500">9:16 Story Card</span>
+          </div>
+
+          <StoryCardPreview
+            badgeTitle={badgeTitle}
+            badgeImage={badgeImage}
+            eventTitle={badge.eventTitle || badgeTitle}
+            eventUuid={badge.eventUuid || undefined}
+            explorerUrl={explorerUrl}
+            ownerIdentifier={badge.itemAddress ? truncateAddress(badge.itemAddress) : undefined}
+          />
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-4 text-center">
         {/* Badge Hologram Artwork Frame */}
         <div className="relative group w-48 h-48 rounded-2xl overflow-hidden shadow-[0_0_30px_rgba(59,130,246,0.3)] border-2 border-blue-400/40 bg-gradient-to-b from-blue-900/20 via-neutral-900/40 to-black/80 flex items-center justify-center p-2">
           {badgeImage.endsWith(".lottie") || badgeImage.endsWith(".json") ? (
@@ -261,12 +313,30 @@ export default function BadgeDetailModal({ badge, open, onClose }: BadgeDetailMo
         {/* Actions */}
         <div className="flex flex-col gap-2 w-full pt-1">
           <button
-            onClick={handleShare}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs transition shadow-sm"
+            onClick={handleShareStory}
+            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium text-xs transition shadow-sm active:scale-[0.98]"
           >
-            <Send className="w-3.5 h-3.5" />
-            <span>Share Badge in Telegram</span>
+            <Share2 className="w-3.5 h-3.5" />
+            <span>Share to Telegram Story 📱</span>
           </button>
+
+          <div className="grid grid-cols-2 gap-2 w-full">
+            <button
+              onClick={() => setShowStoryCard(true)}
+              className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 font-medium text-xs transition"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Story Card</span>
+            </button>
+
+            <button
+              onClick={handleShare}
+              className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 hover:bg-blue-100 font-medium text-xs transition"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>Share in Chat</span>
+            </button>
+          </div>
 
           {explorerUrl && explorerUrl !== "#" && (
             <button
@@ -285,6 +355,7 @@ export default function BadgeDetailModal({ badge, open, onClose }: BadgeDetailMo
           )}
         </div>
       </div>
+      )}
     </OntonDialog>
   );
 }

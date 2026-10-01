@@ -9,25 +9,45 @@ import { getUserCacheKey } from "@/db/modules/users.db";
 import visitorsDB, { addVisitor } from "@/db/modules/visitors.db";
 import telegramService from "@/services/telegramService";
 import { sendTelegramMessage } from "@/lib/tgBot";
-import { eventManagementProtectedProcedure as evntManagerPP, initDataProtectedProcedure, router } from "@/server/trpc";
+import { eventManagementProtectedProcedure as evntManagerPP, initDataProtectedProcedure, publicProcedure, router } from "@/server/trpc";
 import { logger } from "@/server/utils/logger";
 import { LinkService } from "@/lib/links/linkService";
 import { CombinedEventRegisterSchema } from "@/types";
 import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, like, lt, ne, or, sql } from "drizzle-orm";
 import { z } from "zod";
+import { generatePassToken, verifyPassToken } from "@/lib/totp/passToken";
+
+const getRegistrantQrToken = publicProcedure
+  .input(
+    z.object({
+      registrant_uuid: z.string().uuid(),
+    })
+  )
+  .query(async (opts) => {
+    return generatePassToken(opts.input.registrant_uuid);
+  });
 
 const checkinRegistrantRequest = evntManagerPP
   .input(
     z.object({
       event_uuid: z.string().uuid(),
-      registrant_uuid: z.string().uuid(),
+      registrant_uuid: z.string(), // Accepts dynamic rotating token (ONTON:v1:...) or raw UUID
     })
   )
   .mutation(async (opts) => {
     const event_uuid = opts.input.event_uuid;
     const event = await eventDB.selectEventByUuid(event_uuid);
-    const registrant_uuid = opts.input.registrant_uuid;
+
+    const verification = verifyPassToken(opts.input.registrant_uuid);
+    if (!verification.valid) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: verification.message || "Invalid or expired ticket pass QR code",
+      });
+    }
+
+    const registrant_uuid = verification.uuid!;
 
     if (!event) {
       throw new TRPCError({ code: "NOT_FOUND", message: "event not found" });
@@ -408,6 +428,7 @@ const getEventRegistrants = evntManagerPP
   });
 
 export const registrantRouter = router({
+  getRegistrantQrToken,
   checkinRegistrantRequest,
   processRegistrantRequest,
   eventRegister,

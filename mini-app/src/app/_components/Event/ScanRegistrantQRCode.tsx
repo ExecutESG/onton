@@ -17,12 +17,18 @@ const ScanRegistrantQRCode: React.FC<ScanRegistrantQRCodeProps> = ({ children })
   // TRPC
   const checkInRegistrant = trpc.registrant.checkinRegistrantRequest.useMutation({
     onSuccess: (data) => {
+      try {
+        webApp?.HapticFeedback?.notificationOccurred?.("success");
+      } catch (_) {}
       webApp?.showPopup({
         title: "Check-In Success ✅",
         message: data.message,
       });
     },
     onError: (error) => {
+      try {
+        webApp?.HapticFeedback?.notificationOccurred?.("error");
+      } catch (_) {}
       webApp?.showPopup({
         title: "Check-In Failed ❌",
         message: error.message,

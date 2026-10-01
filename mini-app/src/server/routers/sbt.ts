@@ -9,7 +9,14 @@ import visitorsDB from "@/db/modules/visitors.db";
 import rewardDB from "@/db/modules/rewards.db";
 import { logger } from "../utils/logger";
 import { TRPCError } from "@trpc/server";
-import { is_mainnet } from "@/services/tonCenter";
+import tonCenter, { is_mainnet } from "@/services/tonCenter";
+import { db } from "@/db/db";
+import { eventRegistrants } from "@/db/schema/eventRegistrants";
+import { and, asc, eq } from "drizzle-orm";
+import { CsbtMerkleTree, CsbtLeafData } from "@/lib/csbt";
+import { config } from "@/server/config";
+import { is_local_env } from "@/server/utils/evnutils";
+import { SBT_ONCHAIN_UPGRADE_PRICE } from "@/constants";
 
 export function getExplorerLink(address: string): string {
   const domain = is_mainnet ? "tonviewer.com" : "testnet.tonviewer.com";
@@ -52,6 +59,13 @@ export const sbtRouter = router({
         collection,
       };
     }),
+
+  getTreasuryConfig: publicProcedure.query(async () => {
+    return {
+      treasuryAddress: config?.ONTON_WALLET_ADDRESS || null,
+      upgradePriceTon: SBT_ONCHAIN_UPGRADE_PRICE,
+    };
+  }),
 
   getUserBadges: publicProcedure
     .input(z.object({ userId: z.number() }))
@@ -321,6 +335,197 @@ export const sbtRouter = router({
       } catch (error) {
         const message = error instanceof Error ? error.message : "Failed to mint SBT badge";
         logger.error(`claimAttendanceSbt: Error minting SBT badge: ${message}`, error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message,
+        });
+      }
+    }),
+
+  getTicketCsbt: publicProcedure
+    .input(z.object({ ticketUuid: z.string() }))
+    .query(async ({ input }) => {
+      const ticket = await ticketDB.getTicketByUuid(input.ticketUuid);
+      if (!ticket || !ticket.event_uuid) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Ticket not found" });
+      }
+
+      if (ticket.status !== "USED") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Ticket must be checked in to view attendance credentials",
+        });
+      }
+
+      const eventData = await eventDB.fetchEventByUuid(ticket.event_uuid);
+      if (!eventData) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Event not found" });
+      }
+
+      // Fetch all checked-in registrants for this event to construct Merkle tree
+      const checkedInRegistrants = await db
+        .select({
+          id: eventRegistrants.id,
+          registrantUuid: eventRegistrants.registrant_uuid,
+          userId: eventRegistrants.user_id,
+        })
+        .from(eventRegistrants)
+        .where(
+          and(
+            eq(eventRegistrants.event_uuid, ticket.event_uuid),
+            eq(eventRegistrants.status, "checkedin")
+          )
+        )
+        .orderBy(asc(eventRegistrants.id));
+
+      const leaves: CsbtLeafData[] = checkedInRegistrants.map((reg, idx) => ({
+        index: idx,
+        ownerAddress: String(reg.userId || 0),
+        eventUuid: ticket.event_uuid!,
+      }));
+
+      if (leaves.length === 0) {
+        leaves.push({
+          index: 0,
+          ownerAddress: String(ticket.user_id || 0),
+          eventUuid: ticket.event_uuid!,
+        });
+      }
+
+      const targetIndex = Math.max(
+        0,
+        checkedInRegistrants.findIndex((r) => r.registrantUuid === ticket.order_uuid)
+      );
+
+      const tree = await CsbtMerkleTree.fromLeaves(leaves);
+      const proof = tree.getProof(targetIndex);
+      const isVerified = CsbtMerkleTree.verifyProof(proof.leafHash, proof, proof.root);
+
+      return {
+        merkleRootHex: tree.getRootHex(),
+        leafIndex: targetIndex,
+        leafHashHex: proof.leafHashHex,
+        proofStepsCount: proof.steps.length,
+        isVerified,
+        badgeName: `${eventData.title} Credential`,
+        badgeImageUrl: eventData.tsRewardImage || eventData.image_url || "https://onton.app/assets/sbt-badge.png",
+        eventTitle: eventData.title,
+        eventUuid: ticket.event_uuid,
+        ownerIdentifier: ticket.telegram ? `@${ticket.telegram}` : String(ticket.user_id || "attendee"),
+      };
+    }),
+
+  materializeOnChainSbt: publicProcedure
+    .input(
+      z.object({
+        ticketUuid: z.string(),
+        walletAddress: z.string(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      // 1. Get ticket
+      const ticket = await ticketDB.getTicketByUuid(input.ticketUuid);
+      if (!ticket || !ticket.event_uuid || !ticket.user_id) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Ticket not found" });
+      }
+
+      // 2. Ensure ticket is checked in
+      if (ticket.status !== "USED") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Ticket must be checked in before minting on-chain SBT badge",
+        });
+      }
+
+      // 3. Idempotency: check if user already has an on-chain SBT for this event
+      const existingBadge = await sbtDB.findUserSbtForEvent(ticket.user_id, ticket.event_uuid);
+      if (existingBadge && existingBadge.status === "minted") {
+        return {
+          success: true,
+          itemAddress: existingBadge.itemAddress,
+          explorerUrl: getExplorerLink(existingBadge.itemAddress),
+          isExisting: true,
+        };
+      }
+
+      // 4. Verify 0.1 TON payment to Treasury with memo sbt_upgrade:<ticketUuid>
+      const treasuryAddress = config?.ONTON_WALLET_ADDRESS;
+      if (!treasuryAddress && !is_local_env()) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Treasury wallet not configured",
+        });
+      }
+
+      let verifiedTx: any = null;
+      if (treasuryAddress) {
+        const maxAttempts = 6;
+        const delayMs = 2500;
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          try {
+            const startUtime = Math.floor((Date.now() - 1800 * 1000) / 1000);
+            const transactions = await tonCenter.fetchAllTransactions(treasuryAddress, startUtime, null, 30, "desc");
+            const parsed = await tonCenter.parseTransactions(transactions, "sbt_upgrade:");
+            const match = parsed.find(
+              (tx) => tx.order_uuid === input.ticketUuid && tx.rawAmount >= BigInt(95_000_000)
+            );
+            if (match) {
+              verifiedTx = match;
+              break;
+            }
+          } catch (err) {
+            logger.warn(`materializeOnChainSbt: TonCenter lookup attempt ${attempt} failed`, err);
+          }
+
+          if (attempt < maxAttempts) {
+            await new Promise((res) => setTimeout(res, delayMs));
+          }
+        }
+      }
+
+      if (!verifiedTx && !is_local_env()) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Payment transaction of 0.1 TON not found. Please wait a few seconds for network confirmation.",
+        });
+      }
+
+      // 5. Update user wallet address
+      try {
+        await usersDB.updateWallet(ticket.user_id, input.walletAddress, "system_sbt_upgrade");
+      } catch (err) {
+        logger.error(`materializeOnChainSbt: Failed to update wallet for user ${ticket.user_id}`, err);
+      }
+
+      // 6. Fetch event details for metadata
+      const eventData = await eventDB.fetchEventByUuid(ticket.event_uuid);
+      if (!eventData) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Event not found" });
+      }
+
+      // 7. Mint on-chain SBT badge
+      try {
+        const item = await sbtService.mintSbtBadge({
+          eventUuid: ticket.event_uuid,
+          userId: ticket.user_id,
+          walletAddress: input.walletAddress,
+          badgeTitle: `${eventData.title} Attendance Badge`,
+          badgeDescription: `Official Soulbound Proof of Attendance for ${eventData.title}`,
+          badgeImage: eventData.tsRewardImage || eventData.image_url || undefined,
+        });
+
+        // 8. Record visitor check-in
+        await visitorsDB.addVisitor(ticket.user_id, ticket.event_uuid);
+
+        return {
+          success: true,
+          itemAddress: item.itemAddress,
+          explorerUrl: getExplorerLink(item.itemAddress),
+          isExisting: false,
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to mint SBT badge";
+        logger.error(`materializeOnChainSbt: Error minting SBT badge: ${message}`, error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message,

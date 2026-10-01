@@ -14,11 +14,19 @@ export async function hashMetadata(metadata: Record<string, any> | string): Prom
  * Normalizes an arbitrary TON address string into a standard 33-byte Buffer (workchain + 32-byte hash).
  */
 export function normalizeAddressBuffer(rawAddress: string): Buffer {
-  const parsed = Address.parse(rawAddress);
-  const buffer = Buffer.alloc(33);
-  buffer.writeInt8(parsed.workChain, 0);
-  parsed.hash.copy(buffer, 1);
-  return buffer;
+  try {
+    const parsed = Address.parse(rawAddress);
+    const buffer = Buffer.alloc(33);
+    buffer.writeInt8(parsed.workChain, 0);
+    parsed.hash.copy(buffer, 1);
+    return buffer;
+  } catch {
+    const buffer = Buffer.alloc(33);
+    buffer.writeInt8(0, 0); // workchain 0
+    const strBuffer = Buffer.from(rawAddress, "utf-8");
+    strBuffer.copy(buffer, 1, 0, Math.min(strBuffer.length, 32));
+    return buffer;
+  }
 }
 
 /**

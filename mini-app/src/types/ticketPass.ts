@@ -27,6 +27,7 @@ export interface TicketPassData {
   userSbtTicket?: {
     data: { reward_link?: string } | null;
   };
+  hasWeb3?: boolean;
 }
 
 export type TicketAttributeRow = [string, ReactNode];

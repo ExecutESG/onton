@@ -790,3 +790,8 @@ export const TBOOK_FAIRLAUNCH_MINIAPP_URL = "https://engage.tbook.com/fair-launc
 export const ORGANIZER_PROMOTE_PRICE = 1; // TON
 export const NFT_EVENT_PRICE = 1; // TON
 export const CSBT_EVENT_PRICE = 1; // TON
+
+export const SBT_ONCHAIN_UPGRADE_PRICE = 0.1; // TON paid by attendee for on-chain TEP-85 token
+export const SBT_MINT_GAS_FEE = 0.055; // TON forwarded to smart contract for deployment/storage
+export const SBT_PLATFORM_FEE = 0.045; // TON protocol revenue retained in treasury
+

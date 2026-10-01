@@ -11,7 +11,7 @@ import TicketTmaSettings from "./_components/TicketTmaSettings";
 import { TicketShareButton } from "./_components/TicketShareButton";
 import { TicketGroupInviteButton } from "./_components/TicketGroupInviteButton";
 import { TicketMeetingButton } from "./_components/TicketMeetingButton";
-import { ClaimSbtButton } from "./_components/ClaimSbtButton";
+import { AttendanceCredentials } from "./_components/AttendanceCredentials";
 import TicketUserAvatar from "./_components/TicketUserAvatar";
 import TicketAuthGate from "./_components/TicketAuthGate";
 import type { TicketAttributeRow } from "@/types/ticketPass";
@@ -136,8 +136,8 @@ export default async function TicketPassPage({ params }: Props) {
             {ticket.meetingUrl && <TicketMeetingButton meetingUrl={ticket.meetingUrl} />}
             <TicketGroupInviteButton inviteLink={ticket.inviteLink} />
             <TicketShareButton eventUuid={ticket.eventUuid} eventTitle={ticket.ticketData.eventTitle} />
-            {ticket.status === "checkedin" && (
-              <ClaimSbtButton
+            {ticket.status === "checkedin" && ticket.hasWeb3 && (
+              <AttendanceCredentials
                 ticketUuid={ticket.orderUuid}
                 rewardLink={ticket.attendanceSbt?.rewardLink || ticket.userSbtTicket?.data?.reward_link}
                 isMinted={ticket.attendanceSbt?.status === "minted" || Boolean(ticket.userSbtTicket?.data?.reward_link)}

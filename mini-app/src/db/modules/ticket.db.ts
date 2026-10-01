@@ -262,6 +262,7 @@ export const fetchTicketPassByEventUuid = async (eventUuid: string, userId: numb
       sbt_collection_address: events.sbt_collection_address,
       participationType: events.participationType,
       location: events.location,
+      has_web3: events.has_web3,
     })
     .from(events)
     .where(eq(events.event_uuid, eventUuid))
@@ -373,6 +374,7 @@ export const fetchTicketPassByEventUuid = async (eventUuid: string, userId: numb
       collectionAddress: payment?.collectionAddress ?? event[0]?.sbt_collection_address ?? null,
     },
     userSbtTicket,
+    hasWeb3: Boolean(event[0]?.has_web3),
   };
 };
 

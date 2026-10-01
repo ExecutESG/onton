@@ -112,12 +112,9 @@ export const sbtRouter = router({
           .map((r) => {
             const data = (r.rewardData as { reward_link?: string; sbt_address?: string } | null) || {};
             const sbtAddress = data.sbt_address || null;
-            const rewardLink = data.reward_link || null;
-            const explorerUrl = sbtAddress
-              ? `https://tonviewer.com/${sbtAddress}`
-              : (rewardLink || "https://society.ton.org");
+            const explorerUrl = sbtAddress ? `https://tonviewer.com/${sbtAddress}` : null;
 
-            const badgeTitle = r.eventTitle ? `${r.eventTitle} Badge` : "TON Society Attendance Badge";
+            const badgeTitle = r.eventTitle ? `${r.eventTitle} Badge` : "Attendance Badge";
             const badgeDesc = r.eventDescription || "Official Soulbound Proof of Attendance for this event.";
             const badgeImg = r.eventRewardImage || r.eventImage || "https://dev-storage.dev.onton.live/ontonimage/approved.lottie";
 
@@ -134,8 +131,8 @@ export const sbtRouter = router({
               status: "minted",
               transactionHash: null,
               createdAt: r.createdAt,
-              explorerUrl,
-              collectionName: "TON Society",
+              explorerUrl: explorerUrl || "",
+              collectionName: r.eventTitle || "Attendance Badges",
               collectionAddress: r.sbtCollectionAddress || null,
               eventUuid: r.eventUuid,
               eventTitle: r.eventTitle,
@@ -147,9 +144,9 @@ export const sbtRouter = router({
               eventLocation: r.eventLocation,
               eventParticipationType: r.eventParticipationType,
               isTonSociety: true,
-              issuer: "TON Society",
+              issuer: "ONTON",
               network: "TON Mainnet",
-              rewardLink,
+              rewardLink: null,
             };
           });
       } catch (err) {

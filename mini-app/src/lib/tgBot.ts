@@ -156,6 +156,17 @@ export const sendEventPhoto = async (props: { event_id: string; user_id: string 
   }
 };
 
+export const DEFAULT_LOGS_GROUP_ID = "-1002264975789";
+export const DEFAULT_LOGS_TOPICS = {
+  event: "2",
+  ticket: "4",
+  system: "12",
+  payments: "276",
+  campaign: "2344",
+  general: "1",
+  no_topic: "no_topic",
+} as const;
+
 // 🌳 ---- SEND LOG NOTIFICATION ---- 🌳
 export const sendLogNotification = async (
   props: {
@@ -186,9 +197,9 @@ export const sendLogNotification = async (
     [process.env.BOT_TOKEN, process.env.TELEGRAM_BOT_TOKEN, process.env.BOT_TOKEN_LOGS, configProtected?.bot_token_logs].find(isValidToken);
   let LOGS_GROUP_ID =
     props.group_id?.toString() ||
-    process.env.MODERATION_GROUP_ID ||
     process.env.LOGS_GROUP_ID ||
-    configProtected?.logs_group_id;
+    configProtected?.logs_group_id ||
+    DEFAULT_LOGS_GROUP_ID;
 
   if (!BOT_TOKEN_LOGS || !LOGS_GROUP_ID) {
     logger.error("Bot token or logs group ID not found in configProtected or env for this environment");
@@ -196,13 +207,13 @@ export const sendLogNotification = async (
   }
 
   // 2) Determine pinned topic message if any, falling back to no_topic
-  const isCustomGroup = Boolean(props.group_id && String(props.group_id) !== String(configProtected?.logs_group_id));
+  const isCustomGroup = Boolean(props.group_id && String(props.group_id) !== String(configProtected?.logs_group_id || DEFAULT_LOGS_GROUP_ID));
   const topicMapping: Record<"no_topic" | "event" | "ticket" | "system" | "payments" | "campaign", string | null> = {
-    event: isCustomGroup ? "no_topic" : (configProtected?.events_topic || "no_topic"),
-    ticket: isCustomGroup ? "no_topic" : (configProtected?.tickets_topic || "no_topic"),
-    system: isCustomGroup ? "no_topic" : (configProtected?.system_topic || "no_topic"),
-    payments: isCustomGroup ? "no_topic" : (configProtected?.payments_topic || "no_topic"),
-    campaign: isCustomGroup ? "no_topic" : (configProtected?.campaign_topic || "no_topic"),
+    event: isCustomGroup ? "no_topic" : (configProtected?.events_topic || DEFAULT_LOGS_TOPICS.event),
+    ticket: isCustomGroup ? "no_topic" : (configProtected?.tickets_topic || DEFAULT_LOGS_TOPICS.ticket),
+    system: isCustomGroup ? "no_topic" : (configProtected?.system_topic || DEFAULT_LOGS_TOPICS.system),
+    payments: isCustomGroup ? "no_topic" : (configProtected?.payments_topic || DEFAULT_LOGS_TOPICS.payments),
+    campaign: isCustomGroup ? "no_topic" : (configProtected?.campaign_topic || DEFAULT_LOGS_TOPICS.campaign),
     no_topic: "no_topic",
   };
 
@@ -326,23 +337,25 @@ export type CsvLogProps = {
 };
 
 export async function sendLogNotificationWithCsv(props: CsvLogProps) {
-  if (!configProtected?.bot_token_logs || !configProtected?.logs_group_id) {
-    logger.error("Bot token or logs group ID not found in configProtected for this environment");
-    throw new Error("Bot token or logs group ID not found in configProtected for this environment");
-  }
+  const isValidToken = (token?: string | null): token is string => Boolean(token && !token.startsWith("$") && !token.includes("${"));
+  const BOT_TOKEN_LOGS =
+    [process.env.BOT_TOKEN, process.env.TELEGRAM_BOT_TOKEN, process.env.BOT_TOKEN_LOGS, configProtected?.bot_token_logs].find(isValidToken);
+  let LOGS_GROUP_ID =
+    props.group_id?.toString() ||
+    process.env.LOGS_GROUP_ID ||
+    configProtected?.logs_group_id ||
+    DEFAULT_LOGS_GROUP_ID;
 
-  let { bot_token_logs: BOT_TOKEN_LOGS, logs_group_id: LOGS_GROUP_ID } = configProtected;
-
-  // If a different group/chat ID is specified
-  if (props.group_id) {
-    LOGS_GROUP_ID = props.group_id.toString();
+  if (!BOT_TOKEN_LOGS || !LOGS_GROUP_ID) {
+    logger.error("Bot token or logs group ID not found in configProtected or env for this environment");
+    throw new Error("Bot token or logs group ID not found in configProtected or env for this environment");
   }
 
   const topicMapping: Record<"no_topic" | "event" | "ticket" | "system" | "payments", string | null> = {
-    event: configProtected.events_topic,
-    ticket: configProtected.tickets_topic,
-    system: configProtected.system_topic,
-    payments: configProtected.payments_topic,
+    event: configProtected?.events_topic || DEFAULT_LOGS_TOPICS.event,
+    ticket: configProtected?.tickets_topic || DEFAULT_LOGS_TOPICS.ticket,
+    system: configProtected?.system_topic || DEFAULT_LOGS_TOPICS.system,
+    payments: configProtected?.payments_topic || DEFAULT_LOGS_TOPICS.payments,
     no_topic: "no_topic",
   };
 

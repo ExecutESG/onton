@@ -104,7 +104,23 @@ export async function GET(req: NextRequest) {
         authMethod: "google",
       });
 
-      const response = NextResponse.redirect(returnUrl);
+      let targetUrl = returnUrl;
+      const forwardedHost = req.headers.get("x-forwarded-host");
+      const forwardedProto = req.headers.get("x-forwarded-proto") || "https";
+      const publicBase = forwardedHost
+        ? `${forwardedProto}://${forwardedHost}`
+        : (process.env.NEXT_PUBLIC_APP_BASE_URL || "");
+
+      if (publicBase && (targetUrl.includes("localhost") || targetUrl.includes("127.0.0.1"))) {
+        try {
+          const parsed = new URL(targetUrl);
+          targetUrl = `${publicBase}${parsed.pathname}${parsed.search}`;
+        } catch {
+          targetUrl = publicBase || "/";
+        }
+      }
+
+      const response = NextResponse.redirect(targetUrl);
       response.cookies.set("onton_session", sessionToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",

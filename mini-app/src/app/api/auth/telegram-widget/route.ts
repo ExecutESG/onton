@@ -80,7 +80,13 @@ export async function GET(req: NextRequest) {
   });
 
   // 6. Set HTTP-only Cookie
-  const response = NextResponse.redirect(new URL("/", req.url));
+  const forwardedHost = req.headers.get("x-forwarded-host");
+  const forwardedProto = req.headers.get("x-forwarded-proto") || "https";
+  const baseUrl = forwardedHost
+    ? `${forwardedProto}://${forwardedHost}`
+    : process.env.NEXT_PUBLIC_APP_BASE_URL || req.url;
+
+  const response = NextResponse.redirect(new URL("/", baseUrl));
   response.cookies.set("onton_session", sessionToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",

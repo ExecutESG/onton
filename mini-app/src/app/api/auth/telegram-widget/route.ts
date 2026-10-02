@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { usersDB } from "@/db/modules/users.db";
+import { userIdentitiesDB } from "@/db/modules/userIdentities.db";
 import { createWebSessionToken } from "@/server/utils/jwt";
 import { InitUserData } from "@/types/extendedUserTypes";
 
@@ -72,6 +73,14 @@ export async function GET(req: NextRequest) {
   if (user.role === "ban") {
     return new NextResponse("User is banned", { status: 403 });
   }
+
+  // Record or sync identity in user_identities
+  await userIdentitiesDB.linkIdentity(
+    user.user_id,
+    "telegram",
+    String(id),
+    mockInitDataJson.user
+  );
 
   // 5. Issue Web Session JWT
   const sessionToken = await createWebSessionToken({

@@ -148,10 +148,19 @@ export const authEngine = {
     // 1. Check if identity mapping already exists in user_identities
     const existing = await userIdentitiesDB.findUserByIdentity(provider, providerUserId);
     if (existing) {
-      // Update email or photo if provided
+      const updateData: Record<string, any> = {};
       if (email && !existing.user.email) {
-        await db.update(users).set({ email }).where(eq(users.user_id, existing.user.user_id));
+        updateData.email = email;
         existing.user.email = email;
+      }
+      // Telegram profile always takes precedence for avatar and display name
+      if (provider === "telegram") {
+        if (!existing.user.telegram_id) updateData.telegram_id = Number(providerUserId);
+        if (avatarUrl && avatarUrl !== existing.user.photo_url) updateData.photo_url = avatarUrl;
+        if (name && name !== existing.user.first_name) updateData.first_name = name;
+      }
+      if (Object.keys(updateData).length > 0) {
+        await db.update(users).set(updateData).where(eq(users.user_id, existing.user.user_id));
       }
 
       const token = await createPlatformToken({
@@ -302,6 +311,20 @@ export const authEngine = {
       isNewUser: true,
       provider,
     };
+  },
+
+  /**
+   * 5. Link an external TON wallet address to an existing authenticated user.
+   */
+  async linkWallet(userId: number, walletAddress: string) {
+    return userIdentitiesDB.linkIdentity(userId, "ton_wallet", walletAddress, { address: walletAddress });
+  },
+
+  /**
+   * 6. Link an external Google account to an existing authenticated user.
+   */
+  async linkGoogle(userId: number, googleSub: string, profile: { email?: string; name?: string; picture?: string }) {
+    return userIdentitiesDB.linkIdentity(userId, "google", googleSub, profile);
   },
 };
 

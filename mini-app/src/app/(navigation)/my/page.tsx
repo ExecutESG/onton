@@ -22,6 +22,7 @@ import { useEffect } from "react";
 import calendarStarIcon from "./calendar-star.svg";
 import badgeAwardIcon from "./badge-award.svg";
 import LoginRequired from "@/app/_components/auth/LoginRequired";
+import LinkedAccountsCard from "@/app/_components/auth/LinkedAccountsCard";
 
 export default function ProfilePage() {
   const { user } = useUserStore();
@@ -108,6 +109,7 @@ export default function ProfilePage() {
       />
 
       <ConnectWalletCard />
+      <LinkedAccountsCard />
 
       <div
         className="fixed text-primary drop-shadow rounded-full right-4 pt-1 z-[1100] cursor-pointer"

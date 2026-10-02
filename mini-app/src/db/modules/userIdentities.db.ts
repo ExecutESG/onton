@@ -159,6 +159,46 @@ export const userIdentitiesDB = {
         verified: true,
       });
 
+      if (created) {
+        // Sync with primary fields on users table
+        try {
+          if (provider === "telegram") {
+            // Telegram takes precedence for name and avatar
+            const updateData: Record<string, any> = {
+              telegram_id: Number(providerUserId),
+            };
+            if (metadata?.first_name) updateData.first_name = metadata.first_name;
+            if (metadata?.last_name) updateData.last_name = metadata.last_name;
+            if (metadata?.username) updateData.username = metadata.username;
+            if (metadata?.photo_url) updateData.photo_url = metadata.photo_url;
+            await db.update(users).set(updateData).where(eq(users.user_id, userId));
+          } else if (provider === "ton_wallet") {
+            await db.update(users).set({ wallet_address: providerUserId }).where(eq(users.user_id, userId));
+          } else if (provider === "google") {
+            const currentUser = await db.query.users.findFirst({ where: eq(users.user_id, userId) });
+            const updateData: Record<string, any> = {};
+            if (!currentUser?.email && metadata?.email) updateData.email = metadata.email;
+            // Only update photo/name from Google if Telegram identity is not already set
+            if (!currentUser?.telegram_id) {
+              if (!currentUser?.photo_url && metadata?.picture) updateData.photo_url = metadata.picture;
+              if ((!currentUser?.first_name || currentUser.first_name === "Attendee" || currentUser.first_name === "Web") && metadata?.name) {
+                updateData.first_name = metadata.name;
+              }
+            }
+            if (Object.keys(updateData).length > 0) {
+              await db.update(users).set(updateData).where(eq(users.user_id, userId));
+            }
+          } else if (provider === "email") {
+            const currentUser = await db.query.users.findFirst({ where: eq(users.user_id, userId) });
+            if (!currentUser?.email) {
+              await db.update(users).set({ email: providerUserId }).where(eq(users.user_id, userId));
+            }
+          }
+        } catch (syncErr) {
+          logger.error("Error syncing identity to users table:", { userId, provider, syncErr });
+        }
+      }
+
       return { success: !!created, identity: created || undefined };
     } catch (error: any) {
       logger.error("Error linking identity to user:", { userId, provider, providerUserId, error });
@@ -187,6 +227,17 @@ export const userIdentitiesDB = {
             eq(user_identities.provider, provider)
           )
         );
+
+      // Clean up primary column if unlinking
+      try {
+        if (provider === "telegram") {
+          await db.update(users).set({ telegram_id: null }).where(eq(users.user_id, userId));
+        } else if (provider === "ton_wallet") {
+          await db.update(users).set({ wallet_address: null }).where(eq(users.user_id, userId));
+        }
+      } catch (cleanErr) {
+        logger.error("Error clearing unlinked provider column:", { userId, provider, cleanErr });
+      }
 
       return { success: true };
     } catch (error: any) {

@@ -149,11 +149,14 @@ function ConfirmConnectDialog({ open, onClose }: { open: boolean; onClose: () =>
     }
   }, [addWalletMutation, onClose, tonWalletAddress, user?.user_id, user?.wallet_address]);
 
+  const isTonModalOpen = walletModal.state?.status === "opened";
+
   return (
     <OntonDialog
       open={open}
       onClose={onClose}
       title="Connect your wallet"
+      className={isTonModalOpen ? "opacity-0 pointer-events-none" : undefined}
     >
       <Typography
         variant="body"

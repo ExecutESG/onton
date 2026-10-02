@@ -8,11 +8,13 @@ export default function OntonDialog({
   onClose,
   title,
   children,
+  className,
 }: {
   title: string;
   open: boolean;
   onClose: () => void;
   children: ReactNode;
+  className?: string;
 }) {
   const innerRef = useRef<HTMLDivElement>(null);
 
@@ -27,7 +29,8 @@ export default function OntonDialog({
       }}
       className={cn(
         "fixed inset-0 z-[1100] bg-black/70 backdrop-blur-sm transition-opacity duration-300 flex items-center justify-center p-4",
-        open ? "visible opacity-100" : "invisible opacity-0 pointer-events-none"
+        open ? "visible opacity-100" : "invisible opacity-0 pointer-events-none",
+        className
       )}
     >
       <div

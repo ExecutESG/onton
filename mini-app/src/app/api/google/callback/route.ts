@@ -22,6 +22,7 @@ import { taskUsersDB } from "@/db/modules/taskUsers.db";
 import { maybeInsertConnectTaskScore } from "@/lib/maybeInsertConnectTaskScore";
 import { logger } from "@/server/utils/logger";
 import { authEngine } from "@/lib/auth/authEngine";
+import { userIdentitiesDB } from "@/db/modules/userIdentities.db";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -72,7 +73,13 @@ export async function GET(req: NextRequest) {
       return new Response("Unauthorized: missing user context", { status: 401 });
     }
 
-    /* 4️⃣  Upsert mapping in users_google (backward compatibility) ----- */
+    /* 4️⃣  Upsert mapping in user_identities & users_google ----- */
+    await userIdentitiesDB.linkIdentity(userId, "google", ui.sub, {
+      email: ui.email,
+      name: ui.name,
+      picture: ui.picture,
+    });
+
     await usersGoogleDB.upsertGoogleAccount({
       userId: userId,
       gUserId: ui.sub,

@@ -67,14 +67,36 @@ export async function createContext({ req }: { req: Request }) {
   // 2. Get user from web cookie session (onton_token, onton_session, or token)
   async function getUserFromWebSession() {
     try {
-      const cookieStore = cookies();
-      const sessionCookie =
-        cookieStore.get("onton_token") ||
-        cookieStore.get("onton_session") ||
-        cookieStore.get("token");
+      let tokenVal: string | undefined;
 
-      if (sessionCookie?.value) {
-        const payload = await verifyPlatformToken(sessionCookie.value);
+      try {
+        const cookieStore = cookies();
+        const sessionCookie =
+          cookieStore.get("onton_token") ||
+          cookieStore.get("onton_session") ||
+          cookieStore.get("token");
+        tokenVal = sessionCookie?.value;
+      } catch {}
+
+      // Fallback: parse raw cookie header from Request if Next cookies() returned empty/failed
+      if (!tokenVal) {
+        const rawCookieHeader = req.headers.get("cookie");
+        if (rawCookieHeader) {
+          const cookiePairs = rawCookieHeader.split(";").map((p) => p.trim());
+          for (const pair of cookiePairs) {
+            const [k, ...v] = pair.split("=");
+            const key = k?.trim();
+            const val = v.join("=").trim();
+            if (key === "onton_token" || key === "onton_session" || key === "token") {
+              tokenVal = decodeURIComponent(val);
+              break;
+            }
+          }
+        }
+      }
+
+      if (tokenVal) {
+        const payload = await verifyPlatformToken(tokenVal);
         if (payload && typeof payload.userId === "number") {
           const user = await selectUserById(payload.userId);
           if (user) {

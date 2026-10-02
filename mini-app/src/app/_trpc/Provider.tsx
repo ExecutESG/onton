@@ -106,6 +106,12 @@ export default function TRPCAPIProvider({ children }: { children: React.ReactNod
         createCombinedLink(), // custom link to handlen retring
         httpLink({
           url: process.env.NEXT_PUBLIC_TRPC_BASE_URL ? process.env.NEXT_PUBLIC_TRPC_BASE_URL + "/api/trpc" : "/api/trpc",
+          fetch(url, options) {
+            return fetch(url, {
+              ...options,
+              credentials: "include",
+            });
+          },
           headers() {
             const headers: Record<string, string> = {};
 
@@ -115,7 +121,15 @@ export default function TRPCAPIProvider({ children }: { children: React.ReactNod
             const sessionInitData = typeof window !== "undefined" ? sessionStorage.getItem("telegram:initParams") || "" : "";
             const activeInitData = storeInitData || tgInitData || sessionInitData || getClientTelegramInitData();
 
-            if (activeInitData) headers.Authorization = activeInitData;
+            if (activeInitData) {
+              headers.Authorization = activeInitData;
+            } else if (typeof window !== "undefined") {
+              /* Web platform JWT fallback (stored from Google, Email OTP, or WebAuthModal) */
+              const localToken = localStorage.getItem("onton_token");
+              if (localToken) {
+                headers.Authorization = `Bearer ${localToken}`;
+              }
+            }
 
             /* Session-JWT from ton-proof */
             const jwt = getJwt();

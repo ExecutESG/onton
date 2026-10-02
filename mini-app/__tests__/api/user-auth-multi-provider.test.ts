@@ -6,6 +6,7 @@ import {
 } from "../../src/server/utils/jwt";
 import { getAuthenticatedUser } from "../../src/server/auth";
 import { safeTimingEqual } from "../../src/server/apiKeyAuth";
+import { makeGoogleAuthUrl } from "../../src/lib/google";
 import * as jwt from "jsonwebtoken";
 
 describe("Wave 2: Multi-Provider Platform Authentication (#1015, #1016)", () => {
@@ -162,6 +163,30 @@ describe("Wave 2: Multi-Provider Platform Authentication (#1015, #1016)", () => 
       expect(supportedProviders).toContain("email");
       expect(supportedProviders).toContain("ton_wallet");
       expect(supportedProviders).toHaveLength(6);
+    });
+  });
+
+  describe("Google OAuth Dynamic Redirect & PKCE Generation", () => {
+    it("should use custom redirectUri matching requesting origin", () => {
+      process.env.GOOGLE_CLIENT_ID = "test-google-client-id";
+
+      const originRedirectUri = "https://app.dev.onton.live/api/google/callback";
+      const result = makeGoogleAuthUrl(originRedirectUri);
+
+      expect(result.redirectUri).toBe(originRedirectUri);
+      const parsedUrl = new URL(result.url);
+      expect(parsedUrl.searchParams.get("redirect_uri")).toBe(originRedirectUri);
+      expect(parsedUrl.searchParams.get("client_id")).toBe("test-google-client-id");
+      expect(parsedUrl.searchParams.get("response_type")).toBe("code");
+      expect(parsedUrl.searchParams.get("code_challenge")).toBeDefined();
+    });
+
+    it("should fallback to NEXT_PUBLIC_APP_BASE_URL when custom redirectUri is omitted", () => {
+      process.env.GOOGLE_CLIENT_ID = "test-google-client-id";
+      process.env.NEXT_PUBLIC_APP_BASE_URL = "https://dev-app.dev.onton.live";
+
+      const result = makeGoogleAuthUrl();
+      expect(result.redirectUri).toBe("https://dev-app.dev.onton.live/api/google/callback");
     });
   });
 });

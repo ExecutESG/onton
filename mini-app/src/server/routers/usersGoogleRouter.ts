@@ -31,15 +31,16 @@ export const usersGoogleRouter = router({
   /* -------------------------------------------------------------- */
   getAuthUrl: initDataProtectedProcedure.query(async ({ ctx }) => {
     const { user } = ctx; // Telegram user
-    const { url, codeVerifier, state } = makeGoogleAuthUrl();
+    const { url, codeVerifier, state, redirectUri } = makeGoogleAuthUrl();
 
-    /* 🔸 save PKCE verifier + TG‑user id in Redis for 15 min */
+    /* 🔸 save PKCE verifier + TG‑user id in Redis for 15 min */
     await redisTools.setCache(
       REDIS_KEY(state),
       {
         codeVerifier,
         telegramUserId: user.user_id,
         returnUrl: `https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME}/event?startapp=tab_quest`,
+        redirectUri,
       },
       OAUTH_TTL
     );

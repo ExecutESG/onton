@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { publicProcedure, router } from "../trpc";
+import { adminOrganizerProtectedProcedure, initDataProtectedProcedure, publicProcedure, router } from "../trpc";
 import { sbtService } from "@/services/sbtService";
 import { sbtDB } from "@/db/modules/sbt.db";
 import ticketDB from "@/db/modules/ticket.db";
@@ -243,7 +243,8 @@ export const sbtRouter = router({
       };
     }),
 
-  mintBadge: publicProcedure
+  /** Manual mint from the minter wallet (spends TON). Global admins only. */
+  mintBadge: adminOrganizerProtectedProcedure
     .input(
       z.object({
         eventUuid: z.string(),
@@ -262,7 +263,10 @@ export const sbtRouter = router({
           .optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only admins can mint badges manually" });
+      }
       try {
         const item = await sbtService.mintSbtBadge(input);
         return {
@@ -278,17 +282,18 @@ export const sbtRouter = router({
       }
     }),
 
-  claimAttendanceSbt: publicProcedure
+  /** Ticket owner only: this also updates the owner's wallet address. */
+  claimAttendanceSbt: initDataProtectedProcedure
     .input(
       z.object({
         ticketUuid: z.string(),
         walletAddress: z.string(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       // 1. Get ticket
       const ticket = await ticketDB.getTicketByUuid(input.ticketUuid);
-      if (!ticket || !ticket.event_uuid || !ticket.user_id) {
+      if (!ticket || !ticket.event_uuid || !ticket.user_id || ticket.user_id !== ctx.user.user_id) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Ticket not found" });
       }
 
@@ -412,17 +417,18 @@ export const sbtRouter = router({
       };
     }),
 
-  materializeOnChainSbt: publicProcedure
+  /** Ticket owner only: this also updates the owner's wallet address. */
+  materializeOnChainSbt: initDataProtectedProcedure
     .input(
       z.object({
         ticketUuid: z.string(),
         walletAddress: z.string(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       // 1. Get ticket
       const ticket = await ticketDB.getTicketByUuid(input.ticketUuid);
-      if (!ticket || !ticket.event_uuid || !ticket.user_id) {
+      if (!ticket || !ticket.event_uuid || !ticket.user_id || ticket.user_id !== ctx.user.user_id) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Ticket not found" });
       }
 

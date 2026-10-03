@@ -66,46 +66,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, identity: result.identity });
     }
 
-    if (provider === "ton_wallet") {
-      const { address } = data;
-      if (!address || typeof address !== "string") {
-        return NextResponse.json({ ok: false, error: "Missing or invalid wallet address" }, { status: 400 });
-      }
-
-      const result = await userIdentitiesDB.linkIdentity(
-        userId,
-        "ton_wallet",
-        address.trim(),
-        { address: address.trim() }
-      );
-
-      if (!result.success) {
-        return NextResponse.json({ ok: false, error: result.error }, { status: 409 });
-      }
-
-      return NextResponse.json({ ok: true, identity: result.identity });
-    }
-
-    if (provider === "google") {
-      const { sub, email, name, picture } = data;
-      if (!sub || typeof sub !== "string") {
-        return NextResponse.json({ ok: false, error: "Missing or invalid Google user identifier" }, { status: 400 });
-      }
-
-      const result = await userIdentitiesDB.linkIdentity(
-        userId,
-        "google",
-        sub.trim(),
-        { email, name, picture }
-      );
-
-      if (!result.success) {
-        return NextResponse.json({ ok: false, error: result.error }, { status: 409 });
-      }
-
-      return NextResponse.json({ ok: true, identity: result.identity });
-    }
-
+    // ton_wallet and google are intentionally not linkable here: this endpoint cannot verify
+    // ownership of a raw address or Google `sub`. Use TonProof / the Google OAuth callback.
     return NextResponse.json({ ok: false, error: `Unsupported provider: ${provider}` }, { status: 400 });
   } catch (error: any) {
     return NextResponse.json(

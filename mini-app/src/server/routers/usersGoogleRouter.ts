@@ -29,24 +29,34 @@ export const usersGoogleRouter = router({
   /* -------------------------------------------------------------- */
   /* 1)  /usersGoogle.getAuthUrl ‑ generate Google sign‑in link     */
   /* -------------------------------------------------------------- */
-  getAuthUrl: initDataProtectedProcedure.query(async ({ ctx }) => {
-    const { user } = ctx; // Telegram user
-    const { url, codeVerifier, state, redirectUri } = makeGoogleAuthUrl();
+  getAuthUrl: initDataProtectedProcedure
+    .input(z.object({ returnPath: z.string().max(512).optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const { user } = ctx; // authenticated ONTON user (Telegram or web)
+      const { url, codeVerifier, state, redirectUri } = makeGoogleAuthUrl();
 
-    /* 🔸 save PKCE verifier + TG‑user id in Redis for 15 min */
-    await redisTools.setCache(
-      REDIS_KEY(state),
-      {
-        codeVerifier,
-        telegramUserId: user.user_id,
-        returnUrl: `https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME}/event?startapp=tab_quest`,
-        redirectUri,
-      },
-      OAUTH_TTL
-    );
+      const returnPath = input?.returnPath;
+      const appBaseUrl = process.env.NEXT_PUBLIC_APP_BASE_URL;
+      const isSafePath = !!returnPath && returnPath.startsWith("/") && !returnPath.startsWith("//");
+      const returnUrl =
+        isSafePath && appBaseUrl
+          ? new URL(returnPath, appBaseUrl).toString()
+          : `https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME}/event?startapp=tab_quest`;
 
-    return { authUrl: url };
-  }),
+      /* 🔸 save PKCE verifier + user id in Redis for 15 min; the callback links Google to this user */
+      await redisTools.setCache(
+        REDIS_KEY(state),
+        {
+          codeVerifier,
+          telegramUserId: user.user_id,
+          returnUrl,
+          redirectUri,
+        },
+        OAUTH_TTL
+      );
+
+      return { authUrl: url };
+    }),
 
   /* -------------------------------------------------------------- */
   /* 2)  /usersGoogle.saveAccount ‑ persist mapping (fallback use)  */

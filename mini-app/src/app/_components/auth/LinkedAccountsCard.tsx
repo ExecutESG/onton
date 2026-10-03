@@ -52,8 +52,20 @@ export default function LinkedAccountsCard() {
 
   const totalLinked = [hasTelegram, hasGoogle, hasWallet].filter(Boolean).length;
 
-  const handleLinkGoogle = () => {
-    window.location.href = `/api/auth/google/web?returnUrl=${encodeURIComponent(window.location.pathname)}`;
+  const handleLinkGoogle = async () => {
+    try {
+      const isInsideTelegram = Boolean(window.Telegram?.WebApp?.initData);
+      const { authUrl } = await trpcUtils.usersGoogle.getAuthUrl.fetch(
+        isInsideTelegram ? undefined : { returnPath: window.location.pathname }
+      );
+      if (isInsideTelegram) {
+        window.open(authUrl, "_blank", "noopener");
+      } else {
+        window.location.href = authUrl;
+      }
+    } catch {
+      toast.error("Could not start Google linking. Please try again.");
+    }
   };
 
   const handleLinkWallet = () => {

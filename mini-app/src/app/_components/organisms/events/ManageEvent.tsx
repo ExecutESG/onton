@@ -94,7 +94,7 @@ function ManageEvent({ event }: ManageEventProps) {
           cityId: event.cityId || undefined,
           ts_reward_url: event.tsRewardImage || undefined,
           has_web3: Boolean(
-            (event as any).has_web3 ||
+            event.has_web3 ||
               event.tsRewardImage ||
               event.payment_details?.token_id
           ),

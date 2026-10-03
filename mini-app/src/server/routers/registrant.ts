@@ -9,7 +9,7 @@ import { getUserCacheKey } from "@/db/modules/users.db";
 import visitorsDB, { addVisitor } from "@/db/modules/visitors.db";
 import telegramService from "@/services/telegramService";
 import { sendTelegramMessage } from "@/lib/tgBot";
-import { eventManagementProtectedProcedure as evntManagerPP, initDataProtectedProcedure, publicProcedure, router } from "@/server/trpc";
+import { eventManagementProtectedProcedure as evntManagerPP, initDataProtectedProcedure, router } from "@/server/trpc";
 import { logger } from "@/server/utils/logger";
 import { LinkService } from "@/lib/links/linkService";
 import { CombinedEventRegisterSchema } from "@/types";
@@ -18,13 +18,26 @@ import { and, asc, desc, eq, like, lt, ne, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { generatePassToken, verifyPassToken } from "@/lib/totp/passToken";
 
-const getRegistrantQrToken = publicProcedure
+/** Returns a rotating pass token. Only the registrant who owns the pass can get it. */
+const getRegistrantQrToken = initDataProtectedProcedure
   .input(
     z.object({
       registrant_uuid: z.string().uuid(),
     })
   )
   .query(async (opts) => {
+    const registrant = (
+      await db
+        .select({ user_id: eventRegistrants.user_id })
+        .from(eventRegistrants)
+        .where(eq(eventRegistrants.registrant_uuid, opts.input.registrant_uuid))
+        .execute()
+    ).pop();
+
+    if (!registrant || registrant.user_id !== opts.ctx.user.user_id) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Pass not found" });
+    }
+
     return generatePassToken(opts.input.registrant_uuid);
   });
 
@@ -32,7 +45,7 @@ const checkinRegistrantRequest = evntManagerPP
   .input(
     z.object({
       event_uuid: z.string().uuid(),
-      registrant_uuid: z.string(), // Accepts dynamic rotating token (ONTON:v1:...) or raw UUID
+      registrant_uuid: z.string(), // Dynamic rotating token (ONTON:v1:...) only
     })
   )
   .mutation(async (opts) => {

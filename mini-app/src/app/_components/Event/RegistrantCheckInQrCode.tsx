@@ -23,7 +23,7 @@ const RegistrantCheckInQrCode = (props: RegistrantCheckInQrCodeProps) => {
     }
   );
 
-  const activeToken = tokenQuery.data?.token || props.registrant_uuid;
+  const activeToken = tokenQuery.data?.token ?? "";
 
   useEffect(() => {
     if (tokenQuery.data) {
@@ -40,7 +40,6 @@ const RegistrantCheckInQrCode = (props: RegistrantCheckInQrCodeProps) => {
 
   const [options] = useState<Options>({
     type: "svg",
-    data: activeToken,
     margin: 10,
     qrOptions: {
       typeNumber: 0,
@@ -59,19 +58,16 @@ const RegistrantCheckInQrCode = (props: RegistrantCheckInQrCodeProps) => {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!activeToken) return;
     if (!qrCodeRef.current) {
-      qrCodeRef.current = new QRCodeStyling(options);
+      qrCodeRef.current = new QRCodeStyling({ ...options, data: activeToken });
       if (ref.current) {
         qrCodeRef.current.append(ref.current);
       }
+      return;
     }
-  }, [options]);
-
-  useEffect(() => {
-    if (qrCodeRef.current && activeToken) {
-      qrCodeRef.current.update({ data: activeToken });
-    }
-  }, [activeToken]);
+    qrCodeRef.current.update({ data: activeToken });
+  }, [activeToken, options]);
 
   const progressPercent = Math.min(100, Math.max(0, (countdown / 20) * 100));
 
@@ -83,6 +79,9 @@ const RegistrantCheckInQrCode = (props: RegistrantCheckInQrCodeProps) => {
       </div>
 
       <div className="[&>*]:w-full w-full" ref={ref} />
+      {tokenQuery.isError && (
+        <p className="mt-2 text-center text-xs text-red-500">Could not load your live pass. Please reopen this page.</p>
+      )}
 
       <div className="mt-3 w-full px-2">
         <div className="flex items-center justify-between text-[11px] text-gray-400 mb-1">

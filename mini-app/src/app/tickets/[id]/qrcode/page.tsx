@@ -30,7 +30,7 @@ export default function QrcodePage({ params }: Props) {
     }
   );
 
-  const activeToken = tokenQuery.data?.token || orderUuid || "";
+  const activeToken = tokenQuery.data?.token ?? "";
   const remainingSec = tokenQuery.data?.remainingSeconds ?? 20;
 
   // Sync remaining seconds

@@ -24,10 +24,13 @@ const CheckInGuest: FC<{
   const [checkInState, setCheckInState] = useState<CheckInState>("NoTicketData");
 
   const ticketQuery = trpc.ticket.getTicketByUuid.useQuery(
-    { ticketUuid: ticketUuid ?? "" },
+    { event_uuid: params.hash, ticketUuid: ticketUuid ?? "" },
     {
       enabled: !!ticketUuid,
       retry: false,
+      staleTime: Infinity,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
     }
   );
 
@@ -77,19 +80,16 @@ const CheckInGuest: FC<{
 
   useEffect(() => {
     if (checkInMutation.isSuccess) {
-      ticketQuery.refetch().then(() => {
-        const result = checkInMutation.data;
+      const result = checkInMutation.data;
+      // @ts-ignore
+      if (result && result.checkInSuccess) {
+        setTicketData(ticketData ? { ...ticketData, status: "USED" } : ticketData);
+        setCheckInState("checkedInSuccess");
         // @ts-ignore
-        if (result && result.checkInSuccess) {
-          setCheckInState("checkedInSuccess");
-          // @ts-ignore
-          console.log("Check-in successful, ID:", result.result.id);
-          // @ts-ignore
-          params.setNeedRefresh(result.result.id);
-        } else if (result && "alreadyCheckedIn" in result) {
-          setCheckInState("alreadyCheckedIn");
-        }
-      });
+        params.setNeedRefresh(result.result.id);
+      } else if (result && "alreadyCheckedIn" in result) {
+        setCheckInState("alreadyCheckedIn");
+      }
     } else if (checkInMutation.isError) {
       setCheckInState("checkInError");
     }
@@ -98,11 +98,11 @@ const CheckInGuest: FC<{
   const handleCheckIn = useCallback(() => {
     if (ticketData && ticketData.order_uuid) {
       setCheckInState("checkingInLoading");
-      checkInMutation.mutate({ ticketUuid: ticketData.order_uuid });
+      checkInMutation.mutate({ event_uuid: params.hash, ticketUuid: ticketData.order_uuid });
     } else {
       setCheckInState("NoTicketData");
     }
-  }, [ticketData, checkInMutation]);
+  }, [ticketData, checkInMutation, params.hash]);
 
   const handleScanQr = () => {
     if (!WebApp?.isVersionAtLeast("6.0")) {

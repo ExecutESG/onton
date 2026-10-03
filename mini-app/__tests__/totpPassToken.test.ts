@@ -84,10 +84,24 @@ describe("Dynamic Rotating TOTP QR Pass Utility", () => {
     expect(verification.error).toBe("INVALID_SIGNATURE");
   });
 
-  it("should gracefully allow backward-compatible legacy raw UUIDs", () => {
+  it("should reject legacy raw UUIDs (static codes never expire)", () => {
     const verification = verifyPassToken(testUuid);
-    expect(verification.valid).toBe(true);
-    expect(verification.uuid).toBe(testUuid);
+    expect(verification.valid).toBe(false);
+    expect(verification.uuid).toBeUndefined();
+    expect(verification.error).toBe("MALFORMED_TOKEN");
     expect(verification.isDynamic).toBe(false);
+  });
+
+  it("should reject malformed signatures without throwing", () => {
+    const now = Date.now();
+    const { token } = generatePassToken(testUuid, { timestamp: now, secret: testSecret });
+    const parts = token.split(":");
+
+    for (const badSignature of ["zz", "abc", "0".repeat(15), "Z".repeat(16)]) {
+      parts[4] = badSignature;
+      const verification = verifyPassToken(parts.join(":"), { currentTimestamp: now, secret: testSecret });
+      expect(verification.valid).toBe(false);
+      expect(verification.error).toBe("INVALID_SIGNATURE");
+    }
   });
 });

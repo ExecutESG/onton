@@ -1,8 +1,11 @@
-import { publicProcedure, router } from "../trpc";
+import {
+  eventManagementProtectedProcedure,
+  initDataProtectedProcedure,
+  router,
+} from "../trpc";
 import { z } from "zod";
 import ticketDB from "@/db/modules/ticket.db";
 import { TRPCError } from "@trpc/server";
-import rewardsService from "@/services/rewardsService";
 import { logger } from "../utils/logger";
 import visitorsDB from "@/db/modules/visitors.db";
 import rewardDB from "@/db/modules/rewards.db";
@@ -12,40 +15,45 @@ import { sbtService } from "@/services/sbtService";
 import { generatePassToken, verifyPassToken, isDynamicToken } from "@/lib/totp/passToken";
 
 // Type guard to check if result is alreadyCheckedIn type
-function isAlreadyCheckedIn(result: any): result is { alreadyCheckedIn: boolean } {
-  return result && "alreadyCheckedIn" in result;
+function isAlreadyCheckedIn(result: unknown): result is { alreadyCheckedIn: boolean } {
+  return typeof result === "object" && result !== null && "alreadyCheckedIn" in result;
+}
+
+/** Throws unless the ticket exists and belongs to the given event. */
+async function getTicketForEventOrThrow(ticketUuid: string, eventUuid: string) {
+  const ticket = await ticketDB.getTicketByUuid(ticketUuid);
+  if (!ticket) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "Ticket not found" });
+  }
+  if (ticket.event_uuid !== eventUuid) {
+    throw new TRPCError({ code: "CONFLICT", message: "This ticket belongs to a different event" });
+  }
+  return ticket;
 }
 
 export const ticketRouter = router({
-  getTicketByUuid: publicProcedure
+  /** Scan step: event managers resolve a live rotating pass token. Static UUIDs are rejected. */
+  getTicketByUuid: eventManagementProtectedProcedure
     .input(
       z.object({
+        event_uuid: z.string().uuid(),
         ticketUuid: z.string(),
       })
     )
     .query(async (opts) => {
       const verification = verifyPassToken(opts.input.ticketUuid);
-      if (isDynamicToken(opts.input.ticketUuid) && !verification.valid) {
+      if (!verification.valid || !verification.uuid) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: verification.message || "Invalid or expired ticket pass QR code",
         });
       }
 
-      const resolvedUuid = verification.uuid || opts.input.ticketUuid;
-      const ticket = await ticketDB.getTicketByUuid(resolvedUuid);
-
-      if (!ticket) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Ticket not found",
-        });
-      }
-
-      return ticket;
+      return getTicketForEventOrThrow(verification.uuid, opts.input.event_uuid);
     }),
 
-  getTicketQrToken: publicProcedure
+  /** Rotating pass token. Only the ticket owner can get it. */
+  getTicketQrToken: initDataProtectedProcedure
     .input(
       z.object({
         ticketUuid: z.string(),
@@ -53,7 +61,7 @@ export const ticketRouter = router({
     )
     .query(async (opts) => {
       const ticket = await ticketDB.getTicketByUuid(opts.input.ticketUuid);
-      if (!ticket) {
+      if (!ticket || ticket.user_id !== opts.ctx.user.user_id) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Ticket not found",
@@ -62,22 +70,31 @@ export const ticketRouter = router({
       return generatePassToken(opts.input.ticketUuid);
     }),
 
-  checkInTicket: publicProcedure
+  /**
+   * Check-in by an event manager. Accepts a live pass token, or the order UUID
+   * already resolved by the scan step (the caller is an authorized manager).
+   */
+  checkInTicket: eventManagementProtectedProcedure
     .input(
       z.object({
-        ticketUuid: z.string(), // Accepts dynamic rotating token (ONTON:v1:...) or raw UUID
+        event_uuid: z.string().uuid(),
+        ticketUuid: z.string(),
       })
     )
     .mutation(async (opts) => {
-      const verification = verifyPassToken(opts.input.ticketUuid);
-      if (!verification.valid) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: verification.message || "Invalid or expired ticket pass QR code",
-        });
+      let resolvedTicketUuid = opts.input.ticketUuid.trim();
+      if (isDynamicToken(resolvedTicketUuid)) {
+        const verification = verifyPassToken(resolvedTicketUuid);
+        if (!verification.valid || !verification.uuid) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: verification.message || "Invalid or expired ticket pass QR code",
+          });
+        }
+        resolvedTicketUuid = verification.uuid;
       }
 
-      const resolvedTicketUuid = verification.uuid!;
+      await getTicketForEventOrThrow(resolvedTicketUuid, opts.input.event_uuid);
       const result = await ticketDB.checkInTicket(resolvedTicketUuid);
 
       if (!result) {

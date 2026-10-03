@@ -67,7 +67,8 @@ export function isDynamicToken(rawInput: string): boolean {
 }
 
 /**
- * Verifies a pass token or raw UUID.
+ * Verifies a dynamic rotating pass token (ONTON:v1:...).
+ * Raw UUIDs are rejected: they never expire, so a screenshot would work forever.
  * Supports clock skew tolerance and rejects expired screenshots.
  */
 export function verifyPassToken(
@@ -90,11 +91,11 @@ export function verifyPassToken(
 
   const trimmed = rawInput.trim();
 
-  // If not dynamic token, treat as legacy raw UUID pass (backward-compatible)
   if (!isDynamicToken(trimmed)) {
     return {
-      valid: true,
-      uuid: trimmed,
+      valid: false,
+      error: "MALFORMED_TOKEN",
+      message: "Static pass codes are no longer accepted. Ask the attendee to open their live ticket QR.",
       isDynamic: false,
     };
   }
@@ -149,7 +150,11 @@ export function verifyPassToken(
     .digest("hex")
     .slice(0, 16);
 
-  if (crypto.timingSafeEqual(Buffer.from(signature, "hex"), Buffer.from(expectedSig, "hex"))) {
+  const isWellFormedSignature = /^[0-9a-f]{16}$/.test(signature);
+  if (
+    isWellFormedSignature &&
+    crypto.timingSafeEqual(Buffer.from(signature, "hex"), Buffer.from(expectedSig, "hex"))
+  ) {
     matched = true;
   }
 

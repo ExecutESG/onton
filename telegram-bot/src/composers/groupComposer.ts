@@ -38,10 +38,19 @@ groupComposer.use(async (ctx, next) => {
   if (!isOrganizerOrAdmin) {
     if (isGroupCommand) {
       await ctx.reply("You are not authorized to manage event groups.");
-    } else if (ctx.callbackQuery) {
-      await ctx.answerCallbackQuery({ text: "Unauthorized: Organizer or Admin role required." });
+      return;
     }
-    return;
+    if (isGroupCallback) {
+      await ctx.answerCallbackQuery({ text: "Unauthorized: Organizer or Admin role required." });
+      return;
+    }
+    // Stale group-flow state from a user without the role: clear it and let other handlers (e.g. /cancel) run.
+    ctx.session.groupStep = undefined;
+    ctx.session.groupEventId = undefined;
+    ctx.session.groupEventUUID = undefined;
+    ctx.session.groupEventTitle = undefined;
+    ctx.session.pendingGroupId = undefined;
+    return next();
   }
 
   await next();

@@ -86,7 +86,11 @@ export const bot = new Bot<MyContext>(BOT_TOKEN);
     bot.command("org", orgHandler);
     bot.command("cmd", cmdHandler);
     bot.command("banner", bannerHandler);
-    bot.command("start", startHandler);
+    bot.command("start", async (ctx) => {
+      // /start must always escape any stuck multi-step flow (same as /cancel).
+      ctx.session = {};
+      await startHandler(ctx);
+    });
     //bot.command("sbtdist", sbtdistHandler);
     bot.command("id", async (ctx) => {
       await announceBotAdded(ctx);

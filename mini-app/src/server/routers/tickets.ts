@@ -129,23 +129,7 @@ export const ticketRouter = router({
         let rewardLink: string | null = null;
         let sbtAddress: string | null = null;
 
-        if (user?.wallet_address) {
-          try {
-            const mintedItem = await sbtService.mintSbtBadge({
-              eventUuid: ticketData.event_uuid,
-              userId,
-              walletAddress: user.wallet_address,
-              badgeTitle: `${eventData.title} Attendance Badge`,
-              badgeDescription: `Official Soulbound Proof of Attendance for ${eventData.title}`,
-              badgeImage: eventData.tsRewardImage || eventData.image_url || undefined,
-            });
-            sbtAddress = mintedItem.itemAddress;
-            rewardLink = `https://tonviewer.com/${mintedItem.itemAddress}`;
-            sbtStatus = "created";
-          } catch (mintErr) {
-            logger.error(`CHECKIN::SBT::Auto-mint failed for user ${userId}`, mintErr);
-          }
-        }
+        // F-36: Auto-mint disabled. Only cSBT is claimable natively.
 
         const existingReward = await rewardDB.checkExistingRewardWithType(visitor?.id, "ton_society_sbt");
         if (!existingReward) {

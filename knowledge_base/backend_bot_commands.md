@@ -1,95 +1,73 @@
 # Telegram Bot Commands
 
-This document references the internal admin/organizer commands available in the **Telegram Bot Service** (`ontonbot/telegram-bot`).
-These commands are primarily used for content management, rewards distribution, and event configuration.
+> Last verified against dev: 2026-10-03
 
-## 1. Banner Management
-- **Command**: `/banner u2 {event_uuid}`
-- **Handler**: `handlers/bannerHandler.ts`
-- **Role**: Admin only.
-- **Function**: Updates the featured event banner in the frontend.
-    - **Usage**: `/banner u2 550e8400-e29b-41d4-a716-446655440000`
-    - **Logic**:
-        1. Checks `isAdmin`.
-        2. Validates UUID (36 chars).
-        3. Updates `ontonSettings` in DB via `setBanner`.
-        4. Clears Redis cache (`ontonSettings`).
-- **Debugging**:
-    - Check if User ID is in `users` table with `role='admin'`.
-    - Verify Redis connection (if cache clearing fails).
+Commands and callbacks in `telegram-bot/` (`ontonbot/telegram-bot`). Commands are registered in `telegram-bot/src/main.ts` and in composers listed in `telegram-bot/src/composers/index.ts`.
 
-## 2. Channel Posts (Buttons)
-- **Commands**: `/channel_button`, `/remove_button`
-- **Composer**: `composers/channelPostButtonComposer.ts`
-- **Role**: Admin only.
-- **Function**: Adds or removes inline URL buttons (e.g., "Register Now") to existing channel posts.
-- **Flow**:
-    1. `/channel_button` -> Asks for **Post ID**.
-    2. User inputs Post ID -> Asks for **Link**.
-    3. User inputs URL -> Asks for **Button Text**.
-    4. Bot edits the message in the configured `announcement_channel_id`.
-- **Debugging**:
-    - Ensure the Bot is an **Admin** in the target channel.
-    - Verify `announcement_channel_id` is set in `OnTonSettings`.
+## 1. Command index
 
-## 3. ID Conversion
-- **Command**: `/2id` or `/toid`
-- **Composer**: `composers/toIdComposer.ts`
-- **Function**: Converts a forwarded message or username to a numeric User ID/Chat ID.
-- **Usage**: Reply to a message with `/2id`.
+| Command | Source | Role check | Purpose |
+|---|---|---|---|
+| `/start` | `main.ts` → `handlers/startHandler.ts` | None | Onboarding. Resets the session first. |
+| `/id` | `main.ts` → `handlers/announceBotAdded.ts` | — | Chat/bot-added announcement. |
+| `/org` | `main.ts` → `handlers/orgHandler.ts` | Admin | `/org <user\|organizer\|admin> <username>` changes a user's role. |
+| `/cmd` | `main.ts` → `handlers/cmdHandler.ts` | Admin | Admin command handler. |
+| `/banner` | `main.ts` → `handlers/bannerHandler.ts` | Admin | Set the featured event banner. |
+| `/update_profiles` | `main.ts` → `handlers/updateAdminOrganizerProfilesHandler.ts` | Admin | Refresh profiles of admin/organizer users. |
+| `/help` | `composers/helpComposer.ts` | Admin | Lists 12 commands. |
+| `/cancel` | `composers/cancelComposer.ts` | None | Leaves a multi-step flow. |
+| `/sbtdist` | `composers/sbtdistComposer.ts` | Not in the composer | SBT reward distribution. |
+| `/sendpoll` | `composers/pollComposer.ts` | Admin | Queue a poll (sent by `pollSenderCron`). |
+| `/broadcast` | `composers/broadcast.ts` | Admin | Mass message (sent by `broadcastSenderCron`). |
+| `/tournament` | `composers/tournamentComposer.ts` | Not in the composer | Tournament post flow. |
+| `/collections` | `composers/collectionComposer.ts` | Admin | NFT collection management. |
+| `/2id` | `composers/toIdComposer.ts` | Admin | Resolve a numeric user/chat ID. There is no `/toid` alias. |
+| `/channel_button`, `/remove_button` | `composers/channelPostButtonComposer.ts` | Admin | Add/remove an inline URL button on a channel post. |
+| `/play2winfeatured` | `composers/play2winfetured.ts` | Admin | Featured tournament IDs. Still registered although the Play2Win UI is retired. |
+| `/invitor` | `composers/groupComposer.ts` | Organizer or admin | Link a Telegram group to an event. |
+| `/affiliate` | `composers/affiliateComposer.ts` | Organizer or admin | Affiliate links for upcoming paid events (admins see all; organizers their own). |
 
-## 4. SBT Distribution (Rewards)
-- **Command**: `/sbtdist`
-- **Composer**: `composers/sbtdistComposer.ts`
-- **Function**: Distributes SBT (Soulbound Token) rewards to event attendees.
-- **Flow**:
-    1. Input **Event UUID**.
-    2. **Selection Mode**:
-        - **CSV**: Upload a CSV of User IDs.
-        - **All Approved**: Auto-selects all `event_registrants` with `status='approved'`.
-    3. System processes the list and returns a **Result CSV**.
-- **Debugging**:
-    - Check `event_registrants` table for expected users.
-    - Verify `processCsvLinesForSbtDist` logic in `db/db.ts`.
+## 2. Details
 
-## 5. Event Group Management
-- **Command**: `/invitor`
-- **Composer**: `composers/groupComposer.ts`
-- **Role**: Organizer or Admin.
-- **Function**: Links a Telegram Group to an Event for automated invites.
-- **Flow**:
-    1. List active "Online" events.
-    2. User selects an event.
-    3. User inputs the **Group ID** (e.g., `-100xyz`).
-    4. Bot verifies it is an Admin in that group (`checkIfBotIsAdminLocal`).
-    5. Updates `events.event_telegram_group` in DB.
-- **Debugging**:
-    - Bot MUST be added as Admin to the group *before* running the command.
+### `/banner`
+- Usage: `/banner u2 <event_uuid>`.
+- Checks admin, validates the UUID, updates `ontonSettings` (`setBanner`) and clears the `ontonSettings` Redis cache.
 
-## 6. Collections
-- **Command**: `/collections`
-- **Composer**: `composers/collectionComposer.ts`
-- **Function**: Manage NFT Collections (deployment, verification).
+### `/channel_button`
+- Multi-step: post ID → link → button text. The bot then edits the post in `announcement_channel_id`.
+- The bot must be an admin in that channel.
 
-## 7. Affiliate System
-- **Command**: `/affiliate`
-- **Composer**: `composers/affiliateComposer.ts`
-- **Function**: Create/Manage tracking links for marketing.
+### `/sbtdist`
+- Input an event UUID, then choose a CSV of user IDs or all approved registrants. Returns a result CSV.
 
-## 8. Play2Win Featured
-- **Command**: `/play2winfeatured`
-- **Composer**: `composers/play2winfetured.ts`
-- **Role**: Admin.
-- **Function**: Sets the list of featured Tournaments/Games.
-- **Usage**: Send comma-separated Tournament IDs (e.g., `123,456`).
-- **Logic**: Updates `ontonSettings` -> `play2win_featured_ids`.
+### `/invitor`
+1. Lists **all** events with `has_registration` that have not ended (`telegram-bot/src/db/events.ts`). Not limited to online events.
+2. User picks an event and sends a group ID.
+3. Bot checks it is admin in that group, then stores the group on the event.
+- Add the bot as admin to the group before running the command.
 
-## 9. Broadcast
-- **Command**: `/broadcast`
-- **Composer**: `composers/broadcast.ts`
-- **Function**: Mass messaging to bot users.
+Multi-step flows use the in-memory grammY session. A bot restart drops any flow in progress.
 
-## 10. Tournaments
-- **Command**: `/tournament`
-- **Composer**: `composers/tournamentComposer.ts`
-- **Function**: Management of tournament entries and detailed settings.
+## 3. Moderation callbacks
+
+Handled in `telegram-bot/src/composers/moderationComposer.ts`. Buttons come from menus built by the mini-app (`mini-app/src/moderationBot/menu.ts`) and posted to the moderation group (`MODERATION_GROUP_ID`).
+
+| Callback | Effect |
+|---|---|
+| `delist` / `confirmDelist` | Event `hidden=true`, `enabled=false` |
+| `relist` | Restores the event |
+| `warn` | Warns the organizer |
+| `ban` | Sets the organizer's role to `ban` and delists all their events |
+| `dismissReport` | Dismisses an abuse report |
+| `updateEventData` | Event data update action |
+| `approve` / `reject*` | Approve / reject actions |
+
+Moderator check (`isModerator`): role `admin`, the `moderator` flag in `user_custom_flags`, `ADMIN_TELEGRAM_ID`, or a small hardcoded allowlist.
+
+## 4. Payments (not commands)
+
+`pre_checkout_query` and `successful_payment` for Telegram Stars are in `telegram-bot/src/handlers/starsPaymentHandler.ts`. See [telegram_bot_overview.md](telegram_bot_overview.md#6-telegram-stars-flow).
+
+## Known issues (tracked in QA)
+
+- F-33: Stars pre-checkout approves without validating order, price or capacity.

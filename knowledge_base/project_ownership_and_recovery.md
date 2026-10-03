@@ -1,78 +1,95 @@
 # Project Ownership & Disaster Recovery
 
-This document outlines the requirements and procedures for taking full control of the Onton Platform and performing a complete environment recovery or repo migration.
+> Last verified against dev: 2026-10-03
 
-## 1. Governance & Secret Management
+What you must control to own ONTON, how to rotate secrets, and how to rebuild production.
 
-Taking over the project requires control of four primary secret domains.
+## 1. Secret domains
 
-### Domain 1: Infrastructure & Deployment
-Used by GitHub Actions to build and push code to the production server.
-- **SSH Access**: `SSH_PRIVATE_KEY` (Root access). 
-    *   *Reset Action*: Generate a new SSH Keypair. Add Public Key to server's `authorized_keys`. Update GitHub Secret.
-- **Domain/SSL (Cloudflare)**: `MAIN_CLOUDFLARE_API_TOKEN`.
-    *   *Reset Action*: Create a new API Token in Cloudflare dashboard with "DNS Edit" permissions.
-- **Registry Access**: `DOCKER_HUB_TOKEN`.
-    *   *Reset Action*: Generate a new Access Token in Docker Hub account settings.
-- **Local Control Key**: `~/.ssh/onton_prod_key` (ED25519).
-    *   *Status*: Verified & Active (Feb 2026). Installed on server.
+Secrets live in two places:
+- **GitHub Actions** secrets/vars, prefixed `DEV_`, `MAIN_`, `STAGING_` (used by CI for the staging host).
+- **Production `.env`** at `/root/ontonbot/.env` on `65.109.212.86`. Production is deployed by hand, so this file is edited directly on the server.
 
-### Domain 2: Application Secret (Business Logic)
-Required for the Mini-App and Bot to function.
-- **Bot Identity**: `MAIN_BOT_TOKEN`.
-    *   *Reset Action*: Use **@BotFather** on Telegram. Revoke old token and generate a new one.
-- **API Security**: `MAIN_ONTON_API_KEY`.
-    *   *Reset Action*: Generate a new random 32+ character string. Update GitHub and any internal consumers.
-- **Administrative Access**: `MAIN_PGADMIN_DEFAULT_EMAIL`, `MAIN_PGADMIN_DEFAULT_PASSWORD`.
-- **Analytics/DB UI**: `MAIN_MB_ENCRYPTION_SECRET_KEY` (Metabase).
+Names below are env var names (without prefix). Never write values into the repo.
 
-### Domain 3: Blockchain & On-Chain Keys
-Used for TON network interactions, NFT minting, and social hubs.
-- **Network Access**: `MAIN_TONAPI_API_KEY`.
-    *   *Reset Action*: Regenerate key in **tonapi.io** dashboard.
-- **Project Identity**: `MAIN_TON_SOCIETY_API_KEY`.
-- **Wallet Security**: `MAIN_MNEMONIC` (Seed phrase for the treasury/action wallet), `MAIN_EVENT_WALLET_ENC_KEY`.
+### Infrastructure & deployment
+| Secret | Purpose | Rotate |
+| :--- | :--- | :--- |
+| `SSH_PRIVATE_KEY`, `SSH_{DEV,MAIN,STAGING}_{IP,PORT}` | CI SSH access | New keypair → server `authorized_keys` → GitHub secret |
+| `CR_PAT` | GHCR push/pull (`ghcr.io/executesg/onton/*`) | New PAT with `read:packages`, `write:packages` |
+| `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_EMAIL`, `DNS_ZONE_ID` | DNS / ACME | New token with "Edit zone DNS" |
+| `TELEGRAM_BOT_TOKEN_FOR_DEPLOYMENT`, `TELEGRAM_CHAT_ID_FOR_DEPLOYMENT` | Deploy notifications | @BotFather |
 
-### Domain 4: Storage & Database
-- **Primary Database**: `MAIN_POSTGRES_USER` (Confirmed: `ontonont`), `MAIN_POSTGRES_PASSWORD` (Stored in GitHub Secrets).
-- **Database Names**: `mini-app`, `nft-manager`.
-- **Object Storage (MinIO)**: `MAIN_MINIO_ROOT_USER`, `MAIN_MINIO_ROOT_PASSWORD`.
-- **Queue/Cache**: `MAIN_RABBITMQ_DEFAULT_USER`, `MAIN_RABBITMQ_DEFAULT_PASS`, `MAIN_REDIS_PASSWORD`.
+### Application
+| Secret | Purpose |
+| :--- | :--- |
+| `BOT_TOKEN` | Bot identity; also validates Telegram initData. Rotate via @BotFather. |
+| `AUTH_JWT_SECRET` | Platform JWT signing |
+| `ONTON_API_SECRET`, `ONTON_API_KEY` | Server-to-server API key; upload JWTs |
+| `BOT_API_HMAC_SECRET` | HMAC between mini-app and bot |
+| `TOTP_SECRET` | Rotating ticket pass tokens |
+| `CLIENT_API_JWT_SECRET` | Client API |
+| OAuth `GOOGLE_`/`TWITTER_`/`GITHUB_`/`LINKEDIN_`/`MS_` `CLIENT_ID` + `CLIENT_SECRET` | Social login / linking |
+| `PGADMIN_DEFAULT_EMAIL`, `PGADMIN_DEFAULT_PASSWORD`, `MB_ENCRYPTION_SECRET_KEY` | pgAdmin, Metabase |
 
----
+> [!WARNING]
+> Several of these secrets have insecure fallbacks in code if unset. Set every one of them in every environment. Rotating `AUTH_JWT_SECRET` / `ONTON_API_SECRET` / `BOT_TOKEN` logs users out.
 
-## 2. "Starting Over" (Total Reset Procedure)
+### Blockchain
+| Secret | Purpose |
+| :--- | :--- |
+| `MNEMONIC` | Wallet that signs mints |
+| `EVENT_WALLET_ENC_KEY` | Encrypts per-event wallets. Losing it loses access to those wallets. |
+| `TON_CENTER_TOKEN`, `TON_CENTER_ENDPOINT` | TonCenter API |
+| `TON_SOCIETY_API_KEY` | TON Society (used only if `ENABLE_TON_SOCIETY=true`) |
 
-If the production environment is compromised or a fresh start is required, follow this sequence:
-
-### Step 1: Secret Rotation
-1. Update all secrets in **GitHub > Settings > Secrets and variables > Actions**.
-2. Rotate the `SSH_PRIVATE_KEY` by generating a new one and adding it to the server's `authorized_keys`.
-3. Update `.env` files on the server to reflect rotation.
-
-### Step 2: Infrastructure Wipe
-1. SSH into the server (`65.109.212.86`).
-2. Run `docker compose down -v` to remove all containers and **all volumes** (Warning: This deletes local data).
-3. Clear orphan Docker assets: `docker system prune -a --volumes`.
-
-### Step 3: Reconstruction (Code-First)
-1. Ensure the repo is up-to-date locally.
-2. Trigger a full build and deploy using GitHub Actions (e.g., by updating `Trigger-full-build.txt`).
-3. Verify basic connectivity (HTTPS and Bot responsiveness).
-
-### Step 4: Data Restoration
-1. Navigate to `devops/backup_scripts/`.
-2. Execute `./restore_from_hetzner.sh`.
-3. Select the most recent verified backup date.
-4. Restore both **Database** and **Files** (MinIO/Config) to bring back users and event assets.
+### Storage & database
+| Secret | Purpose |
+| :--- | :--- |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `DATABASE_URL` | Postgres |
+| `POSTGRES_MINI_APP_DB` (+ `POSTGRES_NFT_MANAGER_DB`, `POSTGRES_METABASE_DB`) | DB names |
+| `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD` | MinIO |
+| `RABBITMQ_DEFAULT_USER`, `RABBITMQ_DEFAULT_PASS` | RabbitMQ |
+| `REDIS_PASSWORD` | Redis (optional) |
 
 ---
 
-## 3. Deployment Observability
+## 2. Total reset procedure (production)
 
-To monitor the health of a fresh deployment:
-- **Telegram Notifications**: Monitored via `TELEGRAM_CHAT_ID_FOR_DEPLOYMENT`.
-- **Live Logs**: `docker compose logs -f --tail 100` on the server.
-- **Monitoring URLs**:
-    - `monitoring.toncloud.observer` (Infrastructure health)
-    - `pgadmin.toncloud.observer` (Database state)
+### Step 1: Back up first
+- Take a manual dump ([manual_db_maintenance.md](./manual_db_maintenance.md)) and archive `./data`. There are no automated backups.
+
+### Step 2: Rotate secrets
+1. Update GitHub secrets/vars.
+2. Update `/root/ontonbot/.env` on production.
+3. Rotate SSH keys on both hosts.
+
+### Step 3: Rebuild
+1. On `65.109.212.86` in `/root/ontonbot`: `git pull`.
+2. `docker compose --profile full up -d --build`.
+
+GitHub Actions does **not** rebuild production. Pushing `main` or editing `Trigger-full-build.txt` only redeploys the staging host.
+
+> [!CAUTION]
+> `docker compose down -v` and `docker system prune -a --volumes` delete named volumes (`pgadmin`, `clamav_data`, `rabbitmq_data`). Postgres data is a bind-mount at `./data/db_data`; deleting `./data` deletes the database. Only do this with a verified dump in hand.
+
+### Step 4: Restore data
+- Import the SQL dump with `psql` and unpack `./data` (see Phase 4 in [migration_and_syncing.md](./migration_and_syncing.md)).
+- `devops/backup_scripts/restore_from_hetzner.sh` exists for restoring from a Hetzner Storage Box, but only works if backups were actually uploaded there by hand or by a manually installed cron.
+
+### Step 5: Verify
+- HTTPS works on `app.onton.live`.
+- `@theontonbot` responds (production only; never test against it from non-prod).
+- Images load from MinIO.
+
+---
+
+## 3. Observability
+- Deploy notifications: the Telegram chat in `TELEGRAM_CHAT_ID_FOR_DEPLOYMENT` (CI deploys only).
+- Production logs: `docker compose --profile full logs -f --tail 100` in `/root/ontonbot`.
+- Staging logs: `docker service logs onton-dev_<service> -f`.
+
+## Known issues (tracked in QA)
+- No automated prod DB backups.
+- F-04: no automated prod deploy; CI deploys `main` to the staging host.
+- F-30: PoA has a universal override; slated for removal.

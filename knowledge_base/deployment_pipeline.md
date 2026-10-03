@@ -1,155 +1,116 @@
-# ONTON Deployment Pipeline Knowledge Base
+# ONTON Deployment Pipeline
 
-This document provides a comprehensive analysis of the CI/CD pipeline for the ONTON platform, covering both Dev (Shadow) and Production environments. It explains "how it works" so you can debug and manage deployments independently.
+> Last verified against dev: 2026-10-03
 
----
+How `.github/workflows/build-push-deploy.yml` builds and deploys ONTON.
 
-## 1. High-Level Architecture
+> [!IMPORTANT]
+> The pipeline deploys **only to the staging host** (`65.109.182.13`). Both `dev` and `main` go there. Production (`65.109.212.86`) is deployed by hand. See [deployment_and_infrastructure.md](./deployment_and_infrastructure.md).
 
-The deployment process is fully automated using **GitHub Actions**, **Docker Buildx**, **GitHub Container Registry (GHCR)**, and **Docker Swarm**.
+## 1. Overview
 
 ```mermaid
-graph TD
-    User([Developer]) -->|Push/Merge| GH[GitHub Repository]
-    GH -->|Trigger| Action[GitHub Action Workflow]
-    
-    subgraph "CI: Build & Push"
-        Action -->|Determine Changes| Matrix[Service Matrix]
-        Matrix -->|Build Docker Image| Build[Docker Buildx]
-        Build -->|Push| GHCR[GHCR Registry]
-    end
-    
-    subgraph "CD: Deployment (SSH)"
-        Action -->|SSH Connection| Server[Target Server (Dev/Prod)]
-        Server -->|Pull New Images| GHCR
-        Server -->|Update Stack| Swarm[Docker Swarm]
-        Swarm -->|Rolling Update| Services[Running Containers]
-    end
+flowchart TD
+    Push["Push to dev or main"] --> Detect["determine-services"]
+    Detect --> Validate["validate-services (lint, vitest, tsc)"]
+    Validate --> Build["build-and-push to GHCR"]
+    Build --> Deploy["deploy over SSH (SSH_DEV host)"]
+    Deploy --> Stack["docker stack deploy"]
+    Stack --> Smoke["Post-deploy Playwright smoke"]
 ```
 
----
+## 2. Triggers
+- `push` to `dev`/`main`, filtered by path: `devops`, `Caddyfile`, server compose files, `mini-app`, `newton`, `telegram-bot`, `swagger`, `website`, `.github/workflows`, `Trigger-full-build.txt`.
+- `pull_request` to `dev`/`main` (no path filter). Runs detection and validation only; build/deploy run on push or dispatch.
+- `workflow_dispatch` with input `service` = `auto` | `all` | `<name>`.
+- Concurrency cancels in-progress runs, except on `main`.
 
-## 2. The Workflow Explained
-File: `.github/workflows/build-push-deploy.yml`
+## 3. Jobs (four)
 
-The pipeline consists of three sequential jobs:
+### `determine-services`
+- Maps changed paths to services: `mini-app`, `telegram-bot`, `website`, `caddy` (`devops/` or `Caddyfile`).
+- `Trigger-full-build.txt` changed → build all services.
+- Nothing matched (e.g. only a server compose file changed) → defaults to `telegram-bot`.
+- `swagger-ui` is in the build map but not in the detect map, so swagger changes do not rebuild it.
+- Fails if the `TELEGRAM_*_FOR_DEPLOYMENT` secrets are missing.
 
-### Job 1: `determine-services`
-*   **Goal:** Save time by only building what changed.
-*   **Mechanism:** It runs `git diff` between previous and current commit.
-*   **Logic:** 
-    *   If `mini-app/` changes -> Builds `mini-app`, `workers`, `sockets`.
-    *   If `devops/` or `docker-compose*.yml` changes -> Rebuilds relevant services.
-    *   If `Trigger-full-build.txt` is modified -> **Forces a rebuild of EVERYTHING.** (Use this if caches get weird).
-*   **Output:** A JSON list of services to build.
+### `validate-services` (Node 22)
+- `mini-app`: `yarn lint:quiet` and `yarn test:api` (Vitest).
+- `telegram-bot`: `yarn run build` (`tsc`).
+- Runs only for changed services. No `type:check` step.
 
-### Job 2: `build-and-push`
-*   **Goal:** Create Docker images and store them.
-*   **Tagging Strategy:**
-    *   `ghcr.io/.../service:branch-commitSHA` (Unique History)
-    *   `ghcr.io/.../service:branch-latest` (Mutable Tag for Deployment)
-    *   *Example:* `dev-latest` for Shadow, `main-latest` for Production.
-*   **Secrets:** It injects build-time variables (starting with `DEV_` or `MAIN_` based on branch) into the image build args.
+### `build-and-push`
+- One image per service. Workers and the socket reuse the `mini-app` image with a different `command`; there are no separate worker images.
+- Tags: `ghcr.io/executesg/onton/<service>:<branch>-<run_id>` and `:<branch>-latest`.
+- Always builds `--target production`, with GitHub Actions cache.
+- Build args come from `devops/export_env.py build_args "<BRANCH>_"`.
 
-### Job 3: `deploy`
-*   **Goal:** Update the running server.
-*   **Environment Selection:**
-    *   Branch `dev` -> Uses `SSH_DEV_IP`, `SSH_DEV_PORT`, `docker-compose-server-dev.yml`.
-    *   Branch `main` -> Uses `SSH_MAIN_IP`, `SSH_MAIN_PORT`, `docker-compose-server.yml`.
-*   **Execution Steps:**
-    1.  **SSH into Server.**
-    2.  **Copy Files:** `docker-compose` files, `devops/`, `swagger/` are copied fresh every time.
-    3.  **Generate `.env`:** A script on the runner generates a `.env` file from GitHub Secrets and copies it to the server.
-    4.  **Special Handling (Caddy):** If Caddy changes, it runs a script to regenerate the `Caddyfile` dynamically.
-    5.  **Docker Stack Deploy:** updates the stack named `onton`.
-    6.  **Force Update:** Explicitly forces a service update (`docker service update --force`) to ensure containers pick up the new `latest` image.
+### `deploy`
+- Writes `.env` from `<BRANCH>_`-prefixed secrets/vars.
+- Target host: `dev` and `main` both use `SSH_DEV_IP` / `SSH_DEV_PORT`. Branch `staging` uses `SSH_STAGING_*`.
+- SSH user `tonont`, directory `/home/tonont/<branch>`. Copies compose files, `.env`, `.dockerignore`, `swagger/`, `devops/` (not the `Caddyfile`).
+- Regenerates the `Caddyfile` with `devops/generate-caddyfile-by-address.sh` only when `caddy` is being built.
+- Labels the node `stage.<branch>=true` and creates overlay networks.
+- `docker stack deploy --with-registry-auth --resolve-image always`, then `docker service update --force --update-failure-action rollback` per service. For `mini-app` it also reloads workers that have non-zero replicas. Then `docker image prune`.
+- Cloudflare cache purge only on `main`.
+- Post-deploy smoke: `npx playwright test smoke.spec.ts` against `https://app.dev.onton.live` (`dev`) or `https://app.onton.live` (`main`). It runs after deploy, so it is not a gate.
+- The manual-approval step is commented out.
 
----
+## 4. Branch mapping
 
-## 3. Environment Strategy
-
-The pipeline supports two distinct environments based on the git branch.
-
-| Feature | Dev (Shadow) | Production |
+| | `dev` | `main` |
 | :--- | :--- | :--- |
-| **Branch** | `dev` | `main` |
-| **Compose File** | `docker-compose-server-dev.yml` | `docker-compose-server.yml` |
-| **Secrets Prefix** | `DEV_` (e.g. `DEV_DATABASE_URL`) | `MAIN_` (e.g. `MAIN_DATABASE_URL`) |
-| **Replicas** | 1 (Low Resource) | Scalable (Default 2) |
-| **Network** | `onton-shadow-network` | `onton-shadow-network` (Overlay) |
-| **Image Tag** | `dev-latest` | `main-latest` |
+| Host | staging (`SSH_DEV_*`) | staging (`SSH_DEV_*`) |
+| Compose file | `docker-compose-server-dev.yml` | `docker-compose-server.yml` |
+| Stack name | `onton-dev` | `onton` |
+| Network | `onton-dev-network` | `onton-network-main` |
+| Secrets prefix | `DEV_` | `MAIN_` |
+| Image tag | `dev-latest` | `main-latest` |
+| Replicas | mini-app 1, telegram-bot 1, website 1; all workers and socket 0 | mini-app `${SYS_MINI_APP_REPLICAS:-2}`, socket 5 |
+| Caddy | global service in the stack | not in the compose file |
 
-### Secret Management
-*   **GitHub Secrets** are the source of truth.
-*   **Mapping:** The workflow automatically maps `DEV_MY_SECRET` -> `MY_SECRET` inside the Dev container.
-*   **Implication:** If you add a new env var `API_KEY`, you must add `DEV_API_KEY` and `MAIN_API_KEY` to GitHub Secrets.
+### Secrets
+- GitHub secrets/vars are the source of truth. `DEV_MY_SECRET` becomes `MY_SECRET` in the server `.env`.
+- A new env var `API_KEY` needs `DEV_API_KEY` and `MAIN_API_KEY` (and `STAGING_` if used).
 
----
+## 5. Services in the server stacks
+- Apps: `mini-app`, `telegram-bot`, `website`.
+- Workers (mini-app image): sbt-worker (runs `start-cron-payment`), nft-api, reward, ordinary, poa, notification-socket.
+- Infra (`onton-dev`): `caddy`, `postgres`, `redis`, `minio`, `registry`, `registry-ui`, `elasticsearch`, `fluentd`. No Kibana. No RabbitMQ.
+- `participant-tma` and the moderation bot are removed.
 
-## 4. Service Breakdown
+## 6. Triggering a deploy
+- Push to `dev` → stack `onton-dev` on staging.
+- Push to `main` → stack `onton` on the **staging** host. This does not update production.
+- Full rebuild: edit `Trigger-full-build.txt` and push.
+- Watch the GitHub "Actions" tab and the deployment Telegram chat.
 
-### Core Services
-*   **`mini-app`**: The main Next.js application (client & admin).
-*   **`telegram-bot`**: Handles Telegram interactions.
-*   **`participant-tma`**: The separate Participant Mini App.
-*   **`website`**: The marketing landing page.
+## 7. Troubleshooting
 
-### Workers (Background Jobs)
-These are specialized instances of the `mini-app` image running specific commands:
-*   `mini-app-sbt-worker`: Minting SBTs.
-*   `mini-app-reward-worker`: Distributing rewards.
-*   `mini-app-poa-worker`: Proof of Action processing.
-*   `mini-app-notification-socket`: WebSocket server for real-time updates.
+### Deploy passed but code did not update
+- The pipeline already forces a service update. If needed, on the staging host:
+  ```bash
+  docker service update --force onton-dev_mini-app
+  ```
 
-### Infrastructure (Dockerized)
-*   **`caddy`**: Reverse Proxy (HTTPS, Routing).
-*   **`postgres`**: Database.
-*   **`redis`**: Caching & Queues.
-*   **`minio`**: S3-compatible Object Storage.
-*   **`fluentd` / `elasticsearch` / `kibana`**: Logging stack.
+### GHCR login fails
+- `CR_PAT` is missing or expired. Create a PAT with `read:packages` and `write:packages` and update the secret.
 
----
+### Database connection fails
+- Check `DEV_DATABASE_URL` (or `MAIN_`) matches the stack's Postgres credentials.
 
-## 5. How to Trigger Deployments
+### Caddy 404/502 on staging
+- `generate-caddyfile-by-address.sh` may have produced a bad config. Check `docker service logs onton-dev_caddy`.
 
-### Automated
-1.  **Code Change:** Modify any file in `mini-app/` or `devops/`.
-2.  **Push:** `git push origin dev` (deploys to Shadow) or `git push origin main` (deploys to Prod).
-3.  **Monitor:** Watch the "Actions" tab in GitHub.
-
-### Manual Full Rebuild
-If you need to force-rebuild everything (e.g., after changing a secret that is used verify build time):
-1.  Edit `Trigger-full-build.txt` (add a space or bump version).
-2.  Push.
-
----
-
-## 6. Troubleshooting Guide
-
-### Issue: "Deployment Passed, but Code Didn't Update"
-*   **Cause:** The `latest` tag might be cached on the server, or the service didn't restart.
-*   **Fix:** The pipeline runs `docker service update --force`. If that fails, SSH into the server and run:
-    ```bash
-    docker service update --force onton_mini-app
-    ```
-
-### Issue: "Build Failed on GHCR Login"
-*   **Cause:** `CR_PAT` (Container Registry Personal Access Token) might be expired or missing in GitHub Secrets.
-*   **Fix:** Regenerate a PAT with `read:packages` and `write:packages` scope and update `CR_PAT` secret.
-
-### Issue: "Database Connection Failed"
-*   **Cause:** Incorrect `SSH_IP` or `DATABASE_URL` secrets.
-*   **Check:** Verify `DEV_DATABASE_URL` in GitHub Secrets matches the actual DB credentials.
-
-### Issue: "Caddy Routing Error (404/502)"
-*   **Cause:** The `generate-caddyfile-by-address.sh` script might have failed or generated bad config.
-*   **Check:** SSH to server, check `docker service logs onton_caddy`.
-
-### SSH Access (Emergency)
-To manually inspect the server:
+### Manual inspection
 ```bash
 ssh -p <PORT> tonont@<IP>
-# Then
 docker service ls
-docker service logs onton_mini-app -f
+docker service logs onton-dev_mini-app -f
 ```
+
+## Known issues (tracked in QA)
+- F-04: CI deploys `main` to the staging host; no automated prod deploy.
+- The `main` smoke test hits the prod URL while the deploy went to staging.
+- Staging runs no workers, socket or RabbitMQ.
+- The generated `.env` (contains `CR_PAT`) stays on the server after deploy.

@@ -1,63 +1,66 @@
 # Affiliate & Referral System
 
-The ONTON Affiliate System allows users to earn rewards and track performance through unique referral links. It supports both general platform growth and specific campaigns like the Fairlaunch.
+> Last verified against dev: 2026-10-03
 
-## 1. Referral Types
+Affiliate links track referrals (user joins) and ticket sales. Campaign purchases (Fairlaunch) are tracked separately.
 
-### A. User Referral (Platform Growth)
-*   **Mechanism:** Telegram Start Parameter (`t.me/ontonbot?start=join-HASH`).
-*   **Tracking:**
-    *   When a new user launches the bot with a `join-HASH` param, the system looks up the affiliate link.
-    *   The new user is linked to the referrer in the `users` table (or similar tracking table).
-    *   **Code:** `src/server/context.ts` parses `join-HASH` during the `createContext` user sync.
+## 1. Data
 
-### B. Event Promotion (Ticket Sales)
-*   **Mechanism:** `utm_source` tracking on Orders.
-*   **Tracking:**
-    *   When a user buys a ticket, the `utm_source` (Affiliate Hash) is saved in the `orders` table.
-    *   Upon successful NFT minting, `MintNFTForPaidOrders.ts` calls `affiliateLinksDB.incrementAffiliatePurchase`.
-    *   This increments the success count for that specific affiliate link.
+### `affiliate_links` (`mini-app/src/db/schema/affiliateLinks.ts`)
 
-### C. Fairlaunch Partnership (Campaigns)
-*   **Context:** Special campaign for token sales (e.g., $ONION).
-*   **Worker:** `affiliateRouter.ts` -> `getFairlaunchAffiliate`.
-*   **Tracking:**
-    *   Tracks rich data: `usdtAmount`, `onionAmount`, `walletAddress`.
-    *   Data is stored in `partnershipAffiliatePurchases`.
-    *   **UI:** Users can see a detailed dashboard with their total sales and global campaign progress.
+| Column | Meaning |
+|---|---|
+| `Item_id` | Target item (e.g. event) |
+| `item_type` | Enum: `EVENT`, `HOME`, `onion1-campaign`, `onion1-special-affiliations`, `onton-join-task`, `fairlaunch-partnership` |
+| `creator_user_id` | User who owns the link |
+| `affiliator_user_id` | Affiliator user |
+| `title`, `group_title` | Labels |
+| `link_hash` | Unique code |
+| `total_clicks` | Click counter |
+| `total_purchase` | Purchase / join counter |
+| `active` | Enabled flag |
 
-## 2. Data Structure
+Other tables: `users.affiliator_user_id` (referrer of a user), affiliate click records (`mini-app/src/db/modules/affiliateClicks.db.ts`, batched by the `consumeClickBatch` cron in the ordinary worker), and `partnershipAffiliatePurchases` (Fairlaunch).
 
-### Core Table: `affiliateLinks`
-*   `id`: Unique ID.
-*   `user_id`: The referrer.
-*   `linkHash`: The unique code (e.g., `8xyz123`).
-*   `type`: Type of link (e.g., `fairlaunch-partnership`, `standard`).
-*   `purchase_count`: Simple counter for ticket sales.
+## 2. Referral types
 
-## 3. Flow Diagram (Ticket Sale Referral)
+### A. Join referral (`onton-join-task`)
+- Link format (built in `mini-app/src/server/routers/tasksRouter.ts`): `https://t.me/<NEXT_PUBLIC_BOT_USERNAME>/event?startapp=join-<link_hash>`.
+- When the Mini App opens, `mini-app/src/server/context.ts` reads `start_param`, and if it starts with `join-` passes the hash to `usersDB.insertUser`.
+- For a **new** user with an `onton-join-task` link, `insertUser` (`mini-app/src/db/modules/users.db.ts`) sets `users.affiliator_user_id` to the link creator and increments the link's `total_purchase`.
+- The bot also parses `join_` / `join-` deep links (`telegram-bot/src/utils/deepLink.ts`).
+
+### B. Event ticket sales
+- Organizers/admins create links with the bot command `/affiliate` (`telegram-bot/src/composers/affiliateComposer.ts`) for upcoming paid events.
+- `POST /api/v1/order` stores the request's `affiliate_id` in `orders.utm_source`.
+- After a successful TON/USDT mint, `MintNFTForPaidOrders.ts` calls `affiliateLinksDB.incrementAffiliatePurchase(utm_source)` inside the completion transaction.
+- **Only the TON/jetton mint path counts.** Telegram Stars payments and free orders never increment `total_purchase`.
+
+### C. Fairlaunch partnership
+- `affiliate.getFairlaunchAffiliate` (`mini-app/src/server/routers/affiliateRouter.ts`, authenticated).
+- Purchases stored in `partnershipAffiliatePurchases`: wallet address, Telegram user, `usdt_amount`, `onion_amount`, time of purchase, user entry type.
+
+## 3. Ticket-sale flow
 
 ```mermaid
 sequenceDiagram
-    participant Ref as Referrer
-    participant Buyer as User
-    participant API as ONTON API
+    participant Org as Organizer
+    participant Bot as telegram-bot
+    participant Buyer as Buyer
+    participant API as Order API
     participant DB as PostgreSQL
-    participant Worker as Mint Worker
+    participant Cron as MintNFTForPaidOrders
 
-    Ref->>API: Generate Link (Hash)
-    API-->>Ref: t.me/bot?start=join-HASH
-
-    Ref->>Buyer: Shares Link
-    Buyer->>API: Opens Bot (Context Sync)
-    API->>DB: Link User to Referrer (Optional)
-    
-    Buyer->>API: Buys Ticket (Order created with utm_source=HASH)
-    
-    note right of Worker: Payment Success
-    Worker->>DB: Update Order -> Completed
-    Worker->>DB: incrementAffiliatePurchase(HASH)
-    
-    Ref->>API: Check Dashboard
-    API-->>Ref: Show Updated Sales Count
+    Org->>Bot: /affiliate (pick paid event)
+    Bot-->>Org: Affiliate link (link_hash)
+    Org->>Buyer: Share link
+    Buyer->>API: Create order (affiliate_id = link_hash)
+    API->>DB: orders.utm_source = link_hash
+    Note over Buyer,Cron: TON/USDT payment verified, order = processing
+    Cron->>DB: Mint NFT, order = completed
+    Cron->>DB: incrementAffiliatePurchase(link_hash)
 ```
+
+## Known issues (tracked in QA)
+
+- Affiliate sales are undercounted: Stars-paid and free tickets are not counted.

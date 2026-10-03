@@ -1,10 +1,14 @@
 # ONTON Platform — TO-BE Technical Blueprint
 
+> Last verified against dev: 2026-10-03
+
 > **Target Architecture Specification (2026–2027)**
 > **Vision:** "The Event Engagement Platform — Verifiable Credentials, Gamified Participation, Omnichannel Reach"
 > **Authors:** Antigravity AI & Mahdi Farimani (مهدی فریمانی)
-> **Status:** Strategic Target Architecture & Phased Implementation Masterplan
-> **Last Updated:** 2026-09-19
+> **Status:** Plan. Sections 1–9 describe the **target** architecture. Unless a line is explicitly marked "exists today", treat it as **not implemented**.
+
+> [!IMPORTANT]
+> This is a plan, not a description of the running system. The verified current state is in [as_is_technical_blueprint.md](as_is_technical_blueprint.md). Delivery status per issue is in §10, checked against `dev` on 2026-10-03.
 
 ---
 
@@ -67,14 +71,14 @@ flowchart TD
 
 | Feature | Luma | Eventbrite | Partiful | **ONTON** |
 |---------|------|-----------|----------|-----------|
-| Web-first RSVP | ✅ | ✅ | ✅ | ✅ |
+| Web-first RSVP | ✅ | ✅ | ✅ | Partial today (web login exists; web-first app is target) |
 | Telegram native | ❌ | ❌ | ❌ | ✅ (channel) |
-| WhatsApp/Discord | ❌ | ❌ | ❌ | ✅ (planned) |
-| Verifiable credentials | ❌ | ❌ | ❌ | **✅ (core)** |
+| WhatsApp/Discord | ❌ | ❌ | ❌ | Planned |
+| Verifiable credentials | ❌ | ❌ | ❌ | Partial today (native SBT; Merkle proofs not anchored) |
 | Gamification (quests, points) | ❌ | ❌ | ❌ | **✅ (core)** |
-| Chat group gating | ❌ | ❌ | ❌ | ✅ |
-| On-chain proof | ❌ | ❌ | ❌ | ✅ (opt-in) |
-| Anti-fraud TOTP check-in | ❌ | Basic | ❌ | ✅ |
+| Chat group gating | ❌ | ❌ | ❌ | Partial today (single-use invite links only) |
+| On-chain proof | ❌ | ❌ | ❌ | ✅ (opt-in SBT) |
+| Anti-fraud TOTP check-in | ❌ | Basic | ❌ | ✅ (exists today) |
 
 ---
 
@@ -103,7 +107,7 @@ graph TB
 
     subgraph IngressLayer["🌐 Edge & Security Layer"]
         CF["Cloudflare Edge\n WAF + DDoS + CDN"]
-        CaddyProxy["Caddy 2.8 Reverse Proxy\n Rate Limiting & SSL"]
+        CaddyProxy["Caddy Reverse Proxy\n Rate Limiting & SSL"]
     end
 
     subgraph AppTier["⚡ Core Application Tier"]
@@ -154,26 +158,29 @@ graph TB
     ExCredentials --> WSBT
 ```
 
-### Key Architectural Changes from Previous Blueprint
+### Today (dev) vs Target
 
-| Aspect | Previous (Telegram-First) | New (Channel-Agnostic) |
+| Aspect | Today (verified on `dev`) | Target (not implemented unless noted) |
 |--------|---------------------------|------------------------|
-| Primary UI | Telegram Mini App | Web App (responsive) |
-| Auth | Telegram `initData` only | Multi-provider (Email, Google, Telegram, Wallet) |
-| User identity | `telegram_id` as PK | Internal `user_id` with linked identities |
-| Notifications | Telegram Bot DM only | Multi-channel dispatch (Telegram, Email, WhatsApp, Push) |
-| Payment rails | TON + Telegram Stars | TON + Stars + Stripe + crypto (modular) |
-| Public event pages | TMA deep links only | SEO-indexed web URLs + optional TMA links |
-| Check-in | TMA scanner only | Web scanner + TMA + hardware |
-| Credential display | Redirect to Getgems | Native credential viewer (web + TMA) |
+| Primary UI | Telegram Mini App (`mini-app`), also usable in a browser | Web App (responsive) |
+| Auth | Telegram initData, Telegram Login Widget, Google web OAuth, email OTP (codes logged, not emailed — F-27); all issue a 7-day platform JWT | Same providers plus emailed OTP/magic link and wallet login |
+| User identity | `users.user_id bigint` PK; `telegram_id`, `uuid`, `email` columns; `user_identities` table | Internal id with linked identities (largely in place) |
+| Notifications | Telegram bot DMs and RabbitMQ notifications queue | Multi-channel dispatch (Telegram, Email, WhatsApp, Push) |
+| Payment rails | TON, USDT jetton, Telegram Stars, free | TON + Stars + Stripe + crypto (modular) |
+| Public event pages | Web URL `<base>/events/<uuid>` and TMA link `t.me/<bot>/event?startapp=<uuid>` (`lib/links/linkService.ts`) | SEO-indexed slug URLs + optional TMA links |
+| Check-in | Scanners in `mini-app` with 20s rotating passes | Web scanner + TMA + hardware |
+| Credential display | Native badges page (`my/badges`) | Native credential viewer (web + TMA) |
 
 ---
 
 ## 3. Unified Identity & Multi-Provider Auth
 
-The most critical architectural change: **decouple user identity from Telegram**.
+Goal: **decouple user identity from Telegram**. Much of the base already exists today (see §3.2).
 
-### 3.1 Identity Model
+### 3.1 Target Identity Model (not implemented as drawn)
+
+> [!NOTE]
+> The diagram below is a target model. Today's schema differs: `users.user_id` is a `bigint` PK, `users.role` is a text column with `user | organizer | admin | ban` (no `GUEST`), `user_identities.id` is a `uuid` with `provider_user_id` / `provider_metadata` / `verified`, tiers live in `event_ticket_tiers` with a `real` price, and order states are `new | confirming | processing | completed | cancelled | failed`. Credential data lives in the `rewards`, `sbtCollections`, `sbtItems` and `sbtRewardCollections` schemas (`mini-app/src/db/schema/`).
 
 ```mermaid
 erDiagram
@@ -275,34 +282,38 @@ erDiagram
     TICKETS ||--o| CREDENTIALS : yields
 ```
 
-### 3.2 Auth Abstraction (`@repo/auth`)
+### 3.2 Auth Abstraction (target)
 
-The shared auth package supports multiple providers through a unified interface:
+Target: one auth module serving all providers through a single interface. Today this logic lives in `mini-app/src/lib/auth/authEngine.ts`, `mini-app/src/server/context.ts` and `mini-app/src/server/utils/jwt.ts`. There is no `@repo/auth` package in the repo.
 
 ```
-Auth Flow:
+Target Auth Flow:
   1. Client sends auth request (provider-specific payload)
-  2. @repo/auth validates:
-     - Telegram: validate initData signature + auth_date TTL
-     - Google: verify OAuth token via Google API
-     - Email: verify magic link / OTP code
-     - Wallet: verify TonProof / SIWE signature
-  3. Resolve to internal user_id (create or link identity)
-  4. Issue platform JWT (same format for all providers)
-  5. All downstream API calls use platform JWT only
+  2. Auth module validates:
+     - Telegram: validate initData signature + auth_date TTL   (exists today)
+     - Google: verify OAuth via Google                          (exists today, web OAuth)
+     - Email: OTP code                                          (exists today, but code is logged, not emailed — F-27)
+     - Email magic link                                         (target)
+     - Wallet: verify TonProof / SIWE signature as a login      (target; TonProof today only issues a wallet JWT)
+  3. Resolve to internal user_id (create or link identity)      (exists today)
+  4. Issue platform JWT (same format for all providers)         (exists today, 7 days)
+  5. All downstream API calls use platform JWT only             (target; tRPC still also accepts raw initData and API keys, sockets accept initData only)
 ```
 
-**Migration path from current Telegram-only auth:**
-- Phase 1: Add `users` table with internal IDs, create `user_identities` table, backfill from `telegram_id`
-- Phase 2: Add email + Google OAuth login to web app
-- Phase 3: All API routes accept platform JWT; Telegram `initData` is just one way to obtain it
-- Phase 4: Optional wallet linking for credential claiming
+**Migration path — status on `dev` (2026-10-03):**
+
+| Phase | Scope | Status |
+|---|---|---|
+| 1 | `user_identities` table, `telegram_id` column, backfill (migration 0123) | Done. PK is still `users.user_id bigint`; web users get a random id ≥ 1e14. |
+| 2 | Email + Google login on web | Done for Google web OAuth and email OTP. OTP delivery by email is open (F-27). |
+| 3 | All API routes accept platform JWT | Partial. tRPC and REST accept Bearer JWT; sockets accept initData only. |
+| 4 | Optional wallet linking for credential claiming | Partial. TonProof issues a wallet JWT but writes no identity; `users.addWallet` stores an unproven wallet. Proof-backed linking is target. |
 
 ---
 
-## 4. Multi-Channel Notification Engine
+## 4. Multi-Channel Notification Engine (target — not implemented)
 
-Replace the current Telegram-only notification with a channel router:
+Today notifications go through Telegram (bot HTTP API and the RabbitMQ `${STAGE_NAME}-notifications` queue). No email transport is wired up (email OTP codes are only logged — F-27). Target: replace this with a channel router:
 
 ```mermaid
 sequenceDiagram
@@ -329,7 +340,7 @@ sequenceDiagram
     end
 ```
 
-### Notification Types & Channel Support
+### Target Notification Types & Channel Support
 
 | Notification | Telegram | Email | WhatsApp | Web Push |
 |---|---|---|---|---|
@@ -343,7 +354,9 @@ sequenceDiagram
 
 ---
 
-## 5. Monorepo Re-Architecture (Turborepo + pnpm)
+## 5. Monorepo Re-Architecture (Turborepo + pnpm) — target, not implemented
+
+Today there is no root `package.json`. `mini-app`, `telegram-bot`, `client-web-panel` and `website` are standalone Yarn projects; `newton/` is a pnpm workspace with `apps/nft-manager` and `packages/{eslint-config,typescript-config,tma,ui}`. None of the `packages/` listed below exist yet.
 
 ```
 onton-platform/
@@ -406,9 +419,10 @@ onton-platform/
 
 ---
 
-## 6. Event-Driven Architecture (RabbitMQ Message Bus)
+## 6. Event-Driven Architecture (RabbitMQ Message Bus) — target, not implemented
 
-Unchanged from previous blueprint — the event-driven architecture is channel-agnostic by design.
+> [!NOTE]
+> **Exists today:** three queues only — `${STAGE_NAME}-notifications` (with a DLX and a 5s retry queue), `${STAGE_NAME}-tg_messages`, `${STAGE_NAME}-order_paid`. `order_paid` is published only by the TON/USDT path; its consumer is likely failing and the 9s mint cron is the real fulfillment path (F-35). Failed mints become `failed` after 5 retries with a log line; there is no queue-based DLQ. None of the `onton.*` exchanges below exist, and RabbitMQ does not run on staging.
 
 ```mermaid
 sequenceDiagram
@@ -459,14 +473,17 @@ sequenceDiagram
 
 ---
 
-## 7. Product & UX Blueprint (Platform-Agnostic)
+## 7. Product & UX Blueprint (Platform-Agnostic) — target
 
 ### 7.1 Progressive Onboarding (Zero Barriers)
 
+> [!NOTE]
+> Slug URLs and the `e_` start parameter below are **target formats, not implemented**. Today links are `<base>/events/<eventUuid>` and `t.me/<bot>/event?startapp=<eventUuid>` (`mini-app/src/lib/links/linkService.ts`). Email/Google login and wallet-free free RSVP exist today; emailed passes, calendar export, and WhatsApp/Discord are target.
+
 ```
 Step 1: Discover Event
-   ├── Via web: onton.live/e/hackathon-2026 (SEO-indexed, OpenGraph cards)
-   ├── Via Telegram: t.me/ontonbot?startapp=e_hackathon-2026
+   ├── Via web: <web-base>/e/<slug> (target; SEO-indexed, OpenGraph cards)
+   ├── Via Telegram: t.me/<bot>/event?startapp=<eventUuid> (exists today)
    ├── Via WhatsApp: shared link → web fallback
    └── Via Discord: bot embed → web fallback
 
@@ -491,27 +508,28 @@ Step 4: Progressive Engagement (Optional)
 
 ### 7.2 Instant Publishing & Post-Moderation
 
-- **Default**: Newly created free events are immediately `is_published = true`, `moderation_status = 'APPROVED'`.
-- **Instant Sharing**: Organizer receives both a web URL (`https://onton.live/e/slug`) and optional Telegram deep-link.
-- **Async Safety Net**: Background content moderation scans title, description, and images. If flagged → moved to `PENDING_REVIEW`, unlisted from public discovery, admin alerted.
-- **Community Reporting**: Attendees can report events via in-app flow. Multiple reports trigger auto-review.
+**Exists today:**
+- Free events are public immediately (`hidden=false`); a post-publish moderation alert goes to the moderation group (Delist / Warn / Ban / Update). Paid events stay hidden until the creation order is paid.
+- Users can report events (one report per user per event). 3+ reports within 1h auto-quarantine the event (`hidden=true, enabled=false`) and alert moderators.
 
-### 7.3 Credential Engine (Core Differentiator)
+**Target (not implemented):**
+- Slug-based web URL handed to the organizer on creation.
+- Automatic content scanning of title, description and images, with a `PENDING_REVIEW` state.
 
-The credential system is ONTON's moat — it works with or without blockchain:
+### 7.3 Credential Engine (Core Differentiator) — target lifecycle
 
 ```
-Credential Lifecycle:
-  1. Attendee checks in at event (QR scan)
-  2. Credential leaf generated (off-chain, instant)
-  3. Attendee can view/share credential immediately (off-chain)
-  4. After event: Merkle tree aggregated, root hash computed
-  5. Optional: Root anchored on-chain (TON, Ethereum, etc.)
-  6. Attendee can mint on-chain SBT (gas sponsored by platform)
-  7. Credential is verifiable by anyone (Merkle proof against anchor)
+Target Credential Lifecycle:
+  1. Attendee checks in at event (QR scan)                       (exists today)
+  2. Credential leaf generated (off-chain, instant)              (target; today leaves are computed on read, nothing is stored)
+  3. Attendee can view/share credential immediately (off-chain)  (partial; badges page + story share of badge image)
+  4. After event: Merkle tree aggregated, root hash computed     (target; today the tree is rebuilt per request)
+  5. Optional: Root anchored on-chain (TON, Ethereum, etc.)      (target; `contracts/csbt_anchor.fc` exists, nothing deploys or updates it)
+  6. Attendee can mint on-chain SBT (gas sponsored by platform)  (partial; native TEP-85 mint exists; claim is free, on-chain upgrade is paid — F-36)
+  7. Credential is verifiable by anyone (Merkle proof against anchor) (target)
 ```
 
-**Use cases beyond attendance proof:**
+**Use cases beyond attendance proof (target):**
 - Conference speaker credentials
 - Hackathon placement badges
 - VIP/loyalty tier qualification
@@ -520,15 +538,18 @@ Credential Lifecycle:
 
 ### 7.4 Chat & Group Gating (Multi-Platform)
 
-| Platform | Mechanism |
-|----------|-----------|
-| Telegram | Bot generates single-use invite link; revokes on cancel |
-| Discord | Bot assigns role; removes on cancel |
-| WhatsApp | Community invite link (future) |
+| Platform | Mechanism | Status |
+|----------|-----------|--------|
+| Telegram | Bot generates single-use invite link for approved/checked-in registrants; revokes links of rejected users | Exists today. No join-request verification or removal of non-holders. |
+| Discord | Bot assigns role; removes on cancel | Target |
+| WhatsApp | Community invite link | Target |
 
 ---
 
-## 8. Sovereign Credential & cSBT 2.0 Engine
+## 8. Sovereign Credential & cSBT 2.0 Engine — target
+
+> [!NOTE]
+> **Exists today:** `mini-app/src/lib/csbt/` (plain binary Merkle tree, leaf = SHA256 of index, owner, event UUID, metadata hash), public `GET /api/v1/csbt/proof?eventUuid=&userId=` that rebuilds the tree per request from checked-in registrants, and the FunC contract `contracts/csbt_anchor.fc` with no deploy or update caller (F-35). Nothing is archived to MinIO or Arweave. Everything in the diagram and specs below is target.
 
 With the platform-agnostic pivot, credentials become **off-chain first, on-chain optional**:
 
@@ -559,15 +580,18 @@ graph TB
     end
 ```
 
-### Technical Specifications
-1. **Tree Capacity**: Sparse Merkle Tree supporting up to 2^20 (1,048,576) leaves per event.
+### Target Technical Specifications (not implemented)
+1. **Tree Capacity**: Sparse Merkle Tree supporting up to 2^20 (1,048,576) leaves per event. (Today: plain binary tree, rebuilt per request.)
 2. **Chain Agnostic**: Anchor contracts can be deployed to TON, Ethereum, Polygon, or any EVM chain.
 3. **Zero-Gas Relayer**: Platform sponsors mint transactions from treasury.
 4. **Portable Credentials**: Export as W3C Verifiable Credential JSON-LD for interoperability.
 
 ---
 
-## 9. Target Infrastructure & High Availability
+## 9. Target Infrastructure & High Availability — target, not implemented
+
+> [!NOTE]
+> **Exists today:** one prod host (`65.109.212.86`) running plain `docker compose` project `local-onton`, deployed manually; staging is a Docker Swarm stack `onton-dev` on `65.109.182.13`. Single Postgres, single Redis without persistence, no replicas, and no automated prod DB backups. CI deploys both `dev` and `main` to the staging host (F-04).
 
 ```mermaid
 graph TB
@@ -610,10 +634,14 @@ graph TB
 ```
 
 ### Security & Hardening
-- **Zero Secrets in Repository**: `git-filter-repo` to scrub history; all secrets in GitHub Encrypted Environments or Vault.
-- **Network Isolation**: Docker service discovery (no static IPs); database ports closed externally.
-- **CORS**: Domain allowlist (no wildcards).
-- **API Auth**: HMAC-signed inter-service calls; platform JWT for client calls.
+
+| Item | Today (verified) | Target |
+|---|---|---|
+| Secrets in repo | Cert files removed from `devops/cert` in 2.0. History scrub not verified. Secret env vars have insecure fallbacks if unset. | History scrubbed; all secrets in GitHub Environments or Vault; no code fallbacks |
+| Network | Docker DNS service names (no static IPs) | Same; database ports closed externally |
+| CORS | Allowlist from `CORS_ALLOWED_ORIGINS` (`mini-app/src/lib/cors.ts`), applied in `mini-app/src/middleware.ts` | Same |
+| Service auth | telegram-bot Express API behind HMAC middleware (`telegram-bot/src/middleware/hmacAuth.ts`) | HMAC for all inter-service calls; platform JWT only for clients |
+| Backups | None automated | Automated, monitored prod DB backups |
 
 ---
 
@@ -680,105 +708,105 @@ flowchart TD
     W5 --> W6
 ```
 
-### Wave Details
+### Wave Details & Delivery Status (checked against `dev`, 2026-10-03)
 
-#### Wave 1: Security & Correctness (Ship This Week)
-Fix live vulnerabilities. No narrative change needed — these are universal.
+Status key: **Done** = verified in code; **Partial** = exists with gaps listed; **Not verified** = no evidence found in the fact sheets, status unknown; **Next / Backlog** = not implemented.
 
-| Issue | Title | Effort |
-|-------|-------|--------|
-| #976 | Secret purge (git history scrub + key rotation) | 3h |
-| #943 | Replace wildcard CORS with domain allowlist | 1.5h |
-| #961 | Make CI fail on actual errors | 30min |
-| #963 | Remove NODE_TLS_REJECT_UNAUTHORIZED=0 | 1.5h |
-| #958 | Add auth to event metadata export | 2h |
-| #955 | Hash API keys + constant-time comparison | 3h |
-| #940 | Add HMAC auth to bot Express API | 3h |
-| #945 | BigInt for TON payment reconciliation | 4-5h |
-| #947 | Row-level locking for NFT minting | 3-4h |
-| #965 | Client Web Panel auth → deprioritize (replaced by web app) | 0h |
+#### Wave 1: Security & Correctness — Partial
 
-#### Wave 2: API Extraction & Identity (Foundation)
-The most critical wave — extracts the API and builds multi-provider identity.
+| Issue | Title | Status | Verified details |
+|---|---|---|---|
+| #976 | Secret purge (git history scrub + key rotation) | Not verified | Cert files removed from `devops/cert` in 2.0. History scrub and rotation not verified. |
+| #943 | Replace wildcard CORS with domain allowlist | Done | `mini-app/src/lib/cors.ts` + `middleware.ts` |
+| #961 | Make CI fail on actual errors | Done | `validate-services` runs mini-app `lint:quiet` + `test:api`, telegram-bot `build` |
+| #963 | Remove NODE_TLS_REJECT_UNAUTHORIZED=0 | Done | Removed from compose files |
+| #958 | Add auth to event metadata export | Not verified | — |
+| #955 | Hash API keys + constant-time comparison | Done | bcrypt user API keys; constant-time `x-api-key` check |
+| #940 | Add HMAC auth to bot Express API | Done | `telegram-bot/src/middleware/hmacAuth.ts`, 60s replay window |
+| #945 | BigInt for TON payment reconciliation | Partial | Compare is BigInt, but the expected amount is derived from a `real` (float) price |
+| #947 | Row-level locking for NFT minting & RSVP | Partial | No inventory row lock; order creation is check-then-insert. Mint uses a Redis lock; registration uses a Redis lock per event. |
+| #950 | Telegram broadcast FloodWait backoff | Partial | `retry_after` handling found in bot poll/broadcast crons; behaviour not verified |
 
-| Issue | Title | Effort |
-|-------|-------|--------|
-| #973 | Extract backend from mini-app into standalone API | Epic |
-| #974 | Unify data access layer (Drizzle ORM) | Epic |
-| #975 | Merge NFT DB into main DB | 4-6h |
-| #978 | Decompose monolithic tRPC routers | Epic (#938 + #939) |
-| **NEW** | `@repo/auth` multi-provider (Email, Google, Telegram, Wallet) | Epic |
-| **NEW** | `user_identities` table + migration from telegram_id | 4-6h |
+#### Wave 2: Architecture Decoupling & Multi-Provider Identity — In progress
 
-#### Wave 3: Web-First Experience (Break Dependency)
-Build the primary web interface. This is where the narrative pivot becomes visible.
+| Issue | Title | Status | Notes |
+|---|---|---|---|
+| #1015 | Multi-provider identity | Partial | Telegram, Telegram widget, Google web OAuth, email OTP (logged, not emailed — F-27). Wallet login not implemented. No `@repo/auth` package; code is in `mini-app/src/lib/auth/authEngine.ts`. |
+| #1016 | `user_identities` table & UUID column | Done | Migration 0123. PK is still `users.user_id bigint`; `uuid` and `telegram_id` are extra columns. |
+| #1019 | `HostPlatformBridge` TMA abstraction | Partial | `mini-app/src/lib/platform/` exists; coverage not verified |
+| #1020 | `LinkService` universal URL generator | Done | `mini-app/src/lib/links/linkService.ts`: web `/events/<uuid>` + TMA link |
+| #973 | Extract backend into standalone API server | Next | — |
+| #974 | Unify data access layer to Drizzle ORM | Next | telegram-bot uses raw `pg`; nft-manager (Prisma) is not deployed |
+| #975 | Merge NFT DB into primary database | Next | — |
+| #978 | Decompose monolithic tRPC routers | Next | — |
 
-| Issue | Title | Effort |
-|-------|-------|--------|
-| **NEW** | Web App at onton.live (Next.js 15, responsive) | Epic |
-| #948 | SSR event pages with OpenGraph meta tags | 3-4h |
-| #1010 | Instant auto-publishing (post-moderation) | Epic (#1012 + #1013) |
-| #946 | Hybrid Auth (Google/Email + Telegram linking) | 4-6h |
-| **NEW** | `@repo/notifications` channel router | Epic |
-| #1009 | Progressive Web3 disclosure (wallet optional) | 4-6h |
+#### Wave 3: Web-First Experience — Partial
 
-#### Wave 4: Engagement Engine (Differentiator)
-Build the features that make ONTON unique.
+| Issue | Title | Status | Verified details |
+|---|---|---|---|
+| #1011 | Decouple legacy TON Society activity_id | Done | TS registration is optional and non-fatal; hub defaults applied |
+| #1012 | Auto-publish events by default | Done | Free events public immediately; paid events hidden until creation order is paid |
+| #1009 | Progressive Web3 disclosure | Done | `has_web3` toggle gates paid-event inputs |
+| #966 | Multi-tier ticketing schema | Partial | `event_ticket_tiers` (migration 0125), seeded one tier per event. No tier-creation API; paid sales do not increment `sold_count` (F-34). Token is per event. |
+| #970 | Native Telegram Stars checkout | Partial | Invoice + `successful_payment` work; pre-checkout does not validate (F-33); no mint or affiliate count |
+| #948 | SSR event pages with OpenGraph SEO | Partial | `generateMetadata` in `mini-app/src/app/events/[hash]/page.tsx`; slug URLs not implemented |
+| #1022 | Consolidate participant-tma into mini-app | Done | Source removed; 4 explicit `/ptma` rewrites |
 
-| Issue | Title | Effort |
-|-------|-------|--------|
-| #992 | Credential viewer (web + TMA, kill Getgems dependency) | Epic |
-| #996 | Dynamic TOTP QR anti-fraud check-in | 4-6h |
-| #994 | Sovereign Merkle Proof API | Epic |
-| #993 | Social sharing for badges (Telegram Stories, X, LinkedIn) | 3-4h |
-| #949 | Affiliate "Share-to-Earn" | 3-4h |
-| #1014 | Community reporting flow | 2-3h |
+#### Wave 4: Engagement Engine & Credential Suite — Partial
 
-#### Wave 5: Scale & Reliability
-Production hardening after features are stable.
+| Issue | Title | Status | Verified details |
+|---|---|---|---|
+| #992 | ONTON Passport & in-app showcase | Done | `my/badges` page via `sbt.getUserBadges` |
+| #996 | Dynamic TOTP QR anti-fraud check-in | Done | `mini-app/src/lib/totp/passToken.ts`, 20s step ±1; static UUIDs rejected at scan; check-in is event-manager only |
+| #994 | Merkle Proof API & ingestion | Partial | `GET /api/v1/csbt/proof?eventUuid=&userId=`; tree rebuilt per request, not anchored (F-35) |
+| #993 | Social sharing for event badges | Partial | `shareToStory` with the raw badge image; no canvas card |
+| 7ceb49ab | Dual-tier credential issuance | Partial | Native TEP-85 mint; free claim vs paid on-chain upgrade overlap (F-36) |
+| abb0f47b | Legacy TON Society SBT ingestion | Done | Legacy rewards merged into `getUserBadges` |
 
-| Issue | Title | Effort |
-|-------|-------|--------|
-| #979 | RabbitMQ event-driven architecture | Epic |
-| #941 | Migrate payment polling to message bus | 4-6h |
-| #981 | PostgreSQL read-replica + HA | 4-6h |
-| #985 | Cloudflare Edge WAF + gateway | 3-4h |
-| #953 | Load test: 5,000 concurrent RSVPs | 2-3h |
-| #983 | Monorepo consolidation (Turborepo + pnpm) | Epic |
-| #982 | Strip browser polyfills | 3-4h |
+#### Wave 5: Scale, Reliability & DevOps — In progress
 
-#### Wave 6: Channel Expansion
-Grow distribution beyond Telegram.
+| Issue | Title | Status | Notes |
+|---|---|---|---|
+| #986 | Remove hardcoded Docker static IPs | Done | Services use Docker DNS names |
+| #985 | Edge rate limiting & WAF | Partial | Caddy image includes `caddy-ratelimit`; mini-app middleware has edge rate limits. WAF not verified. |
+| #980 | Automated CI test gates | Partial | Lint + Vitest before build; Playwright smoke runs **after** deploy, not as a gate. No `type:check`. |
+| #941 | RabbitMQ payment events & DLQ | Partial | `order_paid` queue + `orderEvents.ts`; consumer likely failing (F-35). "DLQ" is a `failed` order state after 5 retries, not a queue. |
+| — | Automated prod deploy | Next | CI deploys `main` to the staging host (F-04) |
+| — | Automated prod DB backups | Next | Scripts exist; cron not installed |
+| #981 | PostgreSQL read-replica + HA | Next | — |
+| #983 | Monorepo consolidation (Turborepo + pnpm) | Next | — |
+| #982 | Strip browser TON polyfills | Next | Polyfills still in `mini-app/next.config.js` |
 
-| Issue | Title | Effort |
-|-------|-------|--------|
-| **NEW** | WhatsApp Business API integration | Epic |
-| **NEW** | Discord bot + role gating | Epic |
-| #997 | Telegram chat gating | 4-6h |
-| **NEW** | Web push notifications | 3-4h |
-| **NEW** | Mobile PWA optimization | 3-4h |
+#### Wave 6: Channel Expansion & Advanced Integrations — Backlog
+
+| Issue | Title | Status | Notes |
+|---|---|---|---|
+| #997 | Telegram chat & group gating | Partial | Single-use invite links + revocation for rejected users; no join-request checks |
+| #1014 | Attendee community wall & commenting | Not verified | — |
+| — | WhatsApp Business & Discord bot gating | Backlog | — |
+| — | Web Push & Mobile PWA optimization | Backlog | — |
 
 ---
 
-## 11. Issue Reclassification Under New Narrative
+## 11. Issue Reclassification (proposal)
 
-### Issues to CLOSE (Superseded or Resolved)
+### Issues proposed to CLOSE
 | # | Title | Reason |
 |---|-------|--------|
-| #936 | TonProof nonce enforcement | ✅ Already resolved |
-| #950 | FloodWait retry logic | ✅ Already resolved |
-| #952 | Remove SSH keys from root | ✅ Resolved (history → #976) |
-| #964 | QA test suite | ✅ Already resolved |
-| #965 | Restore Client Web Panel auth | 🚫 Panel superseded by new web app |
-| #866 | Configure subdomain for Client Web Panel | 🚫 Panel superseded |
+| #936 | TonProof nonce enforcement | Resolved: single-use Redis challenge, 60s TTL |
+| #950 | FloodWait retry logic | Proposed; behaviour not verified |
+| #952 | Remove SSH keys from root | Proposed; history scrub tracked in #976 (not verified) |
+| #964 | QA test suite | Real staging E2E suite exists (`tests/e2e`, `playwright.real.config.ts`) |
+| #965 | Restore Client Web Panel auth | Proposal: panel to be superseded by the target web app |
+| #866 | Configure subdomain for Client Web Panel | Proposal: panel to be superseded |
 
 ### Issues to REFRAME
 | # | Original Title | New Framing |
 |---|----------------|------------|
-| #984 | Deduplicate Telegram auth → shared package | → Build `@repo/auth` multi-provider identity |
+| #984 | Deduplicate Telegram auth → shared package | → Extract `mini-app/src/lib/auth/` into a shared auth package |
 | #977 | Resolve framework inconsistency | → Consolidate into monorepo (Wave 5) |
-| #946 | Hybrid Auth (Google/Email + Telegram) | → Core of Wave 3 (platform independence) |
-| #948 | SSR event pages for SEO | → Web-first event pages (primary experience) |
+| #946 | Hybrid Auth (Google/Email + Telegram) | → Finish: emailed OTP (F-27), proof-backed wallet linking |
+| #948 | SSR event pages for SEO | → Web-first event pages with slug URLs |
 | #992 | ONTON Passport TMA | → Credential viewer (web + TMA) |
 | #993 | Telegram Story sharing | → Multi-platform social sharing |
 | #997 | Telegram Chat Gating | → Multi-platform gating (Telegram + Discord) |
@@ -786,10 +814,9 @@ Grow distribution beyond Telegram.
 ### New Issues to Create
 | Title | Wave | Priority |
 |-------|------|----------|
-| Build `@repo/auth` multi-provider identity system | 2 | Critical |
-| Create `user_identities` table + migration from telegram_id PK | 2 | Critical |
-| Build web app (onton.live) — primary user experience | 3 | Critical |
-| Build `@repo/notifications` multi-channel dispatch | 3 | High |
+| Shared multi-provider auth package (extract from mini-app) | 2 | High |
+| Build web app — primary user experience | 3 | Critical |
+| Multi-channel notification dispatch (incl. email transport) | 3 | High |
 | WhatsApp Business API integration | 6 | Medium |
 | Discord bot + role gating | 6 | Medium |
 | Web push notification support | 6 | Medium |
@@ -798,11 +825,11 @@ Grow distribution beyond Telegram.
 
 ## 12. Conclusion
 
-The TO-BE ONTON Platform evolves from a Telegram-dependent mini-app into a **channel-agnostic Event Engagement Platform** where:
+The TO-BE ONTON Platform is planned to evolve from a Telegram-centred mini-app into a **channel-agnostic Event Engagement Platform** where:
 
 - **Any user** can discover, register, attend, and earn credentials — whether they use Telegram, a web browser, WhatsApp, or Discord.
-- **Verifiable credentials** are the core differentiator — no other event platform offers portable, optionally on-chain proof-of-attendance.
+- **Verifiable credentials** are the core differentiator — portable, optionally on-chain proof-of-attendance.
 - **Engagement mechanics** (quests, tournaments, affiliates, community walls) drive retention and organic growth.
-- **Telegram remains the strongest channel** (931k users, deep integration) but is no longer the cage.
+- **Telegram remains the strongest channel** but is no longer the only one.
 
-The platform's moat is not "where it runs" but "what it uniquely provides" — and that is the combination of frictionless events + verifiable credentials + gamified engagement that no competitor offers.
+Today's base (multi-provider login, `user_identities`, rotating passes, native SBTs, cSBT proof library) is partial. The open items in §10 and the QA findings (F-04, F-27, F-30, F-33–F-36, no automated backups) come before the target work.

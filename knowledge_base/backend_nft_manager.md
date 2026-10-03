@@ -1,21 +1,29 @@
 # NFT Manager Service
 
-The **NFT Manager** (`ontonbot/newton/apps/nft-manager`) is a specialized microservice dedicated to blockchain interactions.
+> Last verified against dev: 2026-10-03
 
-## 1. Role
-- **Minting Orchestration**: Handles the complex sequence of deploying NFT collections and minting individual items.
-- **Transaction Monitoring**: Watches the TON blockchain for incoming payments (Event creation fees, Ticket purchases).
-- **State Management**: Maintains the `nft-manager` Prisma database as the source of truth for on-chain status.
+`newton/apps/nft-manager` is a NestJS + Prisma service. **It is not running in any environment.**
 
-## 2. Architecture
-- **Framework**: **NestJS** (implied by `app.module.ts`, `main.ts` structure).
-- **ORM**: **Prisma**.
+## Status
 
-## 3. Key Components
-- **`Watcher` Service**: Uses `WatchWallet` logic to poll TON API/LiteClient for new transactions on the platform's Master Wallet.
-- **Minting Queue**: Processes mint requests (from RabbitMQ or DB polling) to ensure sequential processing and manage TON concurrency limits.
-- **Recovery**: Includes scripts/logic (`fix-not-minted-items.ts`) to retry stuck transactions.
+| Check | Result |
+|---|---|
+| In `docker-compose.yml` / server composes | No service. Only env names remain (`IP_NFT_MANAGER`, `NFT_MANAGER_PORT`, `POSTGRES_NFT_MANAGER_DB`, `DATABASE_URL_NFT_MANAGER`) |
+| Wallet watcher (`@Interval`) | Commented out in `src/app.service.ts` |
+| Minting loops | Commented out in `src/app.service.ts` |
+| Callers from mini-app | None found |
+| Recovery script | `src/fix-not-minted-items.ts` exists |
 
-## 4. Integration
-- **Input**: Receives minting requests from `mini-app` (via database state or queue).
-- **Output**: Updates `Transactions` and `NFTItem` tables; used by `mini-app` workers to confirm "Payment Received".
+## Where the work happens instead
+
+| Responsibility | Live implementation |
+|---|---|
+| Payment detection | `CheckTransactions` cron in mini-app (TonCenter v3, every 7s) |
+| NFT collection deploy | `CreateEventOrders` → `handleTicketType.ts` → `mini-app/src/lib/nft.ts` |
+| Ticket NFT mint | `MintNFTForPaidOrders` cron (every 9s) |
+| SBT mint | `mini-app/src/services/sbtService.ts` |
+
+See [workflow_nft_minting.md](workflow_nft_minting.md).
+
+## Roadmap / not implemented
+- No work on `dev` revives this service. Treat it as legacy code.

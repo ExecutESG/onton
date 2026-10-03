@@ -1,547 +1,291 @@
 # ONTON Platform — Architecture Blueprint & Critical Evaluation
 
-> **Date:** 2026-09-09 | **Scope:** Full monorepo audit of `ontonbot/`
-> **Mission:** "The Luma of Telegram & Web3 Event OS"
+> Last verified against dev: 2026-10-03
+
+Sections 1–6 describe the current system on `dev` and the servers. Section 7 (Roadmap / not implemented) lists proposals; none of it exists yet. Detailed current state: [as_is_technical_blueprint.md](as_is_technical_blueprint.md). Target plan: [to_be_technical_blueprint.md](to_be_technical_blueprint.md).
 
 ---
 
-## 1. Executive Summary
+## 1. Summary
 
-ONTON is a **Telegram-native event management platform** with Web3 (TON blockchain) integration, serving 300,000+ users across 400+ events. The system is a **polyglot monorepo** containing 6 deployable services, 7 background workers, and 15+ infrastructure containers — all orchestrated via Docker Compose locally and Docker Swarm in production.
+ONTON is a Telegram Mini App for events and ticketing with TON integration. The repo holds three deployed apps (`mini-app`, `telegram-bot`, `website`) plus worker containers built from the `mini-app` image, one local-only app (`client-web-panel`) and one undeployed service (`newton/apps/nft-manager`).
 
-> [!IMPORTANT]
-> The platform has grown organically from a single Mini App into a complex distributed system. While it delivers significant business value, the architecture shows signs of **accidental complexity**, **inconsistent technology choices**, and **monolith-in-disguise patterns** that will increasingly constrain velocity as the product scales.
+- **Prod**: plain `docker compose` project `local-onton` on `65.109.212.86`, built on the server with `--profile full`, deployed manually.
+- **Staging**: Docker Swarm stack `onton-dev` on `65.109.182.13`.
+- **CI**: deploys `dev` (stack `onton-dev`) and `main` (stack `onton`) to the staging host. No automated prod deploy.
 
 ---
 
-## 2. System Architecture Map
+## 2. System Map (prod / local, `docker-compose.yml` profile `full`)
 
 ```mermaid
 graph TB
-    subgraph External["☁️ External"]
-        TG[Telegram Bot API]
-        TON[TON Blockchain]
-        CF[Cloudflare DNS]
-        TS[TON Society API]
-        Elympics[Elympics API]
-        HetznerSB[Hetzner Storage Box]
+    subgraph External["External"]
+        TG["Telegram Bot API"]
+        TON["TON (TonCenter v3)"]
+        TS["TON Society API (optional)"]
     end
 
-    subgraph Ingress["🌐 Edge Layer"]
-        Caddy[Caddy Reverse Proxy<br/>SSL + DNS-01 via Cloudflare]
+    subgraph Edge["Edge"]
+        Caddy["Caddy (caddy-dns/cloudflare, caddy-ratelimit)"]
     end
 
-    subgraph Apps["📱 Application Layer"]
-        MiniApp["mini-app<br/>Next.js 14 + tRPC<br/>Port 3000"]
-        ParticipantTMA["participant-tma<br/>Next.js 14 + REST<br/>Port 3001 (/ptma)"]
-        TelegramBot["telegram-bot<br/>Grammy + Express<br/>Port 3333"]
-        ClientWeb["client-web-panel<br/>Next.js 13 + RTK Query<br/>Port 3002"]
-        Website["website<br/>Next.js 14 Static<br/>Port 3003"]
+    subgraph Apps["Applications"]
+        MiniApp["mini-app: Next.js 14.2.28 + tRPC v10"]
+        TelegramBot["telegram-bot: grammY + Express"]
+        Website["website: Next.js 14.2.35"]
+        ClientWeb["client-web: Next.js 13, JS (local compose only)"]
     end
 
-    subgraph Workers["⚙️ Worker Layer"]
-        SBTWorker[SBT Worker]
-        PaymentWorker[Payment Worker]
-        RewardWorker[Reward Worker]
-        OrdinaryWorker[Ordinary Worker]
-        POAWorker[POA Worker]
-        ModerationBot[Moderation Bot]
-        SocketServer[Socket.IO Server<br/>Port 3022]
+    subgraph Workers["Workers (mini-app image)"]
+        PaymentWorker["payment scheduler"]
+        RewardWorker["reward scheduler"]
+        OrdinaryWorker["ordinary scheduler"]
+        NFTAPIWorker["nft-api scheduler"]
+        POAWorker["poa (DB polling)"]
+        SocketServer["notification-socket"]
     end
 
-    subgraph Data["💾 Data Layer"]
-        PG[(PostgreSQL 16.3<br/>mini-app DB + nft-manager DB)]
-        Redis[(Redis 7.4<br/>Cache + Sessions)]
-        MinIO[(MinIO S3<br/>Assets + Media)]
-        RabbitMQ[(RabbitMQ 4.0<br/>Message Queue)]
+    subgraph Data["Data"]
+        PG[("Postgres 16.3")]
+        Redis[("Redis 7.4.1, no persistence")]
+        MinIO[("MinIO")]
+        RabbitMQ[("RabbitMQ 4.0.4")]
     end
 
-    subgraph Observability["📊 Observability"]
-        Metabase[Metabase BI]
-        ELK[Elasticsearch + Kibana]
-        Fluentd[Fluentd Log Shipper]
-        Prometheus[Prometheus + cAdvisor]
-        PGAdmin[PGAdmin]
+    subgraph Ops["Ops tools"]
+        Metabase["Metabase v0.50.18.3"]
+        PGAdmin["pgAdmin"]
+        ClamAV["ClamAV"]
     end
 
     Caddy --> MiniApp
-    Caddy --> ParticipantTMA
-    Caddy --> ClientWeb
     Caddy --> Website
-    Caddy --> SocketServer
-    
+    MiniApp -->|"HMAC-signed HTTP"| TelegramBot
     TelegramBot --> TG
-    MiniApp --> TelegramBot
     MiniApp --> PG
     MiniApp --> Redis
     MiniApp --> MinIO
     MiniApp --> RabbitMQ
-    
-    SBTWorker --> PG
-    SBTWorker --> TON
     PaymentWorker --> PG
     PaymentWorker --> TON
+    PaymentWorker --> RabbitMQ
     RewardWorker --> PG
-    POAWorker --> RabbitMQ
-    
-    ParticipantTMA --> MiniApp
-    ClientWeb --> MiniApp
-    
+    RewardWorker --> TS
+    POAWorker --> PG
     TelegramBot --> PG
     TelegramBot --> Redis
-    TelegramBot --> MinIO
 ```
 
----
-
-## 3. Technology Stack Inventory
-
-### 3.1 Languages & Runtimes
-
-| Layer | Technology | Version |
-|---|---|---|
-| Primary Language | TypeScript | 5.x |
-| Runtime | Node.js | 22 (Alpine) |
-| Secondary Language | Python (DevOps scripts) | 3.x |
-| Shell Scripts | Bash/Zsh | — |
-
-### 3.2 Frameworks & Libraries
-
-| Module | Framework | Version | Routing |
-|---|---|---|---|
-| `mini-app` | Next.js | 14.2.28 | App Router |
-| `participant-tma` | Next.js | 14.2.7 | App Router |
-| `client-web-panel` | Next.js | 13.3.0 | **Pages Router** |
-| `website` | Next.js | 14.2.35 | App Router |
-| `telegram-bot` | Grammy + Express | 1.30 + 4.18 | — |
-| `nft-manager` | NestJS | 10.x | Modules |
-
-### 3.3 API Paradigms (The Fragmentation)
-
-| Module | API Style | Client |
-|---|---|---|
-| `mini-app` → Frontend | **tRPC** | `@trpc/react-query` |
-| `mini-app` → External | **REST** (Next.js API routes) | `fetch` / `axios` |
-| `participant-tma` → Backend | **REST** | `fetch` + React Query |
-| `client-web-panel` → Backend | **REST** (RTK Query) | `@reduxjs/toolkit` |
-| `telegram-bot` internal API | **REST** (Express) | `axios` |
-| `nft-manager` | **REST** (NestJS Controllers) | Internal HTTP |
-
-### 3.4 Data & State Management
-
-| Concern | Technology | Notes |
-|---|---|---|
-| Primary Database | PostgreSQL 16.3 | Single instance, 2 logical DBs |
-| ORM (mini-app) | **Drizzle ORM** | 120+ migrations |
-| ORM (nft-manager) | **Prisma** | Separate schema |
-| ORM (telegram-bot) | **Raw SQL** (`pg.Pool`) | Direct parameterized queries |
-| Cache | Redis 7.4 | Sessions, rate limits, cache |
-| Message Queue | RabbitMQ 4.0 | POA, async tasks |
-| Object Storage | MinIO | S3-compatible, images/videos |
-| Client State (mini-app) | Zustand + React Query | — |
-| Client State (participant-tma) | Zustand + Jotai + React Query | 3 state managers |
-| Client State (client-web) | Redux Toolkit + RTK Query | — |
-
-### 3.5 UI & Design Systems (The Divergence)
-
-| Module | CSS Framework | Component Library | Design Language |
-|---|---|---|---|
-| `mini-app` | Tailwind CSS | Radix UI + MUI | Mixed |
-| `participant-tma` | Tailwind CSS | Konsta UI + shadcn/ui (`@repo/ui`) | iOS-native |
-| `client-web-panel` | CSS Modules + Global CSS | **Material UI v5** | Admash template |
-| `website` | Tailwind CSS | Custom + Lottie | Apple-inspired |
-
-### 3.6 Infrastructure Stack
-
-| Component | Technology | Deployment |
-|---|---|---|
-| Container Runtime | Docker 27+ | Docker Swarm (prod) |
-| Reverse Proxy | Caddy (xcaddy + cloudflare) | Auto ACME SSL |
-| CI/CD | GitHub Actions | GHCR + SSH deploy |
-| Container Registry | GitHub Container Registry | `ghcr.io/pomegroup/ontonbot` |
-| Hosting | Hetzner Cloud | `65.109.212.86` (prod) |
-| Backups | Hetzner Storage Box | Daily pg_dump + tarball |
-| Log Aggregation | Elasticsearch 9 + Kibana 9 | Fluentd/Filebeat |
-| Metrics | Prometheus + cAdvisor | Container monitoring |
-| BI Dashboard | Metabase v0.50 | Connected to PostgreSQL |
-| Antivirus | ClamAV | File upload scanning |
-| Static Analysis | JetBrains Qodana | YAML config present |
+Staging (`docker-compose-server-dev.yml`) runs mini-app, telegram-bot and website with 1 replica each; **all workers and the socket at 0 replicas**; no RabbitMQ, Metabase, pgAdmin or ClamAV; adds a registry, Elasticsearch and Fluentd.
 
 ---
 
-## 4. Data Flow & Domain Architecture
+## 3. Technology Inventory
 
-### 4.1 Core Domain Model
+| Module | Stack | Package manager | Deployed |
+|---|---|---|---|
+| `mini-app` | Next.js 14.2.28 App Router, tRPC v10, Drizzle, Node 22 | Yarn | Yes |
+| `telegram-bot` | grammY + Express, raw `pg` pool, `ts-node` in prod | Yarn | Yes |
+| `website` | Next.js 14.2.35 | Yarn | Yes |
+| `client-web-panel` | Next.js 13 Pages Router, JavaScript, MUI, RTK Query | Yarn | Local `full` profile only |
+| `newton/apps/nft-manager` | NestJS + Prisma | pnpm (`newton/`) | No; loops commented out |
+| `participant-tma` | — | — | Decommissioned; 4 `/ptma` rewrites in `mini-app/next.config.js` |
+
+API styles: mini-app frontend uses tRPC; mini-app also exposes REST routes under `app/api/`; telegram-bot exposes an HMAC-protected Express API; client-web-panel uses REST via RTK Query.
+
+### Data & messaging
+
+| Concern | Current state |
+|---|---|
+| Database | One Postgres instance. Drizzle schema `mini-app/src/db/schema.ts` + `mini-app/src/db/schema/`. |
+| Migrations | 130 SQL files; stale Drizzle journal (125 entries, 7 orphans). Apply with `psql -v ON_ERROR_STOP=1`; never `yarn db:migrate`. |
+| Redis | Rate limits, OTP, TonProof challenges, OAuth state, locks. No persistence. Bot sessions are in-memory. |
+| RabbitMQ | Queues `${STAGE_NAME}-notifications` (DLX + retry), `-tg_messages`, `-order_paid`. |
+| MinIO | Images and NFT/SBT metadata. |
+
+### CI/CD
+
+| Item | Current state |
+|---|---|
+| Registry | `ghcr.io/executesg/onton/<service>` |
+| Repo | `github.com/ExecutESG/onton` |
+| Pipeline | determine-services → validate (lint + Vitest; telegram-bot `tsc`) → build-and-push → deploy |
+| Deploy target | `SSH_DEV_IP` for both `dev` and `main` |
+| Smoke tests | Playwright `smoke.spec.ts` **after** deploy. Scheduled smoke workflow has its cron disabled. |
+| Backups | Scripts in `devops/backup_scripts/`; cron is a manual install step. No automated prod backups. |
+
+---
+
+## 4. Core Domain (current schema, simplified)
 
 ```mermaid
 erDiagram
     USERS {
-        bigint user_id PK "Telegram ID"
-        varchar wallet_address
-        enum role
-        boolean is_premium
+        bigint user_id PK
+        uuid uuid
+        varchar email
+        bigint telegram_id
+        text wallet_address
+        text role "user, organizer, admin, ban"
+    }
+    USER_IDENTITIES {
+        uuid id PK
+        bigint user_id FK
+        varchar provider
+        text provider_user_id
+        boolean verified
     }
     EVENTS {
-        serial event_id PK
         uuid event_uuid UK
-        varchar title
-        timestamp start_date
-        timestamp end_date
-        enum participation_type
+        boolean hidden
+        boolean enabled
+        boolean has_registration
+        boolean has_web3
+    }
+    EVENT_REGISTRANTS {
+        enum status "pending, rejected, approved, checkedin"
     }
     ORDERS {
-        uuid order_uuid PK
-        enum state "created → paid → failed"
-        enum type "event_creation, nft_mint"
+        enum state "new, confirming, processing, completed, cancelled, failed"
+        string order_type "nft_mint, event_creation, event_capacity_increment, promote_to_organizer, ts_csbt_ticket"
+        real total_price
+        int retry_count
+        int tier_id FK
+    }
+    EVENT_TICKET_TIERS {
+        real price
+        int capacity
+        int sold_count
     }
     TICKETS {
-        serial ticket_id PK
-        enum status "active, used, cancelled"
-        enum check_in_status
+        enum status "USED, UNUSED"
     }
     REWARDS {
-        serial reward_id PK
-        varchar type "SBT, Token"
-    }
-    NFT_COLLECTION {
-        varchar address PK "TON contract"
-        varchar metadata_url
-        int last_registered_item_index
-    }
-    NFT_ITEM {
-        serial id PK
-        varchar owner_address
-        enum state "created → mint_request → minted → failed"
+        enum type "ton_society_sbt, ton_society_csbt_ticket"
     }
 
-    USERS ||--o{ EVENTS : organizes
-    EVENTS ||--o{ ORDERS : generates
+    USERS ||--o{ USER_IDENTITIES : has
+    USERS ||--o{ EVENTS : owns
+    EVENTS ||--o{ EVENT_REGISTRANTS : has
+    EVENTS ||--o{ EVENT_TICKET_TIERS : defines
+    EVENT_TICKET_TIERS ||--o{ ORDERS : prices
     ORDERS ||--o{ TICKETS : produces
-    EVENTS ||--o{ REWARDS : offers
-    NFT_COLLECTION ||--o{ NFT_ITEM : contains
+    USERS ||--o{ REWARDS : earns
 ```
 
-### 4.2 Payment Rails
+Only columns named in the fact sheets are shown. SBT data lives in `sbtCollections`, `sbtItems`, `sbtRewardCollections`.
 
-The platform supports **3 parallel payment rails**:
-
-1. **Telegram Stars** → `window.Telegram.WebApp.openInvoice()` → `pre_checkout_query` → `successful_payment` callback in bot
-2. **TON Native** → TonConnect wallet → raw transaction with `onton_order={id}` memo → Payment Worker polls blockchain
-3. **USDT Jetton** → TonConnect wallet → Jetton wallet transfer via `@ton-community/assets-sdk` → Payment Worker polls
-
-### 4.3 Cross-Database Correlation (Split DB Problem)
+### Payment flow (TON / USDT)
 
 ```mermaid
 sequenceDiagram
     participant User
-    participant MiniApp as mini-app DB (Drizzle)
-    participant NFTManager as nft-manager DB (Prisma)
-    participant TON as TON Blockchain
+    participant API as mini-app POST /api/v1/order
+    participant Chain as TON (TonCenter v3)
+    participant Pay as CheckTransactions (7s)
+    participant Mint as MintNFTForPaidOrders (9s)
 
-    User->>MiniApp: Create Order (UUID: 123-abc)
-    MiniApp->>TON: User sends TON payment with memo
-    TON->>NFTManager: WatchWallet detects tx memo "123-abc"
-    NFTManager->>MiniApp: Worker updates orders.state = PAID
-    MiniApp->>NFTManager: Trigger SBT mint request
-    NFTManager->>TON: Deploy NFT item on-chain
+    User->>API: Create order (state confirming)
+    User->>Chain: Transfer with memo onton_order=id
+    Pay->>Chain: Poll wallet transactions
+    Pay->>API: Amount within tolerance, state processing
+    Pay-->>Mint: Publish order_paid (consumer likely failing)
+    Mint->>Chain: Mint NFT (Redis lock per event)
+    Mint->>API: State completed, registrant approved
 ```
 
-> [!WARNING]
-> There are **no foreign keys** between the two databases. Correlation relies on UUID string matching across database boundaries. This is a significant consistency risk.
+Telegram Stars skips this: the bot's `successful_payment` handler sets the order `completed`, approves the registrant and inserts a ticket, without minting.
 
 ---
 
-## 5. CI/CD Pipeline
+## 5. Critical Evaluation (verified)
+
+| ID | Area | Finding |
+|---|---|---|
+| C1 | Monolith | `mini-app` is the web app, the tRPC/REST API and the image for 6 worker/socket containers. Any mini-app change rebuilds the image they all share. |
+| C2 | Data access | Drizzle in mini-app and raw `pg` in telegram-bot hit the same DB with no shared types. nft-manager has a separate Prisma schema but is not deployed. |
+| C3 | Async design | Payments, minting, rewards and PoA use cron/DB polling. The one payment queue (`order_paid`) likely never consumes; the cron does the work. |
+| C4 | Reliability | Single prod host, single Postgres, single Redis without persistence, no automated backups, manual prod deploys. |
+| S1 | Staging parity | Workers, socket and RabbitMQ do not run on staging, so those flows are untested there. CI's `main` deploy targets the staging host but smoke-tests the prod URL. |
+| S2 | Migrations | Drizzle journal is stale; SQL is applied by hand. |
+| S3 | Frontend consistency | `client-web-panel` is Next.js 13 Pages Router in JavaScript with MUI; the rest is Next.js 14 App Router in TypeScript. |
+| S4 | Bundle | `mini-app/next.config.js` injects Node polyfills (crypto, stream, http, buffer) for TON SDK code. |
+| S5 | Worker naming | `mini-app-sbt-worker` runs the NFT-API scheduler locally/prod but the payment scheduler in server composes. |
+| M1 | Tooling | Standalone Yarn projects plus a nested pnpm workspace (`newton/`); no root `package.json`. |
+| M2 | Dead schedules | Play2Win crons still scheduled after the UI was retired. |
+
+Resolved in 2.0 (verified): static Docker IPs replaced by DNS names; CORS allowlist (`mini-app/src/lib/cors.ts`); bot Express API behind HMAC; bcrypt API keys with constant-time checks; check-in and QR-token procedures locked to event managers/owners; moderation bot merged into `telegram-bot`; participant-tma removed.
+
+---
+
+## 6. Known issues (tracked in QA)
+
+- F-04 CI deploys `main` to the staging host; no automated prod deploy.
+- F-27 Email OTP codes are logged, not emailed.
+- F-30 PoA has a universal override; slated for removal.
+- F-33 Stars pre-checkout approves without validating order, price or capacity.
+- F-34 Paid tier `sold_count` is not incremented; no tier-creation API.
+- F-35 `order_paid` consumer likely failing (cron is the real fulfillment path); cSBT proofs rebuilt per request and not anchored on chain.
+- F-36 Free SBT at check-in/claim vs paid on-chain upgrade.
+- No automated prod DB backups.
+- Secret env vars have insecure fallbacks if unset; set them in every environment.
+
+---
+
+## 7. Roadmap / not implemented
+
+Everything in this section is a proposal. None of it exists in the repo today.
+
+### 7.1 Extract a dedicated backend service
+Move the tRPC/REST API out of `mini-app` into a standalone service (Hono or Fastify + tRPC). Workers become small entry points without the Next.js app. Frontend and API deploy and scale separately.
+
+### 7.2 Unify data access
+1. One ORM (Drizzle, already primary).
+2. Shared typed DB package used by mini-app and telegram-bot.
+3. Retire or merge nft-manager's Prisma schema.
+4. Repair the Drizzle journal so migrations can run from tooling again.
+
+### 7.3 Event-driven workers
+Fix the `order_paid` consumer first (F-35). Then move fulfillment, notifications and credential steps to queue consumers with a real dead-letter queue and alerting, keeping cron as a fallback.
 
 ```mermaid
 flowchart LR
-    A[Push to dev/main] --> B{Determine Changed Services}
-    B --> C[Validate: Lint + TypeScript]
-    C --> D[Build & Push to GHCR<br/>Matrix: per-service]
-    D --> E[SSH into Hetzner]
-    E --> F[Pull images + Generate Caddyfile]
-    F --> G[docker stack deploy]
-    G --> H[Force service update<br/>--update-failure-action rollback]
-    H --> I[Telegram Notification]
-    
-    style A fill:#4CAF50
-    style I fill:#2196F3
+    A["Order created"] -->|publish| Q1["order queue"]
+    Q1 --> B["Payment verifier"]
+    B -->|publish| Q2["order paid queue"]
+    Q2 --> C["Ticket issuer"]
+    Q2 --> D["SBT minter"]
+    Q2 --> E["Notifier"]
+    Q2 -.->|failures| DLQ["dead-letter queue"]
 ```
 
-**Key characteristics:**
-- **Incremental builds:** Only changed services are rebuilt (git diff path detection)
-- **Matrix strategy:** Each service builds in parallel
-- **Zero-downtime:** Docker Swarm rolling updates with automatic rollback
-- **Notification:** Telegram alerts for every build/deploy stage
-- **Smoke tests:** Playwright e2e tests run every 6 hours against prod
-
----
-
-## 6. Critical Evaluation & Identified Problems
-
-### 🔴 Critical Issues
-
-#### C1: God Monolith Disguised as Microservices
-The `mini-app` module is a **monolith masquerading as microservices**. It serves as:
-- The Next.js frontend (SSR + client)
-- The tRPC API backend
-- 6 separate background workers (all built from the same Docker image)
-- The Socket.IO notification server
-- The moderation bot
-
-**Every worker deploys the entire Next.js application** just to run a single cron script. This means:
-- ~500MB+ Docker image per worker instance
-- 7 containers running identical 20GB+ `node_modules`
-- A change to any frontend component triggers rebuilds of all 7 worker containers
-
-#### C2: Triple ORM Fragmentation
-Three different database access patterns hit the **same PostgreSQL instance**:
-1. `mini-app` → Drizzle ORM (migrations, type-safe queries)
-2. `nft-manager` → Prisma (separate schema, separate migration history)
-3. `telegram-bot` → Raw SQL via `pg.Pool` (no migrations, no type safety)
-
-This creates **schema drift risk**, duplicated query logic, and makes it impossible to enforce referential integrity across the full domain.
-
-#### C3: Cross-Database Consistency Gap
-The split-database pattern (mini-app DB + nft-manager DB) has **no transactional guarantees**. Order → Payment → NFT Mint flows rely on string-matching UUIDs across database boundaries with cron-based polling. A crash between steps can leave the system in an inconsistent state.
-
-#### C4: Secrets in Repository
-SSH private keys (`deploy_key`, `id_rsa_onton_dev`) are committed directly to the repository root. The `.env` file (4.8KB) is also present. This is a severe security vulnerability.
-
----
-
-### 🟡 Significant Issues
-
-#### S1: Framework & Version Inconsistency
-- `client-web-panel` runs Next.js **13.3** (Pages Router) while everything else uses Next.js **14** (App Router)
-- Three different state management approaches: Zustand, Redux Toolkit, Jotai
-- Two UI component libraries: MUI v5 (client-web) vs Tailwind + Radix/shadcn (everywhere else)
-- `client-web-panel` is JavaScript, not TypeScript
-
-#### S2: Monolithic tRPC Routers
-Files like `events.ts` (42KB) and `campaignRouter.ts` (24KB) in `src/server/routers` contain mixed validation, business logic, database queries, and side effects. No service layer separation.
-
-#### S3: Cron-Based Polling Over Event-Driven Architecture
-Despite having RabbitMQ available, most async workflows (payments, rewards, SBT minting) use **cron-based database polling** every N seconds. This adds latency (up to N seconds delay), unnecessary database load, and complexity.
-
-#### S4: No Automated Test Pipeline
-- The CI validates only lint and TypeScript compilation
-- No unit tests run in the pipeline
-- Only Playwright smoke tests exist (run on a 6-hour cron, not in CI)
-- Jest is configured but effectively unused
-
-#### S5: Single Point of Failure Infrastructure
-- **Single PostgreSQL instance** serving all services (no replica, no read replicas)
-- **Single Redis instance** (cache + sessions + rate limiting + pub/sub all on one node)
-- **Single Hetzner server** for production (no HA, no auto-scaling)
-- **Docker Swarm** (single-node) provides no real orchestration benefit over Compose
-
-#### S6: Webpack Browser Polyfills
-`mini-app/next.config.js` injects extensive Node.js polyfills (crypto, stream, os, http, buffer) into the browser bundle for TON SDK compatibility. This significantly bloats the client-side JavaScript bundle.
-
----
-
-### 🟢 Moderate Issues
-
-#### M1: Mixed Package Managers
-- `mini-app`, `telegram-bot`, `client-web-panel`, `website`: **yarn**
-- `newton/*`: **pnpm**
-- No root-level lockfile or workspace coordination
-
-#### M2: Duplicated Telegram Authentication Logic
-Telegram `initData` validation is implemented independently in:
-- `mini-app/src/server/trpc.ts`
-- `participant-tma/hooks/useAuthenticate.ts`
-- `telegram-bot/src/main.ts`
-
-#### M3: No API Gateway or Rate Limiting at Edge
-All rate limiting is application-level (Redis-based per-route). No edge-level WAF, DDoS protection, or API gateway exists between Caddy and the application layer.
-
-#### M4: Hardcoded IP Addresses in Network Config
-The Docker network uses static IP assignments (`172.10.0.x`) which is fragile and creates merge conflicts when services are added.
-
----
-
-## 7. Radical Improvement Proposals
-
-### 🚀 Proposal 1: Extract a Dedicated Backend Service
-
-**Problem:** The `mini-app` is simultaneously the frontend, API, and worker runtime.
-
-**Solution:** Extract the backend into a standalone **Hono/Fastify + tRPC** service:
-
-```
-Current:                          Proposed:
-┌─────────────────────┐          ┌──────────────┐  ┌──────────────┐
-│     mini-app        │          │  mini-app     │  │  api-server  │
-│  ┌───────────────┐  │          │  (Next.js     │  │  (Hono +     │
-│  │ Next.js SSR   │  │    →     │   frontend    │  │   tRPC)      │
-│  │ tRPC API      │  │          │   only)       │  │              │
-│  │ Workers ×6    │  │          └──────────────┘  └──────────────┘
-│  │ Socket.IO     │  │                                    │
-│  │ Moderation    │  │          ┌──────────────────────────┤
-│  └───────────────┘  │          │              │           │
-└─────────────────────┘     ┌────┴───┐  ┌──────┴──┐  ┌────┴────┐
-                            │Workers │  │Socket.IO│  │Mod Bot  │
-                            │(tiny)  │  │(standalone)│(standalone)
-                            └────────┘  └─────────┘  └─────────┘
-```
-
-**Impact:** Worker containers drop from ~500MB to ~50MB. Frontend deploys independently. API scales independently.
-
----
-
-### 🚀 Proposal 2: Unify the Data Access Layer
-
-**Problem:** Three ORMs, two databases, no shared types.
-
-**Solution:**
-1. **Consolidate to a single ORM** (Drizzle, since it's already the primary)
-2. **Merge the nft-manager schema** into the main database with proper foreign keys
-3. **Create a shared `@repo/db` package** in the Newton monorepo exporting typed queries
-4. **Migrate telegram-bot** from raw SQL to the shared package
-
-```
-packages/
-  db/
-    src/
-      schema.ts     ← Single source of truth (Drizzle)
-      queries/
-        events.ts
-        orders.ts
-        nft.ts
-        users.ts
-      migrations/
-      index.ts      ← Typed, reusable query functions
-```
-
----
-
-### 🚀 Proposal 3: Event-Driven Architecture with RabbitMQ
-
-**Problem:** Cron-based polling adds latency and DB load.
-
-**Solution:** Replace cron polling with proper event-driven message flows:
-
-```mermaid
-flowchart LR
-    A[Order Created] -->|publish| Q1[order.created queue]
-    Q1 -->|consume| B[Payment Verifier]
-    B -->|publish| Q2[payment.confirmed queue]
-    Q2 -->|consume| C[Ticket Generator]
-    Q2 -->|consume| D[SBT Minter]
-    Q2 -->|consume| E[Notification Sender]
-    D -->|publish| Q3[nft.minted queue]
-    Q3 -->|consume| F[Blockchain Indexer]
-```
-
-**Impact:** Sub-second payment confirmation (vs 10-60s polling). Eliminates 4 cron workers. Clear domain event contracts.
-
----
-
-### 🚀 Proposal 4: Monorepo Consolidation with Turborepo
-
-**Problem:** Disconnected modules with mixed package managers.
-
-**Solution:** Restructure into a unified Turborepo monorepo:
-
-```
-ontonbot/
-  turbo.json
-  pnpm-workspace.yaml
-  packages/
-    db/              ← Shared database (Drizzle schema + queries)
-    ui/              ← Shared UI components (shadcn/ui)
-    tma/             ← Shared Telegram Mini App utilities
-    config-ts/       ← Shared TypeScript configs
-    config-eslint/   ← Shared ESLint configs
-    auth/            ← Shared auth (Telegram initData + TON Proof)
-  apps/
-    mini-app/        ← Next.js 15 (frontend only)
-    participant-tma/ ← Next.js 15 (participant frontend)
-    client-panel/    ← Next.js 15 (rewritten, App Router, TypeScript)
-    website/         ← Next.js 15 (marketing)
-    api/             ← Hono + tRPC (backend API)
-    bot/             ← Grammy bot (lean service)
-    nft-service/     ← NestJS NFT manager
-  workers/
-    payment/         ← Lightweight queue consumer
-    reward/          ← Lightweight queue consumer
-    sbt/             ← Lightweight queue consumer
-    notification/    ← Socket.IO server
-  infra/
-    docker/
-    caddy/
-    scripts/
-```
-
----
-
-### 🚀 Proposal 5: Production Infrastructure Hardening
-
-**Problem:** Single-server, single-database, no HA.
-
-**Solution — Phase 1 (Immediate):**
-- [ ] Remove SSH keys and `.env` from git history (`git filter-repo`)
-- [ ] Move secrets to **HashiCorp Vault** or GitHub Environments with approval gates
-- [ ] Add a PostgreSQL read replica for analytics (Metabase) and bot queries
-- [ ] Enable Redis Sentinel or switch to Redis Cluster mode
-
-**Solution — Phase 2 (Medium-term):**
-- [ ] Migrate from Docker Swarm to **Kubernetes** (k3s on Hetzner) or **Hetzner Cloud managed Kubernetes**
-- [ ] Add **Cloudflare WAF** in front of Caddy
-- [ ] Implement proper health checks and readiness probes
-- [ ] Add horizontal auto-scaling for the API and worker tiers
-- [ ] Implement **blue-green deployments** with automated rollback
-
-**Solution — Phase 3 (Long-term):**
-- [ ] Consider managed PostgreSQL (Hetzner Cloud DB or Supabase)
-- [ ] Consider managed Redis (Upstash or Redis Cloud)
-- [ ] Implement proper **OpenTelemetry** distributed tracing
-- [ ] Add structured logging with correlation IDs across all services
-
----
-
-### 🚀 Proposal 6: Rewrite `client-web-panel`
-
-**Problem:** The oldest module — Next.js 13, JavaScript, Pages Router, MUI v5, based on an "Admash" admin template. Completely inconsistent with the rest of the stack.
-
-**Solution:** Ground-up rewrite:
-- Next.js 15 App Router + TypeScript
-- Tailwind CSS + shadcn/ui (matching `@repo/ui`)
-- tRPC client (matching `mini-app` API)
-- Server Components for data fetching
-- Remove Redux Toolkit in favor of React Query + Zustand
-
----
-
-## 8. Priority Matrix
-
-| Priority | Item | Effort | Impact | Risk if Ignored |
-|---|---|---|---|---|
-| 🔴 P0 | Remove secrets from repo | 1 day | Critical | Security breach |
-| 🔴 P0 | Add DB read replica | 2 days | High | Data loss on failure |
-| 🟡 P1 | Extract API from mini-app | 2-3 weeks | Very High | Deploy velocity ↓ |
-| 🟡 P1 | Unify data access layer | 2 weeks | High | Schema drift |
-| 🟡 P1 | Event-driven workers | 2 weeks | High | Latency + DB load |
-| 🟢 P2 | Monorepo consolidation | 1 week | Medium | DX friction |
-| 🟢 P2 | Rewrite client-web-panel | 3 weeks | Medium | Tech debt compounds |
-| 🟢 P2 | Add unit tests to CI | 1 week | Medium | Regression risk |
-| 🔵 P3 | Kubernetes migration | 4-6 weeks | High | Scaling ceiling |
-| 🔵 P3 | OpenTelemetry tracing | 1 week | Medium | Debugging difficulty |
-
----
-
-## 9. Conclusion
-
-ONTON has achieved remarkable product-market fit — 300K+ users, multi-rail payments, TON blockchain integration, and a comprehensive event lifecycle — built by what appears to be a small, fast-moving team. The current architecture **works** and delivers value.
-
-However, the system is at an inflection point. The organic growth pattern has created a **fragile monolith wrapped in Docker containers**, with inconsistent technology choices, no automated test safety net, and single-point-of-failure infrastructure.
-
-The proposed improvements follow a **progressive decoupling** strategy:
-1. **Immediate:** Security fixes + infrastructure resilience (P0)
-2. **Near-term:** Backend extraction + event-driven workers (P1)
-3. **Medium-term:** Monorepo unification + client-web rewrite (P2)
-4. **Long-term:** Kubernetes + observability (P3)
-
-Each phase delivers standalone value without requiring the next — enabling the team to ship incrementally while fundamentally improving the architecture's scalability, maintainability, and resilience.
+### 7.4 Monorepo consolidation
+Single pnpm workspace (Turborepo) with shared `db`, `auth`, `ui`, `config` packages.
+
+### 7.5 Infrastructure hardening
+
+| Phase | Items |
+|---|---|
+| Immediate | Automated, monitored prod DB backups; automated prod deploy (F-04); remove insecure secret fallbacks; run workers, socket and RabbitMQ on staging |
+| Medium | Postgres read replica; Redis persistence or Sentinel; Cloudflare WAF; health checks and readiness probes |
+| Long | Managed Postgres/Redis or Kubernetes; OpenTelemetry tracing; structured logs with correlation IDs |
+
+### 7.6 Replace `client-web-panel`
+Rebuild as Next.js App Router + TypeScript on the shared UI package and the main API, or fold its features (OTP login, guest list, check-in, admin users) into the main web app.
+
+### 7.7 Priority matrix (proposal)
+
+| Priority | Item | Risk if ignored |
+|---|---|---|
+| P0 | Automated prod backups | Data loss |
+| P0 | Close F-30, F-33, F-34, F-35 | Revenue and trust loss |
+| P0 | Automated prod deploy (F-04) | Manual-deploy errors |
+| P1 | Staging parity (workers, socket, RabbitMQ) | Untested paths reach prod |
+| P1 | Repair migration journal | Schema drift |
+| P1 | Extract API from mini-app | Slow deploys, coupled scaling |
+| P1 | Unify data access | Schema drift between services |
+| P2 | Event-driven workers | Latency and DB load |
+| P2 | Monorepo consolidation | Developer friction |
+| P2 | Replace client-web-panel | Growing tech debt |
+| P3 | HA data tier, tracing | Scaling and debugging limits |

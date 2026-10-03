@@ -1,84 +1,76 @@
-# Database Schema & Information Architecture
+# Database Schema
 
-The **ONTON** platform uses a **Split-Database Pattern** hosted on a single PostgreSQL instance. This separates the high-frequency application data (User/Events) from the mission-critical, state-heavy blockchain data (NFTs/Transactions).
+> Last verified against dev: 2026-10-03
 
-## 1. Core Database (`mini-app`)
-**ORM**: Drizzle Object Relational Mapper
-**Role**: Handles all application logic, user data, event management, and ticketing.
+The live platform uses one PostgreSQL database for `mini-app` (Drizzle ORM). Schema entry point: `mini-app/src/db/schema.ts`; table files in `mini-app/src/db/schema/`; enums in `mini-app/src/db/enum.ts`.
 
-### Key Entities
+The env file still defines a second database for the `nft-manager` service (`POSTGRES_NFT_MANAGER_DB`, `DATABASE_URL_NFT_MANAGER`), but that service is not deployed. See [backend_nft_manager.md](backend_nft_manager.md).
 
-#### Users & Identity
-- **`users`**: The central identity table.
-    - `user_id` (BigInt): Telegram User ID (Primary Key).
-    - `wallet_address`: Linked TON wallet.
-    - `role`: Role enum (user, admin, etc.).
-    - `is_premium`: Telegram Premium status.
-- **`user_flags`**: Feature flags and granular permissions per user.
-- **`userWalletBalances`**: Tracks internal balances if applicable.
+## 1. Users & access
 
-#### Events & Ticketing
-- **`events`**: The core resource.
-    - `event_id` (Serial) / `event_uuid` (UUID).
-    - `title`, `start_date`, `end_date`.
-    - `participation_type`: Defines if it involves tickets, open entry, etc.
-- **`tickets`**: Individual entry passes.
-    - `status`: Active, Used, Cancelled.
-    - `check_in_status`: For tracking attendance.
-- **`orders`**: Purchase records.
-    - `uuid`: Public identifier.
-    - `state`: Created -> Paid -> Failed.
-    - `type`: `event_creation`, `nft_mint`, etc.
+| Table | Key columns / notes |
+|---|---|
+| `users` | `user_id` bigint PK (Telegram ID, or random ≥ 1e14 for web-only users); `uuid`, `email` (indexed, not unique), `auth_provider` (default `telegram`), `telegram_id`; `username`, `first_name`, `last_name`, `photo_url`, `is_premium`; `wallet_address`; `role` text (`user`, `organizer`, `admin`, `ban`); `user_point`; `affiliator_user_id`; `org_*` fields |
+| `user_identities` | `id` uuid PK; `user_id` → `users.user_id` (cascade); `provider` varchar (`telegram`, `google`, `email`, `ton_wallet`); `provider_user_id`; `provider_metadata` jsonb; `verified`; unique `(provider, provider_user_id)`. Migration `0123_user_identities.sql` |
+| `user_roles` | Per-event roles. PK `(item_id, item_type, user_id, role)`; `item_type` = `event`; `role` = `owner`, `admin`, `checkin_officer`; `status` = `active`, `deactivate` |
+| `user_custom_flags` | Per-user flags, including `api_key` (bcrypt-hashed) and `moderator` |
+| `users_google`, `users_x`, `users_github`, `users_linkedin`, `users_outlook` | Connected social accounts |
 
-#### Engagement & Gamification
-- **`rewards`**: Definitions of rewards (SBTs, Tokens) for attending events.
-- **`tournaments` / `games`**: Structures for competitive features.
-- **`tasks`**: User tasks (social following, etc.) for earning points.
+## 2. Events, registration, tickets
 
-### Data Flow Relations
-- **One User** can own **Many Events**.
-- **One Order** generates **Many Tickets**.
-- **One Event** can have **Many Registrants**.
+| Table | Key columns / notes |
+|---|---|
+| `events` | `event_id` serial PK, `event_uuid` unique; `title`, `start_date`/`end_date` (integer epoch); `owner` → users; `participation_type` enum `in_person`/`online`; `enabled`, `hidden`; `has_registration`, `has_approval`, `has_waiting_list`, `has_payment`, `has_web3`; `capacity`; `category_id`; `ticketToCheckIn`; `sbt_collection_address`; `moderation_message_id` |
+| `event_registrants` | Status enum `pending`, `rejected`, `approved`, `checkedin` |
+| `event_fields` / `user_event_fields` | Custom event fields and user answers (incl. the online-event secret phrase) |
+| `event_payment_info` | Paid-event config: price, recipient, token, NFT title/image/video, collection address, `bought_capacity` |
+| `event_ticket_tiers` | `event_uuid` FK, `tier_name`, `price` (real), `capacity`, `sold_count`, `ticket_type`, `sort_order`. Migration `0125_event_ticket_tiers.sql` |
+| `event_tokens` | `symbol`, `decimals`, `master_address` (set = jetton), `is_native` |
+| `tickets` | `order_uuid` → orders, `event_uuid`, `user_id`, `status` enum `USED`/`UNUSED`, `nft_address`, `event_ticket_id` → `event_payment_info` |
+| `visitors` | Visit / check-in records |
+| `event_reports` | Abuse reports (one per user per event) |
+| `event_poa_triggers` / `event_poa_results` | PoA prompts and answers |
 
----
+## 3. Orders & payments
 
-## 2. NFT Database (`nft-manager`)
-**ORM**: Prisma
-**Role**: Manages the state of TON blockchain assets. It acts as a ledger for "On-Chain" truth before it is finalized on the blockchain.
+| Table | Key columns / notes |
+|---|---|
+| `orders` | `uuid`; `state` enum `new`, `confirming`, `processing`, `completed`, `cancelled`, `failed` (no `PAID` state); `order_type` `nft_mint`, `event_creation`, `event_capacity_increment`, `promote_to_organizer`, `ts_csbt_ticket`; `total_price`/`default_price` are `real`; `retry_count`, `last_error` (migration 0124), `tier_id` |
+| `wallet_checks` | Last checked logical time per watched wallet, used by `CheckTransactions` |
+| `nft_items` | Minted paid-ticket NFTs |
+| `affiliate_links` | `link_hash`, `item_type`, `total_clicks`, `total_purchase`, `affiliator_user_id` |
 
-### Key Models
+Payment types enum: `USDT`, `TON`, `STAR`.
 
-#### `NFTCollection`
-Represents an on-chain NFT collection deployed by the platform.
-- `address`: The TON address of the collection contract.
-- `metadata_url`: Pointer to the off-chain JSON metadata.
-- `last_registered_item_index`: Tracks minting progress.
+## 4. Credentials & rewards
 
-#### `NFTItem`
-Represents a single NFT (ticket or collectible).
-- `owner_address`: Who owns this item.
-- `state`: The lifecycle state (`created` -> `mint_request` -> `minted` -> `failed`).
-- `transaction_id`: Links to the payment/minting transaction.
+| Table | Key columns / notes |
+|---|---|
+| `rewards` | `type` enum `ton_society_sbt`, `ton_society_csbt_ticket`; `status` enum: `pending_creation`, `created`, `created_by_ui`, `received`, `notified`, `notified_by_ui`, `notification_failed`, `failed`, `fixed_failed` |
+| `sbt_collections` / `sbt_items` | Native TEP-85 SBT collections and items |
+| `sbt_reward_collections` | Legacy reward collection mapping |
 
-#### `Transactions`
-Tracks value transfers on the blockchain.
-- `hash`: The transaction hash on TON.
-- `value`: Amount (in TON).
-- `type`: `paid`, `pending`, `failed`.
-- `error_type`: Granular error tracking (e.g., `not_enough_ton`).
+Other areas with their own tables: tournaments/games, tasks, raffles/merch, token campaign, NFT-API (`nft_api_*`), notifications, coupons.
 
-#### `WatchWallet`
-Infrastructure table for the **Wallet Watcher** worker.
-- `address`: The platform wallet being watched.
-- `last_checked_lt`: The "Logical Time" of the last processed transaction. This ensures no double-processing of payments.
+## 5. Relations (main)
 
----
+```mermaid
+erDiagram
+    USERS ||--o{ USER_IDENTITIES : has
+    USERS ||--o{ USER_ROLES : has
+    USERS ||--o{ EVENTS : owns
+    EVENTS ||--o{ EVENT_REGISTRANTS : has
+    EVENTS ||--o| EVENT_PAYMENT_INFO : "paid config"
+    EVENTS ||--o{ EVENT_TICKET_TIERS : has
+    EVENTS ||--o{ ORDERS : has
+    ORDERS ||--o{ TICKETS : issues
+    EVENTS ||--o{ SBT_COLLECTIONS : "SBT collection"
+    SBT_COLLECTIONS ||--o{ SBT_ITEMS : contains
+```
 
-## 3. Schema Synchronization
-There is no direct foreign key relationship between the TWO databases. Use UUIDs or Wallet Addresses to correlate data across boundaries.
+## 6. Migrations
 
-**Example Correlation**:
-1. User creates an order in `mini-app` (Order UUID `123-abc`).
-2. Payment is detected in `nft-manager` via a Transaction.
-3. The Worker sees the memo `123-abc` in the transaction.
-4. Worker updates `mini-app.orders` to `PAID`.
+- SQL files live in `mini-app/drizzle/` (last: `0127_add_has_web3_to_events.sql`).
+- The drizzle journal is stale (some SQL files are missing from it). **Do not run `yarn db:migrate`.**
+- Apply new SQL manually: `psql -v ON_ERROR_STOP=1 -f <file>.sql`.
+- Some modules also create their tables at runtime if missing (`ensureUserIdentitiesTable`, `ensureTicketTiersTable`).

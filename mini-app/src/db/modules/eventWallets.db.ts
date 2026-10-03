@@ -139,8 +139,7 @@ export const ensureEventWallet = async (args: {
 /*                               UTIL HELPERS                                 */
 /* -------------------------------------------------------------------------- */
 function omitMnemonic(r: EventWalletRow): EventWalletRow {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { mnemonic, ...rest } = r;
+  const { mnemonic: _mnemonic, ...rest } = r;
   // @ts-expect-error – remove column
   return rest;
 }

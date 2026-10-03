@@ -53,7 +53,17 @@ export default function ChannelInfoCard({ data }: { data: Channel }) {
         </Typography>
         <div className="flex gap-3">
           {data.org_x_link && (
-            <IconBg onClick={() => window.Telegram.WebApp.openLink(data.org_x_link as string, { try_instant_view: true })}>
+            <IconBg
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  if (window.Telegram?.WebApp?.openLink) {
+                    window.Telegram.WebApp.openLink(data.org_x_link as string, { try_instant_view: true });
+                  } else {
+                    window.open(data.org_x_link as string, "_blank", "noopener,noreferrer");
+                  }
+                }
+              }}
+            >
               <Image
                 src={xPlatformIcon}
                 width={16}
@@ -64,9 +74,16 @@ export default function ChannelInfoCard({ data }: { data: Channel }) {
           )}
           {data.org_support_telegram_user_name && (
             <IconBg
-              onClick={() =>
-                window.Telegram.WebApp.openTelegramLink(`https://t.me/${data.org_support_telegram_user_name?.substring(1)}`)
-              }
+              onClick={() => {
+                const tgUrl = `https://t.me/${data.org_support_telegram_user_name?.substring(1)}`;
+                if (typeof window !== "undefined") {
+                  if (window.Telegram?.WebApp?.openTelegramLink) {
+                    window.Telegram.WebApp.openTelegramLink(tgUrl);
+                  } else {
+                    window.open(tgUrl, "_blank", "noopener,noreferrer");
+                  }
+                }
+              }}
             >
               <Image
                 src={telegramIcon}

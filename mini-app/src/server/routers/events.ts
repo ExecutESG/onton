@@ -5,7 +5,9 @@ import eventFieldsDB from "@/db/modules/eventFields.db";
 import { eventRegistrantsDB } from "@/db/modules/eventRegistrants.db";
 import eventDB from "@/db/modules/events.db";
 import eventTokensDB from "@/db/modules/eventTokens.db";
-import { organizerTsVerified, userHasModerationAccess } from "@/db/modules/userFlags.db";
+import eventTicketTiersDB from "@/db/modules/eventTicketTiers.db";
+import { EventTicketTierRow } from "@/db/schema/eventTicketTiers";
+import { userHasModerationAccess } from "@/db/modules/userFlags.db";
 import { userRolesDB } from "@/db/modules/userRoles.db";
 import { getUserCacheKey, usersDB } from "@/db/modules/users.db";
 import { EventCategoryRow, eventFields, eventPayment, events, orders } from "@/db/schema";
@@ -14,18 +16,22 @@ import { EventTokenRow } from "@/db/schema/eventTokens";
 import { hashPassword } from "@/lib/bcrypt";
 import { timestampToIsoString } from "@/lib/DateAndTime";
 import { redisTools } from "@/lib/redisTools";
+import { LinkService } from "@/lib/links/linkService";
 import {
   getEventsChannelBotInstance,
   renderAddEventMessage,
   renderModerationEventMessage,
   renderModerationFlowup,
   renderUpdateEventMessage,
+  renderPostPublishModerationMessage,
+  renderEventReportAlertMessage,
   sendLogNotification,
   sendToEventsTgChannel,
 } from "@/lib/tgBot";
 import { registerActivity, tonSocietyClient, updateActivity } from "@/lib/ton-society-api";
 import { getObjectDifference, removeKey } from "@/lib/utils";
-import { tgBotModerationMenu } from "@/moderationBot/menu";
+import { tgBotModerationMenu, tgBotPostPublishModerationMenu, tgBotReportedEventMenu } from "@/moderationBot/menu";
+import eventReportsDB from "@/db/modules/eventReports.db";
 import { logger } from "@/server/utils/logger";
 import { CreateTonSocietyDraft } from "@/services/tonSocietyService";
 import { EventDataSchema, UpdateEventDataSchema } from "@/types";
@@ -59,6 +65,7 @@ const getEvent = publicProcedure.input(z.object({ event_uuid: z.string() })).que
   let eventData = {
     payment_details: {} as PaymentDetailsWithToken,
     category: {} as EventCategoryRow,
+    ticket_tiers: [] as EventTicketTierRow[],
     ...(await eventDB.selectEventByUuid(event_uuid)),
   };
   let capacity_filled = false;
@@ -98,7 +105,7 @@ const getEvent = publicProcedure.input(z.object({ event_uuid: z.string() })).que
   //    We'll rename org_* fields to 'organizer: { ... }' in the returned object.
   const ownerUserId = eventData.owner; // This is the user_id who created the event
   const ownerUser = await usersDB.selectUserById(Number(ownerUserId));
-  const is_ts_verified = await organizerTsVerified(Number(ownerUserId));
+  const is_ts_verified = false;
 
   // Build an organizer object with the org_* fields (or null if no user found)
   const organizer = ownerUser
@@ -149,23 +156,28 @@ const getEvent = publicProcedure.input(z.object({ event_uuid: z.string() })).que
   const userIsAdminOrOwner = userId ? (eventData.owner == userId || userRole == "admin") : false;
   let mask_event_capacity = !userIsAdminOrOwner;
 
-  if (userIsAdminOrOwner) {
-    //event payment info
-    if (eventData.has_payment) {
-      const payment_details = (
-        await db.select().from(eventPayment).where(eq(eventPayment.event_uuid, event_uuid)).execute()
-      ).pop();
-      if (!payment_details) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Event Payment Data Not found (Corrupted Event)",
-        });
-      }
+  // Event payment info & ticket tiers (public pricing for all attendees)
+  try {
+    eventData.ticket_tiers = await eventTicketTiersDB.getTiersByEventUuid(event_uuid);
+  } catch (err) {
+    logger.warn(`Failed to fetch ticket tiers for ${event_uuid}:`, err);
+  }
+
+  if (eventData.has_payment) {
+    const payment_details = (
+      await db.select().from(eventPayment).where(eq(eventPayment.event_uuid, event_uuid)).execute()
+    ).pop();
+    if (payment_details) {
       const token = await eventTokensDB.getTokenById(payment_details.token_id);
       eventData.payment_details = {
         ...payment_details,
         token,
       };
+    } else if (userIsAdminOrOwner) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Event Payment Data Not found (Corrupted Event)",
+      });
     }
   }
 
@@ -250,14 +262,21 @@ const listPaymentTokens = adminOrganizerProtectedProcedure.query(async () => {
 /*                                  🆕Add Event🆕                            */
 /* -------------------------------------------------------------------------- */
 // private
-const addEvent = adminOrganizerProtectedProcedure.input(z.object({ eventData: EventDataSchema })).mutation(async (opts) => {
+const addEvent = initDataProtectedProcedure.input(z.object({ eventData: EventDataSchema })).mutation(async (opts) => {
   const input_event_data = opts.input.eventData;
 
   const user_id = opts.ctx.user.user_id;
   const userCacheKey = getUserCacheKey(user_id);
-  const is_ts_verified = await organizerTsVerified(user_id);
-  if (!is_ts_verified && !NonVerifiedHubsIds.includes(input_event_data.society_hub.id))
-    throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid HUBS for non verified organizer" });
+
+  // Auto-promote user to organizer role upon creating their first event
+  if (opts.ctx.user.role === "user") {
+    try {
+      await usersDB.updateUserRole(user_id, "organizer");
+    } catch (err) {
+      logger.error("Failed to auto-promote user to organizer:", err);
+    }
+  }
+
   const category = await eventCategoriesDB.fetchCategoryById(input_event_data.category_id);
   if (!category || !category.enabled) {
     throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid or disabled category" });
@@ -297,8 +316,8 @@ const addEvent = adminOrganizerProtectedProcedure.input(z.object({ eventData: Ev
           subtitle: input_event_data.subtitle,
           description: input_event_data.description,
           image_url: input_event_data.image_url,
-          society_hub: input_event_data.society_hub.name,
-          society_hub_id: input_event_data.society_hub.id,
+          society_hub: input_event_data.society_hub?.name || "Onton",
+          society_hub_id: input_event_data.society_hub?.id || "33",
           secret_phrase: hashedSecretPhrase,
           start_date: input_event_data.start_date,
           end_date: input_event_data.end_date,
@@ -324,6 +343,9 @@ const addEvent = adminOrganizerProtectedProcedure.input(z.object({ eventData: Ev
           ticketToCheckIn: is_paid, // Duplicated Column same as has_payment 😐
           wallet_address: is_paid ? config?.ONTON_WALLET_ADDRESS : null,
           /* ------------------------------- Paid Event ------------------------------- */
+          /* ------------------------------ Web3 Features ----------------------------- */
+          has_web3: Boolean(input_event_data.has_web3),
+          /* ------------------------------ Web3 Features ----------------------------- */
         })
         .returning();
 
@@ -437,28 +459,40 @@ const addEvent = adminOrganizerProtectedProcedure.input(z.object({ eventData: Ev
        */
       try {
         if (register_to_ts) {
-          const res = await registerActivity(eventDraft);
-          tsActivityId = res.data.activity_id;
+          try {
+            const res = await registerActivity(eventDraft);
+            if (res?.status === "success" && res?.data?.activity_id) {
+              tsActivityId = res.data.activity_id;
 
-          await trx
-            .update(events)
-            .set({
-              activity_id: res.data.activity_id,
-              updatedBy: user_id.toString(),
-              updatedAt: new Date(),
-            })
-            .where(eq(events.event_uuid, newEvent[0].event_uuid as string))
-            .execute();
+              await trx
+                .update(events)
+                .set({
+                  activity_id: res.data.activity_id,
+                  updatedBy: user_id.toString(),
+                  updatedAt: new Date(),
+                })
+                .where(eq(events.event_uuid, newEvent[0].event_uuid as string))
+                .execute();
+            }
+          } catch (tsError) {
+            logger.warn(
+              `Failed to register activity with Ton Society for event ${newEvent[0].event_uuid}. Proceeding without Ton Society.`,
+              tsError
+            );
+          }
         }
 
         /* ------------- Generate the message using the render function ------------- */
-        if (is_ts_verified && !is_paid) {
+        if (!is_paid) {
           /* -------------------------- Just Send The Message ------------------------- */
-          const logMessage = renderAddEventMessage(opts.ctx.user.username || user_id, eventData);
+          const logMessage = await renderPostPublishModerationMessage(opts.ctx.user.username || user_id, eventData);
+          const moderation_group_id = process.env.MODERATION_GROUP_ID || configProtected?.moderation_group_id;
 
           const notificationMsg = await sendLogNotification({
+            group_id: moderation_group_id,
             message: logMessage,
-            topic: "event",
+            topic: "no_topic",
+            inline_keyboard: tgBotPostPublishModerationMenu(eventData.event_uuid, user_id),
           });
           sentTelegramMsgs.push(notificationMsg);
 
@@ -474,39 +508,6 @@ const addEvent = adminOrganizerProtectedProcedure.input(z.object({ eventData: Ev
           });
 
           eventsMsg && sentTelegramMsgs.push(eventsMsg);
-        } else if (!is_paid) {
-          /* --------------------------- Moderation Message --------------------------- */
-
-          const moderation_group_id = configProtected?.moderation_group_id;
-          const logMessage = await renderModerationEventMessage(opts.ctx.user.username || user_id, eventData);
-
-          // SEND MESSAGE TO TELEGRAM MODERATION GROUP
-          const moderationMessageResult = await sendLogNotification({
-            group_id: moderation_group_id,
-            image: eventData.image_url,
-            message: logMessage,
-            topic: "no_topic",
-            inline_keyboard: tgBotModerationMenu(eventData.event_uuid),
-            media_group: [
-              { type: "photo", url: eventData.tsRewardImage!! },
-              {
-                type: "video",
-                url: eventData.tsRewardVideo!!,
-              },
-            ],
-          });
-
-          await trx
-            .update(events)
-            .set({ moderationMessageId: moderationMessageResult.message_id })
-            .where(eq(events.event_id, eventData.event_id))
-            .execute();
-
-          sentTelegramMsgs.push(moderationMessageResult);
-
-          logger.log(
-            `moderationMessageResult: for ${eventData.event_id} ${eventData.event_uuid} with message_id ${moderationMessageResult.message_id}`
-          );
         }
       } catch (error) {
         // ❄ THIRD PARTY CLEANUP ❄
@@ -599,9 +600,9 @@ const updateEvent = eventManagerPP
 
         const canUpdateRegistrationSetting = oldEvent.has_registration;
         const is_paid = oldEvent.has_payment;
-        const is_ts_verified = await organizerTsVerified(user_id);
+        const is_ts_verified = false;
         const canSendModerationMessage = Boolean(
-          oldEvent.moderationMessageId && !is_paid && !is_ts_verified && !oldEvent.activity_id
+          oldEvent.moderationMessageId && !is_paid && !oldEvent.activity_id
         );
 
         /* -------------------------------------------------------------------------- */
@@ -644,7 +645,11 @@ const updateEvent = eventManagerPP
                 .set({ total_price: eventDB.getPaidEventPrice(eventData.capacity, ticketType) })
                 .where(where_condition)
                 .execute();
-              await trx.update(eventPayment).set({ bought_capacity: eventData.capacity });
+              await trx
+                .update(eventPayment)
+                .set({ bought_capacity: eventData.capacity })
+                .where(eq(eventPayment.event_uuid, eventUuid))
+                .execute();
             }
           }
 
@@ -697,8 +702,8 @@ const updateEvent = eventManagerPP
             subtitle: eventData.subtitle,
             description: eventData.description,
             image_url: eventData.image_url,
-            society_hub: eventData.society_hub.name,
-            society_hub_id: eventData.society_hub.id,
+            society_hub: eventData.society_hub?.name || "Onton",
+            society_hub_id: eventData.society_hub?.id || "33",
             secret_phrase: hashedSecretPhrase,
             start_date: eventData.start_date,
             end_date: eventData.end_date,
@@ -709,6 +714,10 @@ const updateEvent = eventManagerPP
             cityId: eventData.cityId,
             updatedBy: opts.ctx.user.user_id.toString(),
             updatedAt: new Date(),
+
+            /* ------------------------------ Web3 Features ----------------------------- */
+            has_web3: eventData.has_web3 !== undefined ? eventData.has_web3 : oldEvent.has_web3,
+            /* ------------------------------ Web3 Features ----------------------------- */
 
             /* ------------------------ Event Registration Update ----------------------- */
             // Updating has_registration is not allowed
@@ -724,7 +733,7 @@ const updateEvent = eventManagerPP
         await eventDB.deleteEventCache(eventUuid);
         if (canSendModerationMessage) {
           const followUpText = renderModerationFlowup(opts.ctx.user.username || opts.ctx.user.user_id);
-          const moderation_group_id = configProtected?.moderation_group_id;
+          const moderation_group_id = process.env.MODERATION_GROUP_ID || configProtected?.moderation_group_id;
           try {
             const moderationMessageResponse = await sendLogNotification({
               group_id: moderation_group_id,
@@ -828,12 +837,12 @@ const updateEvent = eventManagerPP
           title: eventData.title,
           subtitle: eventData.subtitle,
           description: eventData.description,
-          hub_id: parseInt(eventData.society_hub.id),
+          hub_id: parseInt(eventData.society_hub?.id || "33"),
           start_date: timestampToIsoString(eventData.start_date),
           end_date: timestampToIsoString(eventData.end_date!),
           additional_info,
           cta_button: {
-            link: `https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME}/event?startapp=${eventUuid}`,
+            link: LinkService.getEventUrl(eventUuid),
             label: "Enter Event",
           },
         };
@@ -1004,6 +1013,90 @@ const getCategories = publicProcedure.query(async () => {
     });
   }
 });
+const reportEvent = initDataProtectedProcedure
+  .input(
+    z.object({
+      event_uuid: z.string(),
+      reason: z.enum(["phishing", "impersonation", "inappropriate", "spam", "other"]),
+      notes: z.string().max(500).optional(),
+    })
+  )
+  .mutation(async (opts) => {
+    const userId = opts.ctx.user.user_id;
+    const { event_uuid, reason, notes } = opts.input;
+
+    const event = await eventDB.selectEventByUuid(event_uuid);
+    if (!event) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Event not found" });
+    }
+
+    // 1 report per user per event
+    const alreadyReported = await eventReportsDB.hasUserReported(event_uuid, userId);
+    if (alreadyReported) {
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "You have already submitted a report for this event.",
+      });
+    }
+
+    // Insert report
+    await eventReportsDB.createReport({
+      event_uuid,
+      user_id: userId,
+      reason,
+      notes: notes || "",
+      status: "pending",
+    });
+
+    // Check 1-hour reports threshold (>= 3 unique reports)
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const recentReportCount = await eventReportsDB.getRecentReportsCount(event_uuid, oneHourAgo);
+    const isQuarantined = recentReportCount >= 3;
+
+    if (isQuarantined && !event.hidden) {
+      // Auto-quarantine: hide event and flush cache
+      await db
+        .update(events)
+        .set({ hidden: true, enabled: false, updatedAt: new Date(), updatedBy: "system_auto_quarantine" })
+        .where(eq(events.event_uuid, event_uuid))
+        .execute();
+      await eventDB.deleteEventCache(event_uuid);
+      logger.warn(`[Trust & Safety] Event ${event_uuid} automatically quarantined after ${recentReportCount} reports.`);
+    }
+
+    // Dispatch Telegram alert to moderation group
+    const moderation_group_id = process.env.MODERATION_GROUP_ID || configProtected?.moderation_group_id;
+    if (moderation_group_id) {
+      try {
+        const reportAlertText = renderEventReportAlertMessage({
+          eventTitle: event.title,
+          eventUuid: event.event_uuid,
+          reporterUsername: opts.ctx.user.username || userId,
+          reason,
+          notes,
+          totalReports: recentReportCount,
+          isQuarantined,
+        });
+
+        await sendLogNotification({
+          group_id: moderation_group_id,
+          message: reportAlertText,
+          topic: "no_topic",
+          inline_keyboard: tgBotReportedEventMenu(event_uuid),
+        });
+      } catch (err) {
+        logger.error("Failed to send moderation telegram alert for report:", err);
+      }
+    }
+
+    return {
+      success: true,
+      quarantined: isQuarantined,
+      totalReports: recentReportCount,
+      message: "Report received. Thank you for keeping the community safe.",
+    };
+  });
+
 /* -------------------------------------------------------------------------- */
 /*                                   Router                                   */
 /* -------------------------------------------------------------------------- */
@@ -1016,4 +1109,5 @@ export const eventsRouter = router({
   getEventsWithFiltersInfinite,
   getCategories,
   listPaymentTokens,
+  reportEvent,
 });

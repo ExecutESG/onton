@@ -28,7 +28,7 @@ export const useAffiliate = () => {
         try {
             await inviteAsync();
             if (window.Telegram?.WebApp?.close) {
-                window.Telegram.WebApp.close();
+                window.Telegram?.WebApp?.close();
             }
         } catch (error) {
             console.error("inviteOnTelegram error:", error);

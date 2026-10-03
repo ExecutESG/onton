@@ -18,7 +18,8 @@ import { couponDefinitionsDB } from "@/db/modules/couponDefinitions.db";
 
 import { randomBytes } from "crypto";
 import { parse as csvParse } from "csv-parse/sync";
-const API_BASE_URL = (process.env.NEXT_PUBLIC_APP_BASE_URL || "http://localhost:3000") + "/api/";
+const appBaseUrl = (process.env.NEXT_PUBLIC_APP_BASE_URL || "http://localhost:3000").replace(/\/+$/, "");
+const API_BASE_URL = `${appBaseUrl}/api`;
 
 // JWT secret from env
 const JWT_SECRET = process.env.ONTON_API_SECRET ?? "fallback-secret";

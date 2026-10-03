@@ -1,5 +1,5 @@
 import * as clamav from "clamav.js"; // Import ClamAV module
-const CLAMAV_HOST = process.env.IP_CLAMAV || "127.0.0.1"; // Default ClamAV host
+const CLAMAV_HOST = process.env.CLAMAV_HOST || process.env.IP_CLAMAV || "clamav"; // Default ClamAV host
 const CLAMAV_PORT = Number(process.env.CLAMAV_PORT) || 3310; // Convert port to number
 
 // Helper function to scan files using ClamAV

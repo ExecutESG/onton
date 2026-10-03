@@ -10,7 +10,8 @@ import helpComposer from "./helpComposer"
 import { play2winFeatured } from "./play2winfetured"
 import { sbtdistComposer } from "./sbtdistComposer"
 import { tournamentComposer } from "./tournamentComposer"
-import {pollComposer} from "./pollComposer";
+import { pollComposer } from "./pollComposer";
+import { moderationComposer } from "./moderationComposer";
 
 // join other composers here
 export const mainComposer = new Composer();
@@ -26,4 +27,6 @@ mainComposer.use(collectionComposer);
 mainComposer.use(toIdComposer);
 mainComposer.use(channelPostButtonComposer);
 mainComposer.use(cancelComposer);
+mainComposer.use(moderationComposer);
 mainComposer.use(helpComposer);
+

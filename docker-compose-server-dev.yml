@@ -8,12 +8,33 @@ x-common-env: &common-env
   DATABASE_URL: ${DATABASE_URL}
   DATABASE_URL_NFT_MANAGER: ${DATABASE_URL_NFT_MANAGER}
   REDIS_URL: ${REDIS_URL}
-  TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+  TELEGRAM_BOT_TOKEN: ${BOT_TOKEN}
+  BOT_TOKEN: ${BOT_TOKEN}
+  TG_LOG_BOT_TOKEN: ${TG_LOG_BOT_TOKEN:-}
+  BOT_TOKEN_LOGS: ${TG_LOG_BOT_TOKEN:-}
   SOCIETY_HUB_API_KEY: ${SOCIETY_HUB_API_KEY}
   SOCIETY_HUB_ADMIN_CHAT_ID: ${SOCIETY_HUB_ADMIN_CHAT_ID}
   SOCIETY_HUB_CHAT_ID: ${SOCIETY_HUB_CHAT_ID}
   ONTON_API_KEY: ${ONTON_API_KEY}
+  ONTON_API_SECRET: ${ONTON_API_SECRET}
+  MNEMONIC: ${MNEMONIC}
   NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
+  NEXT_PUBLIC_APP_BASE_URL: ${NEXT_PUBLIC_APP_BASE_URL:-https://dev.onton.live}
+  NEXT_PUBLIC_BOT_USERNAME: ${NEXT_PUBLIC_BOT_USERNAME:-notnonstagebot}
+  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+  GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+  IP_TELEGRAM_BOT: ${IP_TELEGRAM_BOT:-telegram-bot}
+  TELEGRAM_BOT_PORT: ${TELEGRAM_BOT_PORT:-3002}
+  MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio}
+  MINIO_PORT: ${MINIO_PORT:-3012}
+  MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-https://dev-storage.dev.onton.live}
+  MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+  MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+  MINIO_IMAGE_BUCKET: ${MINIO_IMAGE_BUCKET:-ontonimage}
+  MINIO_DOC_DEFAULT_BUCKET: ${MINIO_DOC_DEFAULT_BUCKET:-onton}
+  MINIO_STORAGE_DOMAIN: ${MINIO_STORAGE_DOMAIN}
+  MODERATION_GROUP_ID: ${MODERATION_GROUP_ID:--1004304657491}
+  LOGS_GROUP_ID: ${LOGS_GROUP_ID:--1002264975789}
 
 x-default-extra-hosts: &default-extra-hosts
   extra_hosts:
@@ -132,24 +153,11 @@ services:
     networks:
       - onton-network
 
-  participant-tma:
-    image: ghcr.io/executesg/onton/participant-tma:${BRANCH_NAME}-latest
-    hostname: participant-tma
-    ports:
-      - "127.0.0.1:${PARTICIPANT_TMA_PORT-3001}:3001"
-    <<: *default-extra-hosts
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-          cpus: "0.5"
-      replicas: 1
-    environment:
-      <<: *common-env
-      NEXT_PUBLIC_APP_BASE_URL: https://${MINI_APP_DOMAIN}
-      PORT: 3000
-    networks:
-      - onton-network
+  # participant-tma: DECOMMISSIONED — consolidated into mini-app (epic #1022)
+  # image: ghcr.io/executesg/onton/participant-tma:${BRANCH_NAME}-latest
+  # hostname: participant-tma
+  # ports:
+  #   - "127.0.0.1:${PARTICIPANT_TMA_PORT-3001}:3001"
 
   telegram-bot:
     image: ghcr.io/executesg/onton/telegram-bot:${BRANCH_NAME}-latest
@@ -163,16 +171,17 @@ services:
           cpus: "0.5"
     environment:
       <<: *common-env
-      BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      BOT_TOKEN: ${BOT_TOKEN}
       ONTON_API_SECRET: ${ONTON_API_SECRET:-}
       NEXT_PUBLIC_APP_BASE_URL: https://${MINI_APP_DOMAIN}
     networks:
       - onton-network
 
   mini-app-ordinary-worker:
-    image: ghcr.io/executesg/onton/mini-app-ordinary-worker:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
     hostname: mini-app-ordinary-worker
     <<: *default-extra-hosts
+    command: [ "yarn", "run", "start-cron-ordinary" ]
     deploy:
       resources:
         limits:
@@ -185,9 +194,10 @@ services:
       - onton-network
 
   mini-app-reward-worker:
-    image: ghcr.io/executesg/onton/mini-app-reward-worker:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
     hostname: mini-app-reward-worker
     <<: *default-extra-hosts
+    command: [ "yarn", "run", "start-cron-reward" ]
     deploy:
       resources:
         limits:
@@ -200,9 +210,10 @@ services:
       - onton-network
 
   mini-app-poa-worker:
-    image: ghcr.io/executesg/onton/mini-app-poa-worker:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
     hostname: mini-app-poa-worker
     <<: *default-extra-hosts
+    command: [ "yarn", "run", "start:poa" ]
     deploy:
       resources:
         limits:
@@ -215,9 +226,10 @@ services:
       - onton-network
 
   mini-app-sbt-worker:
-    image: ghcr.io/executesg/onton/mini-app-sbt-worker:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
     hostname: mini-app-sbt-worker
     <<: *default-extra-hosts
+    command: [ "yarn", "run", "start-cron-payment" ]
     deploy:
       resources:
         limits:
@@ -230,24 +242,10 @@ services:
       - onton-network
 
   mini-app-nft-api-worker:
-    image: ghcr.io/executesg/onton/mini-app-nft-api-worker:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
     hostname: mini-app-nft-api-worker
     <<: *default-extra-hosts
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: "0.2"
-      replicas: 0
-    environment:
-      <<: *common-env
-    networks:
-      - onton-network
-
-  mini-app-moderation-bot:
-    image: ghcr.io/executesg/onton/mini-app-moderation-bot:${BRANCH_NAME}-latest
-    hostname: mini-app-moderation-bot
-    <<: *default-extra-hosts
+    command: [ "yarn", "run", "local:start-cron-nft-api" ]
     deploy:
       resources:
         limits:
@@ -260,8 +258,9 @@ services:
       - onton-network
 
   mini-app-notification-socket:
-    image: ghcr.io/executesg/onton/mini-app-notification-socket:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
     hostname: mini-app-notification-socket
+    command: [ "yarn", "run", "start:socket" ]
     ports:
       - "127.0.0.1:${SOCKET_PORT}:${SOCKET_PORT}"
     <<: *default-extra-hosts

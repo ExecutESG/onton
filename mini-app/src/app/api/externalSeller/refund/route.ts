@@ -1,6 +1,6 @@
 import { logger } from "@/server/utils/logger";
 import "@/lib/gracefullyShutdown";
-import { getAuthenticatedUserApi } from "@/server/auth";
+import { getAuthenticatedUserApi } from "@/server/userApiKeyAuth";
 import { isStructuredErrorShape } from "@/lib/openAPIErrorHandler";
 import externalSellerApi from "@/lib/externalSeller.api";
 import ordersDB from "@/db/modules/orders.db"; // if you have a default export, adjust this import

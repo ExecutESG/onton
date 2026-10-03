@@ -6,6 +6,7 @@ import * as jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
 import { z, ZodError } from "zod";
+import { checkRateLimit } from "@/lib/checkRateLimit";
 import "@/lib/gracefullyShutdown";
 
 const userDataSchema = z.object({
@@ -57,6 +58,15 @@ export async function GET(req: NextRequest) {
       return Response.json(
         { error: "invalid_init_user_data" },
         { status: 403, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Application-level rate limiting (30 requests per minute per user)
+    const rateLimit = await checkRateLimit(String(userdata.data.id), "auth_init_data", 30, 60);
+    if (!rateLimit.allowed) {
+      return Response.json(
+        { error: "too_many_requests", message: "Too many authentication requests. Please wait a minute." },
+        { status: 429, headers: { "Content-Type": "application/json" } }
       );
     }
 

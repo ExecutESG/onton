@@ -6,6 +6,7 @@ import coOrganizerIcon from "./co-organizers.svg";
 import guestListIcon from "./guest-list.svg";
 import ordersIcon from "./orders.svg";
 import promotionCodeIcon from "./promotion-code.svg";
+import raffleCupIcon from "@/components/icons/solar-cup-outline.svg";
 
 import CustomButton from "@/app/_components/Button/CustomButton";
 import ScanRegistrantQRCode from "@/app/_components/Event/ScanRegistrantQRCode";
@@ -241,7 +242,7 @@ export default function ManageIndexPage() {
         {hasAdminOrOrganizerAccess && (
           <ActionCard
             onClick={() => router.push(`/events/${eventData.event_uuid}/manage/raffle-setup`)}
-            iconSrc={coOrganizerIcon}
+            iconSrc={raffleCupIcon}
             title="Raffles"
             subtitle="Set up and manage raffles"
             footerTexts={[]}

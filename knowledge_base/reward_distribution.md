@@ -1,66 +1,68 @@
-# Reward Distribution System
+# Reward Distribution
 
-The ONTON platform automates the distribution of digital assets (SBTs and NFTs) to participants based on their actions (Check-in, Payment). This process is handled asynchronously by background workers to ensure scalability.
+> Last verified against dev: 2026-10-03
 
-## 1. Reward Types
+Two kinds of on-chain assets are issued: attendance SBTs and paid-ticket NFTs. Schedulers use the `cron` package (`CronJob`), not `node-cron`.
 
-### A. Soulbound Tokens (SBTs)
-Used for Proof of Attendance and Community Reputation.
-*   **Trigger:** User Check-in (Physical) or Task Completion (Digital).
-*   **Status Flow:** `pending_creation` -> `created` (Minted/Assigned).
-*   **Worker:** `CreateRewards.ts`
-    *   **Frequency:** Periodic Cron Job.
-    *   **Logic:**
-        1.  Fetches events with pending rewards.
-        2.  Batches requests (up to 350k) to the Ton Society API.
-        3.  Handles temporary event end-date extension to allow retroactive reward issuance.
+## 1. Attendance SBTs
 
-### B. Paid Ticket NFTs
-Used for access control and collectibles for paid events.
-*   **Trigger:** Successful Payment -> Order moves to `processing` state.
-*   **Worker:** `MintNFTForPaidOrders.ts`
-    *   **Logic:**
-        1.  Selects orders where `state = 'processing'` and `type = 'nft_mint'`.
-        2.  **Minting:** Uses the dedicated Minter Wallet to mint the NFT on TON.
-        3.  **Metadata:** Uploads ticket metadata (Image, Attributes) to MinIO.
-        4.  **Completion:**
-            *   Updates Order to `completed`.
-            *   Inserts record into `nftItems`.
-            *   Approves the Event Registrant (Granting access).
-            *   **Notification:** Sends a log to the Telegram bot.
+### 1.1 Native SBTs (active path)
+Minted with `mintSbtBadge` in `mini-app/src/services/sbtService.ts` (TEP-85, metadata in MinIO, minter wallet from `MNEMONIC`). Triggers:
 
-## 2. Infrastructure
-*   **Queue/Cron:** Node-cron scheduler managing task execution.
-*   **External APIs:**
-    *   **Ton Society API:** For SBT issuance.
-    *   **Ton Center/MinIO:** For NFT minting and storage.
-*   **Error Handling:** Failed jobs are logged; critical failures (e.g., wallet balance, API down) alert the team.
+| Trigger | Code | Cost to user |
+|---|---|---|
+| Ticket check-in, attendee has `wallet_address` | `ticket.checkInTicket` (`mini-app/src/server/routers/tickets.ts`); reward stored as `created` | Free |
+| Ticket owner claims | `sbt.claimAttendanceSbt` (ticket must be `USED`) | Free |
+| On-chain upgrade | `sbt.materializeOnChainSbt` (payment ≥ 0.095 TON with memo `sbt_upgrade:<ticketUuid>`) | Paid |
+| Admin | `sbt.mintBadge` (global admin only) | — |
 
-## 3. Sequence Diagram (NFT Minting)
+### 1.2 TON Society rewards (legacy, off by default)
+- Registrant check-in inserts a `rewards` row: `type: ton_society_sbt`, `status: pending_creation`.
+- `CreateRewards` (`mini-app/src/cronJobs/tasks/CreateRewards.ts`) runs every minute but **returns immediately unless `ENABLE_TON_SOCIETY === "true"`**. When enabled it sends CSV batches (up to 350000) to the TON Society API and temporarily extends/reverts the event end date.
+- With TON Society disabled, these rows stay `pending_creation` unless the user claims a native SBT.
+- `processSingleReward` in `mini-app/src/cronJobs/helper/createRewards.helpers.ts` is never called.
+
+Reward status enum (`mini-app/src/db/enum.ts`): `pending_creation`, `created`, `created_by_ui`, `received`, `notified`, `notified_by_ui`, `notification_failed`, `failed`, `fixed_failed`.
+
+Related reward-worker jobs (`mini-app/src/workers/cronJobSchedulerReward.ts`): `notifyUsersForRewards` (3 min), `CheckSbtStatus` (prod only), tournament reward jobs.
+
+## 2. Paid-ticket NFTs
+
+Worker: `MintNFTForPaidOrders` (`mini-app/src/cronJobs/tasks/MintNFTForPaidOrders.ts`), every 9s from `mini-app/src/workers/cronJobSchedulerPayment.ts`.
+
+1. Selects orders with `state = processing`, `order_type = nft_mint`, `retry_count < 5` (up to 100 per run).
+2. Takes a Redis lock per event (`lock:mint_nft:<event>`, 120s).
+3. Uploads metadata to MinIO.
+4. Mints with `mintNFT` from `mini-app/src/lib/nft.ts`, signed by the `MNEMONIC` wallet (checked against `ONTON_MINTER_WALLET`).
+5. Sends a log notification to Telegram.
+6. One DB transaction: order `completed`, coupon marked used, affiliate purchase incremented, `nft_items` insert, registrant `approved`.
+
+Failures increment `retry_count`; at 5 the order becomes `failed` (`updatedBy: mint_dlq_max_retries`) with a `[DLQ ALERT]` log line. This is a DB state, not a queue.
+
+Collection deploy: `mini-app/src/cronJobs/helper/handleTicketType.ts` → `deployNftCollection` → `mini-app/src/lib/nft.ts`.
 
 ```mermaid
 sequenceDiagram
-    participant Worker as MintNFT Worker
+    participant Cron as "MintNFTForPaidOrders (9s)"
+    participant Redis
     participant DB as PostgreSQL
-    participant MinIO as Object Storage
-    participant TON as TON Blockchain
-    participant User as User (Notification)
+    participant MinIO
+    participant TON as "TON (MNEMONIC wallet)"
+    participant TG as "Telegram log"
 
-    Worker->>DB: Fetch 'processing' Orders
-    loop For Each Order
-        Worker->>MinIO: Upload Metadata (JSON)
-        MinIO-->>Worker: Metadata URL
-        Worker->>TON: Mint NFT (Minter Wallet)
-        TON-->>Worker: NFT Address
-        
-        rect rgb(240, 255, 240)
-            note right of Worker: Transaction
-            Worker->>DB: Update Order -> 'completed'
-            Worker->>DB: Insert 'nftItems'
-            Worker->>DB: Approve Registrant
-            Worker->>DB: Increment Affiliate Stats
-        end
-        
-        Worker->>User: Send Telegram Notification
+    Cron->>DB: Fetch processing nft_mint orders
+    loop each order
+        Cron->>Redis: Lock lock:mint_nft:event
+        Cron->>MinIO: Upload metadata
+        Cron->>TON: mintNFT
+        Cron->>TG: Log notification
+        Note over Cron,DB: Transaction
+        Cron->>DB: Order completed, coupon used, affiliate +1, nft_items, registrant approved
     end
 ```
+
+Stars-paid orders are completed by the bot and do not go through this worker (no NFT mint).
+
+## Known issues (tracked in QA)
+- F-35: The `order_paid` RabbitMQ consumer is likely failing; the 9s cron is the real fulfillment path.
+- F-36: Free SBT at check-in / claim vs paid on-chain upgrade.

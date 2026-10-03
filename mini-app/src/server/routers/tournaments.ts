@@ -19,8 +19,8 @@ import { fetchOntonSettings } from "@/db/modules/ontoSetting";
 import { GameFilterId, tournamentsListSortOptions } from "../utils/tournaments.utils";
 
 export const tournamentsRouter = router({
-  // Updated infinite query with filtering and sorting
-  getTournaments: initDataProtectedProcedure
+  // Updated infinite query with filtering and sorting (public for guests and users)
+  getTournaments: publicProcedure
     .input(
       z.object({
         limit: z.number().min(1).max(50).default(10),
@@ -57,7 +57,7 @@ export const tournamentsRouter = router({
       return { tournaments: tournamentsData, nextCursor };
     }),
 
-  getGameIds: initDataProtectedProcedure.query(async () => {
+  getGameIds: publicProcedure.query(async () => {
     const cachedGameIds = await redisTools.getCache(cacheKeys.gameIds);
 
     if (cachedGameIds) {

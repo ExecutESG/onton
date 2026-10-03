@@ -48,7 +48,6 @@ x-common-env: &common-env
   NEXT_PUBLIC_GTM: ${NEXT_PUBLIC_GTM}
   NEXT_PUBLIC_BOT_USERNAME: ${NEXT_PUBLIC_BOT_USERNAME}
   NODE_ENV: ${NODE_ENV}
-  NODE_TLS_REJECT_UNAUTHORIZED: ${NODE_TLS_REJECT_UNAUTHORIZED}
   ONTON_API_KEY: ${ONTON_API_KEY}
   ONTON_DOMAIN: ${ONTON_DOMAIN}
   PARTICIPANT_TMA_PORT: ${PARTICIPANT_TMA_PORT}
@@ -76,6 +75,9 @@ x-common-env: &common-env
   REDIS_PORT: ${REDIS_PORT}
   TELEGRAM_BOT_PORT: ${TELEGRAM_BOT_PORT}
   TG_NOTIFICATION_CHANELL: ${TG_NOTIFICATION_CHANELL}
+  LOGS_GROUP_ID: ${LOGS_GROUP_ID:--1002264975789}
+  TG_LOG_BOT_TOKEN: ${TG_LOG_BOT_TOKEN:-}
+  BOT_TOKEN_LOGS: ${TG_LOG_BOT_TOKEN:-}
   TONAPI_API_KEY: ${TONAPI_API_KEY}
   TON_CENTER_TOKEN: ${TON_CENTER_TOKEN}
   TON_CENTER_ENDPOINT: ${TON_CENTER_ENDPOINT}
@@ -347,7 +349,7 @@ services:
 
   mini-app-sbt-worker:
     hostname: mini-app-sbt-worker
-    image: ghcr.io/executesg/onton/mini-app-sbt-worker:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
     <<: *default-extra-hosts
     deploy:
       resources:
@@ -391,7 +393,7 @@ services:
 
   mini-app-nft-api-worker:
     hostname: mini-app-nft-api-worker
-    image: ghcr.io/executesg/onton/mini-app-nft-api-worker:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
     <<: *default-extra-hosts
     deploy:
       resources:
@@ -436,7 +438,7 @@ services:
 
   mini-app-reward-worker:
     hostname: mini-app-reward-worker
-    image: ghcr.io/executesg/onton/mini-app-reward-worker:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
     <<: *default-extra-hosts
     deploy:
       resources:
@@ -480,7 +482,7 @@ services:
 
   mini-app-ordinary-worker:
     hostname: mini-app-ordinary-worker
-    image: ghcr.io/executesg/onton/mini-app-ordinary-worker:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
     <<: *default-extra-hosts
     deploy:
       resources:
@@ -522,53 +524,9 @@ services:
         tag: "docker.${BRANCH_NAME}-mini-app-ordinary-worker"
         #fluentd-async-connect: "true"
 
-  mini-app-moderation-bot:
-    hostname: mini-app-moderation-bot
-    image: ghcr.io/executesg/onton/mini-app-moderation-bot:${BRANCH_NAME}-latest
-    <<: *default-extra-hosts
-    deploy:
-      resources:
-        limits:
-          memory: 2000M
-          cpus: "1.0"
-      mode: global
-      update_config:
-        failure_action: rollback
-        order: stop-first
-      restart_policy:
-        condition: on-failure
-        delay: 10s
-        max_attempts: 20
-        window: 40s
-    stop_grace_period: 10s
-    stop_signal: SIGTERM
-    environment:
-      <<: *common-env
-      MNEMONIC: ${MNEMONIC}
-      TON_SOCIETY_API_KEY: ${TON_SOCIETY_API_KEY}
-      TON_SOCIETY_BASE_URL: ${TON_SOCIETY_BASE_URL}
-    depends_on:
-      - postgres
-      - redis
-      - minio
-      - fluentd
-    volumes:
-      - drizzle_data_cron:/app/drizzle
-    networks:
-      - onton-network
-    command: [ "yarn", "run", "start:moderation" ]
-    secrets:
-      - registry-onton-config
-    logging:
-      driver: "fluentd"
-      options:
-        fluentd-address: "127.0.0.1:24224"
-        tag: "docker.${BRANCH_NAME}-mini-app-moderation-bot"
-        #fluentd-async-connect: "true"
-
   mini-app-poa-worker:
     hostname: mini-app-poa-worker
-    image: ghcr.io/executesg/onton/mini-app-poa-worker:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
     <<: *default-extra-hosts
     deploy:
       resources:
@@ -614,7 +572,7 @@ services:
 
   mini-app-notification-socket:
     hostname: mini-app-notification-socket
-    image: ghcr.io/executesg/onton/mini-app-notification-socket:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
     <<: *default-extra-hosts
     ports:
       - "${SOCKET_PORT}:${SOCKET_PORT}"
@@ -661,38 +619,9 @@ services:
         #fluentd-async-connect: "true"
 
 
-  participant-tma:
-    hostname: participant-tma
-    image: ghcr.io/executesg/onton/participant-tma:${BRANCH_NAME}-latest
-    ports:
-      - "${PARTICIPANT_TMA_PORT}:${PARTICIPANT_TMA_PORT}"
-    deploy:
-      resources:
-        limits:
-          memory: 3000M
-          cpus: "2.0"
-      replicas: "${SYS_PARTICIPANT_TMA_REPLICAS-1}"
-      update_config:
-        failure_action: rollback
-        order: start-first
-      restart_policy:
-        condition: any
-        delay: 3s
-    depends_on:
-      - mini-app
-      - fluentd
-    environment:
-      <<: *common-env
-    networks:
-      - onton-network
-    secrets:
-      - registry-onton-config
-    logging:
-      driver: "fluentd"
-      options:
-        fluentd-address: "127.0.0.1:24224"
-        tag: "docker.${BRANCH_NAME}-participant-tma"
-        #fluentd-async-connect: "true"
+  # participant-tma: DECOMMISSIONED — consolidated into mini-app (epic #1022)
+  # hostname: participant-tma
+  # image: ghcr.io/executesg/onton/participant-tma:${BRANCH_NAME}-latest
 
   website:
     hostname: website

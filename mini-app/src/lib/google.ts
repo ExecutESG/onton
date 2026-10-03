@@ -17,23 +17,25 @@ const sha256base64url = (str: string) => base64url(crypto.createHash("sha256").u
  * Returns the URL **plus** the `codeVerifier` and random `state`
  *   (‑ you must stash both in Redis until the callback arrives).
  */
-export function makeGoogleAuthUrl(): {
+export function makeGoogleAuthUrl(customRedirectUri?: string): {
   url: string;
   codeVerifier: string;
   state: string;
+  redirectUri: string;
 } {
   /* ❶  PKCE code‑verifier / challenge */
-  const codeVerifier = randomUrlSafeString(64); // ≥ 43 chars
+  const codeVerifier = randomUrlSafeString(64); // ≥ 43 chars
   const codeChallenge = sha256base64url(codeVerifier);
 
   /* ❷  CSRF state token */
   const state = randomUrlSafeString(32);
 
   /* ❸  Build URL */
+  const redirectUri = customRedirectUri || `${process.env.NEXT_PUBLIC_APP_BASE_URL}/api/google/callback`;
   const auth = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   auth.searchParams.set("response_type", "code");
   auth.searchParams.set("client_id", process.env.GOOGLE_CLIENT_ID!);
-  auth.searchParams.set("redirect_uri", `${process.env.NEXT_PUBLIC_APP_BASE_URL}/api/google/callback`);
+  auth.searchParams.set("redirect_uri", redirectUri);
   auth.searchParams.set("scope", "openid email profile");
   auth.searchParams.set("code_challenge", codeChallenge);
   auth.searchParams.set("code_challenge_method", "S256");
@@ -44,6 +46,7 @@ export function makeGoogleAuthUrl(): {
     url: auth.toString(),
     codeVerifier,
     state,
+    redirectUri,
   };
 }
 
@@ -52,7 +55,8 @@ export function makeGoogleAuthUrl(): {
 /* ------------------------------------------------------------------ */
 export async function exchangeCodeForTokenGoogle(
   code: string,
-  codeVerifier: string
+  codeVerifier: string,
+  customRedirectUri?: string
 ): Promise<{
   access_token: string;
   refresh_token?: string;
@@ -60,13 +64,14 @@ export async function exchangeCodeForTokenGoogle(
   expires_in: number;
 }> {
   const tokenUrl = "https://oauth2.googleapis.com/token";
+  const redirectUri = customRedirectUri || `${process.env.NEXT_PUBLIC_APP_BASE_URL}/api/google/callback`;
 
   const body = new URLSearchParams({
     code,
     code_verifier: codeVerifier,
     client_id: process.env.GOOGLE_CLIENT_ID!,
     client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-    redirect_uri: `${process.env.NEXT_PUBLIC_APP_BASE_URL}/api/google/callback`,
+    redirect_uri: redirectUri,
     grant_type: "authorization_code",
   });
 

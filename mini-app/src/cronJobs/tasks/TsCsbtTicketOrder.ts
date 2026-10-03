@@ -6,6 +6,7 @@ import { Address } from "@ton/core";
 import { eventPayment } from "@/db/schema/eventPayment";
 import { eventRegistrants } from "@/db/schema/eventRegistrants";
 import { CsbtTicket } from "@/services/rewardsService";
+import { sbtService } from "@/services/sbtService";
 import { selectUserById } from "@/db/modules/users.db";
 import { sendLogNotification } from "@/lib/tgBot";
 import { callTonfestForOnOntonPayment } from "@/cronJobs/helper/callTonfestForOnOntonPayment";
@@ -88,9 +89,20 @@ export const TsCsbtTicketOrder = async (pushLockTTl: () => any) => {
 
           logger.log(`tscsbt_user_approved_${ordr.user_id}`);
         }
-        logger.log(`call CsbtTicket for event ${event_uuid} user ${ordr.user_id} order ${ordr.uuid}`);
+        logger.log(`call sbtService.mintSbtBadge for event ${event_uuid} user ${ordr.user_id} order ${ordr.uuid}`);
 
-        await CsbtTicket(event_uuid!, ordr.user_id!);
+        await sbtService.mintSbtBadge({
+          eventUuid: event_uuid!,
+          userId: ordr.user_id ?? undefined,
+          walletAddress: ordr.owner_address,
+          badgeTitle: `${paymentInfo.title} (SBT Ticket)`,
+          badgeDescription: paymentInfo.description || `Soulbound Ticket for ${paymentInfo.title}`,
+          badgeImage: paymentInfo.ticketImage || undefined,
+          attributes: [
+            { trait_type: "Ticket Type", value: "Soulbound Ticket" },
+            { trait_type: "Price", value: `${paymentInfo.price} ${paymentToken.symbol}` },
+          ],
+        });
         await callTonfestForOnOntonPayment(ordr, event_uuid!!);
         await callPridipieForOnOntonPayment(ordr, event_uuid!!);
       } catch (error) {

@@ -45,15 +45,14 @@ export async function getEvent(uuid: string) {
 }
 
 
-/** For admin: fetch all upcoming "online" + "registration" events */
+/** For admin: fetch all upcoming events that have registration */
 export async function getUpcomingOnlineRegEventsForAdmin(): Promise<EventRow[]> {
   const client = await pool.connect();
   try {
     const sql = `
         SELECT event_id, event_uuid, title, owner, end_date, event_telegram_group
         FROM events
-        WHERE participation_type = 'online'
-          AND has_registration = TRUE
+        WHERE has_registration = TRUE
           AND end_date > EXTRACT(EPOCH FROM now())
         ORDER BY end_date ASC
         LIMIT 100
@@ -65,15 +64,14 @@ export async function getUpcomingOnlineRegEventsForAdmin(): Promise<EventRow[]> 
   }
 }
 
-/** For organizer: fetch only the user’s events that are upcoming, online, and have registration */
+/** For organizer: fetch only the user’s events that are upcoming and have registration */
 export async function getUpcomingOnlineRegEventsForOrganizer(userId: number): Promise<EventRow[]> {
   const client = await pool.connect();
   try {
     const sql = `
         SELECT event_id, event_uuid, title, owner, end_date, event_telegram_group
         FROM events
-        WHERE participation_type = 'online'
-          AND has_registration = TRUE
+        WHERE has_registration = TRUE
           AND end_date > EXTRACT(EPOCH FROM now())
           AND owner = $1
         ORDER BY end_date ASC

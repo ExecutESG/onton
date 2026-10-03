@@ -12,7 +12,7 @@ import { Button } from "konsta/react";
 import { ChevronDownIcon, Wallet } from "lucide-react";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { toast } from "sonner";
 import CustomCard from "../atoms/cards/CustomCard";
 import { NFT_EVENT_PRICE } from "@/constants";
@@ -26,6 +26,15 @@ export function ConnectWalletCard() {
   const hasWallet = Boolean(tonWallet?.account.address);
 
   const pathanmem = usePathname();
+
+  const trpcUtils = trpc.useUtils();
+  const unlinkWalletMutation = trpc.users.unlinkIdentity.useMutation({
+    onSuccess: () => {
+      trpcUtils.users.getWallet.invalidate();
+      trpcUtils.users.syncUser.invalidate();
+      trpcUtils.users.getLinkedIdentities.invalidate();
+    },
+  });
 
   const handleConnectClick = () => {
     if (pathanmem === "/my") {
@@ -49,44 +58,29 @@ export function ConnectWalletCard() {
 
       <div className="p-4 pt-0">
         {hasWallet ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger className="w-full">
-              <CustomButton
-                variant="ghost"
-                icon={<ChevronDownIcon />}
-                className="w-full flex-row-reverse justify-between"
-              >
-                {formatWalletAddress(tonWallet?.account.address!)}
-              </CustomButton>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              side="top"
-              sideOffset={0}
-              border="dark"
-              fullWidth
-              borderRadius="lg"
+          <div className="flex gap-2 items-center">
+            <div className="flex-1 px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-neutral-800 border border-gray-100 dark:border-neutral-700 font-mono text-sm text-gray-800 dark:text-gray-200 truncate">
+              {formatWalletAddress(tonWallet?.account.address!)}
+            </div>
+            <CustomButton
+              variant="outline"
+              size="md"
+              buttonClassName="!w-auto px-4 border-red-200 text-red-500 hover:bg-red-50 dark:border-red-900/40 dark:text-red-400"
+              onClick={async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                try {
+                  await tonconnect.disconnect();
+                } catch (err) {
+                  console.error("TonConnect disconnect error:", err);
+                }
+                unlinkWalletMutation.mutate({ provider: "ton_wallet" });
+                toast.success("Wallet disconnected");
+              }}
             >
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.preventDefault();
-                  tonconnect.disconnect();
-                  toast.success("Wallet disconnected");
-                }}
-                className="cursor-pointer !py-3"
-              >
-                <Wallet
-                  className="!text-xl !w-5 !h-5"
-                  size={20}
-                />
-                <Typography
-                  variant="body"
-                  weight="medium"
-                >
-                  Disconnect wallet
-                </Typography>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              Disconnect
+            </CustomButton>
+          </div>
         ) : (
           <CustomButton
             variant="primary"
@@ -134,6 +128,8 @@ function ConfirmConnectDialog({ open, onClose }: { open: boolean; onClose: () =>
 
   const { user } = useUserStore();
 
+  const prevWalletRef = useRef(tonWalletAddress);
+
   useEffect(() => {
     if (!user?.user_id) return;
 
@@ -141,19 +137,25 @@ function ConfirmConnectDialog({ open, onClose }: { open: boolean; onClose: () =>
       onClose();
     }
 
-    if (!user?.wallet_address && tonWalletAddress) {
+    // Only auto-link if the wallet address JUST became available (e.g. user just scanned QR),
+    // preventing auto-linking on page load if local storage has a stale session.
+    if (!user?.wallet_address && tonWalletAddress && prevWalletRef.current !== tonWalletAddress) {
       toast.success("Your wallet is now connected");
       addWalletMutation.mutate({
         wallet: tonWalletAddress,
       });
     }
+    prevWalletRef.current = tonWalletAddress;
   }, [addWalletMutation, onClose, tonWalletAddress, user?.user_id, user?.wallet_address]);
+
+  const isTonModalOpen = walletModal.state?.status === "opened";
 
   return (
     <OntonDialog
       open={open}
       onClose={onClose}
       title="Connect your wallet"
+      className={isTonModalOpen ? "opacity-0 pointer-events-none" : undefined}
     >
       <Typography
         variant="body"

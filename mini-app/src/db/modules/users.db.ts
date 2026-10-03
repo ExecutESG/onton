@@ -193,6 +193,12 @@ export const selectUserById = async (
     const userInfo = await db
       .select({
         user_id: users.user_id,
+        uuid: users.uuid,
+        email: users.email,
+        auth_provider: users.auth_provider,
+        telegram_id: users.telegram_id,
+        user_point: users.user_point,
+        affiliatorUserId: users.affiliatorUserId,
         username: users.username,
         first_name: users.first_name,
         last_name: users.last_name,

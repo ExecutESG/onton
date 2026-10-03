@@ -95,7 +95,7 @@ export default function MyHostedPage() {
                 setEventsSearch(e.target.value);
               }}
             />
-            <Typography variant="title2">Hosted Events ({eventsInfinite.data?.pages[0].items.rowsCount})</Typography>
+            <Typography variant="title2">Hosted Events ({eventsInfinite.data?.pages?.[0]?.items?.rowsCount ?? 0})</Typography>
             {/* if there were no events we show not found state */}
             {events?.length === 0 && (
               <CustomCard defaultPadding>

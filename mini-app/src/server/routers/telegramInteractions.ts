@@ -27,6 +27,7 @@ import { tournamentsDB } from "@/db/modules/tournaments.db";
 import { fromNano } from "@ton/core";
 import { sumSpinCountByAffiliateHash, tokenCampaignOrdersDB } from "@/db/modules/tokenCampaignOrders.db";
 import { affiliateLinksDB, getAffiliateLinkForOnionCampaign } from "@/db/modules/affiliateLinks.db";
+import { getTelegramBotBaseUrl, getTelegramBotHeaders } from "@/lib/tgBotConfig";
 
 const requestShareEvent = initDataProtectedProcedure
   .input(
@@ -236,11 +237,12 @@ const requestExportFile = evntManagerPP.mutation(async (opts) => {
     formData.append("fileName", eventData?.title || "visitors");
     const userId = opts.ctx.user.user_id;
     const response = await axios.post(
-      `http://${process.env.IP_TELEGRAM_BOT}:${process.env.TELEGRAM_BOT_PORT}/send-file?id=${userId}`,
+      `${getTelegramBotBaseUrl()}/send-file?id=${userId}`,
       formData,
       {
         headers: {
           "Content-Type": "multipart/form-data",
+          ...getTelegramBotHeaders(),
         },
       }
     );
@@ -257,8 +259,9 @@ const requestSendQRCode = evntManagerPP
   .mutation(async (opts) => {
     try {
       const response = await axios.get(
-        `http://${process.env.IP_TELEGRAM_BOT}:${process.env.TELEGRAM_BOT_PORT}/generate-qr`,
+        `${getTelegramBotBaseUrl()}/generate-qr`,
         {
+          headers: getTelegramBotHeaders(),
           params: {
             id: opts.ctx.user.user_id,
             url: opts.input.url,
@@ -427,11 +430,12 @@ const getCouponItemsCSV = eventManagementProtectedProcedure
       try {
         const userId = ctx.user.user_id;
         const response = await axios.post(
-          `http://${process.env.IP_TELEGRAM_BOT}:${process.env.TELEGRAM_BOT_PORT}/send-file?id=${userId}`,
+          `${getTelegramBotBaseUrl()}/send-file?id=${userId}`,
           formData,
           {
             headers: {
               "Content-Type": "multipart/form-data",
+              ...getTelegramBotHeaders(),
             },
           }
         );

@@ -11,20 +11,20 @@ import { getClientTelegramInitData } from "@/lib/clientTelegramInitData";
 const initDataExpirationAlert = () => {
   sessionStorage.removeItem("telegram:initParams");
 
-  const hasTelegramContext = typeof window !== "undefined" && !!window.Telegram?.WebApp?.initData;
-  if (hasTelegramContext && window.Telegram?.WebApp) {
-    if (!window.Telegram.WebApp?.isVersionAtLeast("6.0")) {
+  const wa = typeof window !== "undefined" ? window.Telegram?.WebApp : undefined;
+  if (wa?.initData) {
+    if (!wa.isVersionAtLeast?.("6.0")) {
       console.error("Telegram WebApp version is lower than 6.0");
       alert("Your Telegram version is too old. Please update the app.");
-      window.Telegram.WebApp.close();
+      wa.close?.();
     }
-    window.Telegram.WebApp.showPopup(
+    wa.showPopup?.(
       {
         message: "Your session has expired. Please restart the app.",
         buttons: [{ type: "close" }],
       },
       () => {
-        window.Telegram.WebApp.close();
+        wa.close?.();
       }
     );
   }
@@ -106,6 +106,12 @@ export default function TRPCAPIProvider({ children }: { children: React.ReactNod
         createCombinedLink(), // custom link to handlen retring
         httpLink({
           url: process.env.NEXT_PUBLIC_TRPC_BASE_URL ? process.env.NEXT_PUBLIC_TRPC_BASE_URL + "/api/trpc" : "/api/trpc",
+          fetch(url, options) {
+            return fetch(url, {
+              ...options,
+              credentials: "include",
+            });
+          },
           headers() {
             const headers: Record<string, string> = {};
 
@@ -115,11 +121,19 @@ export default function TRPCAPIProvider({ children }: { children: React.ReactNod
             const sessionInitData = typeof window !== "undefined" ? sessionStorage.getItem("telegram:initParams") || "" : "";
             const activeInitData = storeInitData || tgInitData || sessionInitData || getClientTelegramInitData();
 
-            if (activeInitData) headers.Authorization = activeInitData;
+            if (activeInitData) {
+              headers.Authorization = activeInitData;
+            } else if (typeof window !== "undefined") {
+              /* Web platform JWT fallback (stored from Google, Email OTP, or WebAuthModal) */
+              const localToken = localStorage.getItem("onton_token");
+              if (localToken) {
+                headers.Authorization = `Bearer ${localToken}`;
+              }
+            }
 
             /* Session-JWT from ton-proof */
             const jwt = getJwt();
-            if (jwt) headers["x-session-jwt"] = jwt; // <- choose any header name
+            if (jwt) headers["x-session-jwt"] = jwt;
 
             return headers;
           },

@@ -32,6 +32,7 @@ import { usersLinkedinRouter } from "@/server/routers/usersLinkedinRouter";
 import { questRouter } from "@/server/routers/questRouter";
 import { usersGoogleRouter } from "@/server/routers/usersGoogleRouter";
 import { usersOutlookRouter } from "@/server/routers/usersOutlookRouter";
+import { sbtRouter } from "@/server/routers/sbt";
 
 export const appRouter = router({
   users: usersRouter,
@@ -65,6 +66,7 @@ export const appRouter = router({
   quest: questRouter,
   usersGoogle: usersGoogleRouter,
   usersOutlook: usersOutlookRouter,
+  sbt: sbtRouter,
 });
 
 export type AppRouter = typeof appRouter;

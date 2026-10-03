@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { usersDB } from "@/db/modules/users.db";
+import { userIdentitiesDB } from "@/db/modules/userIdentities.db";
 import { createWebSessionToken } from "@/server/utils/jwt";
 import { InitUserData } from "@/types/extendedUserTypes";
 
@@ -73,6 +74,14 @@ export async function GET(req: NextRequest) {
     return new NextResponse("User is banned", { status: 403 });
   }
 
+  // Record or sync identity in user_identities
+  await userIdentitiesDB.linkIdentity(
+    user.user_id,
+    "telegram",
+    String(id),
+    mockInitDataJson.user
+  );
+
   // 5. Issue Web Session JWT
   const sessionToken = await createWebSessionToken({
     userId: user.user_id,
@@ -80,7 +89,13 @@ export async function GET(req: NextRequest) {
   });
 
   // 6. Set HTTP-only Cookie
-  const response = NextResponse.redirect(new URL("/", req.url));
+  const forwardedHost = req.headers.get("x-forwarded-host");
+  const forwardedProto = req.headers.get("x-forwarded-proto") || "https";
+  const baseUrl = forwardedHost
+    ? `${forwardedProto}://${forwardedHost}`
+    : process.env.NEXT_PUBLIC_APP_BASE_URL || req.url;
+
+  const response = NextResponse.redirect(new URL("/", baseUrl));
   response.cookies.set("onton_session", sessionToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",

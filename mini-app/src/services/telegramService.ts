@@ -4,6 +4,19 @@ import { rewardLinkZod } from "@/types/user.types";
 import axios from "axios";
 import { logger } from "@/server/utils/logger";
 import { RewardVisitorTypePartial } from "@/db/schema/rewards";
+import { getTelegramBotBaseUrl, getTelegramBotHeaders } from "@/lib/tgBotConfig";
+import { LinkService } from "@/lib/links/linkService";
+
+const botClient = axios.create({
+  baseURL: getTelegramBotBaseUrl(),
+});
+
+botClient.interceptors.request.use((config) => {
+  const headers = getTelegramBotHeaders(config.data);
+  Object.assign(config.headers, headers);
+  return config;
+});
+
 // Send reward notification to visitors
 export const sendRewardNotification = async (reward: RewardVisitorTypePartial, event: EventTypeSecure) => {
   try {
@@ -116,11 +129,11 @@ export const shareEventRequest = async (
   user_id: string,
   event_uuid: string
 ): Promise<{ success: boolean; data?: any; error?: string }> => {
-  const share_link = `https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME}/event?startapp=${event_uuid}`;
-  const event_url = `${process.env.NEXT_PUBLIC_APP_BASE_URL}/events/${event_uuid}`;
+  const share_link = LinkService.getEventUrl(event_uuid);
+  const event_url = LinkService.getEventUrl(event_uuid);
 
   try {
-    const response = await axios.post(`http://${process.env.IP_TELEGRAM_BOT}:${process.env.TELEGRAM_BOT_PORT}/share-event`, {
+    const response = await botClient.post("/share-event", {
       user_id: user_id,
       id: event_uuid,
       share_link: share_link,
@@ -163,14 +176,14 @@ export const shareOrganizerRequest = async (
     org_image: string | Buffer<ArrayBufferLike> | null;
   }
 ): Promise<{ success: boolean; data?: any; error?: string }> => {
-  // Construct your share link / URLs or any data you want
-  const share_link = `https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME}/event?startapp=channels_${organizerId}`;
-  const url = `${process.env.NEXT_PUBLIC_APP_BASE_URL}/channels/${organizerId}`;
+  // Construct universal share link / URLs
+  const share_link = LinkService.getChannelUrl(organizerId);
+  const url = LinkService.getChannelUrl(organizerId);
 
   try {
     // Send a POST to the new /share-organizer route in your telegram-bot service
-    const response = await axios.post(
-      `http://${process.env.IP_TELEGRAM_BOT}:${process.env.TELEGRAM_BOT_PORT}/share-organizer`,
+    const response = await botClient.post(
+      "/share-organizer",
       {
         requesting_user: requestingUserId,
         organizer_id: organizerId,
@@ -207,15 +220,14 @@ export const shareTournamentRequest = async (
     // any additional fields you want the bot to show
   }
 ): Promise<{ success: boolean; data?: any; error?: string }> => {
-  // 1) Construct share link + webapp URL
-  //    (Adapt these to your “mini app” or web front-end’s routing)
-  const share_link = `https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME}/event?startapp=tournaments_${tournamentId}`;
-  const url = `${process.env.NEXT_PUBLIC_APP_BASE_URL}/play-2-win/${tournamentId}`;
+  // Construct universal share link
+  const share_link = LinkService.getTournamentUrl(tournamentId);
+  const url = LinkService.getTournamentUrl(tournamentId);
 
   try {
     // 2) Send a POST to the new /share-tournament route
-    const response = await axios.post(
-      `http://${process.env.IP_TELEGRAM_BOT}:${process.env.TELEGRAM_BOT_PORT}/share-tournament`,
+    const response = await botClient.post(
+      "/share-tournament",
       {
         requesting_user: requestingUserId,
         tournament_id: tournamentId,
@@ -250,8 +262,8 @@ export const shareAffiliateLinkRequest = async (
   }
 ): Promise<{ success: boolean; data?: any; error?: string }> => {
   try {
-    const response = await axios.post(
-      `http://${process.env.IP_TELEGRAM_BOT}:${process.env.TELEGRAM_BOT_PORT}/share-affiliate-link`,
+    const response = await botClient.post(
+      "/share-affiliate-link",
       {
         requesting_user: requestingUserId,
         link_hash: linkHash,
@@ -283,8 +295,8 @@ export async function shareJoinOntonAffiliateLinkRequest(
   }
 ): Promise<{ success: boolean; data?: any; error?: string }> {
   try {
-    const response = await axios.post(
-      `http://${process.env.IP_TELEGRAM_BOT}:${process.env.TELEGRAM_BOT_PORT}/share-join-onton-link-affiliate`,
+    const response = await botClient.post(
+      "/share-join-onton-link-affiliate",
       {
         requesting_user: requestingUserId,
         link_hash: linkHash,

@@ -1,5 +1,5 @@
 import "@/lib/gracefullyShutdown";
-import { getAuthenticatedUserApi } from "@/server/auth";
+import { getAuthenticatedUserApi } from "@/server/userApiKeyAuth";
 import externalSellerApi from "@/lib/externalSeller.api";
 import ordersDB from "@/db/modules/orders.db";
 import eventTokensDB from "@/db/modules/eventTokens.db";

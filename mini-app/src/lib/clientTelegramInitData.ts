@@ -9,8 +9,9 @@ export function getClientTelegramInitData(): string {
   if (typeof window === "undefined") return "";
 
   // 1. window.Telegram.WebApp.initData (if SDK already initialized)
-  if (window.Telegram?.WebApp?.initData) {
-    return window.Telegram.WebApp.initData;
+  const tg = typeof window !== "undefined" ? window.Telegram?.WebApp : undefined;
+  if (tg?.initData) {
+    return tg.initData;
   }
 
   // 2. Direct from URL hash (#tgWebAppData=...)

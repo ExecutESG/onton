@@ -25,6 +25,42 @@ export function tgBotModerationMenu(eventUuid: string) {
 }
 
 /**
+ * The reactive post-publish moderation menu (Lu.ma-style Trust & Safety).
+ * Displayed when an event is automatically published.
+ * Gives moderators 1-tap reactive takedown and safety controls.
+ */
+export function tgBotPostPublishModerationMenu(eventUuid: string, organizerUserId: number | string) {
+  return new InlineKeyboard()
+    .text("🚫 Delist Event", `delist_${eventUuid}`)
+    .text("⚠️ Warn Organizer", `warn_${organizerUserId}_${eventUuid}`)
+    .row()
+    .text("🔨 Ban Organizer", `ban_${organizerUserId}_${eventUuid}`)
+    .text("🔃 Update Data", `updateEventData_${eventUuid}`);
+}
+
+/**
+ * Menu displayed after an event has been delisted.
+ * Moderator can re-list the event or refresh data.
+ */
+export function tgBotDelistedMenu(eventUuid: string) {
+  return new InlineKeyboard()
+    .text("♻️ Re-list Event", `relist_${eventUuid}`)
+    .row()
+    .text("🔃 Update Data", `updateEventData_${eventUuid}`);
+}
+
+/**
+ * Menu displayed when attendees submit community abuse reports for an event.
+ */
+export function tgBotReportedEventMenu(eventUuid: string) {
+  return new InlineKeyboard()
+    .text("🚫 Confirm Delist", `confirmDelist_${eventUuid}`)
+    .text("✅ Dismiss Report", `dismissReport_${eventUuid}`)
+    .row()
+    .text("🔃 Update Data", `updateEventData_${eventUuid}`);
+}
+
+/**
  * A simpler menu displayed AFTER the event is approved.
  * Moderator can send a notice to the organizer (or add more buttons as needed).
  */

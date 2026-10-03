@@ -28,8 +28,13 @@ const SectionBody = ({ children, className }: PropsWithChildren & { className?: 
 
 export const AffiliateInfo = ({ open, onClose }: Props) => {
   const handleOnClick = () => {
-    // TODO: replace the following URL with appropriate one
-    window.Telegram.WebApp.openLink("https://onton.live/");
+    if (typeof window !== "undefined") {
+      if (window.Telegram?.WebApp?.openLink) {
+        window.Telegram.WebApp.openLink("https://onton.live/");
+      } else {
+        window.open("https://onton.live/", "_blank", "noopener,noreferrer");
+      }
+    }
   };
 
   return (

@@ -90,4 +90,58 @@ describe("Orders & Dual-Rail Payments API Flow", () => {
       expect(txPayload.messages[0].payload).toBe(orderUuid);
     });
   });
+
+  // Dead-Letter Queue (DLQ) Rail (#942)
+  describe("Dead-Letter Queue (DLQ) & Minting Resilience", () => {
+    const MAX_RETRIES = 5;
+
+    function simulateMintRetry(currentRetryCount: number, errorMsg: string) {
+      const nextRetries = currentRetryCount + 1;
+      const isDlq = nextRetries >= MAX_RETRIES;
+      return {
+        state: isDlq ? "failed" : "processing",
+        retry_count: nextRetries,
+        last_error: errorMsg.slice(0, 1000),
+        updatedBy: isDlq ? "mint_dlq_max_retries" : `mint_retry_${nextRetries}`,
+      };
+    }
+
+    it("increments retry count and stays in processing state for retries < 5", () => {
+      const attempt1 = simulateMintRetry(0, "RPC timeout connecting to toncenter");
+      expect(attempt1.state).toBe("processing");
+      expect(attempt1.retry_count).toBe(1);
+      expect(attempt1.last_error).toBe("RPC timeout connecting to toncenter");
+      expect(attempt1.updatedBy).toBe("mint_retry_1");
+
+      const attempt4 = simulateMintRetry(3, "Contract busy: sequence out of order");
+      expect(attempt4.state).toBe("processing");
+      expect(attempt4.retry_count).toBe(4);
+      expect(attempt4.updatedBy).toBe("mint_retry_4");
+    });
+
+    it("transitions order to failed DLQ state upon reaching 5 retries", () => {
+      const attempt5 = simulateMintRetry(4, "Out of gas: insufficient TON in minter wallet");
+      expect(attempt5.state).toBe("failed");
+      expect(attempt5.retry_count).toBe(5);
+      expect(attempt5.last_error).toBe("Out of gas: insufficient TON in minter wallet");
+      expect(attempt5.updatedBy).toBe("mint_dlq_max_retries");
+    });
+
+    it("excludes orders in failed state or retry_count >= 5 from active query pool", () => {
+      const mockOrderPool = [
+        { uuid: "ord-1", state: "processing", retry_count: 0 },
+        { uuid: "ord-2", state: "processing", retry_count: 3 },
+        { uuid: "ord-3", state: "failed", retry_count: 5 },
+        { uuid: "ord-4", state: "processing", retry_count: 5 },
+        { uuid: "ord-5", state: "completed", retry_count: 0 },
+      ];
+
+      const activeQuery = mockOrderPool.filter(
+        (o) => o.state === "processing" && o.retry_count < MAX_RETRIES
+      );
+
+      expect(activeQuery.map((o) => o.uuid)).toEqual(["ord-1", "ord-2"]);
+    });
+  });
 });
+

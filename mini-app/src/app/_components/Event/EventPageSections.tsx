@@ -8,6 +8,7 @@ import LoadableImage from "@/components/LoadableImage";
 import Typography from "@/components/Typography";
 import { useUserStore } from "@/context/store/user.store";
 import { useLoginStore } from "@/context/store/login.store";
+import { useTonConnectModal, useTonWallet } from "@tonconnect/ui-react";
 import { Address } from "@ton/core";
 import { Block, List, ListItem } from "konsta/react";
 import { useRouter } from "next/navigation";
@@ -20,13 +21,16 @@ import DataStatus from "../molecules/alerts/DataStatus";
 import { ConnectWalletCard } from "../organisms/ConnectWallet";
 import EventKeyValue from "../organisms/events/EventKewValue";
 import ShareEventButton from "../ShareEventButton";
-import { ClaimRewardButton } from "./ClaimRewardButton";
+import { ClaimSbtButton } from "@/app/tickets/[id]/_components/ClaimSbtButton";
+import { trpc } from "@/app/_trpc/client";
+import ReportEventButton from "./ReportEventButton";
 import { EventActions } from "./EventActions";
 import { useEventData } from "./eventPageContext";
 import { EventPasswordAndWalletInput } from "./EventPasswordInput";
 import { ManageEventButton } from "./ManageEventButton";
-import PreRegistrationTasks from "./PreRegistrationTasks";
 import UserRegisterForm from "./UserRegisterForm";
+import BadgeDetailModal, { BadgeItemData } from "@/components/sbt/BadgeDetailModal";
+import { ShieldCheck, Award } from "lucide-react";
 
 // Base components with memoization where beneficial
 const EventImage = React.memo(() => {
@@ -117,10 +121,36 @@ const EventWebsiteLink = React.memo(() => {
 EventCategory.displayName = "EventWebsiteLink";
 
 const EventTicketPrice = React.memo(() => {
+  const { eventData } = useEventData();
+  const tiers = (eventData.data?.ticket_tiers as Array<{ price: number }>) || [];
+
+  let priceDisplay = "Free";
+  if (tiers.length > 0) {
+    const prices = tiers.map((t) => Number(t.price || 0));
+    const minPrice = Math.min(...prices);
+    const maxPrice = Math.max(...prices);
+    if (maxPrice === 0) {
+      priceDisplay = "Free";
+    } else if (minPrice === 0) {
+      priceDisplay = `Free – ⭐ ${maxPrice}`;
+    } else if (minPrice === maxPrice) {
+      priceDisplay = `⭐ ${minPrice}`;
+    } else {
+      priceDisplay = `From ⭐ ${minPrice}`;
+    }
+  } else if (eventData.data?.has_payment) {
+    const ticket = eventData.data?.payment_details;
+    const price = Number(ticket?.price || 0);
+    const symbol = ticket?.token?.symbol || (ticket?.ticket_type === "TSCSBT" ? "⭐" : "TON");
+    if (price > 0) {
+      priceDisplay = symbol === "STAR" || symbol === "⭐" ? `⭐ ${price}` : `${price} ${symbol}`;
+    }
+  }
+
   return (
     <EventKeyValue
       label="Ticket Price"
-      value={"Free"}
+      value={priceDisplay}
     />
   );
 });
@@ -158,7 +188,7 @@ EventDescription.displayName = "EventDescription";
 const EventTitle = React.memo(() => {
   const { eventHash, eventData } = useEventData();
 
-  const isNotPublished = !eventData.data?.activity_id || !!eventData.data?.hidden;
+  const isNotPublished = !!eventData.data?.hidden || !eventData.data?.enabled;
 
   return (
     <div className="mt-4 space-y-4">
@@ -210,7 +240,15 @@ const EventRegistrationStatus = () => {
   const capacityFilled = Boolean(eventData.data?.capacity_filled);
   const hasWaitingList = Boolean(eventData.data?.has_waiting_list);
 
-  if (!isNotEnded || !eventData.data?.has_registration) {
+  const tiers = (eventData.data?.ticket_tiers as Array<{ price: number }>) || [];
+  const hasPaidTiers = tiers.some((t) => Number(t.price || 0) > 0);
+  const isPaid = Boolean(
+    eventData.data?.has_payment ||
+      hasPaidTiers ||
+      (eventData.data?.payment_details?.price && eventData.data.payment_details.price > 0)
+  );
+
+  if (!isNotEnded || !eventData.data?.has_registration || isPaid) {
     return null;
   }
 
@@ -357,9 +395,22 @@ const OrganizerCard = React.memo(() => {
 OrganizerCard.displayName = "OrganizerCard";
 
 const SbtCollectionLink = React.memo(() => {
-  const { eventData } = useEventData();
+  const { eventData, startUTC } = useEventData();
+  const [showBadgeModal, setShowBadgeModal] = React.useState(false);
 
   const collectionAddress = eventData.data?.sbt_collection_address;
+  const registrantUuid = eventData.data?.registrant_uuid || undefined;
+  const hasSbt = Boolean(collectionAddress);
+
+  const badgeStatus = trpc.sbt.getAttendeeBadgeStatus.useQuery(
+    {
+      eventUuid: eventData.data?.event_uuid ?? "",
+      registrantUuid: registrantUuid,
+    },
+    {
+      enabled: Boolean(hasSbt && eventData.data?.event_uuid),
+    }
+  );
 
   const isValidAddress = useMemo(() => {
     try {
@@ -373,16 +424,83 @@ const SbtCollectionLink = React.memo(() => {
 
   if (!isValidAddress) return null;
 
+  const isMinted = badgeStatus.data?.status === "minted";
+  const badgeItem = badgeStatus.data?.item;
+
+  if (isMinted && badgeItem) {
+    const badgeImageSrc = eventData.data?.tsRewardImage || eventData.data?.image_url || undefined;
+    const badgeData: BadgeItemData = {
+      ...badgeItem,
+      eventTitle: eventData.data?.title,
+      eventImage: badgeImageSrc,
+      eventDateFrom: startUTC ? new Date(startUTC) : null,
+      collectionAddress: collectionAddress,
+      collectionName: eventData.data?.title,
+    };
+
+    return (
+      <>
+        <CustomCard
+          title="Your Attendance Badge"
+          description="Verified Soulbound Proof of Attendance (TEP-85) minted to your wallet."
+        >
+          <div
+            onClick={() => setShowBadgeModal(true)}
+            className="w-full flex items-center gap-3 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 cursor-pointer hover:bg-emerald-500/15 transition group"
+          >
+            <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-black flex-shrink-0 flex items-center justify-center">
+              {badgeImageSrc ? (
+                <LoadableImage
+                  alt={eventData.data?.title}
+                  src={badgeImageSrc}
+                  width={48}
+                  height={48}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <Award className="w-6 h-6 text-emerald-500" />
+              )}
+            </div>
+            <div className="flex flex-col flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="font-semibold text-xs text-gray-900 dark:text-gray-100 truncate">
+                  {eventData.data?.title} Badge
+                </span>
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+              </div>
+              <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                Claimed &amp; Verified on TON
+              </span>
+            </div>
+            <button
+              type="button"
+              className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-xs font-medium group-hover:bg-emerald-700 transition"
+            >
+              View
+            </button>
+          </div>
+        </CustomCard>
+        <BadgeDetailModal
+          badge={badgeData}
+          open={showBadgeModal}
+          onClose={() => setShowBadgeModal(false)}
+        />
+      </>
+    );
+  }
+
   return (
     <CustomCard
-      title={"SBTs"}
+      title={"SBT Attendance Reward"}
       description="Reward you receive by attending the event and submitting proof of attendance."
     >
       <Block
         className="!mt-0 mb-4 cursor-pointer"
         onClick={(e) => {
           e.preventDefault();
-          window.open(`https://getgems.io/collection/${collectionAddress}`, "_blank");
+          const isTestnet = process.env.NEXT_PUBLIC_TON_NETWORK === "testnet";
+          const explorerHost = isTestnet ? "testnet.tonviewer.com" : "tonviewer.com";
+          window.open(`https://${explorerHost}/${collectionAddress}`, "_blank");
         }}
       >
         <div className="w-full flex gap-2 items-stretch bg-brand-fill-bg/10 p-2 rounded-lg">
@@ -424,25 +542,98 @@ const MainButtonHandler = React.memo(() => {
   const { user } = useUserStore();
   const router = useRouter();
 
+  const registrantStatus = eventData.data?.registrant_status ?? "";
+  const isRegistered = ["approved", "checkedin"].includes(registrantStatus);
+  const tiers = (eventData.data?.ticket_tiers as Array<{ price: number }>) || [];
+  const hasPaidTiers = tiers.some((t) => Number(t.price || 0) > 0);
+  const isPaid = Boolean(
+    eventData.data?.has_payment ||
+      hasPaidTiers ||
+      (eventData.data?.payment_details?.price && eventData.data.payment_details.price > 0)
+  );
+
   const userCompletedTasks =
-    (["approved", "checkedin"].includes(eventData.data?.registrant_status!) || !eventData.data?.has_registration) &&
+    (isRegistered || !eventData.data?.has_registration) &&
     user?.wallet_address;
 
   const isOnlineEvent = eventData.data?.participationType === "online";
   const isCheckedIn = eventData.data?.registrant_status === "checkedin" || isOnlineEvent;
   const isEventActive = isStarted && isNotEnded;
+  const hasSbt = Boolean(eventData.data?.sbt_collection_address);
 
-  if (userCompletedTasks && hasEnteredPassword) {
-    if (isCheckedIn) {
+  const badgeStatus = trpc.sbt.getAttendeeBadgeStatus.useQuery(
+    {
+      eventUuid: eventData.data?.event_uuid ?? "",
+      registrantUuid: eventData.data?.registrant_uuid || undefined,
+    },
+    {
+      enabled: Boolean(isCheckedIn && hasSbt && eventData.data?.event_uuid),
+    }
+  );
+
+  // Paid event: user has ticket → view ticket pass
+  if (isPaid && isRegistered && isNotEnded) {
+    return (
+      <MainButton
+        text="View Ticket Pass"
+        onClick={() => router.push(`/tickets/${eventData.data?.event_uuid}`)}
+      />
+    );
+  }
+
+  // Paid or tiered event: user hasn't bought ticket yet → checkout
+  if (isPaid && !isRegistered && isNotEnded) {
+    let label = "Get Tickets";
+    if (tiers.length > 0) {
+      const prices = tiers.map((t) => Number(t.price || 0));
+      const minPrice = Math.min(...prices);
+      const maxPrice = Math.max(...prices);
+      if (maxPrice === 0) {
+        label = "Get Free Ticket";
+      } else if (minPrice === 0) {
+        label = "Get Tickets";
+      } else if (minPrice === maxPrice) {
+        label = `Buy Ticket — ⭐ ${minPrice}`;
+      } else {
+        label = `Get Tickets — From ⭐ ${minPrice}`;
+      }
+    } else {
+      const price = Number(eventData.data?.payment_details?.price ?? 0);
+      const symbol = eventData.data?.payment_details?.token?.symbol ?? "TON";
+      label = price > 0 ? `Buy Ticket — ${price} ${symbol}` : "Get Free Ticket";
+    }
+
+    return (
+      <MainButton
+        text={label}
+        onClick={() => router.push(`/events/${eventData.data?.event_uuid}/checkout`)}
+      />
+    );
+  }
+
+  // Checked in attendee: directly claim or view attendance SBT badge
+  if (isCheckedIn && hasEnteredPassword) {
+    if (hasSbt) {
       return (
-        <PreRegistrationTasks>
-          <ClaimRewardButton
-            initData={initData}
-            eventId={eventData.data?.event_uuid ?? ""}
-          />
-        </PreRegistrationTasks>
+        <ClaimSbtButton
+          ticketUuid={eventData.data?.registrant_uuid}
+          rewardLink={badgeStatus.data?.rewardLink}
+          isMinted={badgeStatus.data?.status === "minted"}
+        />
       );
-    } else if (isEventActive && eventData.data?.registrant_uuid) {
+    }
+    return (
+      <MainButton
+        text="Checked In ✅"
+        disabled
+        color="secondary"
+      />
+    );
+  }
+
+  // Approved attendee before check-in: show QR pass to check in
+  if (userCompletedTasks && hasEnteredPassword) {
+    if (isEventActive && eventData.data?.registrant_uuid) {
       return (
         <MainButton
           text="Check In"
@@ -550,9 +741,67 @@ const EventHeader = React.memo(() => {
 });
 EventHeader.displayName = "EventHeader";
 
+const ContextualWalletSection = React.memo(() => {
+  const { eventData } = useEventData();
+  const tonWallet = useTonWallet();
+  const walletModal = useTonConnectModal();
+  const hasWallet = Boolean(tonWallet?.account.address);
+  const registrantStatus = eventData.data?.registrant_status ?? "";
+  const isRegistered = registrantStatus !== "" && registrantStatus !== "rejected";
+  const tiers = (eventData.data?.ticket_tiers as Array<{ price: number; ticket_type: string }>) || [];
+  const hasPaidTiers = tiers.some((t) => Number(t.price || 0) > 0);
+  const isPaid = Boolean(
+    eventData.data?.has_payment ||
+      hasPaidTiers ||
+      (eventData.data?.payment_details?.price && eventData.data.payment_details.price > 0)
+  );
+  const hasSbt = Boolean(eventData.data?.sbt_collection_address);
+
+  const isStarsOnly =
+    eventData.data?.payment_details?.token?.symbol === "STAR" ||
+    (tiers.length > 0 && tiers.every((t) => Number(t.price) === 0 || t.ticket_type === "TSCSBT"));
+
+  // 1. If user already has a connected wallet, show the standard wallet card
+  if (hasWallet) {
+    return <ConnectWalletCard />;
+  }
+
+  // 2. If the event requires crypto payment, show the wallet card (mandatory for crypto payment)
+  if (isPaid && !isStarsOnly) {
+    return <ConnectWalletCard />;
+  }
+
+  // 3. If user is registered and event has SBT attendance credentials, show contextual claim prompt
+  if (isRegistered && hasSbt) {
+    return (
+      <CustomCard title="Soulbound Attendance Badge" className="w-full !mx-0">
+        <div className="p-4 flex flex-col items-center text-center gap-2.5">
+          <Typography variant="body" weight="medium" className="text-gray-900 dark:text-gray-100">
+            Claim your verified attendance badge on TON
+          </Typography>
+          <p className="text-xs text-gray-500 dark:text-gray-400 max-w-xs">
+            Connect your wallet to receive your soulbound credential (SBT) upon event check-in.
+          </p>
+          <button
+            onClick={() => walletModal.open()}
+            type="button"
+            className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs transition"
+          >
+            Connect TON Wallet
+          </button>
+        </div>
+      </CustomCard>
+    );
+  }
+
+  // 4. Free events for unregistered users: Suppress blocking wallet prompt (Progressive Disclosure)
+  return null;
+});
+ContextualWalletSection.displayName = "ContextualWalletSection";
+
 // Main component
 export const EventSections = () => {
-  const { eventData } = useEventData();
+  const { eventData, eventHash } = useEventData();
 
   return (
     <div
@@ -568,10 +817,18 @@ export const EventSections = () => {
       <ManageEventButton />
       <OrganizerCard />
       <SbtCollectionLink />
-      <ConnectWalletCard />
       <EventRegistrationStatus />
+      <ContextualWalletSection />
 
-      <SupportButtons orgSupportTelegramUserName={eventData.data?.organizer?.org_support_telegram_user_name || undefined} />
+      <div className="flex items-center justify-between px-1 pt-1">
+        <SupportButtons orgSupportTelegramUserName={eventData.data?.organizer?.org_support_telegram_user_name || undefined} />
+        {eventHash && (
+          <ReportEventButton
+            eventUuid={eventHash}
+            eventTitle={eventData.data?.title ?? "Event"}
+          />
+        )}
+      </div>
 
       {/* --------------------------------------- */}
       {/* ---------- MainButtonHandler ---------- */}

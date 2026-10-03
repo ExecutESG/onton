@@ -11,6 +11,8 @@ export const accessRolesPathConfig = {
     "EventPOA.Create" ,
     "registrant.processRegistrantRequest" ,
     "registrant.checkinRegistrantRequest",
+    "ticket.getTicketByUuid",
+    "ticket.checkInTicket",
     "telegramInteractions.requestExportFile",
   ],
 }

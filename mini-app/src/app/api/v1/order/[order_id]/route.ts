@@ -12,7 +12,7 @@ type OptionsProps = {
 export async function GET(req: NextRequest, { params }: OptionsProps) {
   const orderId = params.order_id;
 
-  const [, error] = getAuthenticatedUser();
+  const [, error] = getAuthenticatedUser(req);
   const apiKeyError = apiKeyAuthentication(req);
   if (error && apiKeyError) return error || apiKeyError;
 
@@ -44,10 +44,20 @@ export async function GET(req: NextRequest, { params }: OptionsProps) {
 
   if (!eventPaymentInfo) return Response.json({ message: "event_ticket_not_found" }, { status: 404 });
 
+  let tier = null;
+  if (order.tier_id) {
+    tier = await db.query.eventTicketTiers.findFirst({
+      where(fields, { eq }) {
+        return eq(fields.id, order.tier_id!);
+      },
+    });
+  }
+
   return Response.json({
     ...order,
     total_price: order.total_price,
     nft_collection_address: eventPaymentInfo.collectionAddress,
+    tier,
     tickets,
   });
 }

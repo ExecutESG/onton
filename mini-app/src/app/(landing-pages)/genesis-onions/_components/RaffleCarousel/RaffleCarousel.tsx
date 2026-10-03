@@ -100,7 +100,7 @@ export const RaffleCarousel = ({ onEligibilityCheckFailed, onInsufficientBalance
       swiperRef.current.params.speed = 500;
       swiperRef.current.slideTo(selectedIndex);
       play2();
-      window.Telegram.WebApp.HapticFeedback.impactOccurred("rigid");
+      window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("rigid");
       await waitForTransition();
 
       refetchUserSpinStats();

@@ -1,37 +1,59 @@
-# End-to-End (E2E) & Smoke Testing Suite
+# End-to-End (E2E) & Smoke Tests
 
-This directory contains automated browser and API smoke tests for the ONTON platform using **Playwright**.
+> Last verified against dev: 2026-10-03
 
-## Running Tests Locally
+Playwright (`@playwright/test` ^1.42) suites for ONTON. Two configs:
+
+| Config | Target | Scope |
+|---|---|---|
+| `playwright.config.ts` | `BASE_URL`, default `https://app.dev.onton.live` | All `*.spec.ts` in this folder. 2 workers, projects chromium + Pixel 5, video/screenshots on. Helpers include mocks (`helpers/telegram-mock.ts`, `helpers/trpc-mock.ts`). |
+| `playwright.real.config.ts` | Real staging backend | `real/*.real.spec.ts` only. Serial, 1 worker, 60s timeout, `forbidOnly`, global setup `real/global-setup.ts`. |
+
+## Setup
 
 ```bash
 cd tests/e2e
 npm install
 npx playwright install chromium
-
-# Run smoke tests targeting Dev (https://app.dev.onton.live)
-npm test
-
-# Run smoke tests targeting Production
-BASE_URL=https://onton.app npm test
-
-# Run in headed mode
-npm run test:headed
 ```
 
-## Test Coverage
+## Smoke tests
 
-- **Platform Smoke & Health Tests (`smoke.spec.ts`)**:
-  - Landing page HTTP 200 and root DOM checks
-  - Next.js static asset bundle integrity
-  - Direct root platform API ping
-- **Core User Journeys (`user-journeys.spec.ts`)**:
-  - **Event Discovery**: Navigation to public events, verifying banners, titles, host/organizer details, and ticket price options on desktop and mobile viewports.
-  - **Guest Flow & RSVP Protection**: Gated RSVP/registration flows for unauthenticated guests, verifying the `WebLoginSheet` modal opens with Telegram, TonConnect, and Web2 Google options.
-  - **TonConnect UI**: Validating TonConnect button rendering and wallet selection modal (`tc-root`) lifecycle without unhandled console or page exceptions.
-  - **Public API**: Direct `GET /api/client/v1/public/ping` returning HTTP 200 with server uptime, timestamp, and commit SHA metadata.
+```bash
+# Staging (default BASE_URL)
+npx playwright test smoke.spec.ts
 
+# Production (read-only smoke only)
+BASE_URL=https://app.onton.live npx playwright test smoke.spec.ts
+```
 
-## Scheduled Execution & CI
-Tests run automatically every 6 hours via [`.github/workflows/scheduled-smoke-tests.yml`](../../.github/workflows/scheduled-smoke-tests.yml).
-If tests fail, an automated alert is sent to the Telegram deployment logs channel.
+> [!WARNING]
+> `npm test` runs `playwright test` with no filter. Because `testDir` is `./` and there is no `testIgnore`, it also picks up `real/*.real.spec.ts`. Pass a file name, or use the real config explicitly.
+
+## Real staging suite
+
+```bash
+cd tests/e2e
+cp .env.test.example .env.test   # fill in staging values
+npx playwright test -c playwright.real.config.ts
+```
+
+- Loads `.env.test` and calls `assertNotProduction()` (`helpers/envTest.ts`). It throws if the target host is `app.onton.live`/`onton.live`, the bot is `theontonbot`, or `E2E_STAGING_SSH` points at the production host.
+- Required variables are listed in `.env.test.example` (staging bot token, test Telegram IDs for organizer/attendee/officer/admin, testnet buyer mnemonic, `BASE_URL`, `NEXT_PUBLIC_BOT_USERNAME`, `E2E_STAGING_SSH`, fixture event UUIDs).
+- Specs: `real/auth.real.spec.ts`, `real/flows.real.spec.ts`. Fixtures: `real/reset-fixtures.sh`.
+- Use the staging bot `@notnonstagebot` only. Never point tests at `@theontonbot`.
+
+## Other scripts (`package.json`)
+
+| Script | Command |
+|---|---|
+| `test` | `playwright test` |
+| `test:headed` | `playwright test --headed` |
+| `test:report` | `playwright show-report` |
+| `test:quality` | `playwright test` then `../quality-portal/generate-portal-data.js` |
+| `portal` | `node ../quality-portal/serve.js` (QA portal in `tests/quality-portal/`) |
+
+## CI
+
+- **Post-deploy smoke**: `.github/workflows/build-push-deploy.yml` runs `npx playwright test smoke.spec.ts` after each deploy. `dev` targets `https://app.dev.onton.live`. `main` targets `https://app.onton.live`, although `main` is deployed to the staging host (F-04).
+- **Scheduled smoke**: `.github/workflows/scheduled-smoke-tests.yml` has its cron commented out. It runs only on manual dispatch (`dev` or `production` target) and runs `npx playwright test` with no file filter.

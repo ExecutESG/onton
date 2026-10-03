@@ -1,59 +1,85 @@
-# Onton Platform: Migration & Environment Syncing
+# Onton Platform: Migrations & Environment Syncing
 
-This document outlines the procedure for duplicating the Production environment state to a new server (e.g., a dedicated Dev server or a backup node).
+> Last verified against dev: 2026-10-03
 
-## 1. Prerequisites
+Two topics: (1) applying DB schema migrations, (2) copying production data to another server.
 
-### Target Server Requirements
-- **OS**: Linux (Ubuntu 22.04+ recommended).
-- **Tooling**: Docker, Docker Compose, `git`, `tar`, `psql` (client).
-- **Network**: SSH access (root) and required ports open (80, 443, etc.).
+## 1. Applying schema migrations
 
-## 2. Migration Procedure (Prod to Dev)
+> [!CAUTION]
+> Never run `yarn db:migrate`. It runs drizzle `migrate()` against `mini-app/drizzle/` using `meta/_journal.json`, and that journal is stale.
 
-### Phase 1: Production Snapshot
-During this phase, you must choose between **Data Consistency** and **Service Availability**.
+Facts about `mini-app/drizzle/`:
+- SQL files are numbered (latest: `0127_add_has_web3_to_events.sql`).
+- The journal has fewer entries than there are SQL files. Some files are not in it (e.g. `0118`–`0120`, and extra `0002`/`0005`/`0073` files). Snapshots stop at `0117`.
+- `yarn db:gen` = `drizzle-kit generate`. `yarn db:up` = `drizzle-kit up` (snapshot upgrade, **not** a migration).
+- `mini-app/drizzle/migrate.ts` is a separate Bun script with its own table. No package script uses it.
+- No migration runs in the Docker image; production starts with `next start`.
 
-#### Option A: Cold Backup (Preferred for Production Recovery)
-Temporarily stop services to ensure no writes occur during the backup.
-1.  **Stop Ingestors**: `docker compose stop event-consumer worker`
-2.  **Database Dump**: `docker exec $(docker ps -q -f name=-postgres | head -n 1) pg_dumpall -c -U ontonont > production_full_dump.sql`
-3.  **Archive Data Files**: `tar -czvf onton_data_snapshot.tar.gz ./data`
+Procedure: apply each new SQL file by hand, in order, and stop on the first error.
 
-#### Option B: Hot Backup (Preferred for Dev Clones)
-Create a snapshot while the system is live. No downtime, but tiny risk of inconsistent files (e.g., a profile picture uploaded during the `tar` operation might be partially corrupted in the backup).
-1.  **Database Dump**: `docker exec $(docker ps -q -f name=-postgres | head -n 1) pg_dumpall -c -U ontonont > production_full_dump.sql` (Postgres handles concurrent dumps safely).
-2.  **Archive Data Files**: `tar -czvf onton_data_snapshot.tar.gz ./data`
+```bash
+# On the target host, from the compose project directory
+cat mini-app/drizzle/<NNNN_name>.sql | \
+  docker exec -i ${ENV}-postgres psql -v ON_ERROR_STOP=1 -U <POSTGRES_USER> -d <POSTGRES_MINI_APP_DB>
+```
 
-### Phase 2: Codebase Transfer
-1.  **Repo Cloning**: Clone the repository on the target server:
-    - `git clone https://github.com/pomegroup/ontonbot.git /root/ontonbot`
-2.  **Configuration**: Copy the `.env` file from Prod to Dev.
-    - **Note**: You must eventually rotate these secrets to ensure environment isolation (see [Project Ownership & Recovery](./project_ownership_and_recovery.md)).
+- Take a dump first ([manual_db_maintenance.md](./manual_db_maintenance.md)).
+- Take user and DB names from the server `.env` (`POSTGRES_USER`, `POSTGRES_MINI_APP_DB`).
 
-### Phase 3: Data Transfer
-1.  **Transfer Artifacts**: Use `scp` or `rsync` to move the snapshot files:
-    - `scp production_full_dump.sql onton_data_snapshot.tar.gz root@<TARGET_IP>:/tmp/`
+## 2. Copying production to another server
 
-### Phase 4: Target Restoration
-1.  **Data Unpacking**:
-    - `tar -xzvf /tmp/onton_data_snapshot.tar.gz -C /root/ontonbot/`
-2.  **Start Infra**: Bring up the core infrastructure:
-    - `docker compose --profile full up -d postgres redis minio`
-3.  **Database Import**:
-    - `cat /tmp/production_full_dump.sql | docker exec -i postgres psql -U ontonont`
-4.  **Full Launch**:
-    - `docker compose --profile full up -d`
+### Prerequisites (target)
+- Linux with Docker, Docker Compose, `git`, `tar`.
+- SSH access and ports 80/443 open.
 
-## 3. Environment Verification
-After migration, verify the following:
-- **UI**: Access the Mini-App/Landing page via the target IP or temporary DNS.
-- **Data**: Check for latest events and user profiles in the DB.
-- **Storage**: Verify images/assets are loading from the restored MinIO volume.
-- **Bot**: Test interaction with the Telegram bot (if API tokens were updated).
+### Phase 1: Snapshot on production (`65.109.212.86`, compose project `local-onton`)
+
+Option A — cold (consistent): stop the workers first.
+```bash
+docker compose --profile full stop mini-app-sbt-worker mini-app-payment-worker \
+  mini-app-reward-worker mini-app-ordinary-worker mini-app-poa-worker
+```
+Check exact service names with `docker compose --profile full config --services`.
+
+Option B — hot (no downtime): skip the stop. Postgres dumps are consistent; files changed during `tar` may not be.
+
+Then:
+```bash
+PG_CONTAINER=$(docker ps -q -f name=postgres -f status=running | head -n 1)
+docker exec $PG_CONTAINER pg_dumpall -c -U <POSTGRES_USER> > production_full_dump.sql
+tar -czf onton_data_snapshot.tar.gz ./data
+```
+Do not use `docker exec -t` when redirecting output.
+
+### Phase 2: Code on the target
+```bash
+git clone https://github.com/ExecutESG/onton.git /root/ontonbot
+```
+Copy `.env` from production, then change domains, `NETWORK_PUBLIC_IP` and bot token. Rotate secrets for isolation (see [project_ownership_and_recovery.md](./project_ownership_and_recovery.md)). Never point a non-prod copy at `@theontonbot`.
+
+### Phase 3: Transfer
+```bash
+scp production_full_dump.sql onton_data_snapshot.tar.gz root@<TARGET_IP>:/tmp/
+```
+
+### Phase 4: Restore
+```bash
+cd /root/ontonbot
+docker compose --profile full up -d postgres redis minio
+cat /tmp/production_full_dump.sql | docker exec -i ${ENV}-postgres psql -U <POSTGRES_USER>
+tar -xzf /tmp/onton_data_snapshot.tar.gz -C /root/ontonbot/
+docker compose --profile full up -d
+```
+Note: `./data/db_data` is the Postgres data directory. If you restore from the SQL dump, do not also overwrite a running `db_data` from the tarball.
+
+## 3. Verify
+- Mini App and website load on the target domain.
+- Latest events and users exist in the DB.
+- Images load from MinIO.
+- The bot responds (with the target's own token).
 
 ## 4. Troubleshooting
-- **Docker Compose Profiles**: Ensure the `--profile full` flag is used if the `docker-compose.yml` uses profiles for service isolation.
-- **Volume Permissions**: If services fail to start, check `chown -R root:root ./data` on the target server to ensure the container can read the restored files.
-- **Container Networking**: Verify that `NETWORK_PUBLIC_IP` in `.env` is updated to the target server's IP if it's used for site-to-site communication.
-- **Automated Snapshots**: For repeated syncs, Phase 1 can be automated using a Python script with `pty` (see the SSH Automation Pattern in [Deployment & Infrastructure](./deployment_and_infrastructure.md)). This allows dumping and bundling in a single non-interactive task.
+- Nothing starts: you omitted `--profile full`.
+- Permission errors on restored files: check ownership of `./data`.
+- Wrong container: Postgres containers are named `${ENV}-postgres`; filter precisely and use `head -n 1`.

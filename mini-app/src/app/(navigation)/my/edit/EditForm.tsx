@@ -14,6 +14,7 @@ import { Button, Preloader } from "konsta/react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import cameraIcon from "./camera.svg";
 
@@ -121,55 +122,80 @@ export default function EditForm({ data }: { data: Channel }) {
 
   return (
     <form onSubmit={handleSubmit}>
-      <div className="p-4">
-        <div className="relative">
-          <div
-            className={cn(
-              "absolute z-10 inset-0 opacity-50 bg-white items-center justify-center hidden",
-              isUploading && "!flex"
-            )}
+      <div className="w-full max-w-xl mx-auto px-4 py-6">
+        <div className="flex items-center gap-3 mb-6">
+          <button
+            type="button"
+            onClick={goBack}
+            className="p-2 -ml-2 rounded-full hover:bg-gray-100 dark:hover:bg-neutral-800 transition-colors flex items-center justify-center text-gray-700 dark:text-gray-200"
+            aria-label="Back"
           >
-            <Preloader size="w-16 h-16" />
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <Typography
+              variant="title2"
+              bold
+            >
+              Editing Profile
+            </Typography>
+            <Typography
+              variant="footnote"
+              className="text-gray-500"
+            >
+              You can edit your information and manage how it is shown to the participants.
+            </Typography>
           </div>
-          <div
-            className={cn(
-              "absolute z-10 inset-0 bg-[rgba(255,255,255,0.6)] text-red-500 w-full text-balance mt-2 hidden justify-center items-center",
-              uploadApi.error && "!flex"
-            )}
-          >
-            {getErrorMessages(uploadApi.error?.message).map((errMessage, idx: number) => (
-              <p key={idx}>{errMessage}</p>
-            ))}
-          </div>
-          <LoadableImage
-            src={values.org_image || channelAvatar.src}
-            width={0}
-            height={0}
-            wrapperClassName="mb-4 h-auto !rounded-[10px] aspect-square"
-            className="aspect-square w-full"
-            sizes="100vw"
-            alt="Avatar"
-          />
         </div>
-        <div className="flex align-center justify-between mb-2">
-          <Typography
-            variant="title3"
-            bold
-          >
-            Editing Profile
-          </Typography>
-          <Button
-            outline
-            itemType="button"
-            className="!w-auto py-4 px-3 rounded-[6px] relative"
-          >
+
+        <div className="flex flex-col items-center justify-center mb-6">
+          <div className="relative group w-28 h-28 rounded-2xl overflow-hidden border-2 border-gray-200 dark:border-neutral-700 bg-gray-100 dark:bg-neutral-800 shadow-sm flex items-center justify-center">
+            {isUploading && (
+              <div className="absolute z-20 inset-0 bg-black/40 flex items-center justify-center">
+                <Preloader size="w-8 h-8" />
+              </div>
+            )}
+            {uploadApi.error && (
+              <div className="absolute z-20 inset-0 bg-red-500/80 text-white p-2 text-xs flex items-center justify-center text-center">
+                {getErrorMessages(uploadApi.error?.message).join(", ")}
+              </div>
+            )}
+            <LoadableImage
+              src={values.org_image || channelAvatar.src}
+              width={112}
+              height={112}
+              className="w-full h-full object-cover"
+              wrapperClassName="w-full h-full"
+              alt="Avatar"
+            />
+            <label className="absolute inset-0 z-10 hidden md:flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+              <Image
+                src={cameraIcon}
+                width={24}
+                height={24}
+                alt="Change"
+                className="brightness-0 invert"
+              />
+              <input
+                type="file"
+                name="image"
+                accept="image/*"
+                onChange={(e) => {
+                  uploadImage(e.target.files);
+                }}
+                className="sr-only"
+              />
+            </label>
+          </div>
+
+          <label className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#007AFF] bg-[#007AFF]/10 hover:bg-[#007AFF]/20 rounded-full cursor-pointer transition-colors">
             <Image
               src={cameraIcon}
-              width={20}
-              height={20}
+              width={14}
+              height={14}
               alt=""
             />
-            Edit Image
+            Edit Photo
             <input
               type="file"
               name="image"
@@ -177,16 +203,11 @@ export default function EditForm({ data }: { data: Channel }) {
               onChange={(e) => {
                 uploadImage(e.target.files);
               }}
-              className="opacity-0 absolute inset-0 z-10"
+              className="sr-only"
             />
-          </Button>
+          </label>
         </div>
-        <Typography
-          className="mb-3"
-          variant="footnote"
-        >
-          You can edit your information and manage how it is showed to the participants.
-        </Typography>
+
         <OntonInput
           className="mb-3"
           label="Channel Name"
@@ -236,7 +257,7 @@ export default function EditForm({ data }: { data: Channel }) {
           value={values.org_bio}
           onChange={handleChange}
         />
-        <div className="mt-4 pt-2 -mx-4 px-3 shadow-[0px_-1px_4px_0px_#0000001A]">
+        <div className="mt-6 pt-4 border-t border-gray-100 dark:border-neutral-800">
           <Button
             className="py-5 mb-3 !rounded-[10px]"
             onClick={(e) => {

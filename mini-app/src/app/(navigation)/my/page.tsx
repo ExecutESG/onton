@@ -1,48 +1,53 @@
 "use client";
 import ActionCard from "@/ActionCard";
-// import CheckUserInList from "@/app/_components/CheckUserInList";
 import ticketIcon from "@/app/_components/icons/ticket.svg";
 import { ConnectWalletCard } from "@/app/_components/organisms/ConnectWallet";
 import { trpc } from "@/app/_trpc/client";
 import LoadableImage from "@/components/LoadableImage";
 import Typography from "@/components/Typography";
 import channelAvatar from "@/components/icons/channel-avatar.svg";
-import FabPlusIcon from "@/components/icons/plus-icon";
 import solarCupOutline from "@/components/icons/solar-cup-outline.svg";
-import OnionLogo from "@/components/icons/onion-logo.svg";
 import questLogo from "@/components/icons/quest-flag.svg";
-// import { ALLOWED_USER_TO_TEST } from "@/constants";
 import { useUserStore } from "@/context/store/user.store";
 import { Channel } from "@/types";
 import { cn } from "@/utils";
 import { useSectionStore } from "@/zustand/useSectionStore";
-import { useTonAddress } from "@tonconnect/ui-react";
 import { Card } from "konsta/react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
+import CustomButton from "@/app/_components/Button/CustomButton";
 import { useEffect } from "react";
+import { useTonAddress } from "@tonconnect/ui-react";
 import { toast } from "sonner";
-import PaymentCard from "./PaymentCard";
 import calendarStarIcon from "./calendar-star.svg";
-import { TbBowFilled } from "react-icons/tb";
+import badgeAwardIcon from "./badge-award.svg";
 import LoginRequired from "@/app/_components/auth/LoginRequired";
+import LinkedAccountsCard from "@/app/_components/auth/LinkedAccountsCard";
+import PaymentCard from "./PaymentCard";
+
 export default function ProfilePage() {
   const { user } = useUserStore();
-  const hasWallet = !!useTonAddress();
   const { setSection } = useSectionStore();
   const router = useRouter();
+  const tonWalletAddress = useTonAddress();
+  const hasWallet = Boolean(tonWalletAddress || user?.wallet_address);
+  const isOrganizer = user?.role === "organizer" || user?.role === "admin";
+
   const { data: totalPoints, isLoading: loadingTotalPoints } = trpc.usersScore.getTotalScoreByUserId.useQuery(undefined, {
     enabled: !!user,
   });
-
-  const hasEventOrganizer = user?.role === "organizer" || user?.role === "admin";
+  const { data: userBadgesData } = trpc.sbt.getUserBadges.useQuery(
+    { userId: user?.user_id ?? 0 },
+    { enabled: Boolean(user?.user_id) }
+  );
 
   useEffect(() => {
     router.prefetch("/events/create");
     router.prefetch("/my/participated");
     router.prefetch("/my/hosted/");
+    router.prefetch("/my/badges");
     router.prefetch("/my/points/");
-  }, [router, hasEventOrganizer]);
+  }, [router]);
 
   if (!user) {
     return <LoginRequired />;
@@ -51,8 +56,28 @@ export default function ProfilePage() {
   if (loadingTotalPoints) return null;
 
   return (
-    <div className="relative isolate">
-      {hasEventOrganizer ? <InlineChannelCard data={user} /> : <OrganizerProgress step={hasWallet ? 2 : 1} />}
+    <div className="relative isolate space-y-3">
+      {isOrganizer ? (
+        <>
+          <InlineChannelCard data={user} />
+          <div className="pt-1 pb-1 w-full">
+            <CustomButton
+              variant="primary"
+              onClick={(e) => {
+                setSection("event_setup_form_general_step");
+                router.push("/events/create");
+              }}
+              icon={<Plus size={20} />}
+              className="justify-center font-semibold"
+            >
+              Create New Event
+            </CustomButton>
+          </div>
+        </>
+      ) : (
+        <OrganizerProgress step={hasWallet ? 2 : 1} />
+      )}
+
       <ActionCard
         onClick={(e) => {
           router.push("/my/participated");
@@ -69,7 +94,7 @@ export default function ProfilePage() {
       />
       <ActionCard
         onClick={(e) => {
-          if (!hasEventOrganizer) {
+          if (!isOrganizer) {
             toast.error("Only organizers can host events");
             return;
           }
@@ -77,11 +102,22 @@ export default function ProfilePage() {
         }}
         iconSrc={calendarStarIcon}
         title="Hosted"
-        subtitle="You Created"
+        subtitle={isOrganizer ? "You Created" : "Become an organizer first"}
         footerTexts={[
-          hasEventOrganizer
+          isOrganizer
             ? { items: "Events", count: user?.hosted_event_count || 0 }
-            : { items: "Become an organizer first" },
+            : { items: "Activation required" },
+        ]}
+      />
+      <ActionCard
+        onClick={(e) => {
+          router.push("/my/badges");
+        }}
+        iconSrc={badgeAwardIcon}
+        title="My Badges"
+        subtitle="Proof of Attendance"
+        footerTexts={[
+          { items: "Badges", count: userBadgesData?.badges?.length || 0 },
         ]}
       />
       <ActionCard
@@ -99,47 +135,41 @@ export default function ProfilePage() {
         }}
         iconSrc={solarCupOutline}
         title="My Points"
-        subtitle="You Acheived"
+        subtitle="You Achieved"
         footerTexts={[{ items: "Points", count: Number(totalPoints) || 0 }]}
       />
-      <ActionCard
-        onClick={(e) => {
-          router.push("/onion-snapshot/claim-points");
-        }}
-        iconSrc={OnionLogo}
-        title="My Onions"
-        subtitle="check your onions"
-        footerTexts={[]}
-      />
-
-      {/*<ActionCard*/}
-      {/*  onClick={(e) => {*/}
-      {/*    router.push("/my/partner/onion-affiliate");*/}
-      {/*  }}*/}
-      {/*  iconSrc={solarCupOutline}*/}
-      {/*  title="Onion Partnership Dashboard"*/}
-      {/*  subtitle=""*/}
-      {/*  footerTexts={[]}*/}
-      {/*/>*/}
 
       <ConnectWalletCard />
-      <PaymentCard visible={!hasEventOrganizer && hasWallet} />
-
-      {hasEventOrganizer && (
-        <div
-          className="fixed text-primary drop-shadow rounded-full right-4 pt-1 z-[1100] cursor-pointer"
-          onClick={(e) => {
-            setSection("event_setup_form_general_step");
-            router.push("/events/create");
-          }}
-          style={{
-            bottom: `calc(90px + var(--tg-safe-area-inset-bottom, 0px))`,
-          }}
-        >
-          <FabPlusIcon />
-        </div>
-      )}
+      {!isOrganizer && <PaymentCard visible={hasWallet} />}
+      <LinkedAccountsCard />
     </div>
+  );
+}
+
+function OrganizerProgress({ step }: { step: 1 | 2 }) {
+  return (
+    <Card className="border border-[#007AFF] w-full !m-0">
+      <Typography
+        bold
+        variant="headline"
+        className="mb-1"
+      >
+        Early Organizer Access
+      </Typography>
+      <Typography
+        variant="subheadline1"
+        className="text-[#575757] font-medium mb-3"
+      >
+        Step forward as an organizer, Create your Organizer Channel, Conduct wonderful events and distribute SBT badges to
+        your participants.
+        <br />
+        <b>{step === 1 ? "1. Connect your wallet." : "2. Pay one-time fee to become an organizer"}</b>
+      </Typography>
+      <div className="flex h-[2px] align-stretch gap-3">
+        <div className="flex-1 bg-[#007AFF]" />
+        <div className={cn("flex-1", step === 1 ? "bg-[#EEEEF0]" : "bg-[#007AFF]")} />
+      </div>
+    </Card>
   );
 }
 
@@ -173,33 +203,6 @@ function InlineChannelCard({ data }: { data: Channel | undefined }) {
         <div className="self-center">
           <ArrowRight className="text-main-button-color" />
         </div>
-      </div>
-    </Card>
-  );
-}
-
-function OrganizerProgress({ step }: { step: 1 | 2 }) {
-  return (
-    <Card className="border border-[#007AFF] w-full !m-0">
-      <Typography
-        bold
-        variant="headline"
-        className="mb-1"
-      >
-        Early Organizer Access
-      </Typography>
-      <Typography
-        variant="subheadline1"
-        className="text-[#575757] font-medium mb-3"
-      >
-        Step forward as an organizer, Create your Organizer Channel, Conduct wonderful events and distribute SBT badges to
-        your participants.
-        <br />
-        <b>{step === 1 ? "1. Connect your wallet." : "2. Pay one-time fee to become an organizer"}</b>
-      </Typography>
-      <div className="flex h-[2px] align-stretch gap-3">
-        <div className="flex-1 bg-[#007AFF]" />
-        <div className={cn("flex-1", step === 1 ? "bg-[#EEEEF0]" : "bg-[#007AFF]")} />
       </div>
     </Card>
   );

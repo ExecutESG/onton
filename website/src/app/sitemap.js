@@ -1,81 +1,85 @@
-import fs from "fs";
-import path from "path";
+import { getAllArticleSlugs, getAllGlossarySlugs, getAllEventSlugs } from "@/lib/content";
+
+const BASE_URL = "https://onton.live";
 
 export default function sitemap() {
-  const pagesDirectory = path.join(process.cwd(), "src", "app");
+  const currentDate = new Date();
 
-  /**
-   * Checks if a given directory has a file named "page" or "layout"
-   * with a supported extension.
-   */
-  function hasPageOrLayout(dirPath) {
-    const files = fs.readdirSync(dirPath);
-    return files.some((file) => {
-      const fullPath = path.join(dirPath, file);
-      if (fs.statSync(fullPath).isFile()) {
-        const ext = path.extname(file);
-        const name = path.basename(file, ext);
-        return (
-          (name === "page" || name === "layout") &&
-          /\.(js|jsx|ts|tsx)$/.test(file)
-        );
-      }
-      return false;
-    });
-  }
+  // Core Static Pages
+  const staticRoutes = [
+    {
+      url: `${BASE_URL}/`,
+      lastModified: currentDate,
+      changeFrequency: "weekly",
+      priority: 1.0,
+    },
+    {
+      url: `${BASE_URL}/blog`,
+      lastModified: currentDate,
+      changeFrequency: "daily",
+      priority: 0.9,
+    },
+    {
+      url: `${BASE_URL}/events`,
+      lastModified: currentDate,
+      changeFrequency: "daily",
+      priority: 0.9,
+    },
+    {
+      url: `${BASE_URL}/resources/glossary`,
+      lastModified: currentDate,
+      changeFrequency: "weekly",
+      priority: 0.8,
+    },
+    {
+      url: `${BASE_URL}/blog/guide`,
+      lastModified: currentDate,
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
+    {
+      url: `${BASE_URL}/privacy`,
+      lastModified: currentDate,
+      changeFrequency: "yearly",
+      priority: 0.3,
+    },
+    {
+      url: `${BASE_URL}/feed.xml`,
+      lastModified: currentDate,
+      changeFrequency: "daily",
+      priority: 0.7,
+    },
+    {
+      url: `${BASE_URL}/tos`,
+      lastModified: currentDate,
+      changeFrequency: "yearly",
+      priority: 0.3,
+    },
+    {
+      url: `${BASE_URL}/csbt`,
+      lastModified: currentDate,
+      changeFrequency: "weekly",
+      priority: 0.8,
+    },
+  ];
 
-  /**
-   * Recursively walks the pages directory.
-   *
-   * currentRoute is built as we go deeper. If the current directory contains
-   * a "page" or "layout" file (or if we're at the root), then we consider
-   * it as a valid route. (We also skip directories named "not-found" or "sitemap".)
-   */
-  function getRoutesFromDir(dirPath, currentRoute = "") {
-    let routes = [];
-
-    // The root directory (i.e. currentRoute === "") should be included.
-    // For subdirectories, include the route only if a page/layout file exists.
-    if (currentRoute === "" || hasPageOrLayout(dirPath)) {
-      // Build the route path – the root should be "/"
-      const routePath =
-        currentRoute === "" ? "/" : "/" + currentRoute.replace(/\\/g, "/");
-      // Skip unwanted routes
-      if (routePath !== "/not-found" && routePath !== "/sitemap") {
-        routes.push(routePath);
-      }
-    }
-
-    // Recurse into subdirectories.
-    const items = fs.readdirSync(dirPath);
-    items.forEach((item) => {
-      const fullPath = path.join(dirPath, item);
-      if (fs.statSync(fullPath).isDirectory()) {
-        // Skip directories we don't want at all.
-        if (item === "not-found" || item === "sitemap") {
-          return;
-        }
-        // Build the new route segment.
-        const newRoute = currentRoute === "" ? item : `${currentRoute}/${item}`;
-        routes = routes.concat(getRoutesFromDir(fullPath, newRoute));
-      }
-    });
-
-    return routes;
-  }
-
-  // Retrieve all routes from the pages directory.
-  const routes = getRoutesFromDir(pagesDirectory);
-
-  // Remove duplicates if any.
-  const uniqueRoutes = Array.from(new Set(routes));
-
-  // Map routes to sitemap entries.
-  const sitemapEntries = uniqueRoutes.map((route) => ({
-    url: `https://onton.online${route}`,
-    lastModified: new Date(),
-    priority: route === "/" ? 1 : 0.8,
+  // Dynamic Blog Posts
+  const articleSlugs = getAllArticleSlugs();
+  const articleRoutes = articleSlugs.map((slug) => ({
+    url: `${BASE_URL}/blog/${slug}`,
+    lastModified: currentDate,
+    changeFrequency: "weekly",
+    priority: 0.85,
   }));
 
-  return sitemapEntries;
+  // Dynamic Glossary Terms
+  const glossarySlugs = getAllGlossarySlugs();
+  const glossaryRoutes = glossarySlugs.map((slug) => ({
+    url: `${BASE_URL}/resources/glossary/${slug}`,
+    lastModified: currentDate,
+    changeFrequency: "monthly",
+    priority: 0.75,
+  }));
+
+  return [...staticRoutes, ...articleRoutes, ...glossaryRoutes];
 }

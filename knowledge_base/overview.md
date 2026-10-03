@@ -1,61 +1,51 @@
 # Onton Platform Overview
 
-The Onton platform (specifically the `ontonbot` repository) is a Telegram Mini-App focused on event management and social/on-chain interactions on the TON blockchain.
+> Last verified against dev: 2026-10-03
 
-## Project Structure
-- **Mini-App**: Located in `/mini-app`.
-- **Frontend/App**: Next.js (React), Telegram Mini Apps (TMA)
-- **Backend Services**: Node.js, Postgres (Primary DB), Redis (Cache), RabbitMQ (Queues)
-- **Infrastructure**: Docker, Docker Compose, Caddy (Reverse Proxy)
+ONTON (`ontonbot` repo, `github.com/ExecutESG/onton`) is a Telegram Mini App for event management, ticketing and on-chain credentials on TON.
 
-## Architecture Overview
-The system follows a microservices-like architecture orchestrated via Docker. It uses a **Split-Database Pattern** hosted on a single Postgres instance:
-1. **Core DB (`mini-app`)**: Managed via **Drizzle ORM**.
-2. **NFT DB (`nft-manager`)**: Managed via **Prisma ORM**.
+## Project structure
+| Path | What |
+| :--- | :--- |
+| `mini-app/` | Next.js (App Router) Mini App + tRPC API + workers + sockets. Drizzle ORM, migrations in `drizzle/`. |
+| `telegram-bot/` | grammY bot + Express API (HMAC-protected). Includes moderation. |
+| `website/` | Next.js marketing site. |
+| `client-web-panel/` | Next.js (pages router) organizer panel. Local compose only. |
+| `newton/apps/nft-manager/` | NestJS + Prisma service. Not deployed. |
+| `devops/` | Caddy, env and backup scripts. |
+| `tests/e2e/` | Playwright suites. |
 
-For a detailed visual guide, refer to the project's internal `docs/architecture_and_design.md`.
+- Data: one PostgreSQL instance (`mini-app` DB via Drizzle), Redis, MinIO, RabbitMQ.
+- `participant-tma` is decommissioned; `/ptma` links are handled by 4 rewrites in `mini-app/next.config.js`.
 
-## Documentation Resource Guide
+## Environments
+- Production: `65.109.212.86`, plain `docker compose` (`local-onton`), deployed manually.
+- Staging: `65.109.182.13`, Docker Swarm stack `onton-dev`, deployed by CI.
+- Details: [deployment_and_infrastructure.md](./deployment_and_infrastructure.md).
 
-Navigating the Onton platform requires a cross-reference between the repository's internal files and the supplementary knowledge base.
+## Documentation guide
 
-### 🏠 Repository Documentation (`/ontonbot/docs/`)
-- `architecture_and_design.md`: Deep dive into domain models (Drizzle/Prisma schemas), Mermaid sequence diagrams for event flows, and service connectivity.
-- `technical_onboarding.md`: Step-by-step developer setup guide, including environment configuration and production deployment workflows.
+### Repository docs (`docs/`)
+- `docs/architecture_and_design.md`: domain models and flows.
+- `docs/technical_onboarding.md`: onboarding notes. Parts are outdated (Node version, participant-tma, prod orchestration); prefer [DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md).
 
-### 🧠 Knowledge Base Artifacts
-- `deployment_and_infrastructure.md`: Live production server details (`65.109.212.86`), SSH key management, Caddy/SSL configuration, and backup automation details.
-- `manual_db_maintenance.md`: Verified procedures for manual database dumps (2.6GB success metric), container selection, and secure scp downloads.
-- `migration_and_syncing.md`: Patterns for Production-to-Dev environment replication and environment synchronization.
-- `project_ownership_and_recovery.md`: High-level guide for disaster recovery, secret rotation, and infrastructure re-construction.
-- `development_and_qa.md`: Local development standards, Jest testing patterns, and PR guidelines.
-- `testing_and_use_cases.md`: Comprehensive list of actor-based use cases (Organizer, Participant) and functional verification checklists.
+### Knowledge base
+- [deployment_and_infrastructure.md](./deployment_and_infrastructure.md): hosts, manual prod deploy, backups (manual only).
+- [deployment_pipeline.md](./deployment_pipeline.md): GitHub Actions build and deploy.
+- [manual_db_maintenance.md](./manual_db_maintenance.md): manual DB dumps.
+- [migration_and_syncing.md](./migration_and_syncing.md): applying SQL migrations; copying prod to another server.
+- [project_ownership_and_recovery.md](./project_ownership_and_recovery.md): secrets, rotation, recovery.
+- [development_and_qa.md](./development_and_qa.md): local setup, Vitest and Playwright, PR rules.
+- [DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md): onboarding and code layout.
 
-## Key Service Domains
-- **Backend/API**: Integrated using TRPC routers (`src/server/routers`).
-- **Validation**: Strict schema validation using Zod.
-- **Infrastructure**: Containerized using Docker Compose.
+## Key patterns
+- API: tRPC routers in `mini-app/src/server/routers/`; REST routes in `mini-app/src/app/api/`.
+- Validation: Zod (`mini-app/src/zodSchema/`).
+- Auth: Telegram initData, platform JWT (Bearer/cookie), email OTP, Google, Telegram widget. Accounts link through the `user_identities` table.
+- Events: free events publish immediately and get a post-publish moderation alert; paid events stay hidden until the creation order is paid. `ts_verified` gating is retired. Hub defaults to "Onton" when none is chosen; there is no hub eligibility check.
+- Rate limits: edge rate limiting in `mini-app/src/middleware.ts`; per-route limits (e.g. `POST /api/v1/order` 20/min per user, auth routes 30/min).
 
-## Core Technical Patterns
-
-### 1. Hub Management (`society_hub`)
-The platform allows events to be associated with "hubs".
-- **Evolution**: Moving from required `society_hub` fields to optional/nullable fields to handle unverified organizers or hub-less events more gracefully.
-- **Verification Logic**: Check if an organizer is "TS verified" before allowing them to post to specific hubs.
-
-### 2. Rate Limiting
-The platform implements specific rate limits for user actions (defined in `constants.ts`):
-- **Image Uploads**: Standard windowed limits.
-- **Video Uploads**: Standard windowed limits.
-- **Password Attempts**: For event-specific access.
-
-### 3. Event Management Workflow
-- Multi-step event creation (General info, Rewards, etc.).
-- Image and video asset management.
-- Integration with TON blockchain for social features (references to "hubs" and "on-chain" IDs).
-
-## Development & Maintenance
-- **Local Dev & QA**: Guidelines for local setup and testing are in [Development & QA Process](./development_and_qa.md).
-- **Deployment**: Live server details and deployment workflows are in [Deployment & Infrastructure](./deployment_and_infrastructure.md).
-- **Ownership & Recovery**: Guidelines for taking full control and disaster recovery are in [Project Ownership & Recovery](./project_ownership_and_recovery.md).
-- **Maintenance**: General repository maintenance (scripts, backups) is covered in the `antigravity_monorepo` KI.
+## Known issues (tracked in QA)
+- No automated prod DB backups.
+- F-04: CI deploys `main` to the staging host; no automated prod deploy.
+- F-27: email OTP codes are logged, not emailed.

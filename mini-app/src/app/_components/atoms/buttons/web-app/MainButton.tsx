@@ -1,5 +1,7 @@
 "use client";
+import { cn } from "@/utils";
 import useWebApp from "@/hooks/useWebApp";
+import { getPlatformBridge } from "@/lib/platform/platformBridge";
 import { FC, useCallback, useEffect, useMemo } from "react";
 
 export interface MainButtonProps {
@@ -83,6 +85,54 @@ const MainButton: FC<MainButtonProps> = ({
       }
     };
   }, [WebApp, updateButton, onClick, progress, disabled, buttonParams, text, color, textColor]);
+
+  // Synchronize with HostPlatformBridge when running in standard browser/PWA
+  useEffect(() => {
+    const bridge = getPlatformBridge();
+    if (!bridge.isTelegram) {
+      if (text) {
+        bridge.setMainButton({
+          text,
+          color: buttonParams.color,
+          textColor: buttonParams.text_color,
+          isActive: !disabled && !progress,
+          isLoading: progress,
+          isVisible: true,
+          onClick,
+        });
+      } else {
+        bridge.hideMainButton();
+      }
+
+      return () => {
+        bridge.hideMainButton();
+      };
+    }
+  }, [text, buttonParams, disabled, progress, onClick]);
+
+  // If running in a web browser without Telegram initData, render sticky on-screen fallback
+  if (!WebApp || !WebApp.initData) {
+    if (!text) return null;
+    return (
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md border-t border-gray-200 dark:border-gray-800 z-40 flex items-center justify-center">
+        <button
+          type="button"
+          disabled={disabled || progress}
+          onClick={onClick}
+          className={cn(
+            "w-full max-w-xl py-3.5 px-6 rounded-xl font-semibold text-sm transition-all shadow-md flex items-center justify-center gap-2",
+            color === "secondary"
+              ? "bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+              : "bg-primary hover:bg-primary-hover text-white active:scale-[0.99]",
+            (disabled || progress) && "opacity-50 cursor-not-allowed"
+          )}
+        >
+          {progress && <span className="animate-spin mr-1">⏳</span>}
+          {text}
+        </button>
+      </div>
+    );
+  }
 
   return null;
 };

@@ -64,5 +64,30 @@ describe("User & Identity API Flow", () => {
       expect(now - staleAuthDate > 86400).toBe(true);
       expect(now - freshAuthDate > 86400).toBe(false);
     });
+
+    it("validateMiniAppData enforces 24-hour expiration TTL (#935)", async () => {
+      const { validateMiniAppData } = await import("@/utils");
+      const now = Math.floor(Date.now() / 1000);
+
+      // Expired initData (> 24 hours old)
+      const expiredAuthDate = now - 90000;
+      const expiredQuery = `auth_date=${expiredAuthDate}&query_id=test_query&user=%7B%22id%22%3A12345%2C%22first_name%22%3A%22Test%22%7D&hash=fakehash`;
+      const expiredResult = validateMiniAppData(expiredQuery);
+      expect(expiredResult.valid).toBe(false);
+      expect((expiredResult as any).error).toBe("AUTH_DATE_EXPIRED");
+
+      // Future clock drift (> 5 mins into future)
+      const futureAuthDate = now + 600;
+      const futureQuery = `auth_date=${futureAuthDate}&query_id=test_query&user=%7B%22id%22%3A12345%2C%22first_name%22%3A%22Test%22%7D&hash=fakehash`;
+      const futureResult = validateMiniAppData(futureQuery);
+      expect(futureResult.valid).toBe(false);
+      expect((futureResult as any).error).toBe("AUTH_DATE_FUTURE_DRIFT");
+
+      // Missing auth_date
+      const missingQuery = `query_id=test_query&user=%7B%22id%22%3A12345%2C%22first_name%22%3A%22Test%22%7D&hash=fakehash`;
+      const missingResult = validateMiniAppData(missingQuery);
+      expect(missingResult.valid).toBe(false);
+      expect((missingResult as any).error).toBe("MISSING_OR_INVALID_AUTH_DATE");
+    });
   });
 });

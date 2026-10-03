@@ -67,6 +67,10 @@ export type CreateEventStoreType = {
   // REGISTRATION
   toggleHasRegistration: () => void;
 
+  // WEB3 / SBT
+  toggleHasWeb3: () => void;
+  setHasWeb3: (enabled: boolean) => void;
+
   /**
    * PAID EVENT CREATION ACTIONS
    */
@@ -101,6 +105,11 @@ const defaultState = {
     }[],
     owner: 0,
     type: 0,
+    society_hub: {
+      id: "33",
+      name: "Onton",
+    },
+    has_web3: false,
     hasEnded: true,
     has_registration: false,
     has_approval: false,
@@ -218,6 +227,32 @@ export const useCreateEventStore = create<CreateEventStoreType>()(
           }
         });
       },
+      toggleHasWeb3: () => {
+        set((state) => {
+          state.eventData.has_web3 = !state.eventData.has_web3;
+          if (!state.eventData.has_web3) {
+            state.eventData.ts_reward_url = undefined;
+            state.eventData.video_url = undefined;
+            if (state.eventData.paid_event?.has_payment) {
+              state.eventData.paid_event.has_payment = false;
+              state.eventData.capacity = null;
+            }
+          }
+        });
+      },
+      setHasWeb3: (enabled: boolean) => {
+        set((state) => {
+          state.eventData.has_web3 = enabled;
+          if (!enabled) {
+            state.eventData.ts_reward_url = undefined;
+            state.eventData.video_url = undefined;
+            if (state.eventData.paid_event?.has_payment) {
+              state.eventData.paid_event.has_payment = false;
+              state.eventData.capacity = null;
+            }
+          }
+        });
+      },
       togglePaidEvent: () => {
         set((state) => {
           const paidEventInfo = {
@@ -233,25 +268,39 @@ export const useCreateEventStore = create<CreateEventStoreType>()(
            */
           if (!state.eventData.paid_event.has_payment) {
             try {
-              window.Telegram.WebApp.showConfirm(
+              const confirmMsg =
                 "You will need to pay " +
-                  NFT_EVENT_PRICE +
-                  " TON to create a paid event if the ticket type is NFT it will include 0.06 TON for each person buying the ticket (minting fees) this does not include cSBT ticket type",
-                (confirmed) => {
+                NFT_EVENT_PRICE +
+                " TON to create a paid event if the ticket type is NFT it will include 0.06 TON for each person buying the ticket (minting fees) this does not include cSBT ticket type";
+
+              if (window.Telegram?.WebApp?.showConfirm) {
+                window.Telegram.WebApp.showConfirm(confirmMsg, (confirmed: boolean) => {
                   if (confirmed) {
                     set((state) => {
                       state.eventData.paid_event = paidEventInfo;
                       state.eventData.has_registration = true;
+                      state.eventData.has_web3 = true;
                     });
                   }
+                });
+              } else if (typeof window !== "undefined") {
+                const confirmed = window.confirm(confirmMsg);
+                if (confirmed) {
+                  set((state) => {
+                    state.eventData.paid_event = paidEventInfo;
+                    state.eventData.has_registration = true;
+                    state.eventData.has_web3 = true;
+                  });
                 }
-              );
+              }
             } catch {
               state.eventData.paid_event = paidEventInfo;
               state.eventData.has_registration = true;
+              state.eventData.has_web3 = true;
             }
 
             state.eventData.capacity = 5;
+            state.eventData.has_web3 = true;
           } else {
             state.eventData.paid_event = paidEventInfo;
             state.eventData.capacity = null;

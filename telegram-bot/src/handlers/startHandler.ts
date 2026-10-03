@@ -4,6 +4,8 @@ import { editOrSend } from "../utils/utils";
 import { startKeyboard } from "../markups";
 import { getUser, updateUserProfile } from "../db/db"; // or wherever you defined update logic
 
+import { resolveDeepLink } from "../utils/deepLink";
+
 export const startHandler = async (ctx: Context) => {
   try {
     // 1) Get basic info from Telegram context
@@ -36,17 +38,10 @@ export const startHandler = async (ctx: Context) => {
     ) {
       const rawParam = messageText.split(" ")[1];
       if (rawParam) {
-        if (rawParam.startsWith("event_")) {
-          const eventUuid = rawParam.replace("event_", "");
-          targetUrl = `${process.env.NEXT_PUBLIC_APP_BASE_URL}/events/${eventUuid}`;
-          buttonText = "Open Event";
-        } else if (rawParam.startsWith("join_")) {
-          targetUrl = `${process.env.NEXT_PUBLIC_APP_BASE_URL}/?startapp=${rawParam}`;
-          buttonText = "Join ONTON";
-        } else if (rawParam.startsWith("tournament_")) {
-          const tournamentId = rawParam.replace("tournament_", "");
-          targetUrl = `${process.env.NEXT_PUBLIC_APP_BASE_URL}/tournaments/${tournamentId}`;
-          buttonText = "Open Tournament";
+        const resolved = resolveDeepLink(rawParam);
+        if (resolved) {
+          targetUrl = resolved.targetUrl;
+          buttonText = resolved.buttonText;
         }
       }
     }

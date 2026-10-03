@@ -1,92 +1,67 @@
 # Onton Platform: Development & QA Process
 
-This document outlines the developer onboarding process, local setup, and the Quality Assurance (QA) standards for the `ontonbot` repository.
+> Last verified against dev: 2026-10-03
 
-## 1. Local Development Setup
+Local setup, tests and QA rules for the `ontonbot` repo (`github.com/ExecutESG/onton`).
 
-The platform is managed as a monorepo. To set up a local development environment:
+## 1. Local development
 
 ### Prerequisites
 - Docker Desktop
-- Node.js (v18+)
-- `yarn` or `pnpm` (depending on the target sub-package)
+- Node.js 22 (used by `mini-app/Dockerfile` and CI)
+- `yarn` (each app has its own `package.json`; there is no root `package.json`)
 
-### Initial Setup
-1.  **Environment Configuration**: Copy `.env.example` to `.env`.
-2.  **Orchestration**: Launch the full ecosystem using Docker Compose:
-    ```bash
-    docker compose --profile full up -d
-    ```
-3.  **Local DNS**: Configure local mappings to `127.0.0.1` as defined in `hosts.txt` (see `deployment_and_infrastructure.md` for details).
+### Setup
+1. Copy `.env.example` to `.env` at the repo root. App scripts read `../.env`.
+2. Start services with a profile. Every service has a profile, so `docker compose up` without one starts nothing.
+   - Full stack: `docker compose --profile full up -d`
+   - Infra only (run the mini-app on the host): `docker compose --profile minimal up -d` or `--profile expecting-mini-app`
+3. Mini App: `cd mini-app && yarn dev` (inits MinIO, then `next dev` on `MINI_APP_PORT`).
+4. Bot: `cd telegram-bot && yarn dev`. Local bot is `@ontonlocaldevbot`.
 
-## 2. Quality Assurance (QA) Process
+Full guide: [DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md).
 
-The QA process is integrated into the development workflow through automated testing, linting, and manual verification.
+## 2. Automated tests
 
-### Automated Testing
-- **Framework**: Jest.
-- **Location**: Test files are located in `mini-app/__tests__/*.test.ts(x)`.
-- **Execution**: Run `npx jest` (or `yarn test` in specific sub-packages).
-- **Standards**: External services (Redis, MinIO, Postgres) must be mocked in unit tests to avoid network I/O side effects.
+### Mini App unit/API tests (Vitest)
+- Run: `cd mini-app && yarn test:api` (`vitest run`). This also runs in CI.
+- Included files (`mini-app/vitest.config.ts`): `__tests__/**/*.test.ts`, `src/**/*.spec.ts`, `src/**/*.test.ts`. `.tsx` tests are **not** included.
+- `yarn test` is not the test suite. It runs `src/test.ts` for ad-hoc checks.
+- A `jest.config.ts` and `test:watch` (Jest) script exist, but the tests import from `vitest`. Use Vitest.
+- Mock external services (Redis, MinIO, Postgres) in unit tests.
 
-### Code Quality & Standards
-- **Linting**: ESLint and Prettier are configured per application.
-- **Naming Conventions**:
-    - React components: `PascalCase`.
-    - Files/Directories: `kebab-case` or `lowercase`.
-    - Env keys: `UPPER_SNAKE_CASE`.
-- **Validation**: Environment variables should be validated via `devops/CheckoutEnv.sh`.
+### E2E (Playwright, `tests/e2e`)
+- Default suite: `npx playwright test` (target `BASE_URL`, default `https://app.dev.onton.live`).
+- Real staging suite: `cd tests/e2e && npx playwright test -c playwright.real.config.ts`
+  - Loads `.env.test` (see `.env.test.example`), runs `real/*.real.spec.ts` serially with 1 worker.
+  - Has a production guard: it refuses to run against `app.onton.live`, `onton.live`, bot `theontonbot`, or the prod SSH host.
+- QA portal: `npm run portal` from `tests/e2e` (files in `tests/quality-portal/`).
+- `.github/workflows/scheduled-smoke-tests.yml` is manual only (cron is commented out).
 
-### Pull Request (PR) Requirements
-Before a PR is merged, the following must be verified:
-1.  **Build Check**: `docker compose --profile full up -d` must pass locally.
-2.  **Lint Check**: All linters and formatters must pass.
-3.  **Documentation**: PRs should include purpose, screenshots for UI changes, and specific run instructions.
+### CI gates
+- Before build: `mini-app` → `yarn lint:quiet` + `yarn test:api`; `telegram-bot` → `yarn run build` (`tsc`). Only for changed services.
+- After deploy: Playwright `smoke.spec.ts`. This runs after the deploy, so a failure does not block it.
+- See [deployment_pipeline.md](./deployment_pipeline.md).
 
-## 3. Communication Patterns
+## 3. Code quality
+- ESLint per app (`yarn lint`; `mini-app` also has `lint:quiet`, `type:check`, `format`). `telegram-bot` has no lint script.
+- Naming: React components `PascalCase`; files/dirs kebab- or lower-case; env keys `UPPER_SNAKE_CASE`.
+- `devops/CheckoutEnv.sh` is not a plain validator: it needs `gh` auth, pings domains and can offer to add Cloudflare DNS records.
 
-- **Message Broker**: RabbitMQ is used for heavy background tasks (emails, blockchain indexing, notifications).
-- **ORMs**:
-    - Drizzle (Core DB / `mini-app`)
-    - Prisma (NFT Manager)
+## 4. Pull requests
+1. `mini-app`: `yarn lint:quiet` and `yarn test:api` pass.
+2. Changed services build (`docker compose --profile full up -d --build <service>`).
+3. PR describes purpose, run steps, and screenshots for UI changes.
+4. QA issue templates live in `.github/ISSUE_TEMPLATE/` (`qa_bug_report.yml`, `release_uat_run.md`).
 
-## 4. Technical Workflows (Feb 2026)
+## 5. Runtime pieces relevant to QA
+- RabbitMQ queues: `${STAGE_NAME}-notifications`, `-tg_messages`, `-order_paid`. The bot does not use RabbitMQ.
+- ORM: Drizzle in `mini-app` (`src/db/schema.ts`). `newton/apps/nft-manager` (NestJS + Prisma) exists but is not deployed.
+- Staging runs 0 workers, 0 sockets and no RabbitMQ, so worker, socket and queue flows must be tested locally.
+- Migrations: apply SQL with `psql -v ON_ERROR_STOP=1`. Never `yarn db:migrate` (stale journal). See [migration_and_syncing.md](./migration_and_syncing.md).
 
-### Work-in-Progress Synchronization
-A specific workflow is used to sync local development with remote updates while preserving uncommitted work:
-1.  **Stash**: `git stash` to save local modifications (e.g., UI refinements, experimental logic).
-2.  **Pull**: `git pull origin main` to fetch and merge upstream changes (e.g., new documentation, dependency updates).
-3.  **Pop**: `git stash pop` to re-apply local changes.
-*This was used in February 2026 to integrate new onboarding docs while preserving Society Hub refactoring.*
-
-### Society Hub Optionalization
-Architecture update to make the `society_hub` association optional across the event lifecycle:
-- **Server Routers**: `mini-app/src/server/routers/events.ts` modified to handle nullable `hub` fields and optional verification checks.
-- **Validation Schemas**: Zod schemas in `mini-app/src/zodSchema/` updated to allow `.optional()` or `.nullable()` for hub-related fields.
-- **Frontend Components**: Removed mandatory selections (e.g., `TonHubPicker` in `BasicEventInputs.tsx`) to support events without an associated hub.
-- **Types**: `EventDataSchema` in `types.ts` updated for optionality.
-
-## 5. Incident History & Recovery
-
-### Major Restoration Event (Oct-Nov 2025)
-Research into the repository's artifacts reveals a period of significant instability in late 2025, culminating in a manual rebuild and data restoration.
-
-- **Timeline Evidence**:
-    - **October 21, 2025**: GitHub Action logs show several failing `staging` workflows, likely marking the onset of the incident.
-    - **November 22, 2025**: Successful commits such as "fix: turn metabase back" suggest services were being restored after a long downtime.
-- **Recovery Artifacts**: The `Misc/Scripts` directory contains dozens of utility scripts used for emergency data extraction and restoration:
-    - **Database Recovery**: `ssh_pg_restore_v3.py` (multiple attempts), `ssh_download_recovery.py`, `ssh_import_recovery.py`.
-    - **Emergency Cleanup**: `ssh_emergency_cleanup.py`, `ssh_find_disk_hog.py`.
-    - **Restoration Debugging**: `ssh_debug_restore_failure.py`.
-- **Inferred Cause**: Likely a catastrophic server or database failure that required manual extraction from old disk volumes/backups and a stage-by-stage service recovery.
-
-## 6. Proposed Improvements
-- **Release & QA Protocol**: Formalize a document defining staging procedures and automated testing gates before production deployment.
-- **Backup Automation**: Transition from manual emergency scripts to a robust, planned backup system (see `deployment_and_infrastructure.md`).
-
-## 7. Platform Limitations
-
-### Browser-based Automated Testing
-As of February 2, 2026, automated interaction with `web.telegram.org` (used for live Mini-App testing) is restricted by internal safety policies. 
-- **Impact**: UAT (User Acceptance Testing) must be performed manually or through non-Telegram-dependent staging URLs.
-- **Alternative**: Focus on backend logic verification via Jest and local build checks.
+## Known issues (tracked in QA)
+- Vitest skips `.tsx` tests.
+- The default Playwright config has no `testIgnore`, so a plain `npx playwright test` also picks up `real/*.real.spec.ts`.
+- F-04: no automated prod deploy; the `main` smoke step targets prod while deploying to staging.
+- No automated prod DB backups.

@@ -19,7 +19,6 @@ helpComposer.command('help', async (ctx) => {
     { command: '/affiliate', description: 'Manage affiliate links' },
     { command: '/cancel', description: 'Cancel active operations' },
     { command: '/help', description: 'Display available commands' },
-    { command: '/play2winfeatured', description: 'Update featured play2win tournaments' },
     { command: '/broadcast', description: 'Send broadcast messages' },
     { command: '/tournament', description: 'Manage tournaments' },
     { command: '/sendpoll', description: 'Create and send polls' },

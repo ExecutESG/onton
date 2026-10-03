@@ -21,6 +21,8 @@ import { tasksDB } from "@/db/modules/tasks.db";
 import { taskUsersDB } from "@/db/modules/taskUsers.db";
 import { maybeInsertConnectTaskScore } from "@/lib/maybeInsertConnectTaskScore";
 import { logger } from "@/server/utils/logger";
+import { authEngine } from "@/lib/auth/authEngine";
+import { userIdentitiesDB } from "@/db/modules/userIdentities.db";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -34,59 +36,50 @@ export async function GET(req: NextRequest) {
     return new Response("Invalid or expired state", { status: 400 });
   }
 
-  const { codeVerifier, telegramUserId, source, returnUrl } = saved as {
+  const { codeVerifier, telegramUserId, source, returnUrl, redirectUri } = saved as {
     codeVerifier: string;
     telegramUserId?: number;
     source?: string;
     returnUrl: string;
+    redirectUri?: string;
   };
 
   try {
-    /* 2️⃣  Exchange code → access_token -------------------------------- */
-    const { access_token } = await exchangeCodeForTokenGoogle(code, codeVerifier);
+    /* 2️⃣  Exchange code → access_token (using matching redirectUri) */
+    const { access_token } = await exchangeCodeForTokenGoogle(code, codeVerifier, redirectUri);
 
     /* 3️⃣  Fetch Google profile (sub, email, name, picture …) ---------- */
     const ui = await fetchGoogleUserInfo(access_token);
 
     let userId = telegramUserId;
+    let platformToken: string | undefined;
 
     if (source === "web") {
-      // Look up existing Google account mapping
-      const existingUserId = await usersGoogleDB.getUserIdByGoogleUserId(ui.sub);
-      if (existingUserId) {
-        userId = existingUserId;
-      } else {
-        // Create new web-only user row
-        let isUnique = false;
-        let generatedId = 0;
-        while (!isUnique) {
-          generatedId = 1e14 + Math.floor(Math.random() * 1e12);
-          const existing = await usersDB.selectUserById(generatedId);
-          if (!existing) isUnique = true;
-        }
-        userId = generatedId;
+      // Modern unified multi-provider resolution / creation
+      const resolved = await authEngine.resolveOrCreateUser({
+        provider: "google",
+        providerUserId: ui.sub,
+        email: ui.email,
+        name: ui.name || `${ui.given_name || ""} ${ui.family_name || ""}`.trim() || "Google User",
+        avatarUrl: ui.picture,
+        metadata: ui,
+      });
 
-        await db
-          .insert(users)
-          .values({
-            user_id: userId,
-            username: ui.email ? ui.email.split("@")[0] + "_g" : `web_${userId}`,
-            first_name: ui.given_name || ui.name || "Web",
-            last_name: ui.family_name || "User",
-            language_code: "en",
-            role: "user",
-            photo_url: ui.picture || null,
-          })
-          .onConflictDoNothing()
-          .execute();
-      }
+      userId = resolved.user.user_id;
+      platformToken = resolved.token;
     }
 
     if (!userId) {
       return new Response("Unauthorized: missing user context", { status: 401 });
     }
 
-    /* 4️⃣  Upsert mapping in users_google ------------------------------ */
+    /* 4️⃣  Upsert mapping in user_identities & users_google ----- */
+    await userIdentitiesDB.linkIdentity(userId, "google", ui.sub, {
+      email: ui.email,
+      name: ui.name,
+      picture: ui.picture,
+    });
+
     await usersGoogleDB.upsertGoogleAccount({
       userId: userId,
       gUserId: ui.sub,
@@ -104,14 +97,58 @@ export async function GET(req: NextRequest) {
         authMethod: "google",
       });
 
-      const response = NextResponse.redirect(returnUrl);
-      response.cookies.set("onton_session", sessionToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
+      let targetUrl = returnUrl;
+      const forwardedHost = req.headers.get("x-forwarded-host") || req.headers.get("host") || "";
+      const forwardedProto = req.headers.get("x-forwarded-proto") || (forwardedHost.includes("localhost") ? "http" : "https");
+      const publicBase = forwardedHost
+        ? `${forwardedProto}://${forwardedHost}`
+        : (process.env.NEXT_PUBLIC_APP_BASE_URL || "");
+
+      if (publicBase && (targetUrl.includes("localhost") || targetUrl.includes("127.0.0.1")) && !forwardedHost.includes("localhost")) {
+        try {
+          const parsed = new URL(targetUrl);
+          targetUrl = `${publicBase}${parsed.pathname}${parsed.search}`;
+        } catch {
+          targetUrl = publicBase || "/";
+        }
+      }
+
+      // Determine shared root domain for subdomains (.onton.live)
+      let cookieDomain: string | undefined = undefined;
+      const hostToCheck = forwardedHost.toLowerCase().split(":")[0];
+      if (hostToCheck.endsWith("onton.live")) {
+        cookieDomain = ".onton.live";
+      }
+
+      const response = NextResponse.redirect(new URL(targetUrl, publicBase || "https://app.dev.onton.live"));
+
+      const isProd = process.env.NODE_ENV === "production" || !forwardedHost.includes("localhost");
+      const cookieOptions = {
+        secure: isProd,
+        sameSite: "lax" as const,
         path: "/",
+        domain: cookieDomain,
         maxAge: 7 * 24 * 60 * 60, // 7 days
+      };
+
+      // Set httpOnly session cookie
+      response.cookies.set("onton_session", sessionToken, {
+        ...cookieOptions,
+        httpOnly: true,
       });
+
+      // Set platform tokens for client-side API/tRPC and legacy handlers
+      if (platformToken) {
+        response.cookies.set("onton_token", platformToken, {
+          ...cookieOptions,
+          httpOnly: false, // Accessible to client JS for Authorization headers
+        });
+        response.cookies.set("token", platformToken, {
+          ...cookieOptions,
+          httpOnly: true,
+        });
+      }
+
       return response;
     }
 

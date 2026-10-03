@@ -33,6 +33,7 @@ import { coupon_item_status, coupon_items, couponMessageSendStatus, CouponMessag
 import { event_details_search_list } from "./schema/event_details_search_list";
 import { eventFieldRelations, eventFields } from "./schema/eventFields";
 import { eventPayment, EventTicketType, organizerPaymentStatus, pgTicketTypes, ticketTypes } from "./schema/eventPayment";
+import { eventTicketTiers, eventTicketTiersRelations, EventTicketTierRow } from "./schema/eventTicketTiers";
 import { eventPoaResults, eventPoaResultsIndexes } from "./schema/eventPoaResults";
 import { eventPoaTriggers, eventPoaTriggersIndexes } from "./schema/eventPoaTriggers";
 import { eventRegistrants, eventRegistrantStatus } from "./schema/eventRegistrants";
@@ -46,11 +47,15 @@ import { ontoSetting } from "./schema/ontoSetting";
 import { orders, orderTypes } from "./schema/orders";
 import { rewards, RewardsSelectType, RewardTonSocietyStatusType, tonSocietyStatusEnum } from "./schema/rewards";
 import { sbtRewardCollections } from "./schema/sbtRewardCollections";
+import { sbtCollections, SbtCollectionRow, SbtCollectionInsert, SbtCollectionUpdate } from "./schema/sbtCollections";
+import { sbtItems, SbtItemRow, SbtItemInsert, SbtItemUpdate } from "./schema/sbtItems";
 import { sideEvents } from "./schema/sideEvents";
 import { tickets, ticketsRelations } from "./schema/tickets";
 import { user_custom_flags, user_flags, userFlagsType } from "./schema/user_custom_flags";
 import { userEventFieldRelations, userEventFields } from "./schema/userEventFields";
 import { userRelations, users } from "./schema/users";
+import { user_identities, userIdentitiesRelations, UserIdentityRow, UserIdentityInsert } from "./schema/userIdentities";
+import { eventReports, eventReportsRelations, EventReportRow, EventReportInsert } from "./schema/eventReports";
 import { visitors } from "./schema/visitors";
 import { walletChecks } from "./schema/walletChecks";
 import { affiliateLinks, AffiliateLinksRow, AffiliateItemTypeEnum, affiliateItemType } from "./schema/affiliateLinks";
@@ -330,6 +335,8 @@ export {
   eventFieldRelations,
   eventFields,
   eventPayment,
+  eventTicketTiers,
+  eventTicketTiersRelations,
   eventPoaResults,
   eventPoaResultsIndexes,
   eventPoaTriggers,
@@ -398,6 +405,12 @@ export {
   usersLinkedin,
   usersGoogle,
   usersOutlook,
+  sbtCollections,
+  sbtItems,
+  user_identities,
+  userIdentitiesRelations,
+  eventReports,
+  eventReportsRelations,
 };
 
 // Type Exports
@@ -526,5 +539,15 @@ export type {
   EventMerchNotifStatusType,
   PartnershipAffiliatePurchasesRow,
   PartnershipAffiliateUserEntryType,
-
+  SbtCollectionRow,
+  SbtCollectionInsert,
+  SbtCollectionUpdate,
+  SbtItemRow,
+  SbtItemInsert,
+  SbtItemUpdate,
+  UserIdentityRow,
+  UserIdentityInsert,
+  EventTicketTierRow,
+  EventReportRow,
+  EventReportInsert,
 };

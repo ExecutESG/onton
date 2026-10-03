@@ -162,9 +162,11 @@ function ConfirmPayDialog({ open, onClose, onPay }: { open: boolean; onClose: ()
 function CongratsDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   useDisableScrollbar(open);
 
+  if (!open) return null;
+
   return (
     <Sheet
-      className="w-full"
+      className="w-full bg-white dark:bg-[#18222d] text-slate-900 dark:text-white rounded-t-2xl shadow-2xl z-50"
       opened={open}
       onBackdropClick={onClose}
     >

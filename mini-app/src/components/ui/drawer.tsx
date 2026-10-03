@@ -163,7 +163,7 @@ export const KSheet = (props: KSheeProps) => {
             props.onOpenChange?.(false);
             setOpen(false);
           }}
-          className="w-full"
+          className="w-full bg-white dark:bg-[#18222d] text-slate-900 dark:text-white rounded-t-2xl shadow-2xl z-50"
           opened={open}
         >
           {typeof props.children === "function" ? props.children(open, setOpen) : props.children}

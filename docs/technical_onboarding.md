@@ -1,118 +1,97 @@
-# Ontonbot Technical Onboarding Guide
+# ONTON Technical Onboarding Guide
 
-## 1. Project Overview
-**Ontonbot** is a comprehensive event management platform built as a monorepo. It leverages a microservices-like architecture orchestrated via Docker Compose, with a heavy focus on Next.js for frontend applications and standard backend services (Postgres, Redis, RabbitMQ).
+> Last verified against dev: 2026-10-03
 
-### Core Technologies
--   **Frontend/App**: Next.js (React), Telegram Mini Apps (TMA)
--   **Backend Services**: Postgres (Database), Redis (Cache), RabbitMQ (Queues)
--   **Infrastructure**: Docker, Docker Compose, Caddy (Reverse Proxy)
--   **Package Manager**: `yarn` / `pnpm` (depending on the specific service)
+## 1. Project overview
+ONTON is an event platform for Telegram and the web. The repo is a set of independent apps (no root `package.json`) run with Docker Compose.
+
+### Core technologies
+- **Apps**: Next.js (mini-app: App Router + tRPC, TypeScript), grammY Telegram bot, Next.js website.
+- **Data/infra**: Postgres 16, Redis 7 (no persistence), RabbitMQ 4 (local/prod compose only), MinIO, ClamAV, Caddy.
+- **Package manager**: `yarn` per app (`client-web-panel` pins pnpm).
 
 ## 2. Prerequisites
-Before starting, ensure you have the following installed:
--   **Docker Desktop** (latest stable version)
--   **Node.js** (v18 or v20 recommended)
--   **Git**
+- Docker Desktop
+- Node.js 22 (matches `mini-app/Dockerfile` and CI)
+- Git
 
-## 3. Project Structure
-The repository is organized as a monorepo:
+## 3. Project structure
 
 ```
-ontonbot/
-├── newton/                 # Next.js Applications Monorepo
-│   └── apps/
-│       ├── participant-tma # Main Telegram Mini App for participants
-│       └── ...
-├── mini-app/               # Main Mini App Service (Node.js/Next.js)
-├── website/                # Public Landing Page/Website
-├── client-web-panel/       # Client Web Dashboard
-├── devops/                 # Infrastructure configuration (Caddy, Certs)
-├── swagger/                # API Documentation
-├── docker-compose.yml      # Local development orchestration
-├── docker-compose-server.yml # Production orchestration profile
-└── params/                 # Parameter configuration files
+onton/
+├── mini-app/                  # Main app: Telegram Mini App + web, tRPC, REST, workers, sockets, drizzle/ SQL
+├── telegram-bot/              # grammY bot + HMAC-protected HTTP API
+├── website/                   # Public website (blog, event directory)
+├── client-web-panel/          # Legacy organizer panel (JS, local compose only)
+├── newton/apps/nft-manager/   # NestJS + Prisma; not deployed
+├── devops/                    # Caddy, env and backup helpers
+├── swagger/                   # API docs
+├── tests/e2e/                 # Playwright suites
+├── docker-compose.yml         # Local dev and production (--profile full)
+├── docker-compose-server.yml  # Swarm stack "onton" (CI, main branch, staging host)
+└── docker-compose-server-dev.yml # Swarm stack "onton-dev" (staging)
 ```
 
-## 4. Local Development Setup
+`newton/apps/participant-tma` was removed. Its old `/ptma/...` URLs are served by 4 rewrites in `mini-app/next.config.js`.
 
-### Step 1: Clone the Repository
+## 4. Local development setup
+
+### Step 1: Clone
 ```bash
-git clone https://github.com/PomeGroup/ontonbot.git
-cd ontonbot
+git clone https://github.com/ExecutESG/onton.git
+cd onton
 ```
 
-### Step 2: Configure Environment
-Copy the example environment file and configure it:
+### Step 2: Configure environment
 ```bash
 cp .env.example .env
 ```
-> **Critical**: Ensure `NETWORK_PUBLIC_IP` is set correctly. For local dev, internal Docker IPs usually suffice, but for production, this must match the server IP.
+All apps read the root `.env` (e.g. mini-app scripts use `../.env`).
 
-### Step 3: Start Services
-Use Docker Compose to spin up the entire stack:
+### Step 3: Start services
+Every compose service has a profile; `docker compose up` alone starts nothing.
 ```bash
-# Start all services
+# Full stack
 docker compose --profile full up -d
-
-# Check status
 docker compose --profile full ps
+
+# Infra only, then run apps with yarn dev
+docker compose --profile minimal up -d
 ```
+Stop with `docker compose --profile full down`. Do not add `-v` unless you want to delete the named volumes (`pgadmin`, `clamav_data`, `rabbitmq_data`).
 
-### Step 4: Access Applications
-By default (check `.env` for overrides), services run on:
--   **Mini App**: `http://localhost:3000`
--   **Participant TMA**: `http://localhost:3001`
--   **Client Web**: `http://localhost:3002`
--   **Website**: `http://localhost:3003`
+First run: `cd mini-app && yarn run init:minio:local`.
 
-## 5. Production Deployment
-**Server IP**: `65.109.212.86`
-**User**: `root`
+### Step 4: Ports
+Ports come from `.env`: `MINI_APP_PORT`, `PORT_WEB_SITE`, `PORT_CLIENT_WEB`, `TELEGRAM_BOT_PORT`, `SOCKET_PORT`, etc.
 
-### Deployment Workflow
-1.  **SSH into Server**:
-    ```bash
-    ssh root@65.109.212.86
-    cd ontonbot
-    ```
+### Step 5: Tests
+- mini-app unit tests (Vitest): `cd mini-app && yarn test:api`
+- Lint: `yarn lint` (mini-app, website, client-web-panel). telegram-bot: `yarn build` (tsc).
+- E2E: see [`tests/e2e/README.md`](../tests/e2e/README.md).
 
-2.  **Update Code**:
-    ```bash
-    git pull origin <branch_name>
-    ```
+### Step 6: Database migrations
+- Never run `yarn db:migrate` (stale Drizzle journal).
+- Apply SQL from `mini-app/drizzle/` with `psql -v ON_ERROR_STOP=1 -f <file>.sql`.
 
-3.  **Update Environment (if needed)**:
-    -   Edit `.env` to update `IPV4` addresses or Keys.
-    -   **Important**: Ensure `ENV=production` is set.
+## 5. Environments and deployment
 
-4.  **Rebuild & Restart**:
-    ```bash
-    # Rebuild specific services without cache if code changed
-    docker compose --profile full up -d --build <service_name>
-    
-    # Or restart everything
-    docker compose --profile full up -d --build
-    ```
+| Env | Host | Runtime | Deploy |
+|---|---|---|---|
+| Production | 65.109.212.86 | Plain `docker compose` project `local-onton` in `/root/ontonbot` (`--profile full`) | Manual |
+| Staging | 65.109.182.13 | Swarm stack `onton-dev` | CI on push to `dev` |
 
-### Troubleshooting Common Issues
+- CI also deploys `main` (stack `onton`) to the staging host. It never deploys production (F-04).
+- Production deploy steps: [`docs/PRODUCTION_DEPLOYMENT_GUIDE.md`](./PRODUCTION_DEPLOYMENT_GUIDE.md). In short: `git pull origin main`, apply SQL with psql, `docker compose --profile full up -d --build`.
+- There are no automated production DB backups. Take a manual dump before risky changes ([`knowledge_base/manual_db_maintenance.md`](../knowledge_base/manual_db_maintenance.md)).
 
-#### 1. SSL/Caddy Issues (`HTTP 429` or `403`)
--   **Symptom**: Site is unreachable via HTTPS. Log shows `HTTP 403` or `429`.
--   **Cause**: Cloudflare API Token IP restriction or Rate Limiting.
--   **Fix**: 
-    -   Check Cloudflare Dashboard > API Tokens > "Edit zone DNS" token.
-    -   Ensure Server IP (`65.109.212.86`) is whitelisted.
-    -   If Rate Limited (429), wait 1 hour for cooldown.
+## 6. Troubleshooting
 
-#### 2. Build Failures (Env Vars)
--   **Symptom**: `participant-tma` or `mini-app` fails during `docker build`.
--   **Cause**: Next.js builds often require `NEXT_PUBLIC_` variables to be present at build time.
--   **Fix**: Ensure your `.env` contains valid placeholders for `BOT_TOKEN` or `NEXT_PUBLIC_BOT_USERNAME` if real values aren't strictly required for the build itself.
+### TLS / Caddy
+- The Caddy image is built from `devops/caddy/Dockerfile` with the Cloudflare DNS plugin. Certificate issues usually involve `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_EMAIL` in `.env`.
 
-#### 3. Database Restoration
--   **Backup Path**: `ontonbot/data/db_data`
--   To restore from a raw data directory backup:
-    1.  Stop Postgres: `docker compose stop postgres`
-    2.  Replace contents of `data/db_data` with backup.
-    3.  Start Postgres: `docker compose up -d postgres`
+### Build failures (env vars)
+- Next.js builds need `NEXT_PUBLIC_*` variables at build time. Make sure `.env` has values for them (e.g. `NEXT_PUBLIC_BOT_USERNAME`).
+
+### Database data directory
+- `data/db_data` is the **live** Postgres bind mount, not a backup. Do not edit it while Postgres runs. For backups use `pg_dump`/`pg_dumpall` as described in `knowledge_base/manual_db_maintenance.md`.

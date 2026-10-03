@@ -6,12 +6,14 @@ import { getAuthenticatedUser } from "@/server/auth";
 import eventDB from "@/db/modules/events.db";
 import ordersDB from "@/db/modules/orders.db";
 import eventTokensDB from "@/db/modules/eventTokens.db";
+import eventTicketTiersDB from "@/db/modules/eventTicketTiers.db";
 import { Address } from "@ton/core";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { logger } from "@/server/utils/logger";
 import { applyCouponDiscount } from "@/lib/applyCouponDiscount";
 import { issueAndSendEventInviteLink } from "@/lib/eventInviteService";
+import { checkRateLimit } from "@/lib/checkRateLimit";
 
 const addOrderSchema = z.object({
   event_uuid: z.string().uuid(),
@@ -20,6 +22,7 @@ const addOrderSchema = z.object({
   company: z.string().optional(),
   position: z.string().optional(),
   affiliate_id: z.string().nullable().optional(),
+  tier_id: z.number().int().positive().optional().nullable(),
   owner_address: z
     .string()
     .optional()
@@ -43,9 +46,18 @@ const addOrderSchema = z.object({
 //reactivate order with current price
 
 export async function POST(request: Request) {
-  const [userId, error] = getAuthenticatedUser();
+  const [userId, error] = getAuthenticatedUser(request);
   if (error) {
     return error;
+  }
+
+  // Application-level rate limiting: max 20 order creation attempts per minute per user
+  const rl = await checkRateLimit(String(userId), "create_order", 20, 60);
+  if (!rl.allowed) {
+    return Response.json(
+      { error: "too_many_requests", message: "Too many order requests. Please wait a minute." },
+      { status: 429 }
+    );
   }
 
   const rawBody = await request.json();
@@ -88,7 +100,26 @@ export async function POST(request: Request) {
   /* -------------------------------------------------------------------------- */
   /*                   OrderType Based On Event Ticket Setting                  */
   /* -------------------------------------------------------------------------- */
-  const eventTicketingType = eventPaymentInfo.ticket_type;
+  let selectedTier = undefined;
+  if (body.data.tier_id) {
+    selectedTier = await eventTicketTiersDB.getTierById(body.data.tier_id);
+    if (!selectedTier || selectedTier.event_uuid !== body.data.event_uuid) {
+      return Response.json(
+        { message: "Invalid ticket tier for this event" },
+        { status: 400 }
+      );
+    }
+    const tierCapacity = await eventTicketTiersDB.checkTierCapacity(selectedTier.id);
+    if (tierCapacity.isSoldOut) {
+      return Response.json(
+        { message: "Selected ticket tier is sold out" },
+        { status: 410 }
+      );
+    }
+  }
+
+  const effectivePrice = selectedTier ? selectedTier.price : eventPaymentInfo.price;
+  const eventTicketingType = selectedTier ? selectedTier.ticket_type : eventPaymentInfo.ticket_type;
 
   const ticketOrderTypeMap = {
     NFT: "nft_mint",
@@ -123,7 +154,8 @@ export async function POST(request: Request) {
       eq(orders.user_id, userId),
       eq(orders.order_type, ticketOrderType),
       eq(orders.event_uuid, eventData.event_uuid),
-      eq(orders.token_id, eventPaymentInfo.token_id)
+      eq(orders.token_id, eventPaymentInfo.token_id),
+      selectedTier ? eq(orders.tier_id, selectedTier.id) : undefined
     ),
   });
   /* -------------------------------------------------------------------------- */
@@ -132,7 +164,7 @@ export async function POST(request: Request) {
   const { discountedPrice, couponId, errorResponse } = await applyCouponDiscount(
     body.data.coupon_code,
     body.data.event_uuid,
-    eventPaymentInfo
+    { price: effectivePrice }
   );
   if (errorResponse) {
     return errorResponse;
@@ -161,7 +193,9 @@ export async function POST(request: Request) {
         },
         utm_tag: body.data.affiliate_id,
         total_price: userOrder.total_price,
-        default_price: eventPaymentInfo.price,
+        default_price: effectivePrice,
+        tier_id: selectedTier ? selectedTier.id : userOrder.tier_id,
+        tier_name: selectedTier?.tier_name || null,
       });
     }
 
@@ -172,7 +206,12 @@ export async function POST(request: Request) {
       // Reactivate Order
       await db
         .update(orders)
-        .set({ state: "new", updatedAt: new Date(), total_price: eventPaymentInfo.price })
+        .set({
+          state: "new",
+          updatedAt: new Date(),
+          total_price: effectivePrice,
+          tier_id: selectedTier ? selectedTier.id : userOrder.tier_id,
+        })
         .where(eq(orders.uuid, userOrder.uuid))
         .execute();
       return Response.json({
@@ -188,7 +227,9 @@ export async function POST(request: Request) {
         },
         utm_tag: body.data.affiliate_id,
         total_price: userOrder.total_price,
-        default_price: eventPaymentInfo.price,
+        default_price: effectivePrice,
+        tier_id: selectedTier ? selectedTier.id : userOrder.tier_id,
+        tier_name: selectedTier?.tier_name || null,
       });
     }
 
@@ -204,11 +245,22 @@ export async function POST(request: Request) {
             updatedAt: new Date(),
             total_price: discountedPrice,
             owner_address: body.data.owner_address || userOrder.owner_address,
+            tier_id: selectedTier ? selectedTier.id : userOrder.tier_id,
           })
           .where(eq(orders.uuid, userOrder.uuid))
           .execute();
 
-        const register_info = removeKey(body.data, "event_uuid");
+        const { event_uuid: _eu, tier_id: _ti, ...restData } = body.data;
+        const register_info: Record<string, string | null> = {
+          full_name: restData.full_name,
+          telegram: restData.telegram,
+          company: restData.company || null,
+          position: restData.position || null,
+          owner_address: restData.owner_address || null,
+          affiliate_id: restData.affiliate_id || null,
+          payment_method: restData.payment_method || null,
+          coupon_code: restData.coupon_code || null,
+        };
         await trx
           .insert(eventRegistrants)
           .values({
@@ -244,6 +296,10 @@ export async function POST(request: Request) {
         }
       });
 
+      if (isFree && selectedTier) {
+        await eventTicketTiersDB.incrementTierSoldCount(selectedTier.id, 1);
+      }
+
       let inviteLink: string | null = null;
       if (isFree) {
         const reg = await db.query.eventRegistrants.findFirst({
@@ -269,7 +325,9 @@ export async function POST(request: Request) {
           logo_url: paymentToken.logo_url,
         },
         total_price: discountedPrice,
-        default_price: eventPaymentInfo.price,
+        default_price: effectivePrice,
+        tier_id: selectedTier ? selectedTier.id : userOrder.tier_id,
+        tier_name: selectedTier?.tier_name || null,
       });
     }
   }
@@ -296,7 +354,7 @@ export async function POST(request: Request) {
           event_uuid: body.data.event_uuid,
           user_id: userId,
 
-          default_price: eventPaymentInfo.price,
+          default_price: effectivePrice,
           total_price: discountedPrice,
           token_id: eventPaymentInfo.token_id,
 
@@ -307,6 +365,7 @@ export async function POST(request: Request) {
           utm_source: body.data.affiliate_id,
           updatedBy: "system",
           coupon_id: couponId,
+          tier_id: selectedTier ? selectedTier.id : null,
         })
         .returning()
         .execute()
@@ -316,7 +375,17 @@ export async function POST(request: Request) {
     new_order_uuid = new_order?.uuid;
 
     // insert event registrants
-    const register_info = removeKey(body.data, "event_uuid");
+    const { event_uuid: _newEu, tier_id: _newTi, ...restNewData } = body.data;
+    const register_info: Record<string, string | null> = {
+      full_name: restNewData.full_name,
+      telegram: restNewData.telegram,
+      company: restNewData.company || null,
+      position: restNewData.position || null,
+      owner_address: restNewData.owner_address || null,
+      affiliate_id: restNewData.affiliate_id || null,
+      payment_method: restNewData.payment_method || null,
+      coupon_code: restNewData.coupon_code || null,
+    };
     const [regRow] = await trx
       .insert(eventRegistrants)
       .values({
@@ -355,6 +424,10 @@ export async function POST(request: Request) {
     }
   });
 
+  if (isFree && selectedTier) {
+    await eventTicketTiersDB.incrementTierSoldCount(selectedTier.id, 1);
+  }
+
   let inviteLink: string | null = null;
   if (isFree && insertedRegistrantId) {
     inviteLink = await issueAndSendEventInviteLink(body.data.event_uuid, userId, insertedRegistrantId);
@@ -377,7 +450,9 @@ export async function POST(request: Request) {
         logo_url: paymentToken.logo_url,
       },
       total_price: new_order_price,
-      default_price: eventPaymentInfo.price,
+      default_price: effectivePrice,
+      tier_id: selectedTier ? selectedTier.id : null,
+      tier_name: selectedTier?.tier_name || null,
     });
   } else {
     return Response.json({

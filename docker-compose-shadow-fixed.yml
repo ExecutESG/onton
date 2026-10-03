@@ -92,7 +92,6 @@ services:
         NFT_MANAGER_PORT: 3005
         MINI_APP_DOMAIN: ${MINI_APP_DOMAIN}
         MINI_APP_PORT: 3000
-        NODE_TLS_REJECT_UNAUTHORIZED: 0
     hostname: participant-tma
     <<: [*default-extra-hosts, *common-env]
     environment:

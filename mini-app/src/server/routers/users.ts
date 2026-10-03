@@ -8,6 +8,7 @@ import { TRPCError } from "@trpc/server";
 import { Bot } from "grammy";
 import { z } from "zod";
 import { fetchOntonSettings } from "@/db/modules/ontoSetting";
+import { userIdentitiesDB } from "@/db/modules/userIdentities.db";
 import { adminOrganizerProtectedProcedure, initDataProtectedProcedure, publicProcedure, router } from "../trpc";
 
 export const usersRouter = router({
@@ -45,6 +46,47 @@ export const usersRouter = router({
     )
     .mutation(async (opts) => {
       await usersDB.updateWallet(opts.ctx.user.user_id, opts.input.wallet, opts.ctx.user.user_id.toString());
+      const linkRes = await userIdentitiesDB.linkIdentity(
+        opts.ctx.user.user_id,
+        "ton_wallet",
+        opts.input.wallet,
+        { address: opts.input.wallet }
+      );
+      if (!linkRes.success && linkRes.error?.includes("already linked")) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: linkRes.error,
+        });
+      }
+    }),
+
+  getLinkedIdentities: initDataProtectedProcedure.query(async (opts) => {
+    const identities = await userIdentitiesDB.getIdentitiesByUserId(opts.ctx.user.user_id);
+    return identities.map((item) => ({
+      id: item.id,
+      provider: item.provider,
+      providerUserId: item.provider_user_id,
+      metadata: item.provider_metadata,
+      createdAt: item.created_at,
+    }));
+  }),
+
+  unlinkIdentity: initDataProtectedProcedure
+    .input(
+      z.object({
+        provider: z.enum(["telegram", "google", "ton_wallet", "email"]),
+      })
+    )
+    .mutation(async (opts) => {
+      const result = await userIdentitiesDB.unlinkIdentity(opts.ctx.user.user_id, opts.input.provider);
+      if (!result.success) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: result.error || "Failed to unlink identity",
+        });
+      }
+      await redisTools.deleteCache(cacheKeys.user + opts.ctx.user.user_id);
+      return { success: true };
     }),
   createUserReward: initDataProtectedProcedure
     .input(

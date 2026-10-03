@@ -51,12 +51,21 @@ def check_ssh(name, host, password):
             print(f"❌ CONNECTION FAILED: Unknown Error \nOutput snippet: {decoded[:200]}...")
 
 # Credentials
-PROD_HOST = "65.109.212.86"
-PROD_PASS = "89*evddQFpZXHA7BCnmV"
+PROD_HOST = os.environ.get("PROD_HOST", "65.109.212.86")
+PROD_PASS = os.environ.get("PROD_PASS")
 
-DEV_HOST = "65.109.205.239"
-DEV_PASS = "M4XjHXnrg4Xm"
+DEV_HOST = os.environ.get("DEV_HOST", "65.109.205.239")
+DEV_PASS = os.environ.get("DEV_PASS")
 
-check_ssh("PRODUCTION", PROD_HOST, PROD_PASS)
-print("\n")
-check_ssh("DEV SERVER", DEV_HOST, DEV_PASS)
+if not PROD_PASS and not DEV_PASS:
+    import getpass
+    print("Notice: PROD_PASS / DEV_PASS environment variables not set.")
+    PROD_PASS = getpass.getpass(f"Enter root password for PRODUCTION ({PROD_HOST}): ")
+    DEV_PASS = getpass.getpass(f"Enter root password for DEV ({DEV_HOST}): ")
+
+if PROD_PASS:
+    check_ssh("PRODUCTION", PROD_HOST, PROD_PASS)
+    print("\n")
+
+if DEV_PASS:
+    check_ssh("DEV SERVER", DEV_HOST, DEV_PASS)

@@ -1,23 +1,10 @@
 import { Bot } from "grammy";
 import { configProtected } from "./onton-config";
-import { sleep } from "./utils";
 import { logger } from "./logger";
 
 let logsBot: undefined | Bot;
 
-const getLogsBot = async (): Promise<Bot> => {
-  try {
-    if (!logsBot) {
-      logsBot = new Bot(configProtected["bot_token_logs"]);
-    }
-    return logsBot;
-  } catch (error) {
-    await sleep(1000);
-    return await getLogsBot();
-  }
-};
-
-getLogsBot();
+const DEFAULT_LOGS_GROUP_ID = "-1002264975789";
 
 const logs_topics = [
   "events_topic",
@@ -27,21 +14,59 @@ const logs_topics = [
   "system_topic",
 ] as const;
 
+const TOPIC_DEFAULTS: Record<(typeof logs_topics)[number], number> = {
+  events_topic: 2,
+  general: 1,
+  tickets_topic: 4,
+  organizers_topic: 214,
+  system_topic: 12,
+};
+
+const getLogsBot = (): Bot | null => {
+  if (logsBot) return logsBot;
+
+  const token =
+    configProtected?.["bot_token_logs"] ||
+    process.env.BOT_TOKEN ||
+    process.env.TELEGRAM_BOT_TOKEN;
+
+  if (token && !token.startsWith("$") && !token.includes("${")) {
+    logsBot = new Bot(token);
+    return logsBot;
+  }
+
+  return null;
+};
+
 export const sendTopicMessage = async (
   topic: (typeof logs_topics)[number],
   text: string,
 ) => {
   try {
+    const activeBot = getLogsBot();
+    if (!activeBot) {
+      logger.warn("telegram bot sendTopicMessage skipped: no valid bot token configured");
+      return;
+    }
 
-    await logsBot.api.sendMessage(
-      Number(configProtected["logs_group_id"]),
-      text,
-      {
-        reply_to_message_id: Number(configProtected[topic]),
-      },
+    const groupId = Number(
+      configProtected?.["logs_group_id"] ||
+      process.env.LOGS_GROUP_ID ||
+      DEFAULT_LOGS_GROUP_ID
     );
+
+    const replyTopicId = Number(
+      configProtected?.[topic] || TOPIC_DEFAULTS[topic]
+    );
+
+    // Topic 1 is General in Telegram forums; messages without thread ID route to General
+    const options = replyTopicId && replyTopicId !== 1
+      ? { reply_to_message_id: replyTopicId }
+      : undefined;
+
+    await activeBot.api.sendMessage(groupId, text, options);
   } catch (error) {
-    // __AUTO_GENERATED_PRINT_VAR_START__
-    logger.error("telegram bot sendTopicMessage error:", error); // __AUTO_GENERATED_PRINT_VAR_END__
+    logger.error("telegram bot sendTopicMessage error:", error);
   }
 };
+

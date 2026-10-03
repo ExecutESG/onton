@@ -256,3 +256,28 @@ ul > li > div > div > div.text-sm {
   justify-content: center;
   align-items: center;
 }
+
+/* TonConnect UI modal & elements stacking context: ensure it renders above all dialogs (OntonDialog z-1100/1200) */
+#tc-widget-root {
+  position: relative;
+  z-index: 99999 !important;
+}
+
+[data-tc-modal="true"],
+div[data-tc-modal="true"] {
+  z-index: 99999 !important;
+}
+
+[data-tc-modal="true"] .tc-modal,
+[data-tc-modal="true"] .tc-modal__content {
+  z-index: 99999 !important;
+}
+
+[data-tc-dropdown-container="true"] {
+  z-index: 99999 !important;
+}
+
+[data-tc-actions-modal-container="true"] {
+  z-index: 99999 !important;
+}
+

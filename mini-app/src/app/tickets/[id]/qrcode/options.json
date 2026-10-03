@@ -1,0 +1,31 @@
+{
+  "width": 294,
+  "height": 294,
+  "data": "",
+  "margin": 10,
+  "qrOptions": {
+    "typeNumber": "0",
+    "mode": "Byte",
+    "errorCorrectionLevel": "Q"
+  },
+  "imageOptions": {
+    "hideBackgroundDots": true,
+    "imageSize": 0.5,
+    "margin": 16
+  },
+  "dotsOptions": {
+    "type": "square",
+    "color": "#000000"
+  },
+  "backgroundOptions": {
+    "color": "#ffffff"
+  },
+  "cornersSquareOptions": {
+    "type": "",
+    "color": "#000000"
+  },
+  "cornersDotOptions": {
+    "type": "",
+    "color": "#000000"
+  }
+}

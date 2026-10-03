@@ -11,11 +11,16 @@ export const generalStepDataSchema = z.object({
     .string({ required_error: "Please enter a description" })
     .min(20, { message: "Description must be at least 20 character" }),
   image_url: z.string({ required_error: "Please select an image" }).url({ message: "Please select a valid image" }),
-  hub: z.string({ required_error: "Please select a hub" }).min(1, { message: "Please select a hub" }),
+  hub: z.string().optional(),
   category_id: z.number({ required_error: "Please select a category" }),
 });
 
-export function rewardStepValidation(isPaid: boolean, hasRegistration: boolean, editing: boolean) {
+export function rewardStepValidation(
+  isPaid: boolean,
+  hasRegistration: boolean,
+  editing: boolean,
+  hasWeb3: boolean = true
+) {
   return z.object({
     secret_phrase:
       isPaid || hasRegistration
@@ -26,10 +31,10 @@ export function rewardStepValidation(isPaid: boolean, hasRegistration: boolean, 
               .string()
               .min(4, { message: "Password must be at least 4 characters" })
               .max(60, { message: "Password must be less than 60 characters" }),
-    ts_reward_url: editing
+    ts_reward_url: !hasWeb3 || editing
       ? z.string().url({ message: "Please select a valid reward image URL" }).optional()
       : z.string().url({ message: "Please select a valid reward image URL" }),
-    video_url: editing
+    video_url: !hasWeb3 || editing
       ? z.string().url({ message: "Please select a valid reward video URL" }).optional()
       : z.string().url({ message: "Please select a valid reward video URL" }),
   });

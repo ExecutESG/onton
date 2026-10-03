@@ -257,6 +257,36 @@ test.describe.serial("Attendee registration + permissions + check-in", () => {
     expect(response.status, response.errorMessage).toBe(200);
     expect(response.data?.message).toMatch(/already/i);
   });
+
+  test("non-admin cannot mint SBTs manually (F-29)", async () => {
+    const response = await attendee.mutation<unknown>("sbt.mintBadge", {
+      eventUuid: inPersonUuid,
+      walletAddress: "QA-E2E-NOT-A-WALLET",
+    });
+    expect(["FORBIDDEN", "UNAUTHORIZED"]).toContain(response.errorCode);
+  });
+
+  test("only the ticket owner can claim its SBT (F-29)", async () => {
+    const response = await organizer.mutation<unknown>("sbt.claimAttendanceSbt", {
+      ticketUuid: inPersonRegistrantUuid,
+      walletAddress: "QA-E2E-NOT-A-WALLET",
+    });
+    expect(response.errorCode).toBe("NOT_FOUND");
+  });
+
+  test("auth link rejects unproven wallet and Google identities (F-26)", async () => {
+    const attendeeInitData = signTelegramInitData({ id: attendeeId, first_name: "challenquizer", username: "challenquizer" }, botToken);
+    for (const body of [
+      { provider: "ton_wallet", data: { address: "QA-E2E-NOT-A-WALLET" } },
+      { provider: "google", data: { sub: "qa-e2e-fake-sub" } },
+    ]) {
+      const response = await context.post(`${baseURL}/api/v1/auth/link`, {
+        headers: { Authorization: attendeeInitData, "Content-Type": "application/json" },
+        data: body,
+      });
+      expect(response.status(), `${body.provider} link must be rejected`).toBe(400);
+    }
+  });
 });
 
 test.describe.serial("Approval-gated registration", () => {

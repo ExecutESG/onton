@@ -301,7 +301,7 @@ moderationComposer.callbackQuery(/^ban_([^_]+)_(.+)$/, async (ctx) => {
   const client = await pool.connect();
   try {
     // 1) Mark user as banned
-    await client.query(`UPDATE users SET role = 'banned', updated_at = NOW() WHERE user_id = $1`, [organizerUserId]);
+    await client.query(`UPDATE users SET role = 'ban', updated_at = NOW() WHERE user_id = $1`, [organizerUserId]);
     await redisTools.deleteCache(`${redisTools.cacheKeys.user}${organizerUserId}`);
 
     // 2) Cascading takedown of all owned events

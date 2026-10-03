@@ -27,6 +27,15 @@ export function ConnectWalletCard() {
 
   const pathanmem = usePathname();
 
+  const trpcUtils = trpc.useUtils();
+  const unlinkWalletMutation = trpc.users.unlinkIdentity.useMutation({
+    onSuccess: () => {
+      trpcUtils.users.getWallet.invalidate();
+      trpcUtils.users.syncUser.invalidate();
+      trpcUtils.users.getLinkedIdentities.invalidate();
+    },
+  });
+
   const handleConnectClick = () => {
     if (pathanmem === "/my") {
       setOpen(true);
@@ -49,44 +58,29 @@ export function ConnectWalletCard() {
 
       <div className="p-4 pt-0">
         {hasWallet ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger className="w-full">
-              <CustomButton
-                variant="ghost"
-                icon={<ChevronDownIcon />}
-                className="w-full flex-row-reverse justify-between"
-              >
-                {formatWalletAddress(tonWallet?.account.address!)}
-              </CustomButton>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              side="top"
-              sideOffset={0}
-              border="dark"
-              fullWidth
-              borderRadius="lg"
+          <div className="flex gap-2 items-center">
+            <div className="flex-1 px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-neutral-800 border border-gray-100 dark:border-neutral-700 font-mono text-sm text-gray-800 dark:text-gray-200 truncate">
+              {formatWalletAddress(tonWallet?.account.address!)}
+            </div>
+            <CustomButton
+              variant="outline"
+              size="md"
+              buttonClassName="!w-auto px-4 border-red-200 text-red-500 hover:bg-red-50 dark:border-red-900/40 dark:text-red-400"
+              onClick={async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                try {
+                  await tonconnect.disconnect();
+                } catch (err) {
+                  console.error("TonConnect disconnect error:", err);
+                }
+                unlinkWalletMutation.mutate({ provider: "ton_wallet" });
+                toast.success("Wallet disconnected");
+              }}
             >
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.preventDefault();
-                  tonconnect.disconnect();
-                  toast.success("Wallet disconnected");
-                }}
-                className="cursor-pointer !py-3"
-              >
-                <Wallet
-                  className="!text-xl !w-5 !h-5"
-                  size={20}
-                />
-                <Typography
-                  variant="body"
-                  weight="medium"
-                >
-                  Disconnect wallet
-                </Typography>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              Disconnect
+            </CustomButton>
+          </div>
         ) : (
           <CustomButton
             variant="primary"

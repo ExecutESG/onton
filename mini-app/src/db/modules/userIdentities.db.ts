@@ -212,7 +212,7 @@ export const userIdentitiesDB = {
   async unlinkIdentity(userId: number, provider: string): Promise<{ success: boolean; error?: string }> {
     try {
       const identities = await this.getIdentitiesByUserId(userId);
-      if (identities.length <= 1) {
+      if (provider !== "ton_wallet" && identities.length <= 1) {
         return {
           success: false,
           error: "Cannot unlink the only authentication method on this account.",

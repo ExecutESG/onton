@@ -240,7 +240,17 @@ export default function LinkedAccountsCard() {
                 Cancel
               </button>
               <button
-                onClick={() => unlinkMutation.mutate({ provider: unlinkConfirmProvider as any })}
+                onClick={async () => {
+                  const provider = unlinkConfirmProvider;
+                  if (provider === "ton_wallet") {
+                    try {
+                      await tonconnect.disconnect();
+                    } catch (e) {
+                      console.error("TonConnect disconnect error:", e);
+                    }
+                  }
+                  unlinkMutation.mutate({ provider: provider as any });
+                }}
                 disabled={unlinkMutation.isPending}
                 className="px-4 py-2 text-sm rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium transition flex items-center gap-2"
               >

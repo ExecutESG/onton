@@ -85,6 +85,7 @@ export const usersRouter = router({
           message: result.error || "Failed to unlink identity",
         });
       }
+      await redisTools.deleteCache(cacheKeys.user + opts.ctx.user.user_id);
       return { success: true };
     }),
   createUserReward: initDataProtectedProcedure

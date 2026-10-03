@@ -18,6 +18,8 @@ import { useSectionStore } from "@/zustand/useSectionStore";
 import { Card } from "konsta/react";
 import { ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
+import CustomButton from "@/app/_components/Button/CustomButton";
+import { Plus } from "lucide-react";
 import { useEffect } from "react";
 import calendarStarIcon from "./calendar-star.svg";
 import badgeAwardIcon from "./badge-award.svg";
@@ -53,6 +55,19 @@ export default function ProfilePage() {
   return (
     <div className="relative isolate">
       {user?.org_channel_name && <InlineChannelCard data={user} />}
+      <div className="px-4 pt-4 pb-2 w-full">
+        <CustomButton
+          variant="primary"
+          onClick={(e) => {
+            setSection("event_setup_form_general_step");
+            router.push("/events/create");
+          }}
+          icon={<Plus size={20} />}
+          className="justify-center font-semibold"
+        >
+          Create New Event
+        </CustomButton>
+      </div>
       <ActionCard
         onClick={(e) => {
           router.push("/my/participated");
@@ -111,18 +126,7 @@ export default function ProfilePage() {
       <ConnectWalletCard />
       <LinkedAccountsCard />
 
-      <div
-        className="fixed text-primary drop-shadow rounded-full right-4 pt-1 z-[1100] cursor-pointer"
-        onClick={(e) => {
-          setSection("event_setup_form_general_step");
-          router.push("/events/create");
-        }}
-        style={{
-          bottom: `calc(90px + var(--tg-safe-area-inset-bottom, 0px))`,
-        }}
-      >
-        <FabPlusIcon />
-      </div>
+      
     </div>
   );
 }

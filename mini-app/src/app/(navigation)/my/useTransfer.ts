@@ -44,7 +44,7 @@ class TonConnectSender implements Sender {
     const validUntil = Math.floor(Date.now() / 1000) + 600;
 
     // The address of the recipient, should be in bounceable format for all smart contracts.
-    const address = args.to.toString({ urlSafe: true, bounceable: true });
+    const address = args.to.toString({ urlSafe: true, bounceable: true, testOnly: isTestnet });
 
     // The address of the sender, if available.
     const from = this.address?.toRawString();
@@ -72,6 +72,7 @@ class TonConnectSender implements Sender {
     await this.provider.sendTransaction({
       validUntil: validUntil,
       from: from,
+      network: isTestnet ? "-3" : "-239",
       messages: [
         {
           address: address,
@@ -84,7 +85,7 @@ class TonConnectSender implements Sender {
   }
 }
 
-const isTestnet = !(/*NOT*/ ["production", "stage", "staging"].includes(process.env.NEXT_PUBLIC_ENV || "development"));
+const isTestnet = (process.env.NEXT_PUBLIC_ENV || "development") !== "production";
 
 const NETWORK = isTestnet ? "testnet" : "mainnet";
 export const assetsSdk = async (provider: TonConnectUI) => {
@@ -147,9 +148,10 @@ export default function useTransferTon() {
 
       await tonConnectUI.sendTransaction({
         validUntil: Math.floor(Date.now() / 1000) + 360,
+        network: isTestnet ? "-3" : "-239",
         messages: [
           {
-            address: destinationAddress.toString(),
+            address: destinationAddress.toString({ testOnly: isTestnet, bounceable: true }),
             amount: toNano(amount).toString(),
             payload: body.toString("base64"),
           },

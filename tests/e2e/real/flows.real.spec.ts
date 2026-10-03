@@ -192,6 +192,28 @@ test.describe.serial("Attendee registration + permissions + check-in", () => {
     expect(await registrantStatus(inPersonUuid, attendeeId)).toBe("approved");
   });
 
+  test("pass token is issued only to the pass owner (F-24)", async () => {
+    const response = await organizer.query<PassToken>("registrant.getRegistrantQrToken", { registrant_uuid: inPersonRegistrantUuid });
+    expect(response.errorCode).toBe("NOT_FOUND");
+  });
+
+  test("officer: static registrant UUID is rejected (F-24)", async () => {
+    const response = await officer.mutation<unknown>("registrant.checkinRegistrantRequest", {
+      event_uuid: inPersonUuid,
+      registrant_uuid: inPersonRegistrantUuid,
+    });
+    expect(response.errorCode).toBe("BAD_REQUEST");
+    expect(await registrantStatus(inPersonUuid, attendeeId)).toBe("approved");
+  });
+
+  test("attendee cannot use ticket scan or ticket check-in (F-25)", async () => {
+    const scan = await attendee.query<unknown>("ticket.getTicketByUuid", { event_uuid: inPersonUuid, ticketUuid: inPersonRegistrantUuid });
+    expect(["FORBIDDEN", "UNAUTHORIZED"]).toContain(scan.errorCode);
+    const checkIn = await attendee.mutation<unknown>("ticket.checkInTicket", { event_uuid: inPersonUuid, ticketUuid: inPersonRegistrantUuid });
+    expect(["FORBIDDEN", "UNAUTHORIZED"]).toContain(checkIn.errorCode);
+    expect(await registrantStatus(inPersonUuid, attendeeId)).toBe("approved");
+  });
+
   test("officer: forged pass signature is rejected", async () => {
     const pass = await attendee.query<PassToken>("registrant.getRegistrantQrToken", { registrant_uuid: inPersonRegistrantUuid });
     const token = pass.data?.token ?? "";

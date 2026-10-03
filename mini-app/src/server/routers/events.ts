@@ -645,7 +645,11 @@ const updateEvent = eventManagerPP
                 .set({ total_price: eventDB.getPaidEventPrice(eventData.capacity, ticketType) })
                 .where(where_condition)
                 .execute();
-              await trx.update(eventPayment).set({ bought_capacity: eventData.capacity });
+              await trx
+                .update(eventPayment)
+                .set({ bought_capacity: eventData.capacity })
+                .where(eq(eventPayment.event_uuid, eventUuid))
+                .execute();
             }
           }
 

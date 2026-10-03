@@ -66,24 +66,14 @@ export const userEventFieldsRouter = router({
         });
       }
 
-      // Generate the fixed password based on the current date
-      const today = new Date();
-      const dayOfMonth = today.getDate(); // Current day of the month
-      const monthNameShort = today.toLocaleString("en-US", { month: "short" }); // Abbreviated month name
-      // Fixed password format: <dayOfMonth>ShahKey@<monthNameShort>
-      // [day_of_month]ShahKey@[month_name_short]
-      const fixedPassword = `${dayOfMonth}ShahKey@${monthNameShort}`;
-
-      // Compare the entered password against both the fixed password and the real password
+      // Compare the entered password against the real password
       const enteredPassword = opts.input.data.trim().toLowerCase();
-
-      const isFixedPasswordCorrect = enteredPassword === fixedPassword.toLowerCase();
 
       const isRealPasswordCorrect = eventData.secret_phrase
         ? await bcryptLib.comparePassword(enteredPassword, eventData.secret_phrase)
         : false;
 
-      if (!isFixedPasswordCorrect && !isRealPasswordCorrect) {
+      if (!isRealPasswordCorrect) {
         throw new TRPCError({
           message: `Password incorrect, try again. ${remaining}/${EVENT_PASSWORD_RATE_LIMIT.max} attempts remaining.`,
           code: TRPC_ERROR_CODES_BY_NUMBER["-32003"],

@@ -145,7 +145,7 @@ export const ticketRouter = router({
             `CHECKIN::SBT::Reward::Created user reward for user ${userId} and event uuid ${ticketData.event_uuid} with reward ID ${reward.id} (status: ${sbtStatus})`,
             reward
           );
-        } else if (existingReward && sbtStatus === "created" && rewardLink) {
+        } else if (existingReward && (sbtStatus as string) === "created" && rewardLink) {
           await rewardDB.updateReward(existingReward.id, {
             reward_link: rewardLink,
             sbt_address: sbtAddress,

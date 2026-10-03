@@ -222,16 +222,9 @@ export const sendLogNotification = async (
   // 3) Create a grammY bot instance
   const logBot = new Bot(BOT_TOKEN_LOGS);
 
-  // 5) Decide the final 'reply_to_message_id'
-  //    - if props.reply_to_message_id is provided, use it
-  //    - else if not a custom group and topic != "no_topic", use pinned topic message_id
-  //    - else undefined (no reply)
-  let finalReplyTo: number | undefined;
-  if (typeof props.reply_to_message_id === "number") {
-    finalReplyTo = props.reply_to_message_id;
-  } else if (!isCustomGroup && topicMessageId !== "no_topic") {
-    finalReplyTo = Number(topicMessageId);
-  }
+  // 4) Separate forum topic (message_thread_id) from message reply (reply_to_message_id)
+  const messageThreadId = !isCustomGroup && topicMessageId !== "no_topic" ? Number(topicMessageId) : undefined;
+  const replyToMessageId = typeof props.reply_to_message_id === "number" ? props.reply_to_message_id : undefined;
 
   if (props.media_group && props.media_group.length > 0) {
     // Telegram does not allow inline keyboards or individual captions on media groups.
@@ -258,16 +251,19 @@ export const sendLogNotification = async (
     }
 
     // 6b) sendMediaGroup has no 'reply_markup' support
-    //     We can optionally thread it via reply_to_message_id
+    //     Thread into topic via message_thread_id and optional reply_to_message_id
     try {
       const mediaGroupMessageId = await logBot.api.sendMediaGroup(Number(LOGS_GROUP_ID), mediaArray, {
-        reply_to_message_id: finalReplyTo,
+        message_thread_id: messageThreadId,
+        reply_to_message_id: replyToMessageId,
       });
       logger.log("Sent media group message", Number(LOGS_GROUP_ID), mediaGroupMessageId);
     } catch (err: any) {
-      if (finalReplyTo && err?.message?.includes("message to be replied not found")) {
+      if (replyToMessageId && err?.message?.includes("message to be replied not found")) {
         logger.warn("sendMediaGroup reply failed; retrying without reply_to_message_id", err?.message);
-        const mediaGroupMessageId = await logBot.api.sendMediaGroup(Number(LOGS_GROUP_ID), mediaArray);
+        const mediaGroupMessageId = await logBot.api.sendMediaGroup(Number(LOGS_GROUP_ID), mediaArray, {
+          message_thread_id: messageThreadId,
+        });
         logger.log("Sent media group message without reply", Number(LOGS_GROUP_ID), mediaGroupMessageId);
       } else {
         throw err;
@@ -281,7 +277,8 @@ export const sendLogNotification = async (
 
     logger.log("Sending telegram photo message", Number(LOGS_GROUP_ID), props.image, {
       caption: props.message,
-      reply_to_message_id: finalReplyTo, // <--- Use grammY's reply_to_message_id
+      message_thread_id: messageThreadId,
+      reply_to_message_id: replyToMessageId,
       reply_markup: props.inline_keyboard,
       parse_mode: "HTML",
     });
@@ -289,15 +286,17 @@ export const sendLogNotification = async (
     try {
       return await logBot.api.sendPhoto(Number(LOGS_GROUP_ID), new InputFile(buffer), {
         caption: props.message,
-        reply_to_message_id: finalReplyTo, // optional
+        message_thread_id: messageThreadId,
+        reply_to_message_id: replyToMessageId,
         reply_markup: props.inline_keyboard,
         parse_mode: "HTML",
       });
     } catch (err: any) {
-      if (finalReplyTo && err?.message?.includes("message to be replied not found")) {
+      if (replyToMessageId && err?.message?.includes("message to be replied not found")) {
         logger.warn("sendPhoto reply failed; retrying without reply_to_message_id", err?.message);
         return await logBot.api.sendPhoto(Number(LOGS_GROUP_ID), new InputFile(buffer), {
           caption: props.message,
+          message_thread_id: messageThreadId,
           reply_markup: props.inline_keyboard,
           parse_mode: "HTML",
         });
@@ -310,15 +309,17 @@ export const sendLogNotification = async (
   try {
     return await logBot.api.sendMessage(Number(LOGS_GROUP_ID), props.message, {
       parse_mode: "HTML",
-      reply_to_message_id: finalReplyTo, // optional
+      message_thread_id: messageThreadId,
+      reply_to_message_id: replyToMessageId,
       reply_markup: props.inline_keyboard,
       link_preview_options: { is_disabled: true },
     });
   } catch (err: any) {
-    if (finalReplyTo && err?.message?.includes("message to be replied not found")) {
+    if (replyToMessageId && err?.message?.includes("message to be replied not found")) {
       logger.warn("sendMessage reply failed; retrying without reply_to_message_id", err?.message);
       return await logBot.api.sendMessage(Number(LOGS_GROUP_ID), props.message, {
         parse_mode: "HTML",
+        message_thread_id: messageThreadId,
         reply_markup: props.inline_keyboard,
         link_preview_options: { is_disabled: true },
       });
@@ -366,24 +367,20 @@ export async function sendLogNotificationWithCsv(props: CsvLogProps) {
   }
 
   const logBot = new Bot(BOT_TOKEN_LOGS);
+  const topicThreadId = topicMessageId !== "no_topic" ? Number(topicMessageId) : undefined;
 
   // Create a buffer for the CSV file
   const csvBuffer = Buffer.from(props.csvContent, "utf-8");
 
   logger.log("Sending telegram message with CSV attachment to", LOGS_GROUP_ID, {
     caption: props.message,
-    reply_parameters:
-      topicMessageId === "no_topic"
-        ? undefined
-        : {
-            message_id: Number(topicMessageId),
-          },
+    message_thread_id: topicThreadId,
   });
 
   // Use sendDocument to attach the CSV
   return await logBot.api.sendDocument(Number(LOGS_GROUP_ID), new InputFile(csvBuffer, props.csvFileName), {
     caption: props.message,
-    reply_parameters: topicMessageId === "no_topic" ? undefined : { message_id: Number(topicMessageId) },
+    message_thread_id: topicThreadId,
     reply_markup: props.inline_keyboard,
     parse_mode: "HTML",
   });

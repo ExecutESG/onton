@@ -1,9 +1,10 @@
 import { Page } from "@playwright/test";
 import nacl from "../../../mini-app/node_modules/tweetnacl";
-import { sha256 } from "../../../mini-app/node_modules/@ton/crypto";
+import { sha256, mnemonicToPrivateKey } from "../../../mini-app/node_modules/@ton/crypto";
 import { Address, WalletContractV4, beginCell, storeStateInit } from "../../../mini-app/node_modules/@ton/ton";
 
 export interface HeadlessTonWalletConfig {
+  mnemonic?: string[];
   secretKey?: Uint8Array;
   publicKey?: Uint8Array;
   domain?: string;
@@ -29,6 +30,31 @@ export function generateTonTestWallet(): {
   stateInitBase64: string;
 } {
   const keyPair = nacl.sign.keyPair();
+  const publicKeyBuffer = Buffer.from(keyPair.publicKey);
+  const wallet = WalletContractV4.create({ workchain: 0, publicKey: publicKeyBuffer });
+  const rawAddress = wallet.address.toRawString();
+  const userFriendlyAddress = wallet.address.toString({ bounceable: false, testOnly: true });
+  const stateInitCell = beginCell().store(storeStateInit(wallet.init)).endCell();
+  const stateInitBase64 = stateInitCell.toBoc().toString("base64");
+
+  return {
+    keyPair,
+    rawAddress,
+    userFriendlyAddress,
+    publicKeyHex: publicKeyBuffer.toString("hex"),
+    stateInitBase64,
+  };
+}
+
+export async function generateTonTestWalletFromMnemonic(mnemonic: string[]): Promise<{
+  keyPair: nacl.SignKeyPair;
+  rawAddress: string;
+  userFriendlyAddress: string;
+  publicKeyHex: string;
+  stateInitBase64: string;
+}> {
+  const key = await mnemonicToPrivateKey(mnemonic);
+  const keyPair = { publicKey: new Uint8Array(key.publicKey), secretKey: new Uint8Array(key.secretKey) };
   const publicKeyBuffer = Buffer.from(keyPair.publicKey);
   const wallet = WalletContractV4.create({ workchain: 0, publicKey: publicKeyBuffer });
   const rawAddress = wallet.address.toRawString();
@@ -108,7 +134,7 @@ export async function injectHeadlessTonWallet(
   page: Page,
   config: HeadlessTonWalletConfig = {}
 ): Promise<GeneratedWalletSession> {
-  const walletData = generateTonTestWallet();
+  const walletData = config.mnemonic ? await generateTonTestWalletFromMnemonic(config.mnemonic) : generateTonTestWallet();
   const rawAddress = walletData.rawAddress;
   const userFriendlyAddress = walletData.userFriendlyAddress;
   const publicKeyHex = walletData.publicKeyHex;

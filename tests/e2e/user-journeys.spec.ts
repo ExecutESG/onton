@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 const BASE_URL = process.env.BASE_URL || "https://app.dev.onton.live";
-const KNOWN_EVENT_UUID = "0cf4733c-190c-4e5a-9a1d-8d8631f7b725";
+const KNOWN_EVENT_UUID = process.env.E2E_PUBLIC_EVENT_UUID || "0cf4733c-190c-4e5a-9a1d-8d8631f7b725";
 
 test.describe("Core User Journeys - Event Discovery", () => {
   test("Public events catalog renders banner, title, organizer, and ticket price", async ({ page }) => {

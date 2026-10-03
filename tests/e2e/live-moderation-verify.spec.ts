@@ -5,7 +5,7 @@ import { execSync } from "child_process";
 const BASE_URL = process.env.BASE_URL || "https://app.dev.onton.live";
 const KNOWN_EVENT_UUID = "0cf4733c-190c-4e5a-9a1d-8d8631f7b725";
 const MODERATION_GROUP_ID = "-1004304657491";
-const BOT_TOKEN = process.env.BOT_TOKEN || "8050787009:AAFnaa_NuorhW5DtYzsqMc9IltOUP-JUw_c";
+const BOT_TOKEN = process.env.BOT_TOKEN ?? "";
 
 function generateTestTelegramInitData(botToken: string, userId?: number, username?: string): string {
   const uid = userId || Math.floor(100000000 + Math.random() * 900000000);
@@ -32,6 +32,7 @@ function generateTestTelegramInitData(botToken: string, userId?: number, usernam
 }
 
 test.describe("Live Staging Moderation End-to-End Dispatch Verification", () => {
+  test.skip(!BOT_TOKEN, "BOT_TOKEN env var (staging bot) is required for live moderation verification");
   test("Submit authenticated abuse report via tRPC and verify Telegram alert in staging moderation supergroup", async ({
     request,
   }) => {

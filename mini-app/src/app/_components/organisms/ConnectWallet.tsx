@@ -12,7 +12,7 @@ import { Button } from "konsta/react";
 import { ChevronDownIcon, Wallet } from "lucide-react";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { toast } from "sonner";
 import CustomCard from "../atoms/cards/CustomCard";
 import { NFT_EVENT_PRICE } from "@/constants";
@@ -134,6 +134,8 @@ function ConfirmConnectDialog({ open, onClose }: { open: boolean; onClose: () =>
 
   const { user } = useUserStore();
 
+  const prevWalletRef = useRef(tonWalletAddress);
+
   useEffect(() => {
     if (!user?.user_id) return;
 
@@ -141,12 +143,15 @@ function ConfirmConnectDialog({ open, onClose }: { open: boolean; onClose: () =>
       onClose();
     }
 
-    if (!user?.wallet_address && tonWalletAddress) {
+    // Only auto-link if the wallet address JUST became available (e.g. user just scanned QR),
+    // preventing auto-linking on page load if local storage has a stale session.
+    if (!user?.wallet_address && tonWalletAddress && prevWalletRef.current !== tonWalletAddress) {
       toast.success("Your wallet is now connected");
       addWalletMutation.mutate({
         wallet: tonWalletAddress,
       });
     }
+    prevWalletRef.current = tonWalletAddress;
   }, [addWalletMutation, onClose, tonWalletAddress, user?.user_id, user?.wallet_address]);
 
   const isTonModalOpen = walletModal.state?.status === "opened";

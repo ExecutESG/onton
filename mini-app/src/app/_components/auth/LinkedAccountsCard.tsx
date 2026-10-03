@@ -5,13 +5,14 @@ import CustomCard from "@/app/_components/atoms/cards/CustomCard";
 import Typography from "@/components/Typography";
 import { trpc } from "@/app/_trpc/client";
 import { useUserStore } from "@/context/store/user.store";
-import { useTonConnectModal, useTonWallet } from "@tonconnect/ui-react";
+import { useTonConnectModal, useTonWallet, useTonConnectUI } from "@tonconnect/ui-react";
 import { formatWalletAddress } from "@/server/utils/wallets-data";
 import { CheckCircle2, Link2, Loader2, ShieldCheck, Unlink } from "lucide-react";
 import { toast } from "sonner";
 import OntonDialog from "@/components/OntonDialog";
 
 export default function LinkedAccountsCard() {
+  const [tonconnect] = useTonConnectUI();
   const { user } = useUserStore();
   const tonWallet = useTonWallet();
   const walletModal = useTonConnectModal();
@@ -23,7 +24,10 @@ export default function LinkedAccountsCard() {
   });
 
   const unlinkMutation = trpc.users.unlinkIdentity.useMutation({
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
+      if (variables.provider === "ton_wallet") {
+        tonconnect.disconnect();
+      }
       toast.success("Account unlinked successfully");
       trpcUtils.users.getLinkedIdentities.invalidate();
       trpcUtils.users.syncUser.invalidate();

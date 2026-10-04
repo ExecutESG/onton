@@ -399,6 +399,9 @@ function createTestContext(userOverrides: Partial<ExtendedUser> = {}): TRPCConte
     org_image: null,
     user_point: 0,
     affiliatorUserId: null,
+    founding_organizer_at: null,
+    fee_waiver_tickets_remaining: 0,
+    limits_override: null,
     CustomAccessRoles: [],
     ...userOverrides,
   };

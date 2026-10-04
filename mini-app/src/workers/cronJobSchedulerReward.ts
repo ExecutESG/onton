@@ -89,6 +89,20 @@ async function MainCronJob() {
     true // (waitForCompletion) => wait for onTick to finish
     // No errorHandler passed
   );
+
+  new CronJob(
+    "*/5 * * * *", // (cronTime) => every 5 minutes
+    cronJobRunner(cronJobs.freezeCsbtTrees),
+    null,
+    true
+  );
+
+  new CronJob(
+    "*/5 * * * *", // (cronTime) => every 5 minutes
+    cronJobRunner(cronJobs.anchorCsbtRoots),
+    null,
+    true
+  );
 }
 
 MainCronJob().then(() => logger.log("Cron Jobs Started"));

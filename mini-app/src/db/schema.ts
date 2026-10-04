@@ -49,6 +49,7 @@ import { rewards, RewardsSelectType, RewardTonSocietyStatusType, tonSocietyStatu
 import { sbtRewardCollections } from "./schema/sbtRewardCollections";
 import { sbtCollections, SbtCollectionRow, SbtCollectionInsert, SbtCollectionUpdate } from "./schema/sbtCollections";
 import { sbtItems, SbtItemRow, SbtItemInsert, SbtItemUpdate } from "./schema/sbtItems";
+import { csbtTrees, CsbtTreeRow, CsbtTreeInsert } from "./schema/csbtTrees";
 import { sideEvents } from "./schema/sideEvents";
 import { tickets, ticketsRelations } from "./schema/tickets";
 import { user_custom_flags, user_flags, userFlagsType } from "./schema/user_custom_flags";
@@ -407,6 +408,7 @@ export {
   usersOutlook,
   sbtCollections,
   sbtItems,
+  csbtTrees,
   user_identities,
   userIdentitiesRelations,
   eventReports,
@@ -550,4 +552,6 @@ export type {
   EventTicketTierRow,
   EventReportRow,
   EventReportInsert,
+  CsbtTreeRow,
+  CsbtTreeInsert,
 };

@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "init:minio:local": "dotenv -e ../.env -- cross-var tsx ./src/scripts/initMinio.ts",
+    "build:legacy-trees": "dotenv -e ../.env -- cross-var tsx ./scripts/buildLegacyCsbtTrees.ts",
     "seed:event": "tsx ../scripts/seed-test-event.ts",
     "test:api": "vitest run",
     "init:minio:server": "tsx ./src/scripts/initMinio.ts",

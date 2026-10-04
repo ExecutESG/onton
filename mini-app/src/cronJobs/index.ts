@@ -35,8 +35,12 @@ import { sendPendingPromoCodes } from "@/cronJobs/tasks/promoCron";
 import { createWalletsForUpcomingEvents } from "@/cronJobs/tasks/createEventWallets";
 import { distributeRafflesTon } from "@/cronJobs/tasks/distributeRaffleTon";
 import { sendAllPendingPrizeNotifications } from "@/cronJobs/tasks/sendAllPendingPrizeNotifications";
+import { freezeCsbtTrees } from "@/cronJobs/tasks/freezeCsbtTrees";
+import { anchorCsbtRoots } from "@/cronJobs/tasks/anchorCsbtRoots";
 
 const cronJobs = {
+  freezeCsbtTrees,
+  anchorCsbtRoots,
   CheckTransactions,
   CreateEventOrders,
   UpdateEventCapacity,

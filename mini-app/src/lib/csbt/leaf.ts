@@ -82,6 +82,20 @@ export function uuidToBuffer(uuid: string): Buffer {
 }
 
 /**
+ * Computes event hash for on-chain anchoring:
+ * event_hash = SHA256(kind ‖ event_uuid bytes), where kind is "native" or "legacy".
+ */
+export function computeEventHash(kind: "native" | "legacy", eventUuid: string): Buffer {
+  const kindBuf = Buffer.from(kind, "utf-8");
+  const uuidBuf = uuidToBuffer(eventUuid);
+  return crypto.createHash("sha256").update(Buffer.concat([kindBuf, uuidBuf])).digest();
+}
+
+export function computeEventHashBigInt(kind: "native" | "legacy", eventUuid: string): bigint {
+  return BigInt("0x" + computeEventHash(kind, eventUuid).toString("hex"));
+}
+
+/**
  * Resolves the raw owner string from leaf input data.
  */
 export function resolveOwnerString(leaf: CsbtLeafData): string {

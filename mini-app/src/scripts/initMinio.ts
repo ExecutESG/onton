@@ -8,6 +8,7 @@ const bucketNames = [
   'ontonvideo',
   'ontondoc',
   'sbt-collections',
+  'csbt-trees',
   'onton',
   'ontonorganizerprofiles',
 ];

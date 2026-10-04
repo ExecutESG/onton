@@ -3,6 +3,8 @@ import { MyContext } from "../types/MyContext";
 import { pool } from "../db/pool";
 import { redisTools } from "../lib/redisTools";
 import { logger } from "../utils/logger";
+import axios from "axios";
+import { getMiniAppBaseUrl, getMiniAppHmacHeaders } from "../utils/miniAppClient";
 
 export const moderationComposer = new Composer<MyContext>();
 
@@ -474,3 +476,72 @@ moderationComposer.callbackQuery(/^(approve|yesApprove|noApprove|rejectCustom|re
     show_alert: true,
   });
 });
+
+// ==========================================
+// 8) /payout Command (Admin/Moderator Only)
+// ==========================================
+moderationComposer.command("payout", async (ctx) => {
+  const userId = ctx.from?.id;
+  if (!userId || !(await isModerator(userId))) {
+    await ctx.reply("⛔ Unauthorized: Moderator or Admin access required.");
+    return;
+  }
+
+  // Format: /payout <event_uuid> <amount> <tx_hash>
+  const text = ctx.message?.text?.trim() || "";
+  const parts = text.split(/\s+/);
+  if (parts.length < 4) {
+    await ctx.reply(
+      "❌ Invalid format.\n\nUsage: <code>/payout &lt;event_uuid&gt; &lt;amount&gt; &lt;tx_hash&gt;</code>",
+      { parse_mode: "HTML" }
+    );
+    return;
+  }
+
+  const eventUuid = parts[1];
+  const amount = parts[2];
+  const txHash = parts[3];
+
+  if (isNaN(Number(amount)) || Number(amount) <= 0) {
+    await ctx.reply("❌ Invalid amount. Must be a positive number.");
+    return;
+  }
+
+  const miniAppBaseUrl = getMiniAppBaseUrl();
+  const endpoint = `${miniAppBaseUrl}/api/v1/payout`;
+
+  const body = {
+    event_uuid: eventUuid,
+    amount: amount,
+    tx_hash: txHash,
+    paid_by: userId,
+  };
+
+  const headers = getMiniAppHmacHeaders(body);
+
+  try {
+    const res = await axios.post(endpoint, body, {
+      headers,
+      timeout: 10000,
+    });
+
+    if (res.status === 200 && res.data?.success) {
+      await ctx.reply(
+        `✅ <b>Payout Recorded Successfully!</b>\n\n` +
+          `• <b>Event UUID:</b> <code>${eventUuid}</code>\n` +
+          `• <b>Amount:</b> <code>${amount}</code>\n` +
+          `• <b>Tx Hash:</b> <code>${txHash}</code>\n` +
+          `• <b>Status:</b> <code>payed_to_organizer</code>\n` +
+          `• <b>Recorded By:</b> <code>${userId}</code>`,
+        { parse_mode: "HTML" }
+      );
+    } else {
+      await ctx.reply(`❌ Failed to record payout: ${res.data?.message || "Unknown error"}`);
+    }
+  } catch (error: any) {
+    const errMsg = error.response?.data?.message || error.response?.data?.error || error.message;
+    logger.error("Payout command error:", error.response?.data || error);
+    await ctx.reply(`❌ Payout error: ${errMsg}`);
+  }
+});
+

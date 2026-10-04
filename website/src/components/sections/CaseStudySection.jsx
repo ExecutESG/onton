@@ -10,11 +10,11 @@ export default function CaseStudySection() {
           </div>
 
           <h2 className="text-2xl sm:text-4xl font-extrabold text-gray-900 tracking-tight mb-4 leading-tight">
-            How Flagship Web3 Conferences &amp; Summits Power Ticketing with ONTON
+            How Event Organizers Power Ticketing with ONTON
           </h2>
 
           <p className="text-gray-600 leading-relaxed text-base sm:text-lg mb-8">
-            From regional community hacker houses to global Web3 gatherings, ONTON has eliminated the headache of managing fragmented registration lists, lost ticket emails, and manual Telegram group approvals.
+            From community meetups to large summits, ONTON replaces fragmented registration spreadsheets, lost ticket emails, and manual Telegram group approvals.
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
@@ -33,7 +33,7 @@ export default function CaseStudySection() {
             <div className="p-5 rounded-2xl bg-emerald-50/70 border border-emerald-100">
               <div className="text-2xl sm:text-3xl font-black text-emerald-600 mb-1">&lt; 3s</div>
               <div className="text-sm font-semibold text-gray-900 mb-1">Door Check-In</div>
-              <p className="text-xs text-gray-600">Mobile camera scanner validates tickets instantly, unlocking lazy-minted SBT badges.</p>
+              <p className="text-xs text-gray-600">Mobile camera scanner validates tickets instantly, issuing verified attendance credentials.</p>
             </div>
           </div>
 

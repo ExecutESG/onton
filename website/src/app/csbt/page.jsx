@@ -1,13 +1,13 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "Compressed Soulbound Tokens (cSBT) on TON — ONTON Technology",
+  title: "Compressed Soulbound Tokens (cSBT) — ONTON Portable Credentials",
   description:
-    "How Compressed Soulbound Tokens work on TON. Explaining state compression, the history of digital credentials from Solana to TEP-85, and ONTON's native Merkle-tree architecture.",
+    "How Compressed Soulbound Tokens work for event credentials. Explaining state compression, cryptographic proofs, and ONTON's portable Merkle-tree architecture.",
   openGraph: {
-    title: "Compressed Soulbound Tokens (cSBT) on TON — ONTON Technology",
+    title: "Compressed Soulbound Tokens (cSBT) — ONTON Portable Credentials",
     description:
-      "Technical breakdown of Compressed Soulbound Tokens (cSBT) on the TON blockchain, state compression mechanics, and ONTON's replacement of external credential services.",
+      "Technical breakdown of Compressed Soulbound Tokens (cSBT) on TON, state compression mechanics, and ONTON's portable credential architecture.",
     url: "https://onton.live/csbt",
     siteName: "ONTON",
     type: "article",
@@ -33,10 +33,10 @@ export default function CsbtPage() {
             Technical Architecture &amp; Specification
           </div>
           <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-gray-900 mb-4 leading-tight">
-            Compressed Soulbound Tokens (cSBT) on TON
+            Compressed Soulbound Tokens (cSBT) for Event Attendance
           </h1>
           <p className="text-lg sm:text-xl text-gray-600 leading-relaxed">
-            The concepts, Web3 history, and implementation of state-compressed credentials on the TON blockchain, alongside ONTON&apos;s migration from external APIs to a native in-house credential engine.
+            The architecture and implementation of state-compressed credentials for verified event attendance, alongside ONTON&apos;s native credential engine.
           </p>
         </header>
 
@@ -195,7 +195,7 @@ export default function CsbtPage() {
               <strong>Indexed Leaf Storage:</strong> All badge leaves are computed and indexed in ONTON&apos;s PostgreSQL cluster. When an organizer finishes check-in for a 5,000-person summit, the leaf hashes are combined into a Merkle tree, and a single root transaction is committed to the blockchain.
             </li>
             <li>
-              <strong>Zero-Gas Claim Flow via Telegram Mini App:</strong> Attendees do not need TON in their wallets to receive credentials. When their QR code is scanned at the door, their badge is instantly registered in the leaf index. Inside the Telegram Mini App, their profile displays their verified badge.
+              <strong>Zero-Gas Claim Flow via Telegram Mini App:</strong> Attendees do not need crypto or a wallet to receive credentials. When their QR code is scanned at the door, their credential is recorded immediately. Inside the Telegram Mini App, their profile displays their verified badge.
             </li>
             <li>
               <strong>Cryptographic Verification API:</strong> Any third party (a partner event, a DAO voting portal, or a gated chat) can verify an attendee&apos;s badge by requesting a Merkle proof from ONTON&apos;s public API and checking it against the on-chain root stored on the TON blockchain.
@@ -207,7 +207,7 @@ export default function CsbtPage() {
 
           <h3>Summary</h3>
           <p>
-            By moving from third-party closed APIs to our own native TEP-85 and cSBT engines, ONTON has replaced a fragile external dependency with a deterministic, mathematically verifiable credential system built directly on the TON blockchain.
+            By implementing native state compression and cryptographic proofs on our own TEP-85 and cSBT engines, ONTON provides verifiable, low-cost attendance credentials that attendees own and carry across platforms.
           </p>
         </article>
 

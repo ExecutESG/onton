@@ -11,7 +11,7 @@ export const metadata = {
     description:
       "Token2049, Devcon, ETHDenver, and TON Gateway side events directory with instant Telegram ticketing.",
     url: "https://onton.live/events",
-    siteName: "ONTON — The Luma of Telegram & Web3",
+    siteName: "ONTON — Events with Verified Attendance",
     type: "website",
     images: [
       {
@@ -177,7 +177,7 @@ export default function EventsHubPage() {
               Hosting a Side Event at Token2049, Devcon, or ETHDenver?
             </h3>
             <p className="text-gray-400 max-w-xl mx-auto mb-6 text-sm sm:text-base">
-              Get listed on the ONTON Event Hub and enable 1-tap Telegram RSVPs, automated group chat gating, and Proof of Attendance SBTs for your guests.
+              Get listed on the ONTON Event Hub and enable 1-tap Telegram RSVPs, automated group chat gating, and verified attendance credentials for your guests.
             </p>
             <a
               href="https://t.me/theontonbot/event"

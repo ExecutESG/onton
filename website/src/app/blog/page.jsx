@@ -11,7 +11,7 @@ export const metadata = {
     description:
       "Insights, tactical guides, and fee teardowns for Web3 event organizers, crypto conference leads, and Telegram Mini App developers.",
     url: "https://onton.live/blog",
-    siteName: "ONTON — The Luma of Telegram & Web3",
+    siteName: "ONTON — Events with Verified Attendance",
     type: "website",
     images: [
       {
@@ -52,10 +52,10 @@ export default function BlogIndexPage() {
             <span>📚</span> ONTON Growth & Event Engineering
           </div>
           <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-gray-900 mb-4">
-            The Hub of Web3 Event Knowledge
+            The Hub of Event Knowledge
           </h1>
           <p className="text-lg text-gray-600 leading-relaxed">
-            Master Telegram Stars ticketing, automated private chat gating, and Soulbound Token (SBT) attendance badges with zero wallet friction.
+            Master Telegram Stars ticketing, automated private chat gating, and verified attendance credentials with zero wallet friction.
           </p>
 
           {/* Quick Hub Links */}

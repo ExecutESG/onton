@@ -13,16 +13,16 @@ export default function CTASection() {
 
         <div className="md:basis-5/12">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-blue-50 text-[#007AFF] mb-4 border border-blue-200 shadow-sm">
-            <span>✨</span> The Luma of Telegram & Web3
+            <span>✨</span> Events with Verified Attendance
           </div>
           <h1 className="font-bold text-[34px] mb-2 md:text-[56px] md:mb-4 tracking-tight leading-tight">
-            Events on Telegram, Simplified.
+            Create an event in a minute.
           </h1>
           <h2 className="font-semibold text-[20px] md:text-[24px] mb-3 text-gray-700 leading-snug">
-            1-Click Free RSVPs · Telegram Stars · Automated Group Gating
+            Free events are free forever. Verified attendance, built in.
           </h2>
           <p className="mb-6 md:mb-8 text-gray-600 text-[16px] leading-relaxed">
-            ONTON combines frictionless Telegram native onboarding with powerful Web3 tools. Attendees RSVP in one tap without crypto wallets, pay using Telegram Stars (Apple/Google Pay) or TON/USDT, and instantly unlock your private community chat.
+            Free organizer onboarding, 1-tap RSVPs without wallet requirements, automated chat gating, and fast door check-in. Sell tickets with Telegram Stars or crypto (3% fee) and issue portable credentials attendees keep forever.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 pb-4">
@@ -46,7 +46,7 @@ export default function CTASection() {
             </Link>
           </div>
           <p className="text-xs text-gray-500 mt-1">
-            Over 300,000+ Telegram users & 400+ events powered.
+            332K people with attendance credentials · 633K verified in-person check-ins.
           </p>
         </div>
       </div>

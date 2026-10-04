@@ -499,7 +499,7 @@
       "term": "Soulbound Token (SBT)",
       "title": "What is a Soulbound Token (SBT)? Complete Web3 Definition",
       "slug": "soulbound-token",
-      "meta_description": "Learn what Soulbound Tokens (SBTs) are in Web3, how they differ from standard NFTs, and how they provide non-transferable proof of event attendance and reputation on TON.",
+      "meta_description": "Learn what Soulbound Tokens (SBTs) are in Web3, how they differ from standard NFTs, and how they provide non-transferable proof of event attendance and portable credentials.",
       "aliases": [
         "SBT",
         "Soulbound Tokens",
@@ -509,8 +509,8 @@
       "publishedAt": "2026-09-10",
       "author": "ONTON Research",
       "readTime": "1 min read",
-      "excerpt": "Learn what Soulbound Tokens (SBTs) are in Web3, how they differ from standard NFTs, and how they provide non-transferable proof of event attendance and reputation on TON.",
-      "content": "> **Definition:**\n> A **Soulbound Token (SBT)** is a non-transferable digital token anchored permanently to a specific blockchain wallet. First conceptualized by Vitalik Buterin, Glen Weyl, and Puja Ohlhaver in 2022, SBTs represent credentials, reputation, memberships, and verified real-world event attendance without financial speculation.\n\n---\n\n## How SBTs Work in Web3 Events\n\nUnlike traditional Non-Fungible Tokens (NFTs) which can be listed and sold on marketplaces like OpenSea or Getgems, Soulbound Tokens cannot be transferred, sold, or lent once minted to an attendee's wallet.\n\nIn the ONTON ecosystem, SBTs serve as **cryptographic proof of participation**:\n- **Attendance Verification:** When an attendee checks into a conference using their ONTON QR code, a Soulbound badge is issued directly to their TON wallet.\n- **Sybil Resistance:** Proof that a real human physically attended the event, making them eligible for governance voting, retroactive airdrops, and exclusive community perks.\n- **Token-Gated Community:** Unlocks automated access to alumni Telegram groups and VIP speaker channels.",
+      "excerpt": "Learn what Soulbound Tokens (SBTs) are in Web3, how they differ from standard NFTs, and how they provide non-transferable proof of event attendance and portable credentials.",
+      "content": "> **Definition:**\n> A **Soulbound Token (SBT)** is a non-transferable digital token anchored permanently to a specific blockchain wallet. First conceptualized by Vitalik Buterin, Glen Weyl, and Puja Ohlhaver in 2022, SBTs represent credentials, reputation, memberships, and verified real-world event attendance without financial speculation.\n\n---\n\n## How SBTs Work in Web3 Events\n\nUnlike traditional Non-Fungible Tokens (NFTs) which can be listed and sold on marketplaces like OpenSea or Getgems, Soulbound Tokens cannot be transferred, sold, or lent once minted to an attendee's wallet.\n\nIn the ONTON ecosystem, SBTs serve as **cryptographic proof of participation**:\n- **Attendance Verification:** When an attendee checks into an event using their ONTON pass, a verified attendance credential is issued to their profile, with optional on-chain SBT minting.\n- **Sybil Resistance:** Proof that a real human physically attended the event, making them eligible for governance voting, retroactive airdrops, and exclusive community perks.\n- **Token-Gated Community:** Unlocks automated access to alumni Telegram groups and VIP speaker channels.",
       "type": "glossary"
     },
     {
@@ -611,7 +611,7 @@
       "author": "ONTON Research",
       "readTime": "1 min read",
       "excerpt": "Learn how Soulbound Token (SBT) event badges replace disposable wristbands, verify authentic conference participation, and build Web3 on-chain reputation.",
-      "content": "> **Definition:**\n> An **Event Badge SBT** is an immutable, non-transferable Soulbound Token minted directly to an attendee's blockchain wallet upon scanning their check-in QR code at a venue door, providing permanent, unforgeable cryptographic proof of physical participation.\n\n---\n\n## Why Event Badge SBTs Surpass Traditional Wristbands\n1. **Unforgeable Credential:** Paper wristbands and lanyards are easily copied or transferred; an SBT is cryptographically anchored to a specific wallet.\n2. **Permanent Community Proof:** Months or years after the conference, protocols can query on-chain SBT holders to distribute exclusive alumni perks, governance votes, or hackathon grants.\n3. **Zero Environmental Waste:** Eliminates tens of thousands of single-use plastic badges and wristbands generated at global summits.",
+      "content": "> **Definition:**\n> An **Event Badge SBT** is an immutable, non-transferable token issued to an attendee upon scanning their check-in QR code at a venue door, providing permanent, unforgeable cryptographic proof of physical participation.\n\n---\n\n## Why Event Badge Credentials Surpass Traditional Wristbands\n1. **Unforgeable Credential:** Paper wristbands and lanyards are easily copied or transferred; an event badge credential is cryptographically anchored to an attendee's verified account or wallet.\n2. **Permanent Community Proof:** Months or years after the conference, protocols can query on-chain SBT holders to distribute exclusive alumni perks, governance votes, or hackathon grants.\n3. **Zero Environmental Waste:** Eliminates tens of thousands of single-use plastic badges and wristbands generated at global summits.",
       "type": "glossary"
     },
     {
@@ -687,18 +687,18 @@
       "term": "Proof of Attendance (POAP / SBT)",
       "title": "What is Proof of Attendance in Web3? Complete Guide",
       "slug": "proof-of-attendance",
-      "meta_description": "Learn what Proof of Attendance protocols are, how they preserve the memory of real-world crypto conferences, and how TON SBTs eliminate gas fees.",
+      "meta_description": "Learn what Proof of Attendance protocols are, how they verify attendance at conferences and meetups, and how ONTON eliminates gas fees.",
       "aliases": [
         "POAP",
         "Proof of Attendance Protocol",
-        "Attendance SBT"
+        "Attendance Credentials"
       ],
       "category": "Glossary",
       "publishedAt": "2026-09-10",
       "author": "ONTON Research",
       "readTime": "1 min read",
-      "excerpt": "Learn what Proof of Attendance protocols are, how they preserve the memory of real-world crypto conferences, and how TON SBTs eliminate gas fees.",
-      "content": "> **Definition:**\n> **Proof of Attendance** is a cryptographic standard where attendees of physical or digital events receive an immutable, timestamped badge verifying their presence. It acts as a digital passport stamp for conferences, hackathons, and community meetups.\n\n---\n\n## Proof of Attendance on the TON Blockchain\nONTON modernizes the legacy POAP model by minting attendance badges natively on the **TON blockchain**:\n- **Sub-Second Confirmation:** Door check-in takes less than 2 seconds.\n- **Zero Gas for Attendees:** The event organizer covers micro-gas fees or utilizes sponsor credits.\n- **Direct Mini App Integration:** Attendees can view, share, and showcase their event passport directly inside their Telegram profile.",
+      "excerpt": "Learn what Proof of Attendance protocols are, how they verify attendance at conferences and meetups, and how ONTON eliminates gas fees.",
+      "content": "> **Definition:**\n> **Proof of Attendance** is a standard where attendees of physical or digital events receive an immutable, timestamped credential verifying their presence. It acts as a digital passport stamp for conferences, hackathons, and community meetups.\n\n---\n\n## Proof of Attendance in ONTON\nONTON modernizes event credentialing with verified attendance credentials and portable badges:\n- **Sub-Second Confirmation:** Door check-in takes less than 2 seconds.\n- **Zero Gas for Attendees:** Attendees never pay gas or transaction fees to receive credentials.\n- **Direct Mini App Integration:** Attendees view, share, and showcase their event credentials directly inside Telegram and on the web.",
       "type": "glossary"
     },
     {

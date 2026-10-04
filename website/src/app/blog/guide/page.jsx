@@ -5,7 +5,7 @@ export const metadata = {
   description:
     "The complete step-by-step guide for hosting events with ONTON: free 1-click RSVPs, Telegram Stars & crypto ticketing, automated group gating, and QR check-in.",
   openGraph: {
-    title: "ONTON Organizer Guide — Events on Telegram, Simplified",
+    title: "ONTON Organizer Guide — Events with Verified Attendance",
     description:
       "Learn how to launch events, collect payments in Telegram Stars or TON/USDT, gate private community chats, and verify tickets at the door.",
     type: "article",
@@ -74,7 +74,7 @@ export default function OrganizerGuidePage() {
               <span>🌟</span> 1. What is ONTON?
             </h2>
             <p className="text-gray-600 leading-relaxed mb-4">
-              ONTON is <strong>The Luma of Telegram &amp; Web3</strong>. Designed specifically for community builders, conference organizers, meetups, and decentralized projects, ONTON combines the frictionless convenience of Telegram with the security and sovereign ownership of Web3.
+              ONTON is a modern event platform designed for community builders, conference organizers, meetups, and creator gatherings. It combines the ease of Telegram with verified attendance and portable credentials.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
               <div className="p-4 rounded-xl bg-blue-50/60 border border-blue-100">
@@ -83,7 +83,7 @@ export default function OrganizerGuidePage() {
               </div>
               <div className="p-4 rounded-xl bg-purple-50/60 border border-purple-100">
                 <div className="text-xl mb-1">💳 Dual-Rail Checkout</div>
-                <p className="text-xs text-gray-600">Accept Telegram Stars (Apple/Google Pay) for mainstream users and TON/USDT for Web3 natives.</p>
+                <p className="text-xs text-gray-600">Accept Telegram Stars (Apple/Google Pay) or crypto (TON/USDT with 3% fee).</p>
               </div>
               <div className="p-4 rounded-xl bg-emerald-50/60 border border-emerald-100">
                 <div className="text-xl mb-1">🔒 Auto Group Gating</div>
@@ -246,10 +246,10 @@ export default function OrganizerGuidePage() {
               <span>🏅</span> 6. Proof of Attendance &amp; SoulBound Tokens (SBT)
             </h2>
             <p className="text-gray-600 leading-relaxed mb-4">
-              Reward your loyal attendees with non-transferable on-chain SoulBound Tokens (SBTs) on TON.
+              Reward your attendees with verified attendance credentials and optional on-chain badges.
             </p>
             <p className="text-sm text-gray-600 leading-relaxed mb-4">
-              ONTON employs a <strong>Lazy Minting</strong> architecture: organizers do not have to pay gas fees upfront for every registrant. Only attendees who physically check in at the venue unlock the right to claim their commemorative badge, providing genuine proof of real-world participation.
+              Organizers do not have to pay fees upfront for registrants. Only attendees who physically check in at the venue receive verified attendance credentials, providing genuine proof of real-world participation.
             </p>
           </section>
 

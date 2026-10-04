@@ -28,6 +28,7 @@ import { EventActions } from "./EventActions";
 import { useEventData } from "./eventPageContext";
 import { EventPasswordAndWalletInput } from "./EventPasswordInput";
 import { ManageEventButton } from "./ManageEventButton";
+import { getAttendeeMainButtonState } from "./getAttendeeMainButtonState";
 import FoundingOrganizerBadge from "@/app/_components/FoundingOrganizerBadge";
 import UserRegisterForm from "./UserRegisterForm";
 import BadgeDetailModal, { BadgeItemData } from "@/components/sbt/BadgeDetailModal";
@@ -575,49 +576,37 @@ const MainButtonHandler = React.memo(() => {
     }
   );
 
-  // Paid event: user has ticket → view ticket pass
-  if (isPaid && isRegistered && isNotEnded) {
-    return (
-      <MainButton
-        text="View Ticket Pass"
-        onClick={() => router.push(`/tickets/${eventData.data?.event_uuid}`)}
-      />
-    );
-  }
+  const buttonState = getAttendeeMainButtonState({
+    isPaid,
+    isRegistered,
+    isNotEnded,
+    isStarted,
+    isOnlineEvent,
+    isCheckedIn,
+    hasEnteredPassword,
+    hasSbt,
+    userCompletedTasks,
+    registrantUuid: eventData.data?.registrant_uuid,
+    tiers: tiers as any,
+    paymentDetails: eventData.data?.payment_details,
+  });
 
-  // Paid or tiered event: user hasn't bought ticket yet → checkout
-  if (isPaid && !isRegistered && isNotEnded) {
-    let label = "Get Tickets";
-    if (tiers.length > 0) {
-      const prices = tiers.map((t) => Number(t.price || 0));
-      const minPrice = Math.min(...prices);
-      const maxPrice = Math.max(...prices);
-      if (maxPrice === 0) {
-        label = "Get Free Ticket";
-      } else if (minPrice === 0) {
-        label = "Get Tickets";
-      } else if (minPrice === maxPrice) {
-        label = `Buy Ticket — ⭐ ${minPrice}`;
-      } else {
-        label = `Get Tickets — From ⭐ ${minPrice}`;
-      }
-    } else {
-      const price = Number(eventData.data?.payment_details?.price ?? 0);
-      const symbol = eventData.data?.payment_details?.token?.symbol ?? "TON";
-      label = price > 0 ? `Buy Ticket — ${price} ${symbol}` : "Get Free Ticket";
-    }
-
-    return (
-      <MainButton
-        text={label}
-        onClick={() => router.push(`/events/${eventData.data?.event_uuid}/checkout`)}
-      />
-    );
-  }
-
-  // Checked in attendee: directly claim or view attendance SBT badge
-  if (isCheckedIn && hasEnteredPassword) {
-    if (hasSbt) {
+  switch (buttonState.type) {
+    case "view_ticket_pass":
+      return (
+        <MainButton
+          text="View Ticket Pass"
+          onClick={() => router.push(`/tickets/${eventData.data?.event_uuid}`)}
+        />
+      );
+    case "checkout":
+      return (
+        <MainButton
+          text={buttonState.label}
+          onClick={() => router.push(`/events/${eventData.data?.event_uuid}/checkout`)}
+        />
+      );
+    case "claim_sbt":
       return (
         <ClaimSbtButton
           ticketUuid={eventData.data?.registrant_uuid}
@@ -625,46 +614,27 @@ const MainButtonHandler = React.memo(() => {
           isMinted={badgeStatus.data?.status === "minted"}
         />
       );
-    }
-    return (
-      <MainButton
-        text="Checked In ✅"
-        disabled
-        color="secondary"
-      />
-    );
-  }
-
-  // Approved attendee before check-in: show QR pass to check in
-  if (userCompletedTasks && hasEnteredPassword) {
-    if (isEventActive && eventData.data?.registrant_uuid) {
+    case "checked_in":
+      return (
+        <MainButton text="Checked In ✅" disabled color="secondary" />
+      );
+    case "show_qr":
       return (
         <MainButton
-          text="Check In"
+          text="Show My Ticket (QR)"
           onClick={() => {
             router.push(`/events/${eventData.data?.event_uuid}/registrant/${eventData.data?.registrant_uuid}/qr`);
           }}
         />
       );
-    }
-  }
-
-  if (!isStarted && isNotEnded) {
-    return (
-      <MainButton
-        text="Event Not Started Yet"
-        disabled
-        color="secondary"
-      />
-    );
-  } else if (!isNotEnded) {
-    return (
-      <MainButton
-        text="Event Has Ended"
-        disabled
-        color="secondary"
-      />
-    );
+    case "not_started":
+      return (
+        <MainButton text="Event Not Started Yet" disabled color="secondary" />
+      );
+    case "ended":
+      return (
+        <MainButton text="Event Has Ended" disabled color="secondary" />
+      );
   }
 
   return null;

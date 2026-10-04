@@ -18,6 +18,9 @@ export default function RegistrantQrCodePage() {
   const router = useRouter();
   const { data: eventData } = useGetEvent(params.hash);
 
+  const isStarted = eventData?.start_date ? new Date() >= new Date(eventData.start_date) : true;
+  const showNotStartedNote = !isStarted;
+
   return (
     <div className="p-4 max-w-md mx-auto min-h-screen flex flex-col justify-between">
       <div>
@@ -49,6 +52,11 @@ export default function RegistrantQrCodePage() {
           >
             <RegistrantCheckInQrCode registrant_uuid={params.reg_id} />
             <span className="text-[11px] font-mono text-gray-400 mt-4">Pass ID: {params.reg_id.slice(0, 8)}...</span>
+            {showNotStartedNote && (
+              <p className="text-xs font-medium text-center text-gray-500 mt-4">
+                Check-in opens when the event starts.
+              </p>
+            )}
           </Block>
         )}
       </div>

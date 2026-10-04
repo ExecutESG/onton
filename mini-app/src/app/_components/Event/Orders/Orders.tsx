@@ -14,7 +14,7 @@ const EventOrders = () => {
   if (isLoading) return <div>Loading...</div>;
   if (isError || !treasuryData) return <div>Error loading treasury data</div>;
 
-  const { summary, platform_fee_percent, payout_status, orders } = treasuryData;
+  const { summary, platform_fee_percent, orders } = treasuryData;
 
   const ticketOrders = orders.filter(o => o.order_type === 'ts_csbt_ticket' || o.order_type === 'nft_mint');
   const legacyOrders = orders.filter(o => o.order_type === 'event_creation' || o.order_type === 'event_capacity_increment');
@@ -23,9 +23,7 @@ const EventOrders = () => {
     <div className="space-y-4 pb-6 px-4">
       <div className="bg-white dark:bg-zinc-800 p-4 rounded-xl shadow-sm">
         <h2 className="text-xl font-bold mb-4">Treasury Summary</h2>
-        <div className="mb-4">
-          <p className="text-sm text-gray-500">Payout Status: <span className="font-semibold text-gray-800 dark:text-gray-200">{payout_status}</span></p>
-        </div>
+        
         
         {summary.length === 0 ? (
            <p className="text-sm text-gray-500">No sales yet.</p>
@@ -38,6 +36,7 @@ const EventOrders = () => {
                 <div key={stat.currency} className="border border-gray-100 dark:border-gray-700 rounded-lg p-3">
                   <div className="flex justify-between items-center mb-2">
                     <span className="font-semibold text-lg">{stat.currency}</span>
+                    <span className="text-xs text-gray-500 ml-2">Payout: {stat.payout_status}</span>
                     <span className="text-sm bg-gray-100 dark:bg-zinc-700 px-2 py-1 rounded-full">{stat.tickets_sold} tickets sold</span>
                   </div>
                   <div className="space-y-1 text-sm">

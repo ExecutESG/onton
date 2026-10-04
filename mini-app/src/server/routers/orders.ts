@@ -84,13 +84,33 @@ export const ordersRouter = router({
        stat.gross_revenue += order.total_price;
     }
 
-    const payout = await db.select().from(organizerPayouts).where(eq(organizerPayouts.event_uuid, event_uuid)).limit(1).execute();
-    const payout_status = payout.length > 0 ? "Paid" : "Not requested";
+    const payouts = await db.select({
+      token_symbol: eventTokens.symbol,
+      amount: organizerPayouts.amount,
+      paid_at: organizerPayouts.paid_at
+    }).from(organizerPayouts)
+      .leftJoin(eventTokens, eq(organizerPayouts.token_id, eventTokens.token_id))
+      .where(eq(organizerPayouts.event_uuid, event_uuid))
+      .execute();
+      
+    const payoutMap = new Map();
+    for (const p of payouts) {
+       payoutMap.set(p.token_symbol || "UNKNOWN", p);
+    }
+    
+    // Add payout status to each summary
+    const summaryList = Array.from(summaryMap.values()).map(s => {
+       const p = payoutMap.get(s.currency);
+       return {
+         ...s,
+         payout_status: p ? `Paid ${p.amount} on ${p.paid_at.toISOString().split('T')[0]}` : "Not requested"
+       };
+    });
 
     return {
-      summary: Array.from(summaryMap.values()),
+      summary: summaryList,
       platform_fee_percent: PLATFORM_FEE_PERCENT,
-      payout_status,
+      
       orders: completedOrders
     };
   }),

@@ -285,15 +285,6 @@ export const EventDataSchema = z
       .positive(),
   })
   .superRefine((data, ctx) => {
-    // Validate secret_phrase is required for non-paid events without registration
-    if (!data.paid_event?.has_payment && !data.has_registration && !data.secret_phrase) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["secret_phrase"],
-        message: "Secret phrase is required for free events.",
-      });
-    }
-
     // Require reward badge only when Web3 is enabled
     if (data.has_web3 && !data.ts_reward_url) {
       ctx.addIssue({

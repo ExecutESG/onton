@@ -93,7 +93,7 @@ const RegistrationStep = () => {
       has_web3: false,
       ts_reward_url: undefined,
       video_url: undefined,
-      secret_phrase: eventData?.secret_phrase || "",
+      secret_phrase: eventData?.secret_phrase || undefined,
     };
 
     if (isEdit && edit?.eventHash) {

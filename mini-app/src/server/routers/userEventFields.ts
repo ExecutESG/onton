@@ -11,6 +11,8 @@ import { EVENT_PASSWORD_RATE_LIMIT } from "@/constants";
 import { db } from "@/db/db";
 import { eventRegistrants, visitors } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
+import { redisTools } from "@/lib/redisTools";
+import { getUserCacheKey } from "@/db/modules/users.db";
 
 export const userEventFieldsRouter = router({
   // protect
@@ -83,17 +85,10 @@ export const userEventFieldsRouter = router({
         });
       }
 
-      // Hash the entered password and store it
+      // Hash the entered password
       const hashPassword = await bcryptLib.hashPassword(enteredPassword);
 
-      await userEventFieldsDB.upsertUserEventFields(
-        opts.ctx.user.user_id,
-        opts.input.event_id,
-        opts.input.field_id,
-        hashPassword
-      );
-
-      // Wrap visitor + registrant writes in a single db.transaction
+      // Wrap visitor + registrant writes in a single db.transaction first
       await db.transaction(async (tx) => {
         // Record visitor attendance
         const existingVisitor = (
@@ -135,6 +130,16 @@ export const userEventFieldsRouter = router({
           })
           .execute();
       });
+
+      // Clear the user cache so participated events will be reloaded
+      await redisTools.deleteCache(getUserCacheKey(opts.ctx.user.user_id));
+
+      await userEventFieldsDB.upsertUserEventFields(
+        opts.ctx.user.user_id,
+        opts.input.event_id,
+        opts.input.field_id,
+        hashPassword
+      );
 
       return { success: true };
     }),

@@ -137,19 +137,19 @@ const getEvent = publicProcedure.input(z.object({ event_uuid: z.string() })).que
     isCustom: true,
   };
 
-  // Check if user has an attendance/registrant record (e.g. from online secret phrase)
-  if (userId) {
-    const existingRequest = await eventRegistrantsDB.getRegistrantRequest(event_uuid, userId);
-    if (existingRequest) {
-      registrant_status = existingRequest.status;
-      if (registrant_status === "approved" || registrant_status === "checkedin") {
-        registrant_uuid = existingRequest.registrant_uuid;
-      }
-    }
-  }
-
   // If the event does NOT require registration, just return data
   if (!eventData.has_registration) {
+    // Check if user has an attendance/registrant record (e.g. from online secret phrase)
+    if (userId) {
+      const existingRequest = await eventRegistrantsDB.getRegistrantRequest(event_uuid, userId);
+      if (existingRequest) {
+        registrant_status = existingRequest.status;
+        if (registrant_status === "approved" || registrant_status === "checkedin") {
+          registrant_uuid = existingRequest.registrant_uuid;
+        }
+      }
+    }
+
     return {
       capacity_filled,
       registrant_status,

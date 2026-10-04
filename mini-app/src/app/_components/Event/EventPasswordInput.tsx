@@ -3,14 +3,13 @@ import PasscodeIcon from "@/components/icons/Passcode";
 import { useUserStore } from "@/context/store/user.store";
 import { useTonAddress } from "@tonconnect/ui-react";
 import { List, ListInput } from "konsta/react";
-import { FormEventHandler, useEffect, useRef, useState } from "react";
+import { FormEventHandler, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import CustomButton from "../Button/CustomButton";
 import { useEventData } from "./eventPageContext";
 
 export const EventPasswordAndWalletInput = () => {
   const { initData, eventPasswordField, eventHash, eventData } = useEventData();
-  const [, setPasswordOpen] = useState(false);
 
   const trpcUtils = trpc.useUtils();
   const { user } = useUserStore();
@@ -33,7 +32,9 @@ export const EventPasswordAndWalletInput = () => {
       trpcUtils.userEventFields.getUserEventFields.refetch({
         event_hash: eventHash,
       });
-      setPasswordOpen(false);
+      trpcUtils.events.getEvent.invalidate({
+        event_uuid: eventHash,
+      });
     },
   });
 

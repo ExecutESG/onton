@@ -1,246 +1,740 @@
-import { describe, it, expect, vi } from "vitest";
-import { CsbtMerkleTree, CsbtLeafData } from "../../src/lib/csbt";
-import bcryptLib from "../../src/lib/bcrypt";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { TRPCContext } from "@/server/context";
+import { eventRegistrants, visitors, users } from "@/db/schema";
+import { TRPCError } from "@trpc/server";
 
-describe("Issue #1032: Wallet-Optional Attendee Flows", () => {
-  const eventUuid = "4b287361-a06f-43dd-87c1-2d3a68f99fa7";
-  const rawSecret = "onton-secret-pass-2026";
+type UserSelect = typeof users.$inferSelect;
 
-  describe("Online Event Secret Phrase Attendance (Wallet-less)", () => {
-    it("validates secret phrase without requiring a connected wallet", async () => {
-      // Organizer creates secret phrase (bcrypt-hashed)
-      const hashedSecret = await bcryptLib.hashPassword(rawSecret);
+interface CapturedInsert {
+  table: unknown;
+  values: Record<string, unknown>;
+  onConflict?: unknown;
+}
 
-      // Wallet-less attendee submits matching phrase
-      const attendeeInput = "ONTON-SECRET-PASS-2026  ";
-      const cleaned = attendeeInput.trim().toLowerCase();
+interface CapturedUpdate {
+  table: unknown;
+  set: Record<string, unknown>;
+  where?: unknown;
+}
 
-      const isMatch = await bcryptLib.comparePassword(cleaned, hashedSecret);
-      expect(isMatch).toBe(true);
+interface MockEventData {
+  event_id?: number;
+  event_uuid?: string;
+  has_registration?: boolean;
+  participationType?: string;
+  sbt_collection_address?: string | null;
+  has_payment?: boolean;
+  owner?: number;
+  secret_phrase?: string;
+  start_date?: number;
+  end_date?: number;
+}
 
-      // Non-matching phrase fails
-      const isBadMatch = await bcryptLib.comparePassword("wrong-pass", hashedSecret);
-      expect(isBadMatch).toBe(false);
-    });
+interface MockFieldData {
+  id: number;
+  event_id: number;
+  title: string;
+}
 
-    it("records native attendance with checkedin status and creates no rewards row", async () => {
-      // Simulating the transactional attendance write from userEventFields.ts
-      interface VisitorRecord {
-        id: number;
-        userId: number;
-        eventUuid: string;
-      }
-      interface RegistrantRecord {
-        eventUuid: string;
-        userId: number;
-        status: "pending" | "approved" | "checkedin" | "rejected";
-        updatedAt?: Date;
-      }
-      interface RewardRecord {
-        id: number;
-        visitorId: number;
-        userId: number;
-        type: string;
-        status: string;
-      }
+interface MockRegistrantData {
+  registrant_uuid?: string;
+  event_uuid?: string;
+  user_id?: number;
+  status?: string;
+}
 
-      const mockDb = {
-        visitors: [] as VisitorRecord[],
-        eventRegistrants: [
-          // Pre-registered attendee before secret phrase entry
-          { eventUuid, userId: 10001, status: "approved" as const },
-        ] as RegistrantRecord[],
-        rewards: [] as RewardRecord[],
+interface MockNotificationData {
+  id: number;
+  userId: number;
+  type: string;
+  itemId: number;
+  item_type: string;
+  status: string;
+  readAt?: Date | null;
+  actionTimeout?: number;
+}
+
+interface MockPoaTriggerData {
+  id: number;
+  eventId: number;
+}
+
+const {
+  mockTxCaptured,
+  mockDbCaptured,
+  mockEventsData,
+  mockFieldsData,
+  mockRegistrantsData,
+  mockNotifications,
+  mockPoaTriggers,
+  mockUpsertUserEventFields,
+  mockInsertRewardRow,
+  mockDeleteCache,
+  mockSendTelegramMessage,
+} = vi.hoisted(() => ({
+  mockTxCaptured: {
+    insertCalls: [] as CapturedInsert[],
+    updateCalls: [] as CapturedUpdate[],
+  },
+  mockDbCaptured: {
+    insertCalls: [] as CapturedInsert[],
+    updateCalls: [] as CapturedUpdate[],
+    transactionCalls: 0,
+  },
+  mockEventsData: {} as Record<string | number, MockEventData>,
+  mockFieldsData: {} as Record<string | number, MockFieldData>,
+  mockRegistrantsData: [] as MockRegistrantData[],
+  mockNotifications: {} as Record<number, MockNotificationData>,
+  mockPoaTriggers: {} as Record<number, MockPoaTriggerData>,
+  mockUpsertUserEventFields: vi.fn().mockResolvedValue({ id: 1 }),
+  mockInsertRewardRow: vi.fn().mockResolvedValue({ id: 99 }),
+  mockDeleteCache: vi.fn().mockResolvedValue(true),
+  mockSendTelegramMessage: vi.fn().mockResolvedValue({ success: true }),
+}));
+
+vi.mock("@/db/db", () => {
+  const txMock = {
+    select: vi.fn(() => ({
+      from: vi.fn(() => ({
+        where: vi.fn(() => ({
+          limit: vi.fn(() => ({
+            execute: vi.fn().mockResolvedValue([]),
+          })),
+          execute: vi.fn().mockResolvedValue([]),
+        })),
+      })),
+    })),
+    insert: vi.fn((table: unknown) => ({
+      values: vi.fn((vals: Record<string, unknown>) => {
+        const captured: CapturedInsert = { table, values: vals };
+        mockTxCaptured.insertCalls.push(captured);
+        return {
+          execute: vi.fn().mockResolvedValue([]),
+          onConflictDoUpdate: vi.fn((conf: unknown) => {
+            captured.onConflict = conf;
+            return {
+              execute: vi.fn().mockResolvedValue([]),
+            };
+          }),
+        };
+      }),
+    })),
+    update: vi.fn((table: unknown) => ({
+      set: vi.fn((setVals: Record<string, unknown>) => {
+        const captured: CapturedUpdate = { table, set: setVals };
+        mockTxCaptured.updateCalls.push(captured);
+        return {
+          where: vi.fn((whereCond: unknown) => {
+            captured.where = whereCond;
+            return {
+              execute: vi.fn().mockResolvedValue([]),
+            };
+          }),
+        };
+      }),
+    })),
+  };
+
+  const dbMock = {
+    transaction: vi.fn(async (cb: (tx: typeof txMock) => Promise<unknown>) => {
+      mockDbCaptured.transactionCalls++;
+      return await cb(txMock);
+    }),
+    select: vi.fn(() => ({
+      from: vi.fn(() => ({
+        where: vi.fn(() => ({
+          execute: vi.fn().mockImplementation(() => {
+            return Promise.resolve([...mockRegistrantsData]);
+          }),
+        })),
+      })),
+    })),
+    update: vi.fn((table: unknown) => ({
+      set: vi.fn((setVals: Record<string, unknown>) => {
+        const captured: CapturedUpdate = { table, set: setVals };
+        mockDbCaptured.updateCalls.push(captured);
+        return {
+          where: vi.fn((whereCond: unknown) => {
+            captured.where = whereCond;
+            return {
+              execute: vi.fn().mockResolvedValue([]),
+            };
+          }),
+        };
+      }),
+    })),
+    insert: vi.fn((table: unknown) => ({
+      values: vi.fn((vals: Record<string, unknown>) => {
+        const captured: CapturedInsert = { table, values: vals };
+        mockDbCaptured.insertCalls.push(captured);
+        return {
+          execute: vi.fn().mockResolvedValue([]),
+          onConflictDoUpdate: vi.fn((conf: unknown) => {
+            captured.onConflict = conf;
+            return {
+              execute: vi.fn().mockResolvedValue([]),
+            };
+          }),
+        };
+      }),
+    })),
+    query: {
+      events: {
+        findFirst: vi.fn().mockImplementation(() => {
+          return Object.values(mockEventsData)[0] || null;
+        }),
+      },
+    },
+  };
+
+  return {
+    db: dbMock,
+    dbLower: dbMock,
+  };
+});
+
+vi.mock("@/db/modules/events.db", () => {
+  const getEventById = vi.fn().mockImplementation((id: number) => {
+    return Promise.resolve(mockEventsData[id] || null);
+  });
+  const selectEventByUuid = vi.fn().mockImplementation((uuid: string) => {
+    return Promise.resolve(mockEventsData[uuid] || null);
+  });
+  const updateEventSbtCollection = vi.fn().mockResolvedValue(undefined);
+  return {
+    default: {
+      getEventById,
+      selectEventByUuid,
+      updateEventSbtCollection,
+    },
+    getEventById,
+    selectEventByUuid,
+    updateEventSbtCollection,
+  };
+});
+
+vi.mock("@/db/modules/eventFields.db", () => {
+  const getEventFields = vi.fn().mockImplementation((id: number) => {
+    return Promise.resolve(mockFieldsData[id] ? [mockFieldsData[id]] : []);
+  });
+  const getEventFieldById = vi.fn().mockImplementation((id: number) => {
+    return Promise.resolve(mockFieldsData[id] || null);
+  });
+  const getEventFieldByTitleAndEventId = vi.fn().mockImplementation((title: string, eventId: number) => {
+    return Promise.resolve(mockFieldsData[eventId] || null);
+  });
+  return {
+    default: {
+      getEventFields,
+      getEventFieldById,
+      getEventFieldByTitleAndEventId,
+    },
+    getEventFields,
+    getEventFieldById,
+    getEventFieldByTitleAndEventId,
+  };
+});
+
+vi.mock("@/db/modules/userEventFields.db", () => ({
+  default: {
+    upsertUserEventFields: mockUpsertUserEventFields,
+    getUserEventFields: vi.fn().mockResolvedValue([]),
+  },
+  upsertUserEventFields: mockUpsertUserEventFields,
+  getUserEventFields: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock("@/lib/bcrypt", () => ({
+  default: {
+    hashPassword: vi.fn().mockImplementation(async (pw: string) => `$2b$10$hashed_${pw}`),
+    comparePassword: vi.fn().mockImplementation(async (plain: string, hashed: string) => {
+      return hashed === `$2b$10$hashed_${plain}` || hashed === plain;
+    }),
+  },
+}));
+
+vi.mock("@/lib/checkRateLimit", () => ({
+  checkRateLimit: vi.fn().mockResolvedValue({ allowed: true, remaining: 5 }),
+}));
+
+vi.mock("@/db/modules/rewards.db", () => ({
+  default: {
+    insertRewardRow: mockInsertRewardRow,
+    checkExistingRewardWithType: vi.fn().mockResolvedValue(null),
+  },
+  insertRewardRow: mockInsertRewardRow,
+  checkExistingRewardWithType: vi.fn().mockResolvedValue(null),
+}));
+
+vi.mock("@/db/modules/visitors.db", () => ({
+  default: {
+    addVisitor: vi.fn().mockResolvedValue({ id: 88, user_id: 10001, event_uuid: "test-uuid" }),
+  },
+  addVisitor: vi.fn().mockResolvedValue({ id: 88, user_id: 10001, event_uuid: "test-uuid" }),
+}));
+
+vi.mock("@/lib/redisTools", () => ({
+  redisTools: {
+    acquireLock: vi.fn().mockResolvedValue(true),
+    releaseLock: vi.fn().mockResolvedValue(true),
+    deleteCache: mockDeleteCache,
+    getCache: vi.fn().mockResolvedValue(null),
+    setCache: vi.fn().mockResolvedValue(true),
+  },
+  deleteCache: mockDeleteCache,
+  getCache: vi.fn().mockResolvedValue(null),
+  setCache: vi.fn().mockResolvedValue(true),
+  cacheKeys: {
+    notification: "notification:",
+  },
+}));
+
+vi.mock("@/db/modules/users.db", () => ({
+  getUserCacheKey: (id: number) => `user_cache_${id}`,
+}));
+
+vi.mock("@/lib/tgBot", () => ({
+  sendTelegramMessage: mockSendTelegramMessage,
+  sendEventPhoto: vi.fn().mockResolvedValue({ success: true }),
+}));
+
+vi.mock("@/server/utils/logger", () => ({
+  logger: {
+    log: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+  },
+}));
+
+vi.mock("@/lib/totp/passToken", () => ({
+  generatePassToken: vi.fn().mockReturnValue("ONTON:v1:mocktoken"),
+  verifyPassToken: vi.fn().mockImplementation((token: string) => {
+    if (token === "invalid-token") {
+      return { valid: false, message: "Invalid pass token" };
+    }
+    return { valid: true, uuid: "mock-registrant-uuid" };
+  }),
+}));
+
+vi.mock("@/db/modules/notifications.db", () => ({
+  notificationsDB: {
+    getNotificationById: vi.fn().mockImplementation((id: number) => {
+      return Promise.resolve(mockNotifications[id] || null);
+    }),
+    updateNotificationStatusAndReply: vi.fn().mockResolvedValue(true),
+  },
+}));
+
+vi.mock("@/db/modules/eventPoaTriggers.db", () => ({
+  eventPoaTriggersDB: {
+    getEventPoaTriggerById: vi.fn().mockImplementation((id: number) => {
+      return Promise.resolve(mockPoaTriggers[id] || null);
+    }),
+  },
+}));
+
+vi.mock("@/db/modules/eventPoaResults.db", () => ({
+  eventPoaResultsDB: {
+    insertPoaResult: vi.fn().mockResolvedValue({ id: 1 }),
+  },
+}));
+
+vi.mock("@/db/modules/eventRegistrants.db", () => ({
+  eventRegistrantsDB: {
+    getByEventUuidAndUserId: vi.fn().mockImplementation((eventUuid: string, userId: number) => {
+      return Promise.resolve({
+        id: 1,
+        event_uuid: eventUuid,
+        user_id: userId,
+        status: "approved",
+      });
+    }),
+    getRegistrantRequest: vi.fn(),
+  },
+}));
+
+vi.mock("@/db/modules/userRoles.db", () => ({
+  userRolesDB: {
+    checkAccess: vi.fn().mockResolvedValue([]),
+    checkHasAnyAccessToItemType: vi.fn().mockResolvedValue([]),
+  },
+}));
+
+import { trpcApiInstance } from "@/server/trpc";
+import { userEventFieldsRouter } from "@/server/routers/userEventFields";
+import { registrantRouter } from "@/server/routers/registrant";
+import { handleNotificationReply } from "@/sockets/handlers/notificationReply";
+import { db } from "@/db/db";
+import type { Server } from "socket.io";
+
+import type { ExtendedUser } from "@/types/extendedUserTypes";
+
+function createTestContext(userOverrides: Partial<ExtendedUser> = {}): TRPCContext {
+  const defaultUser: ExtendedUser = {
+    user_id: 10001,
+    uuid: "user-uuid-1",
+    email: "user@test.com",
+    auth_provider: "telegram",
+    telegram_id: 10001,
+    username: "testuser",
+    first_name: "Test",
+    last_name: "User",
+    wallet_address: null,
+    language_code: "en",
+    role: "user",
+    created_at: new Date(),
+    updatedAt: new Date(),
+    updatedBy: "system",
+    is_premium: false,
+    allows_write_to_pm: true,
+    photo_url: null,
+    participated_event_count: 0,
+    hosted_event_count: 0,
+    has_blocked_the_bot: false,
+    org_channel_name: null,
+    org_support_telegram_user_name: null,
+    org_x_link: null,
+    org_bio: null,
+    org_image: null,
+    user_point: 0,
+    affiliatorUserId: null,
+    CustomAccessRoles: [],
+    ...userOverrides,
+  };
+
+  return {
+    req: new Request("https://localhost/api/trpc"),
+    user: defaultUser,
+  };
+}
+
+describe("Issue #1032: Wallet-Optional Attendee Flows (Real Router & Handlers)", () => {
+  const userEventFieldsCaller = trpcApiInstance.createCallerFactory(userEventFieldsRouter);
+  const registrantCaller = trpcApiInstance.createCallerFactory(registrantRouter);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockTxCaptured.insertCalls.length = 0;
+    mockTxCaptured.updateCalls.length = 0;
+    mockDbCaptured.insertCalls.length = 0;
+    mockDbCaptured.updateCalls.length = 0;
+    mockDbCaptured.transactionCalls = 0;
+    mockRegistrantsData.length = 0;
+    for (const key of Object.keys(mockEventsData)) delete mockEventsData[key];
+    for (const key of Object.keys(mockFieldsData)) delete mockFieldsData[key];
+    for (const key of Object.keys(mockNotifications)) delete mockNotifications[Number(key)];
+    for (const key of Object.keys(mockPoaTriggers)) delete mockPoaTriggers[Number(key)];
+  });
+
+  describe("userEventFieldsRouter.upsertUserEventField", () => {
+    it("rejects with BAD_REQUEST and executes no transaction when event has registration", async () => {
+      const nowSec = Math.floor(Date.now() / 1000);
+      mockFieldsData[201] = {
+        id: 201,
+        event_id: 101,
+        title: "secret_phrase_onton_input",
+      };
+      mockEventsData[101] = {
+        event_id: 101,
+        event_uuid: "evt-uuid-registration",
+        has_registration: true,
+        secret_phrase: "$2b$10$hashed_secretpass",
+        start_date: nowSec - 3600,
+        end_date: nowSec + 3600,
       };
 
-      // Atomic transaction execution matching userEventFields.ts
-      async function executeAttendanceTransaction(userId: number, targetEventUuid: string) {
-        // 1. Record visitor attendance if not already present
-        const existingVisitor = mockDb.visitors.find(
-          (v) => v.userId === userId && v.eventUuid === targetEventUuid
-        );
-        if (!existingVisitor) {
-          mockDb.visitors.push({
-            id: mockDb.visitors.length + 1,
-            userId,
-            eventUuid: targetEventUuid,
-          });
-        }
+      const caller = userEventFieldsCaller(createTestContext());
 
-        // 2. Upsert eventRegistrants with status 'checkedin'
-        const existingRegIdx = mockDb.eventRegistrants.findIndex(
-          (r) => r.userId === userId && r.eventUuid === targetEventUuid
-        );
-        if (existingRegIdx >= 0) {
-          mockDb.eventRegistrants[existingRegIdx].status = "checkedin";
-          mockDb.eventRegistrants[existingRegIdx].updatedAt = new Date();
-        } else {
-          mockDb.eventRegistrants.push({
-            eventUuid: targetEventUuid,
-            userId,
-            status: "checkedin",
-            updatedAt: new Date(),
-          });
-        }
-
-        // 3. TON Society rewards are shut down: no rewards row should be inserted
+      let caughtError: TRPCError | null = null;
+      try {
+        await caller.upsertUserEventField({
+          event_id: 101,
+          field_id: 201,
+          data: "secretpass",
+        });
+      } catch (err) {
+        caughtError = err as TRPCError;
       }
 
-      // Case 1: Pre-registered attendee enters password -> updated to checkedin
-      await executeAttendanceTransaction(10001, eventUuid);
-      const preReg = mockDb.eventRegistrants.find((r) => r.userId === 10001);
-      expect(preReg).toBeDefined();
-      expect(preReg?.status).toBe("checkedin");
-
-      // Case 2: Walk-in / non-registered attendee enters password -> inserted as checkedin
-      await executeAttendanceTransaction(10002, eventUuid);
-      const walkInReg = mockDb.eventRegistrants.find((r) => r.userId === 10002);
-      expect(walkInReg).toBeDefined();
-      expect(walkInReg?.status).toBe("checkedin");
-
-      // Verify visitors table has both attendees recorded
-      expect(mockDb.visitors).toHaveLength(2);
-
-      // Verify STRICTLY that NO rewards row is created (TON Society shutdown compliance)
-      expect(mockDb.rewards).toHaveLength(0);
-      expect(mockDb.rewards.filter((r) => r.type === "ton_society_sbt")).toHaveLength(0);
+      expect(caughtError).toBeInstanceOf(TRPCError);
+      expect(caughtError?.code).toBe("BAD_REQUEST");
+      expect(caughtError?.message).toBe(
+        "it is not possible to use the password for the events with registration"
+      );
+      expect(mockDbCaptured.transactionCalls).toBe(0);
+      expect(mockTxCaptured.insertCalls).toHaveLength(0);
+      expect(mockUpsertUserEventFields).not.toHaveBeenCalled();
     });
 
-    it("constructs valid off-chain cSBT Merkle proof for wallet-less attendee by userId", async () => {
-      // 3 attendees: 2 wallet-less (identified by numeric userId), 1 with wallet
-      const attendees = [
-        { id: 1, userId: 10001, walletAddress: null, status: "checkedin" },
-        { id: 2, userId: 10002, walletAddress: null, status: "checkedin" },
-        { id: 3, userId: 10003, walletAddress: "0:abcdef1234567890", status: "checkedin" },
-      ];
+    it("rejects with error and performs no database writes when password is incorrect", async () => {
+      const nowSec = Math.floor(Date.now() / 1000);
+      mockFieldsData[202] = {
+        id: 202,
+        event_id: 102,
+        title: "secret_phrase_onton_input",
+      };
+      mockEventsData[102] = {
+        event_id: 102,
+        event_uuid: "evt-uuid-wrongpass",
+        has_registration: false,
+        secret_phrase: "$2b$10$hashed_correctpass",
+        start_date: nowSec - 3600,
+        end_date: nowSec + 3600,
+      };
 
-      // Build cSBT leaves using ownerAddress as userId (String(reg.userId || 0))
-      const leaves: CsbtLeafData[] = attendees.map((att, idx) => ({
-        index: idx,
-        ownerAddress: String(att.userId),
-        eventUuid,
-      }));
+      const caller = userEventFieldsCaller(createTestContext());
 
-      const tree = await CsbtMerkleTree.fromLeaves(leaves);
-      expect(tree.leafCount).toBe(3);
-      expect(tree.getRootHex()).toBeDefined();
+      await expect(
+        caller.upsertUserEventField({
+          event_id: 102,
+          field_id: 202,
+          data: "wrongpass",
+        })
+      ).rejects.toThrow(/Password incorrect/);
 
-      // Wallet-less attendee #2 (index 1) requests proof
-      const walletLessAttendeeIdx = 1;
-      const proof = tree.getProof(walletLessAttendeeIdx);
-
-      expect(proof.leafIndex).toBe(1);
-      expect(proof.steps.length).toBeGreaterThan(0);
-
-      // Verify offline inclusion proof
-      const isVerified = CsbtMerkleTree.verifyProof(proof.leafHash, proof, proof.root);
-      expect(isVerified).toBe(true);
+      expect(mockDbCaptured.transactionCalls).toBe(0);
+      expect(mockTxCaptured.insertCalls).toHaveLength(0);
+      expect(mockUpsertUserEventFields).not.toHaveBeenCalled();
+      expect(mockInsertRewardRow).not.toHaveBeenCalled();
     });
 
-    it("verifies single wallet-less attendee gets a valid cSBT leaf and root", async () => {
-      const leaves: CsbtLeafData[] = [
-        {
-          index: 0,
-          ownerAddress: "987654321", // Telegram userId only, no wallet
-          eventUuid,
-        },
-      ];
+    it("executes transaction writing visitor and checkedin eventRegistrants row with onConflictDoUpdate, invalidates cache, and does NOT call insertRewardRow", async () => {
+      const nowSec = Math.floor(Date.now() / 1000);
+      mockFieldsData[203] = {
+        id: 203,
+        event_id: 103,
+        title: "secret_phrase_onton_input",
+      };
+      mockEventsData[103] = {
+        event_id: 103,
+        event_uuid: "evt-uuid-valid",
+        has_registration: false,
+        secret_phrase: "$2b$10$hashed_mysecretphrase",
+        start_date: nowSec - 3600,
+        end_date: nowSec + 3600,
+      };
 
-      const tree = await CsbtMerkleTree.fromLeaves(leaves);
-      const proof = tree.getProof(0);
+      const caller = userEventFieldsCaller(createTestContext());
 
-      expect(tree.getRootHex()).toBeDefined();
-      expect(proof.leafIndex).toBe(0);
+      const result = await caller.upsertUserEventField({
+        event_id: 103,
+        field_id: 203,
+        data: "mysecretphrase",
+      });
 
-      const isVerified = CsbtMerkleTree.verifyProof(proof.leafHash, proof, proof.root);
-      expect(isVerified).toBe(true);
+      expect(result).toEqual({ success: true });
+      expect(mockDbCaptured.transactionCalls).toBe(1);
+
+      // Verify visitors write
+      const visitorInsert = mockTxCaptured.insertCalls.find((call) => call.table === visitors);
+      expect(visitorInsert).toBeDefined();
+      expect(visitorInsert?.values).toEqual({
+        user_id: 10001,
+        event_uuid: "evt-uuid-valid",
+        updatedBy: "10001",
+      });
+
+      // Verify eventRegistrants write with status 'checkedin' and onConflictDoUpdate
+      const regInsert = mockTxCaptured.insertCalls.find((call) => call.table === eventRegistrants);
+      expect(regInsert).toBeDefined();
+      expect(regInsert?.values.status).toBe("checkedin");
+      expect(regInsert?.values.event_uuid).toBe("evt-uuid-valid");
+      expect(regInsert?.values.user_id).toBe(10001);
+      expect(regInsert?.onConflict).toBeDefined();
+
+      // Verify user cache invalidation and upsertUserEventFields called
+      expect(mockDeleteCache).toHaveBeenCalledWith("user_cache_10001");
+      expect(mockUpsertUserEventFields).toHaveBeenCalledWith(
+        10001,
+        103,
+        203,
+        "$2b$10$hashed_mysecretphrase"
+      );
+
+      // Verify rewardDB.insertRewardRow is strictly NOT called
+      expect(mockInsertRewardRow).not.toHaveBeenCalled();
+    });
+
+    it("does not call upsertUserEventFields when transaction fails", async () => {
+      const nowSec = Math.floor(Date.now() / 1000);
+      mockFieldsData[204] = {
+        id: 204,
+        event_id: 104,
+        title: "secret_phrase_onton_input",
+      };
+      mockEventsData[104] = {
+        event_id: 104,
+        event_uuid: "evt-uuid-txfail",
+        has_registration: false,
+        secret_phrase: "$2b$10$hashed_pass",
+        start_date: nowSec - 3600,
+        end_date: nowSec + 3600,
+      };
+
+      // Force db.transaction to fail
+      vi.mocked(db.transaction).mockRejectedValueOnce(new Error("DB transaction rolled back"));
+
+      const caller = userEventFieldsCaller(createTestContext());
+
+      await expect(
+        caller.upsertUserEventField({
+          event_id: 104,
+          field_id: 204,
+          data: "pass",
+        })
+      ).rejects.toThrow("DB transaction rolled back");
+
+      expect(mockUpsertUserEventFields).not.toHaveBeenCalled();
     });
   });
 
-  describe("In-Person Check-In Notification Message", () => {
-    it("formats check-in notification without mentioning TON wallets in main text", () => {
-      const event = {
-        title: "ONTON Web3 Summit Helsinki",
-        sbt_collection_address: "0:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+  describe("registrantRouter.checkinRegistrantRequest", () => {
+    const eventUuid = "4b287361-a06f-43dd-87c1-2d3a68f99fa7";
+
+    it("sends telegram notification with exact text, Put it on-chain label, and ?start=ticket_<uuid> deep link", async () => {
+      const eventRecord = {
+        event_id: 501,
+        event_uuid: eventUuid,
+        has_registration: true,
+        participationType: "in_person",
+        sbt_collection_address: "0:sbt_collection_badge_address",
+        has_payment: false,
+        owner: 99999,
       };
-      const botUsername = "ontonlocaldevbot";
-      const hasSbtBadge = Boolean(event.sbt_collection_address);
+      mockEventsData[eventUuid] = eventRecord;
+      mockRegistrantsData.push({
+        registrant_uuid: "mock-registrant-uuid",
+        event_uuid: eventUuid,
+        user_id: 20002,
+        status: "approved",
+      });
 
-      // Check-in notification message according to Issue #1032 spec
-      const notificationMsg = "🎉 You're checked in! Your attendance is recorded in ONTON.";
-      const credentialsLink = `https://t.me/${botUsername}/event?startapp=ticket_${eventUuid}`;
+      const caller = registrantCaller(
+        createTestContext({
+          user_id: 99999,
+          role: "admin",
+        })
+      );
 
-      expect(notificationMsg).toBe("🎉 You're checked in! Your attendance is recorded in ONTON.");
-      expect(notificationMsg.toLowerCase()).not.toContain("wallet");
-      expect(notificationMsg.toLowerCase()).not.toContain("ton wallet");
+      const result = await caller.checkinRegistrantRequest({
+        event_uuid: eventUuid,
+        registrant_uuid: "ONTON:v1:mocktoken",
+      });
 
-      const button = hasSbtBadge
-        ? { link: credentialsLink, linkText: "Put it on-chain" }
-        : { link: undefined, linkText: undefined };
-
-      expect(button.linkText).toBe("Put it on-chain");
-      expect(button.link).toContain("startapp=ticket_");
+      expect(result.code).toBe(200);
+      expect(mockSendTelegramMessage).toHaveBeenCalledWith({
+        chat_id: 20002,
+        message: "🎉 You're checked in! Your attendance is recorded in ONTON.",
+        link: `https://t.me/notnonstagebot?start=ticket_${eventUuid}`,
+        linkText: "Put it on-chain",
+      });
     });
 
-    it("omits action button when event does not have an SBT badge collection", () => {
-      const event = {
-        title: "Community Casual Meetup",
+    it("omits link and linkText when event has no sbt_collection_address", async () => {
+      const eventRecord = {
+        event_id: 502,
+        event_uuid: eventUuid,
+        has_registration: true,
+        participationType: "in_person",
         sbt_collection_address: null,
+        has_payment: false,
+        owner: 99999,
       };
-      const hasSbtBadge = Boolean(event.sbt_collection_address);
-      const notificationMsg = "🎉 You're checked in! Your attendance is recorded in ONTON.";
+      mockEventsData[eventUuid] = eventRecord;
+      mockRegistrantsData.push({
+        registrant_uuid: "mock-registrant-uuid",
+        event_uuid: eventUuid,
+        user_id: 20002,
+        status: "approved",
+      });
 
-      const button = hasSbtBadge
-        ? { link: `https://t.me/ontonlocaldevbot/event?startapp=ticket_${eventUuid}`, linkText: "Put it on-chain" }
-        : { link: undefined, linkText: undefined };
+      const caller = registrantCaller(
+        createTestContext({
+          user_id: 99999,
+          role: "admin",
+        })
+      );
 
-      expect(notificationMsg).toBe("🎉 You're checked in! Your attendance is recorded in ONTON.");
-      expect(button.link).toBeUndefined();
-      expect(button.linkText).toBeUndefined();
+      const result = await caller.checkinRegistrantRequest({
+        event_uuid: eventUuid,
+        registrant_uuid: "ONTON:v1:mocktoken",
+      });
+
+      expect(result.code).toBe(200);
+      expect(mockSendTelegramMessage).toHaveBeenCalledWith({
+        chat_id: 20002,
+        message: "🎉 You're checked in! Your attendance is recorded in ONTON.",
+        link: undefined,
+        linkText: undefined,
+      });
     });
   });
 
-  describe("Preservation of Wallet Requirements for Specific Features", () => {
-    it("ensures on-chain SBT upgrade requires a connected wallet", () => {
-      const handleUpgrade = (userWallet: string | null | undefined) => {
-        if (!userWallet) {
-          return { error: "WALLET_REQUIRED", message: "Please connect your TON wallet to upgrade to an on-chain token." };
-        }
-        return { success: true };
+  describe("handleNotificationReply", () => {
+    it("guards update by status='approved' and does not insert into eventRegistrants", async () => {
+      const notificationId = 15;
+      const attendeeUserId = 30003;
+      const poaEventUuid = "poa-event-uuid-777";
+      const nowSec = Math.floor(Date.now() / 1000);
+
+      mockNotifications[notificationId] = {
+        id: notificationId,
+        userId: attendeeUserId,
+        type: "POA_PASSWORD",
+        itemId: 80,
+        item_type: "POA_TRIGGER",
+        status: "PENDING",
+        readAt: new Date(),
+        actionTimeout: 300,
+      };
+      mockPoaTriggers[80] = {
+        id: 80,
+        eventId: 707,
+      };
+      mockEventsData[707] = {
+        event_id: 707,
+        event_uuid: poaEventUuid,
+        secret_phrase: "$2b$10$hashed_organizer_poa_code",
+        start_date: nowSec - 3600,
+        end_date: nowSec + 3600,
+      };
+      mockFieldsData[707] = {
+        id: 901,
+        event_id: 707,
+        title: "secret_phrase_onton_input",
       };
 
-      expect(handleUpgrade(null).error).toBe("WALLET_REQUIRED");
-      expect(handleUpgrade(undefined).error).toBe("WALLET_REQUIRED");
-      expect(handleUpgrade("0:1234567890").success).toBe(true);
-    });
+      const fakeIo = {
+        to: vi.fn().mockReturnValue({
+          emit: vi.fn(),
+        }),
+      } as unknown as Server;
 
-    it("ensures raffle spin requires a connected wallet", () => {
-      const canSpinRaffle = (hasWallet: boolean, raffleStatus: string) => {
-        return hasWallet && ["waiting_funding", "funded"].includes(raffleStatus);
+      let callbackStatus = "";
+      const callback = (res: { status: string; message: string }) => {
+        callbackStatus = res.status;
       };
 
-      expect(canSpinRaffle(false, "funded")).toBe(false);
-      expect(canSpinRaffle(true, "funded")).toBe(true);
-      expect(canSpinRaffle(true, "waiting_funding")).toBe(true);
-      expect(canSpinRaffle(true, "completed")).toBe(false);
-    });
+      await handleNotificationReply(
+        fakeIo,
+        { notificationId, answer: "organizer_poa_code", type: "POA_PASSWORD" },
+        callback,
+        "test_attendee",
+        attendeeUserId
+      );
 
-    it("ensures crypto checkout requires a connected wallet", () => {
-      const isCryptoCheckoutAllowed = (isPaid: boolean, isStarsOnly: boolean, hasWallet: boolean) => {
-        if (isPaid && !isStarsOnly && !hasWallet) {
-          return false;
-        }
-        return true;
-      };
+      expect(callbackStatus).toBe("success");
 
-      // TON/USDT paid event without wallet cannot proceed
-      expect(isCryptoCheckoutAllowed(true, false, false)).toBe(false);
-      // TON/USDT paid event with wallet can proceed
-      expect(isCryptoCheckoutAllowed(true, false, true)).toBe(true);
-      // Free event without wallet can proceed
-      expect(isCryptoCheckoutAllowed(false, false, false)).toBe(true);
-      // Stars only event without wallet can proceed
-      expect(isCryptoCheckoutAllowed(true, true, false)).toBe(true);
+      // Verify UPDATE was called on eventRegistrants with status='checkedin'
+      const regUpdate = mockDbCaptured.updateCalls.find((c) => c.table === eventRegistrants);
+      expect(regUpdate).toBeDefined();
+      expect(regUpdate?.set.status).toBe("checkedin");
+      expect(regUpdate?.set.updatedBy).toBe(String(attendeeUserId));
+
+      // Verify NO INSERT was executed on eventRegistrants
+      const regInsert = mockDbCaptured.insertCalls.find((c) => c.table === eventRegistrants);
+      expect(regInsert).toBeUndefined();
     });
   });
 });

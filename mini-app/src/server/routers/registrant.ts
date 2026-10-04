@@ -138,7 +138,7 @@ const checkinRegistrantRequest = evntManagerPP
       // Send instant check-in Telegram notification to attendee
       try {
         const botUsername = process.env.NEXT_PUBLIC_BOT_USERNAME || "notnonstagebot";
-        const credentialsLink = `https://t.me/${botUsername}/event?startapp=ticket_${event_uuid}`;
+        const credentialsLink = `https://t.me/${botUsername}?start=ticket_${event_uuid}`;
         const hasSbtBadge = Boolean(event.sbt_collection_address);
         const notificationMsg = "🎉 You're checked in! Your attendance is recorded in ONTON.";
 

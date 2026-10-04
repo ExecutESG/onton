@@ -18,6 +18,7 @@ import visitorsDB from "@/db/modules/visitors.db";
 import rewardDB from "@/db/modules/rewards.db";
 import { db } from "@/db/db";
 import { eventRegistrants } from "@/db/schema";
+import { and, eq } from "drizzle-orm";
 
 type CallbackFunction = (response: { status: string; message: string }) => void;
 
@@ -271,23 +272,21 @@ export const handleNotificationReply = async (
           );
         }
 
-        // Record attendee in eventRegistrants as checkedin for off-chain cSBT credentials and attendance tracking
+        // Move approved registrant to checkedin for off-chain cSBT credentials and attendance tracking
         await db
-          .insert(eventRegistrants)
-          .values({
-            event_uuid: eventData.event_uuid,
-            user_id: userId,
+          .update(eventRegistrants)
+          .set({
             status: "checkedin",
+            updatedAt: new Date(),
             updatedBy: String(userId),
           })
-          .onConflictDoUpdate({
-            target: [eventRegistrants.event_uuid, eventRegistrants.user_id],
-            set: {
-              status: "checkedin",
-              updatedAt: new Date(),
-              updatedBy: String(userId),
-            },
-          })
+          .where(
+            and(
+              eq(eventRegistrants.event_uuid, eventData.event_uuid),
+              eq(eventRegistrants.user_id, userId),
+              eq(eventRegistrants.status, "approved")
+            )
+          )
           .execute();
       } catch (e) {
         logger.error(`SBT::Reward::Error creating user reward for user ${userId} and event ID ${relatedPOATrigger.eventId}`);

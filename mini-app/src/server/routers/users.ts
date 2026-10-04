@@ -68,8 +68,10 @@ export const usersRouter = router({
       providerUserId: item.provider_user_id,
       metadata: item.provider_metadata,
       createdAt: item.created_at,
+      verified: item.verified,
     }));
   }),
+
 
   unlinkIdentity: initDataProtectedProcedure
     .input(

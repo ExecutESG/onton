@@ -5,7 +5,7 @@ import { index, integer, pgEnum, pgTable, real, serial, text, timestamp, uniqueI
 
 export const organizerPaymentStatus = pgEnum("organizer_payment_status", ["not_payed", "payed_to_organizer", "refunded"]);
 
-export const ticketTypes = ["NFT", "TSCSBT"] as const;
+export const ticketTypes = ["NFT", "TSCSBT", "TICKET"] as const;
 export const pgTicketTypes = pgEnum("ticket_types", ticketTypes);
 
 export const eventPayment = pgTable(

@@ -377,10 +377,15 @@ const addEvent = initDataProtectedProcedure.input(z.object({ eventData: EventDat
       /* -------------------------------------------------------------------------- */
 
       if (input_event_data.paid_event && event_has_payment) {
+        if (!input_event_data.has_web3) {
+          input_event_data.paid_event.ticket_type = "TICKET";
+          input_event_data.paid_event.has_nft = false;
+        }
+
         if (!input_event_data.capacity)
           throw new TRPCError({ code: "BAD_REQUEST", message: "Capacity Required for paid events" });
 
-        if (opts.input.eventData?.paid_event?.ticket_type === undefined)
+        if (input_event_data.paid_event.ticket_type === undefined)
           throw new TRPCError({ code: "BAD_REQUEST", message: "Ticket Type Required for paid events" });
 
         const tokenId = input_event_data.paid_event.token_id;
@@ -391,7 +396,7 @@ const addEvent = initDataProtectedProcedure.input(z.object({ eventData: EventDat
         if (!paymentToken)
           throw new TRPCError({ code: "BAD_REQUEST", message: "Unknown payment token selected" });
 
-        const ticketType = opts.input.eventData?.paid_event?.ticket_type;
+        const ticketType = input_event_data.paid_event.ticket_type;
         if (ticketType === "TSCSBT") {
           throw new TRPCError({ code: "BAD_REQUEST", message: "TSCSBT tickets are no longer available" });
         }

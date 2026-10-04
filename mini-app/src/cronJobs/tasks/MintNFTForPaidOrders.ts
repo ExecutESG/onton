@@ -12,6 +12,7 @@ import { is_mainnet } from "@/services/tonCenter";
 import { selectUserById } from "@/db/modules/users.db";
 import { sendLogNotification } from "@/lib/tgBot";
 import { eventRegistrants } from "@/db/schema/eventRegistrants";
+import { tickets } from "@/db/schema/tickets";
 import { affiliateLinksDB } from "@/db/modules/affiliateLinks.db";
 import { couponItemsDB } from "@/db/modules/couponItems.db";
 import { config } from "@/server/config";
@@ -138,6 +139,82 @@ export const processSinglePaidOrder = async (orderUuid: string): Promise<boolean
   }
 
   try {
+    // Bypass minting for TICKET
+    if (paymentInfo.ticket_type === "TICKET") {
+      const orderClaimed = await db.transaction(async (trx) => {
+        const [locked] = await trx
+          .select({ uuid: orders.uuid })
+          .from(orders)
+          .where(and(eq(orders.uuid, ordr.uuid), eq(orders.state, "processing")))
+          .for("update")
+          .execute();
+
+        if (!locked) return false;
+
+        await trx
+          .update(orders)
+          .set({ updatedBy: `mint_lock_${Date.now()}` })
+          .where(eq(orders.uuid, ordr.uuid))
+          .execute();
+
+        return true;
+      });
+
+      if (!orderClaimed) {
+        logger.warn(`processSinglePaidOrder: order ${ordr.uuid} already processed or claimed`);
+        return false;
+      }
+
+      await db.transaction(async (trx) => {
+        const updateResult = (
+          await trx.update(orders).set({ state: "completed" }).where(eq(orders.uuid, ordr.uuid)).returning().execute()
+        ).pop();
+
+        if (ordr.coupon_id !== null) await couponItemsDB.makeCouponItemUsedTrx(trx, ordr.coupon_id, event_uuid);
+
+        if (updateResult && updateResult.utm_source) {
+          await affiliateLinksDB.incrementAffiliatePurchase(updateResult.utm_source);
+        }
+
+        // For TICKET, we insert into tickets table instead of nftItems
+        // Actually, we need to fetch user details or registration info.
+        // Let's get them from eventRegistrants
+        const regInfo = await trx.select().from(eventRegistrants).where(and(eq(eventRegistrants.event_uuid, event_uuid), eq(eventRegistrants.user_id, ordr.user_id || 0))).execute();
+        
+        let registerData: any = {};
+        if (regInfo.length > 0) {
+          registerData = regInfo[0].register_info || {};
+        }
+
+        await trx.insert(tickets).values({
+          name: registerData.full_name || "Attendee",
+          telegram: registerData.telegram || "",
+          company: registerData.company || "",
+          position: registerData.position || "",
+          order_uuid: ordr.uuid,
+          status: "UNUSED",
+          event_uuid: event_uuid,
+          ticket_id: paymentInfo.id,
+          user_id: ordr.user_id,
+        }).onConflictDoNothing();
+
+        if (ordr.user_id) {
+          await trx
+            .update(eventRegistrants)
+            .set({ status: "approved" })
+            .where(
+              and(
+                eq(eventRegistrants.event_uuid, event_uuid),
+                eq(eventRegistrants.user_id, ordr.user_id),
+                or(eq(eventRegistrants.status, "pending"), eq(eventRegistrants.status, "rejected"))
+              )
+            )
+            .execute();
+        }
+      });
+      return true;
+    }
+
     let collectionAddress = paymentInfo.collectionAddress;
     
     // Lazy Deploy Collection

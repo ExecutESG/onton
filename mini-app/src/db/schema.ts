@@ -55,6 +55,15 @@ import { user_custom_flags, user_flags, userFlagsType } from "./schema/user_cust
 import { userEventFieldRelations, userEventFields } from "./schema/userEventFields";
 import { userRelations, users } from "./schema/users";
 import { user_identities, userIdentitiesRelations, UserIdentityRow, UserIdentityInsert } from "./schema/userIdentities";
+import {
+  user_consents,
+  userConsentsRelations,
+  UserConsentRow,
+  UserConsentInsert,
+  CONSENT_PURPOSES,
+  ConsentPurpose,
+  CURRENT_PRIVACY_POLICY_VERSION,
+} from "./schema/userConsents";
 import { eventReports, eventReportsRelations, EventReportRow, EventReportInsert } from "./schema/eventReports";
 import { visitors } from "./schema/visitors";
 import { walletChecks } from "./schema/walletChecks";
@@ -411,6 +420,10 @@ export {
   userIdentitiesRelations,
   eventReports,
   eventReportsRelations,
+  user_consents,
+  userConsentsRelations,
+  CONSENT_PURPOSES,
+  CURRENT_PRIVACY_POLICY_VERSION,
 };
 
 // Type Exports
@@ -550,4 +563,7 @@ export type {
   EventTicketTierRow,
   EventReportRow,
   EventReportInsert,
+  UserConsentRow,
+  UserConsentInsert,
+  ConsentPurpose,
 };

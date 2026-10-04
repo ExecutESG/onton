@@ -795,3 +795,7 @@ export const SBT_ONCHAIN_UPGRADE_PRICE = 0.1; // TON paid by attendee for on-cha
 export const SBT_MINT_GAS_FEE = 0.055; // TON forwarded to smart contract for deployment/storage
 export const SBT_PLATFORM_FEE = 0.045; // TON protocol revenue retained in treasury
 
+/* GDPR User Consents */
+export const CURRENT_PRIVACY_POLICY_VERSION = "2024-09-11";
+
+

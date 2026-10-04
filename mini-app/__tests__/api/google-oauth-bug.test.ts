@@ -34,4 +34,17 @@ describe("usersGoogleDB.upsertGoogleAccount", () => {
     // We expect db.delete to have been called once for userId
     expect(db.delete).toHaveBeenCalledTimes(1);
   });
+
+  it("throws an error when trying to link a Google account owned by another user", async () => {
+    // Mock getCache to return a DIFFERENT user id
+    const { redisTools } = await import("../../src/lib/redisTools");
+    (redisTools.getCache as any).mockResolvedValueOnce(999);
+
+    await expect(
+      usersGoogleDB.upsertGoogleAccount({
+        userId: 123,
+        gUserId: "g123",
+      })
+    ).rejects.toThrow("This Google account is already linked to another user.");
+  });
 });

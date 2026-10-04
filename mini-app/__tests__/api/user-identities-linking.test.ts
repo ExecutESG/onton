@@ -109,4 +109,29 @@ describe("Multi-Provider User Identities & Linking Logic", () => {
 
     expect(result.success).toBe(true);
   });
+
+  it("createIdentity includes where clause to prevent account takeover", async () => {
+    // Import db to check the mock arguments
+    const { db } = await import("@/db/db");
+    const { eq } = await import("drizzle-orm");
+    const { user_identities } = await import("@/db/schema/userIdentities");
+
+    await userIdentitiesDB.createIdentity({
+      user_id: 123,
+      provider: "google",
+      provider_user_id: "g123",
+      verified: true
+    });
+
+    const onConflictDoUpdateMock = (db.insert as any)().values().onConflictDoUpdate;
+    expect(onConflictDoUpdateMock).toHaveBeenCalled();
+    const callArgs = onConflictDoUpdateMock.mock.calls[0][0];
+
+    // Assert that 'user_id' is NOT in 'set'
+    expect(callArgs.set).not.toHaveProperty("user_id");
+    
+    // Assert that 'where' clause exists
+    expect(callArgs).toHaveProperty("where");
+    expect(callArgs.where).toBeDefined();
+  });
 });

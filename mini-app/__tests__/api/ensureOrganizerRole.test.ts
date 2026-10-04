@@ -45,13 +45,13 @@ vi.mock("@/db/db", () => ({
     })),
 
     
-    insert: vi.fn().mockImplementation(() => ({
-      values: vi.fn().mockImplementation(() => ({
-        onConflictDoUpdate: vi.fn().mockImplementation(() => ({
+    insert: vi.fn().mockReturnValue({
+      values: vi.fn().mockReturnValue({
+        onConflictDoUpdate: vi.fn().mockReturnValue({
           execute: vi.fn().mockResolvedValue([]),
-        })),
-      })),
-    })),
+        }),
+      }),
+    }),
     update: vi.fn().mockImplementation(() => ({
       set: vi.fn().mockImplementation((setData: Record<string, unknown>) => ({
         where: vi.fn().mockImplementation(() => ({
@@ -212,6 +212,33 @@ describe("ensureOrganizerRole (Issue #1031)", () => {
     expect(res).toBe(false);
     expect(mockState.updateCalls.length).toBe(0);
     expect(mockState.currentUser.role).toBe("user");
+  });
+
+  it("should upgrade user with an existing telegram identity and verify correct upsert target", async () => {
+    const { db } = await import("@/db/db");
+    const { user_identities } = await import("@/db/schema/userIdentities");
+    
+    mockState.currentUser = {
+      user_id: 108,
+      role: "user",
+      telegram_id: "108_tg",
+    };
+    mockState.identities.push({
+      user_id: 108,
+      provider: "telegram",
+      provider_user_id: "108_tg",
+      verified: true,
+    });
+
+    const res = await ensureOrganizerRole(108);
+    expect(res).toBe(true);
+    
+    // verify the upsert target matches the unique index [provider, provider_user_id]
+    const onConflictMock = (db.insert as any)().values().onConflictDoUpdate;
+    expect(onConflictMock).toHaveBeenCalled();
+    const callArgs = onConflictMock.mock.calls[0][0];
+    
+    expect(callArgs.target).toEqual([user_identities.provider, user_identities.provider_user_id]);
   });
 
   it("should return false for non-existent user", async () => {

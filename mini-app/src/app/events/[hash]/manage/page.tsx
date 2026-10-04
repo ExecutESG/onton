@@ -135,38 +135,39 @@ export default function ManageIndexPage() {
             </DropdownMenu>
           }
         />
-        {canEditEvent && (
-          <div className="grid xs:grid-cols-2 gap-3 mx-3 mt-3">
-            {eventData.participationType === "online" ? (
+        <div className="grid xs:grid-cols-2 gap-3 mx-3 mt-3">
+          {eventData.participationType === "online" ? (
+            <CustomButton
+              onClick={async (e) => {
+                if (eventData.event_uuid) {
+                  requestSendQRCode.mutateAsync({
+                    url: `https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME}/event?startapp=${eventData.event_uuid}`,
+                    hub: eventData.society_hub?.name || undefined,
+                    event_uuid: eventData.event_uuid,
+                  });
+                  webApp?.openTelegramLink(`https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME}`);
+                  webApp?.HapticFeedback?.impactOccurred("medium");
+                  await wait(200);
+                  webApp?.close();
+                }
+              }}
+              variant="outline"
+              icon={<QrCode />}
+            >
+              Get QR Code
+            </CustomButton>
+          ) : (
+            <ScanRegistrantQRCode>
               <CustomButton
-                onClick={async (e) => {
-                  if (eventData.event_uuid) {
-                    requestSendQRCode.mutateAsync({
-                      url: `https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME}/event?startapp=${eventData.event_uuid}`,
-                      hub: eventData.society_hub?.name || undefined,
-                      event_uuid: eventData.event_uuid,
-                    });
-                    webApp?.openTelegramLink(`https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME}`);
-                    webApp?.HapticFeedback?.impactOccurred("medium");
-                    await wait(200);
-                    webApp?.close();
-                  }
-                }}
                 variant="outline"
-                icon={<QrCode />}
+                icon={<ScanLine />}
               >
-                Get QR Code
+                Scan tickets
               </CustomButton>
-            ) : (
-              <ScanRegistrantQRCode>
-                <CustomButton
-                  variant="outline"
-                  icon={<ScanLine />}
-                >
-                  Scan QR Code
-                </CustomButton>
-              </ScanRegistrantQRCode>
-            )}
+            </ScanRegistrantQRCode>
+          )}
+
+          {canEditEvent && (
             <CustomButton
               onClick={() => {
                 setSection("event_setup_form_general_step");
@@ -177,8 +178,8 @@ export default function ManageIndexPage() {
             >
               Edit Event Info
             </CustomButton>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Action Cards for each sub-route */}

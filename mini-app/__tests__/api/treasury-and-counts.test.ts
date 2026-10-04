@@ -48,13 +48,20 @@ vi.mock("@/lib/redisTools", () => ({
 }));
 
 import { appRouter } from "../../src/server/index";
+import { ExtendedUser } from "../../src/types/extendedUserTypes";
 
 describe("Treasury & Counts API Tests", () => {
   const callerUser = (role: string, user_id: number) => {
-    return appRouter.createCaller({ user: { role, user_id }, req: {} as any, res: {} as any });
+    return appRouter.createCaller({ 
+      user: { role, user_id } as Partial<ExtendedUser> as ExtendedUser, 
+      req: new Request("http://localhost") 
+    });
   };
   const callerAnon = () => {
-    return appRouter.createCaller({ user: null, req: {} as any, res: {} as any });
+    return appRouter.createCaller({ 
+      user: null, 
+      req: new Request("http://localhost") 
+    });
   };
 
   it("Treasury access: anonymous 401", async () => {

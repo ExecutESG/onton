@@ -381,6 +381,9 @@ const addEvent = initDataProtectedProcedure.input(z.object({ eventData: EventDat
           throw new TRPCError({ code: "BAD_REQUEST", message: "Unknown payment token selected" });
 
         const ticketType = opts.input.eventData?.paid_event?.ticket_type;
+        if (ticketType === "TSCSBT") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "TSCSBT tickets are no longer available" });
+        }
 
         let event_ticket_price = Math.max(input_event_data.paid_event.payment_amount || 0, 0.001); // Price > 0.001
         event_ticket_price = Math.round(event_ticket_price * 1000) / 1000; // Round to 3 Decimals

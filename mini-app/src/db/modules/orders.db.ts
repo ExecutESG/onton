@@ -21,16 +21,24 @@ const getEventOrders = async (event_uuid: string) => {
  * Update the state of a single order, returning the rows that were updated.
  */
 const updateOrderState = async (orderUuid: string, userId: number, newState: "cancelled" | "confirming") => {
+  const baseWhere = and(
+    eq(orders.uuid, orderUuid),
+    eq(orders.user_id, userId),
+    or(eq(orders.state, "new"), eq(orders.state, "confirming"), eq(orders.state, "cancelled"))
+  );
+
+  const finalWhere =
+    newState === "confirming"
+      ? and(
+          baseWhere,
+          not(or(eq(orders.order_type, "event_creation"), eq(orders.order_type, "event_capacity_increment")))
+        )
+      : baseWhere;
+
   return db
     .update(orders)
     .set({ state: newState })
-    .where(
-      and(
-        eq(orders.uuid, orderUuid),
-        eq(orders.user_id, userId),
-        or(eq(orders.state, "new"), eq(orders.state, "confirming"), eq(orders.state, "cancelled"))
-      )
-    )
+    .where(finalWhere)
     .returning({ uuid: orders.uuid })
     .execute();
 };

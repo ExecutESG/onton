@@ -1,8 +1,10 @@
 import { db } from "@/db/db";
 import { events, eventPayment, organizerPayouts } from "@/db/schema";
-import { verifyBotHmac } from "@/lib/botHmacAuth";
+import { verifyBotHmac } from "@/server/botHmacAuth";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+
+export const runtime = "nodejs";
 
 const payoutSchema = z.object({
   event_uuid: z.string().uuid({ message: "Invalid event_uuid format" }),
@@ -10,13 +12,14 @@ const payoutSchema = z.object({
     .union([z.string(), z.number()])
     .refine(
       (val) => {
-        const num = Number(val);
-        return !isNaN(num) && num > 0;
+        return /^\d{1,11}(\.\d{1,9})?$/.test(String(val));
       },
-      { message: "Amount must be a positive number" }
+      { message: "Amount must be a positive number up to 11 digits and 9 decimals" }
     )
     .transform((val) => String(val)),
-  tx_hash: z.string().min(1, { message: "tx_hash is required" }),
+  tx_hash: z.string().refine((val) => {
+    return /^[A-Fa-f0-9]{64}$/.test(val) || /^[A-Za-z0-9_-]{43}=?$/.test(val);
+  }, { message: "Invalid transaction hash format" }).transform((val) => val.slice(0, 100)),
   paid_by: z
     .union([z.string(), z.number()])
     .refine(
@@ -31,16 +34,13 @@ const payoutSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const rawBody = await request.text();
-
-  // 1. Authenticate via HMAC / API key
-  const auth = verifyBotHmac(request.headers, rawBody);
-  if (!auth.valid) {
-    return Response.json(
-      { error: "unauthorized", message: auth.error || "Unauthorized" },
-      { status: 401 }
-    );
+  // 1. Authenticate via HMAC
+  const authResponse = await verifyBotHmac(request);
+  if (authResponse) {
+    return authResponse;
   }
+
+  const rawBody = await request.text();
 
   // 2. Parse & Validate request body
   let bodyJson: unknown;
@@ -78,6 +78,13 @@ export async function POST(request: Request) {
     );
   }
 
+  if (!existingEvent.has_payment) {
+    return Response.json(
+      { error: "bad_request", message: "Event does not require payment" },
+      { status: 400 }
+    );
+  }
+
   // 4. Verify event payment info exists
   const paymentInfo = await db.query.eventPayment.findFirst({
     where: eq(eventPayment.event_uuid, event_uuid),
@@ -103,7 +110,12 @@ export async function POST(request: Request) {
         paid_by,
         paid_at: new Date(),
       })
+      .onConflictDoNothing({ target: organizerPayouts.tx_hash })
       .returning();
+
+    if (!inserted) {
+      return null;
+    }
 
     await trx
       .update(eventPayment)
@@ -116,6 +128,10 @@ export async function POST(request: Request) {
 
     return inserted;
   });
+
+  if (!payout) {
+    return Response.json({ error: "duplicate_tx", message: "Duplicate transaction hash" }, { status: 409 });
+  }
 
   return Response.json(
     {

@@ -1,6 +1,7 @@
 import { db } from "@/db/db";
+import { events } from "@/db/schema/events";
 import { orders } from "@/db/schema/orders";
-import { and, asc, eq, isNotNull, or, sql } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { logger } from "@/server/utils/logger";
 import { Address } from "@ton/core";
 import { eventPayment } from "@/db/schema/eventPayment";
@@ -129,12 +130,6 @@ export const processSinglePaidOrder = async (orderUuid: string): Promise<boolean
     return false;
   }
 
-  if (!paymentInfo.collectionAddress) {
-    logger.error("processSinglePaidOrder: no collection address for event", event_uuid);
-    await recordOrderMintFailure(ordr.uuid, ordr.retry_count, "No collection address found for event payment");
-    return false;
-  }
-
   const mintLockKey = `lock:mint_nft:${event_uuid}`;
   const lockAcquired = await redisTools.acquireLock(mintLockKey, 120);
   if (!lockAcquired) {
@@ -143,6 +138,53 @@ export const processSinglePaidOrder = async (orderUuid: string): Promise<boolean
   }
 
   try {
+    let collectionAddress = paymentInfo.collectionAddress;
+    
+    // Lazy Deploy Collection
+    if (paymentInfo.ticket_type === "NFT" && !collectionAddress) {
+      logger.log(`Lazy deploying collection for event ${event_uuid}`);
+      
+      const eventData = (
+        await db.select().from(events).where(eq(events.event_uuid, event_uuid)).execute()
+      ).pop();
+      
+      if (!eventData) {
+        throw new Error(`Event not found: ${event_uuid}`);
+      }
+
+      try {
+        const { deployNftCollection } = await import("./handleTicketType");
+        const deployedAddress = await deployNftCollection(eventData as any, paymentInfo);
+        
+        const updateRes = await db
+          .update(eventPayment)
+          .set({ collectionAddress: deployedAddress.toString() })
+          .where(and(eq(eventPayment.id, paymentInfo.id), isNull(eventPayment.collectionAddress)))
+          .returning();
+          
+        if (updateRes.length > 0) {
+          collectionAddress = updateRes[0].collectionAddress;
+        } else {
+          // If another worker beat us to it, load the address
+          const freshPaymentInfo = (
+            await db.select().from(eventPayment).where(eq(eventPayment.id, paymentInfo.id)).execute()
+          ).pop();
+          collectionAddress = freshPaymentInfo?.collectionAddress || null;
+        }
+      } catch (deployErr) {
+        logger.error(`Collection deploy failed for event ${event_uuid}`, deployErr);
+        // Don't fail the order, it will retry
+        await recordOrderMintFailure(ordr.uuid, ordr.retry_count, "Collection deploy failed");
+        return false;
+      }
+    }
+
+    if (!collectionAddress) {
+      logger.error("processSinglePaidOrder: no collection address for event", event_uuid);
+      await recordOrderMintFailure(ordr.uuid, ordr.retry_count, "No collection address found for event payment");
+      return false;
+    }
+
     // Concurrency protection: Verify and lock order row with FOR UPDATE
     const orderClaimed = await db.transaction(async (trx) => {
       const [locked] = await trx
@@ -197,10 +239,10 @@ export const processSinglePaidOrder = async (orderUuid: string): Promise<boolean
 
     const nft_index = nft_count_result[0].count || 0;
 
-    logger.log(`minting_nft_${ordr.event_uuid}_${nft_index}_${paymentInfo?.collectionAddress}_${meta_data_url}`);
+    logger.log(`minting_nft_${ordr.event_uuid}_${nft_index}_${collectionAddress}_${meta_data_url}`);
     const nft_address = await mintNFT(
       ordr.owner_address,
-      paymentInfo?.collectionAddress,
+      collectionAddress as string,
       nft_index,
       meta_data_url,
       {

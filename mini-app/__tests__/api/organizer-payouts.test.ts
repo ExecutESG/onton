@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import crypto from "crypto";
-import { verifyBotHmac } from "@/lib/botHmacAuth";
+import { verifyBotHmac } from "@/server/botHmacAuth";
 import { POST as payoutHandler } from "@/app/api/v1/payout/route";
 
 const {
@@ -81,7 +81,7 @@ describe("Issue #1033: Organizer Payouts & Upfront Fee Removal", () => {
   function createHmacHeaders(body: unknown, timestamp?: number, secret = TEST_SECRET) {
     const ts = (timestamp ?? Date.now()).toString();
     const rawBody = typeof body === "object" ? JSON.stringify(body) : String(body || "");
-    const payload = `${ts}.${rawBody}`;
+    const payload = `${ts}.POST./api/v1/payout.${rawBody}`;
     const sig = crypto.createHmac("sha256", secret).update(payload).digest("hex");
 
     return new Headers({
@@ -93,47 +93,43 @@ describe("Issue #1033: Organizer Payouts & Upfront Fee Removal", () => {
   }
 
   describe("HMAC Authentication & Security (verifyBotHmac)", () => {
-    it("accepts requests with valid HMAC signature and current timestamp", () => {
+    it("accepts requests with valid HMAC signature and current timestamp", async () => {
       const body = { event_uuid: TEST_EVENT_UUID, amount: "100", tx_hash: "tx123", paid_by: 12345 };
       const headers = createHmacHeaders(body);
-      const res = verifyBotHmac(headers, JSON.stringify(body));
-      expect(res.valid).toBe(true);
+      const req = new Request("http://localhost/api/v1/payout", { method: "POST", headers, body: JSON.stringify(body) });
+      const res = await verifyBotHmac(req);
+      expect(res).toBeNull(); // null means success
     });
 
-    it("rejects requests when HMAC signature does not match secret", () => {
+    it("rejects requests when HMAC signature does not match secret", async () => {
       const body = { event_uuid: TEST_EVENT_UUID, amount: "100" };
       const headers = createHmacHeaders(body, Date.now(), "wrong_secret");
-      headers.delete("x-api-key"); // Remove fallback
-      const res = verifyBotHmac(headers, JSON.stringify(body));
-      expect(res.valid).toBe(false);
-      expect(res.error).toContain("Invalid or missing authentication signature");
+      const req = new Request("http://localhost/api/v1/payout", { method: "POST", headers, body: JSON.stringify(body) });
+      const res = await verifyBotHmac(req);
+      expect(res).not.toBeNull();
+      expect(res?.status).toBe(401);
     });
 
-    it("rejects expired timestamps (>60s) to prevent replay attacks", () => {
+    it("rejects expired timestamps (>60s) to prevent replay attacks", async () => {
       const body = { event_uuid: TEST_EVENT_UUID, amount: "100" };
       const expiredTimestamp = Date.now() - 65 * 1000;
       const headers = createHmacHeaders(body, expiredTimestamp);
-      const res = verifyBotHmac(headers, JSON.stringify(body));
-      expect(res.valid).toBe(false);
-      expect(res.error).toContain("timestamp expired");
+      const req = new Request("http://localhost/api/v1/payout", { method: "POST", headers, body: JSON.stringify(body) });
+      const res = await verifyBotHmac(req);
+      expect(res).not.toBeNull();
+      expect(res?.status).toBe(401);
     });
 
-    it("accepts valid x-api-key fallback when signature is missing", () => {
+    it("rejects requests when only x-api-key is present (no fallback allowed)", async () => {
       const body = { event_uuid: TEST_EVENT_UUID };
       const headers = new Headers({
         "Content-Type": "application/json",
         "x-api-key": TEST_SECRET,
       });
-      const res = verifyBotHmac(headers, JSON.stringify(body));
-      expect(res.valid).toBe(true);
-    });
-
-    it("rejects request if both signature and api-key are invalid", () => {
-      const headers = new Headers({
-        "x-api-key": "invalid_key",
-      });
-      const res = verifyBotHmac(headers, "");
-      expect(res.valid).toBe(false);
+      const req = new Request("http://localhost/api/v1/payout", { method: "POST", headers, body: JSON.stringify(body) });
+      const res = await verifyBotHmac(req);
+      expect(res).not.toBeNull();
+      expect(res?.status).toBe(401);
     });
   });
 
@@ -274,102 +270,115 @@ describe("Issue #1033: Organizer Payouts & Upfront Fee Removal", () => {
         })
       );
     });
-  });
-
-  describe("Reminder Idempotency & Status Decoupling", () => {
-    it("ensures sendPaymentReminder records payout_reminder_sent_at and does not flip organizer_payment_status", () => {
-      // Logic simulation of sendPaymentReminder update
-      const eventState = {
-        id: 1,
+  describe("Payout Additional Validation", () => {
+    it("returns 409 duplicate_tx for identical tx_hash", async () => {
+      const validPayload = {
         event_uuid: TEST_EVENT_UUID,
-        organizer_payment_status: "not_payed",
-        payout_reminder_sent_at: null as Date | null,
+        amount: "150.75",
+        tx_hash: "0x7788aabbccdd",
+        paid_by: 7013087032,
+        token_id: 1,
       };
+      
+      const req = new Request("http://localhost:3000/api/v1/payout", {
+        method: "POST",
+        headers: createHmacHeaders(validPayload),
+        body: JSON.stringify(validPayload),
+      });
 
-      // When message is sent successfully
-      function handleMessageSuccess(state: typeof eventState) {
-        state.payout_reminder_sent_at = new Date();
-        // Crucial: organizer_payment_status must NOT be altered
-      }
+      // Insert logic has been mocked to pretend we hit unique constraint or returning null
+      mockTransactionFn.mockImplementationOnce(async () => null);
 
-      handleMessageSuccess(eventState);
-
-      expect(eventState.payout_reminder_sent_at).not.toBeNull();
-      expect(eventState.organizer_payment_status).toBe("not_payed");
+      const response = await payoutHandler(req);
+      expect(response.status).toBe(409);
+      const data = await response.json();
+      expect(data.error).toBe("duplicate_tx");
     });
 
-    it("ensures events with existing payout_reminder_sent_at are excluded from future reminder runs", () => {
-      const candidates = [
-        {
-          id: 1,
-          event_uuid: "evt-1",
-          organizer_payment_status: "not_payed",
-          payout_reminder_sent_at: null,
-          hasEnded: true,
-        },
-        {
-          id: 2,
-          event_uuid: "evt-2",
-          organizer_payment_status: "not_payed",
-          payout_reminder_sent_at: new Date(Date.now() - 3600 * 1000), // Already sent
-          hasEnded: true,
-        },
-        {
-          id: 3,
-          event_uuid: "evt-3",
-          organizer_payment_status: "payed_to_organizer",
-          payout_reminder_sent_at: null,
-          hasEnded: true,
-        },
-      ];
+    it("returns 400 for bad tx_hash", async () => {
+      const payload = {
+        event_uuid: TEST_EVENT_UUID,
+        amount: "150.75",
+        tx_hash: "invalid-hash", // not 64 hex or 43 base64 chars
+        paid_by: 7013087032,
+      };
+      const req = new Request("http://localhost:3000/api/v1/payout", {
+        method: "POST",
+        headers: createHmacHeaders(payload),
+        body: JSON.stringify(payload),
+      });
+      const response = await payoutHandler(req);
+      expect(response.status).toBe(400);
+      const data = await response.json();
+      expect(data.error).toBe("validation_error");
+    });
 
-      // Query filter condition: organizer_payment_status = 'not_payed' AND payout_reminder_sent_at IS NULL
-      const filtered = candidates.filter(
-        (c) => c.organizer_payment_status === "not_payed" && c.payout_reminder_sent_at === null
-      );
+    it("returns 400 for non-paid event", async () => {
+      mockFindFirstFn.mockImplementationOnce(async ({ where }: any) => {
+        // Mock non-paid event
+        return { event_uuid: TEST_EVENT_UUID, has_payment: false };
+      });
 
-      expect(filtered.length).toBe(1);
-      expect(filtered[0].id).toBe(1);
+      const payload = {
+        event_uuid: TEST_EVENT_UUID,
+        amount: "100.00",
+        tx_hash: "a".repeat(64),
+        paid_by: 7013087032,
+      };
+      const req = new Request("http://localhost:3000/api/v1/payout", {
+        method: "POST",
+        headers: createHmacHeaders(payload),
+        body: JSON.stringify(payload),
+      });
+      const response = await payoutHandler(req);
+      expect(response.status).toBe(400);
+      const data = await response.json();
+      expect(data.error).toBe("bad_request");
     });
   });
 
-  describe("Upfront Fee Removal & Capacity Editing", () => {
-    it("verifies paid event creation requires no upfront orders", () => {
-      const paidEventInput = {
-        title: "Conference 2026",
-        capacity: 100,
-        has_payment: true,
-      };
+  describe("sendPaymentReminder", () => {
+    it("sets payout_reminder_sent_at without altering organizer_payment_status, and skips when no message_id", async () => {
+      const { sendPaymentReminder } = await import("@/cronJobs/tasks/sendPaymentReminder");
+      
+      const mockSendLogNotification = vi.fn();
+      vi.mock("@/server/utils/telegramTools", () => ({
+        sendLogNotification: mockSendLogNotification,
+      }));
 
-      // Prior behavior inserted order with order_type: "event_creation"
-      // New behavior inserts no order
-      const ordersCreated: string[] = [];
-      function onEventCreate(input: typeof paidEventInput) {
-        // No orders inserted for event creation
-        return { event_uuid: TEST_EVENT_UUID, ...input };
-      }
+      // Mock database queries
+      const mockDbUpdate = vi.fn().mockReturnValue({ set: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ execute: vi.fn() }) }) });
+      mockDb.update = mockDbUpdate;
+      
+      mockDb.select = vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          leftJoin: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              execute: vi.fn().mockResolvedValue([{
+                events: { event_uuid: "123", title: "Test Event" },
+                event_payment_info: { price: 1, bought_capacity: 10, ticket_type: "NFT", recipient_address: "address" },
+              }]),
+            }),
+          }),
+          where: vi.fn().mockReturnValue({ execute: vi.fn().mockResolvedValue([{ nft_count: 5 }]) }),
+        }),
+      });
 
-      const created = onEventCreate(paidEventInput);
-      expect(created.event_uuid).toBe(TEST_EVENT_UUID);
-      expect(ordersCreated.length).toBe(0);
-    });
+      // 1. message_id returned -> updates payout_reminder_sent_at
+      mockSendLogNotification.mockResolvedValueOnce({ message_id: 999 });
+      await sendPaymentReminder();
+      expect(mockDbUpdate).toHaveBeenCalled();
+      const setCall = mockDbUpdate().set.mock.calls[0][0];
+      expect(setCall).toHaveProperty("payout_reminder_sent_at");
+      expect(setCall).not.toHaveProperty("organizer_payment_status");
 
-    it("verifies capacity changes on paid events apply immediately and sync bought_capacity", () => {
-      let eventCapacity = 50;
-      let boughtCapacity = 50;
-      const ordersCreated: string[] = [];
+      mockDbUpdate.mockClear();
 
-      function updateCapacity(newCapacity: number) {
-        // Issue #1033: Applies immediately, updates bought_capacity, creates NO orders
-        eventCapacity = newCapacity;
-        boughtCapacity = newCapacity;
-      }
-
-      updateCapacity(120);
-
-      expect(eventCapacity).toBe(120);
-      expect(boughtCapacity).toBe(120);
-      expect(ordersCreated.length).toBe(0);
+      // 2. no message_id -> doesn't update marker
+      mockSendLogNotification.mockResolvedValueOnce(null);
+      await sendPaymentReminder();
+      expect(mockDbUpdate).not.toHaveBeenCalled();
     });
   });
+});
 });

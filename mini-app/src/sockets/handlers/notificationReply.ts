@@ -186,19 +186,12 @@ export const handleNotificationReply = async (
         return;
       }
 
-      // "Fixed password" logic
-      const today = new Date();
-      const dayOfMonth = today.getDate();
-      const monthNameShort = today.toLocaleString("en-US", { month: "short" });
-      const fixedPassword = `${dayOfMonth}ShahKey@${monthNameShort}`;
-
       const enteredPassword = answer.trim().toLowerCase();
-      const isFixedPasswordCorrect = enteredPassword === fixedPassword.toLowerCase();
       const isRealPasswordCorrect = eventData.secret_phrase
         ? await bcryptLib.comparePassword(enteredPassword, eventData.secret_phrase)
         : false;
 
-      if (!isFixedPasswordCorrect && !isRealPasswordCorrect) {
+      if (!isRealPasswordCorrect) {
         // Wrong password => increment tries
         currentTries += 1;
         await setCache(redisKey, currentTries); // store the new count

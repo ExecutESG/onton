@@ -5,8 +5,10 @@ import { is_local_env, is_prod_env, is_stage_env } from "@/server/utils/evnutils
 import { logger } from "@/server/utils/logger";
 import { sleep } from "@/utils";
 
-// Network selection follows ENV: production => mainnet, otherwise testnet
-export const is_mainnet = is_prod_env();
+// Network selection follows ENV: production => mainnet, or explicit TON_NETWORK=mainnet
+export const is_mainnet =
+  is_prod_env() ||
+  process.env.TON_NETWORK?.toLowerCase() === "mainnet";
 /* -------------------------------------------------------------------------- */
 /*                                   API KEY                                  */
 /* -------------------------------------------------------------------------- */

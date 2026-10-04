@@ -64,7 +64,10 @@ const RegistrationStep = () => {
 
   useLayoutEffect(() => {
     if (eventData?.eventLocationType === "in_person") {
-      setEventData({ has_registration: true });
+      setEventData({
+        has_registration: true,
+        capacity: eventData.capacity && eventData.capacity >= 1 ? eventData.capacity : 100,
+      });
     }
   }, []);
 

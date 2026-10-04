@@ -98,4 +98,93 @@ describe("getAttendeeMainButtonState", () => {
     });
     expect(result).toEqual({ type: "view_ticket_pass" });
   });
+
+  it("free event open RSVP unregistered -> 'register' with label 'Register'", () => {
+    const result = getAttendeeMainButtonState({
+      ...defaultParams,
+      hasRegistration: true,
+      hasApproval: false,
+      user: { user_id: 123 },
+    });
+    expect(result).toEqual({ type: "register", label: "Register" });
+  });
+
+  it("free event approval required unregistered -> 'register' with label 'Request to Join'", () => {
+    const result = getAttendeeMainButtonState({
+      ...defaultParams,
+      hasRegistration: true,
+      hasApproval: true,
+      user: { user_id: 123 },
+    });
+    expect(result).toEqual({ type: "register", label: "Request to Join" });
+  });
+
+  it("free event capacity filled with waitlist -> 'register' with label 'Join Waitlist'", () => {
+    const result = getAttendeeMainButtonState({
+      ...defaultParams,
+      hasRegistration: true,
+      capacityFilled: true,
+      hasWaitingList: true,
+      user: { user_id: 123 },
+    });
+    expect(result).toEqual({ type: "register", label: "Join Waitlist" });
+  });
+
+  it("free event capacity filled without waitlist -> 'capacity_filled'", () => {
+    const result = getAttendeeMainButtonState({
+      ...defaultParams,
+      hasRegistration: true,
+      capacityFilled: true,
+      hasWaitingList: false,
+      user: { user_id: 123 },
+    });
+    expect(result).toEqual({ type: "capacity_filled" });
+  });
+
+  it("free event unauthenticated user -> 'login_required'", () => {
+    const result = getAttendeeMainButtonState({
+      ...defaultParams,
+      hasRegistration: true,
+      user: null,
+    });
+    expect(result).toEqual({ type: "login_required" });
+  });
+
+  it("registrant status pending -> 'pending'", () => {
+    const result = getAttendeeMainButtonState({
+      ...defaultParams,
+      registrantStatus: "pending",
+    });
+    expect(result).toEqual({ type: "pending" });
+  });
+
+  it("registrant status rejected -> 'rejected'", () => {
+    const result = getAttendeeMainButtonState({
+      ...defaultParams,
+      registrantStatus: "rejected",
+    });
+    expect(result).toEqual({ type: "rejected" });
+  });
+
+  it("checked-in attendee can claim SBT even after event has ended", () => {
+    const result = getAttendeeMainButtonState({
+      ...defaultParams,
+      isNotEnded: false,
+      isCheckedIn: true,
+      hasSbt: true,
+      hasEnteredPassword: true,
+    });
+    expect(result).toEqual({ type: "claim_sbt" });
+  });
+
+  it("checked-in attendee shows 'checked_in' even after event has ended", () => {
+    const result = getAttendeeMainButtonState({
+      ...defaultParams,
+      isNotEnded: false,
+      isCheckedIn: true,
+      hasSbt: false,
+      hasEnteredPassword: true,
+    });
+    expect(result).toEqual({ type: "checked_in" });
+  });
 });

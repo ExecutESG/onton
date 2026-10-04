@@ -59,6 +59,7 @@ describe("Free event creation without secret_phrase validation", () => {
       location: "San Francisco, CA",
       countryId: 1,
       cityId: 1,
+      capacity: 100,
     };
 
     const result = EventDataSchema.safeParse(payload);

@@ -187,6 +187,13 @@ export const useCreateEventStore = create<CreateEventStoreType>()(
             ...data,
           };
 
+          if (newData.eventLocationType === "in_person") {
+            newData.has_registration = true;
+            if (newData.capacity === null || newData.capacity === undefined) {
+              newData.capacity = 100;
+            }
+          }
+
           state.eventData = newData;
           state.eventData.hasEnded = !!(
             state.edit?.eventHash &&
@@ -219,9 +226,17 @@ export const useCreateEventStore = create<CreateEventStoreType>()(
       },
       toggleHasRegistration: () => {
         set((state) => {
+          if (state.eventData.eventLocationType === "in_person") {
+            state.eventData.has_registration = true;
+            state.eventData.capacity =
+              state.eventData.capacity && state.eventData.capacity >= 1 ? state.eventData.capacity : 100;
+            return;
+          }
           state.eventData.has_registration = !state.eventData.has_registration;
           if (state.eventData.has_registration) {
             state.eventData.paid_event.has_payment = false;
+            state.eventData.capacity = null;
+          } else {
             state.eventData.capacity = null;
           }
         });
@@ -289,7 +304,13 @@ export const useCreateEventStore = create<CreateEventStoreType>()(
             state.eventData.has_registration = true;
             state.eventData.capacity = state.eventData.capacity || 5;
           } else {
-            state.eventData.capacity = null;
+            if (state.eventData.eventLocationType === "in_person") {
+              state.eventData.has_registration = true;
+              state.eventData.capacity =
+                state.eventData.capacity && state.eventData.capacity >= 1 ? state.eventData.capacity : 100;
+            } else {
+              state.eventData.capacity = null;
+            }
           }
         });
       },

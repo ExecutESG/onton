@@ -1,6 +1,11 @@
 export type MainButtonState =
   | { type: "view_ticket_pass" }
   | { type: "checkout"; label: string }
+  | { type: "register"; label: string }
+  | { type: "login_required" }
+  | { type: "pending" }
+  | { type: "rejected" }
+  | { type: "capacity_filled" }
   | { type: "claim_sbt" }
   | { type: "checked_in" }
   | { type: "show_qr" }
@@ -21,6 +26,12 @@ export interface GetAttendeeMainButtonStateParams {
   registrantUuid: string | undefined;
   tiers: Array<{ price: number | string | null }>;
   paymentDetails?: { price?: number | null; token?: { symbol?: string | null } | null };
+  hasRegistration?: boolean;
+  hasApproval?: boolean;
+  capacityFilled?: boolean;
+  hasWaitingList?: boolean;
+  registrantStatus?: string;
+  user?: { user_id?: number | string } | null;
 }
 
 export function getAttendeeMainButtonState(params: GetAttendeeMainButtonStateParams): MainButtonState {
@@ -37,7 +48,26 @@ export function getAttendeeMainButtonState(params: GetAttendeeMainButtonStatePar
     registrantUuid,
     tiers,
     paymentDetails,
+    hasRegistration,
+    hasApproval,
+    capacityFilled,
+    hasWaitingList,
+    registrantStatus,
+    user,
   } = params;
+
+  // Checked in attendee: directly claim or view attendance SBT badge (even after event has ended)
+  if (isCheckedIn && hasEnteredPassword) {
+    if (hasSbt) {
+      return { type: "claim_sbt" };
+    }
+    return { type: "checked_in" };
+  }
+
+  // Ended
+  if (!isNotEnded) {
+    return { type: "ended" };
+  }
 
   // Paid event: user has ticket → view ticket pass
   if (isPaid && isRegistered && isNotEnded) {
@@ -68,14 +98,6 @@ export function getAttendeeMainButtonState(params: GetAttendeeMainButtonStatePar
     return { type: "checkout", label };
   }
 
-  // Checked in attendee: directly claim or view attendance SBT badge
-  if (isCheckedIn && hasEnteredPassword) {
-    if (hasSbt) {
-      return { type: "claim_sbt" };
-    }
-    return { type: "checked_in" };
-  }
-
   // Approved attendee before check-in: show QR pass to check in
   if (userCompletedTasks && hasEnteredPassword) {
     if (!isOnlineEvent && isNotEnded && registrantUuid) {
@@ -83,10 +105,33 @@ export function getAttendeeMainButtonState(params: GetAttendeeMainButtonStatePar
     }
   }
 
+  // Registrant pending / rejected
+  if (registrantStatus === "pending") {
+    return { type: "pending" };
+  }
+  if (registrantStatus === "rejected") {
+    return { type: "rejected" };
+  }
+
+  // Free event with registration: user not registered yet
+  if (!isPaid && hasRegistration && !isRegistered) {
+    if (capacityFilled && !hasWaitingList) {
+      return { type: "capacity_filled" };
+    }
+    if (user === null) {
+      return { type: "login_required" };
+    }
+    if (capacityFilled && hasWaitingList) {
+      return { type: "register", label: "Join Waitlist" };
+    }
+    if (hasApproval) {
+      return { type: "register", label: "Request to Join" };
+    }
+    return { type: "register", label: "Register" };
+  }
+
   if (!isStarted && isNotEnded) {
     return { type: "not_started" };
-  } else if (!isNotEnded) {
-    return { type: "ended" };
   }
 
   return { type: "none" };

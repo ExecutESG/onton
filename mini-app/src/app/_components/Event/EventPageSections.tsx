@@ -1,6 +1,6 @@
 import { Banner as OnionBanner } from "@/app/(landing-pages)/genesis-onions/_components/Banner";
 import Images from "@/app/_components/atoms/images";
-import UserCustomRegisterForm from "@/app/_components/Event/UserCustomRegisterForm";
+import CustomButton from "@/app/_components/Button/CustomButton";
 import EventDates from "@/app/_components/EventDates";
 import Divider from "@/components/Divider";
 import channelAvatar from "@/components/icons/channel-avatar.svg";
@@ -264,27 +264,18 @@ const EventRegistrationStatus = () => {
   if ((hasWaitingList || !capacityFilled) && registrantStatus === "") {
     if (!user) {
       return (
-        <CustomCard title="Registration Form">
+        <CustomCard title="Registration">
           <div className="flex flex-col items-center justify-center p-6 text-center">
-            <Typography variant="body" className="text-gray-500 mb-4">
+            <Typography variant="body" className="text-gray-500">
               Please sign in to register for this event.
             </Typography>
-            <MainButton
-              text="Sign In to Register"
-              onClick={openLogin}
-              color="primary"
-            />
           </div>
         </CustomCard>
       );
     }
 
-    return isCustom ? (
-      <CustomCard title={"Registration Form"}>
-        <UserCustomRegisterForm />
-      </CustomCard>
-    ) : (
-      <CustomCard title={"Registration Form"}>
+    return (
+      <CustomCard title={eventData.data?.has_approval ? "Request to Join" : "Registration Form"}>
         <UserRegisterForm />
       </CustomCard>
     );
@@ -293,19 +284,12 @@ const EventRegistrationStatus = () => {
   return (
     <CustomCard defaultPadding>
       {capacityFilled && !hasWaitingList && (
-        <>
-          <DataStatus
-            status="rejected"
-            title="Capacity Filled"
-            description="Event capacity is filled and no longer accepts registrations."
-            size="md"
-          />
-          <MainButton
-            text="Event Capacity Filled"
-            disabled
-            color="secondary"
-          />
-        </>
+        <DataStatus
+          status="rejected"
+          title="Capacity Filled"
+          description="Event capacity is filled and no longer accepts registrations."
+          size="md"
+        />
       )}
 
       {!capacityFilled && (
@@ -321,8 +305,8 @@ const EventRegistrationStatus = () => {
           {registrantStatus === "approved" && (
             <DataStatus
               status="approved"
-              title="Request Approved"
-              description="Your request to join this event has been approved."
+              title="Registration Confirmed"
+              description="Your registration has been approved. Use the button below to view your check-in pass."
               size="md"
             />
           )}
@@ -545,7 +529,19 @@ SbtCollectionLink.displayName = "SbtCollectionLink";
 const MainButtonHandler = React.memo(() => {
   const { eventData, hasEnteredPassword, isStarted, isNotEnded, initData } = useEventData();
   const { user } = useUserStore();
+  const { openLogin } = useLoginStore();
   const router = useRouter();
+
+  const [isRegisterLoading, setIsRegisterLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    const handleLoading = (e: Event) => {
+      const customEvent = e as CustomEvent<boolean>;
+      setIsRegisterLoading(Boolean(customEvent.detail));
+    };
+    window.addEventListener("onton:registration_loading", handleLoading);
+    return () => window.removeEventListener("onton:registration_loading", handleLoading);
+  }, []);
 
   const registrantStatus = eventData.data?.registrant_status ?? "";
   const isRegistered = ["approved", "checkedin"].includes(registrantStatus);
@@ -589,6 +585,12 @@ const MainButtonHandler = React.memo(() => {
     registrantUuid: eventData.data?.registrant_uuid,
     tiers: tiers as any,
     paymentDetails: eventData.data?.payment_details,
+    hasRegistration: Boolean(eventData.data?.has_registration),
+    hasApproval: Boolean(eventData.data?.has_approval),
+    capacityFilled: Boolean(eventData.data?.capacity_filled),
+    hasWaitingList: Boolean(eventData.data?.has_waiting_list),
+    registrantStatus: eventData.data?.registrant_status ?? "",
+    user,
   });
 
   switch (buttonState.type) {
@@ -606,6 +608,41 @@ const MainButtonHandler = React.memo(() => {
           onClick={() => router.push(`/events/${eventData.data?.event_uuid}/checkout`)}
         />
       );
+    case "register":
+      return (
+        <MainButton
+          text={buttonState.label}
+          progress={isRegisterLoading}
+          disabled={isRegisterLoading}
+          onClick={() => {
+            if (isRegisterLoading) return;
+            const form = document.getElementById("event-registration-form") as HTMLFormElement | null;
+            if (form) {
+              form.requestSubmit();
+            }
+          }}
+        />
+      );
+    case "login_required":
+      return (
+        <MainButton
+          text="Sign In to Register"
+          onClick={openLogin}
+          color="primary"
+        />
+      );
+    case "pending":
+      return (
+        <MainButton text="Request Pending" disabled color="secondary" />
+      );
+    case "rejected":
+      return (
+        <MainButton text="Request Rejected" disabled color="secondary" />
+      );
+    case "capacity_filled":
+      return (
+        <MainButton text="Event Capacity Filled" disabled color="secondary" />
+      );
     case "claim_sbt":
       return (
         <ClaimSbtButton
@@ -621,7 +658,7 @@ const MainButtonHandler = React.memo(() => {
     case "show_qr":
       return (
         <MainButton
-          text="Show My Ticket (QR)"
+          text="View Ticket Pass"
           onClick={() => {
             router.push(`/events/${eventData.data?.event_uuid}/registrant/${eventData.data?.registrant_uuid}/qr`);
           }}

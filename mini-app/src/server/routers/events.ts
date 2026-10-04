@@ -349,6 +349,16 @@ const addEvent = initDataProtectedProcedure.input(z.object({ eventData: EventDat
 
       /* ------------------- paid events must have registration ------------------- */
       input_event_data.has_registration = event_has_payment ? true : input_event_data.has_registration;
+
+      if (event_in_person && input_event_data.has_registration) {
+        if (!input_event_data.capacity || input_event_data.capacity < 1) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Capacity is mandatory for in-person events and must be at least 1.",
+          });
+        }
+      }
+
       const is_paid = !!input_event_data.paid_event?.has_payment;
       if (is_paid && !config?.ONTON_WALLET_ADDRESS) {
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "ONTON_WALLET_ADDRESS NOT SET error" });
@@ -555,7 +565,7 @@ const updateEvent = eventManagerPP
     }
 
     try {
-      return await db.transaction(async (trx) => {
+      const txResult = await db.transaction(async (trx) => {
         const inputSecretPhrase = eventData.secret_phrase ? eventData.secret_phrase.trim().toLowerCase() : undefined;
         const hashedSecretPhrase = inputSecretPhrase ? await hashPassword(inputSecretPhrase) : undefined;
         const oldEvent = (await trx.select().from(events).where(eq(events.event_uuid, eventUuid!)).execute()).pop();
@@ -568,6 +578,20 @@ const updateEvent = eventManagerPP
         }
 
         const canUpdateRegistrationSetting = oldEvent.has_registration;
+        const event_in_person =
+          eventData.eventLocationType === "in_person" ||
+          (!eventData.eventLocationType && oldEvent.participationType === "in_person");
+
+        if (event_in_person && canUpdateRegistrationSetting) {
+          const effectiveCapacity = eventData.capacity ?? oldEvent.capacity;
+          if (!effectiveCapacity || effectiveCapacity < 1) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Capacity is mandatory for in-person events and must be at least 1.",
+            });
+          }
+        }
+
         const is_paid = oldEvent.has_payment;
         const is_ts_verified = false;
         const canSendModerationMessage = Boolean(
@@ -634,7 +658,11 @@ const updateEvent = eventManagerPP
             /* ------------------------ Event Registration Update ----------------------- */
             // Updating has_registration is not allowed
             has_approval: canUpdateRegistrationSetting ? eventData.has_approval : false,
-            capacity: canUpdateRegistrationSetting ? eventData.capacity : null,
+            capacity: canUpdateRegistrationSetting
+              ? event_in_person
+                ? (eventData.capacity ?? oldEvent.capacity)
+                : eventData.capacity
+              : null,
             has_waiting_list: canUpdateRegistrationSetting ? eventData.has_waiting_list : false,
             /* ------------------------ Event Registration Update ----------------------- */
           })
@@ -835,18 +863,29 @@ const updateEvent = eventManagerPP
             });
           }
         }
+        return {
+          success: true,
+          eventId: opts.ctx.event.event_uuid,
+          oldChanges,
+          updateChanges,
+        } as const;
+      });
+
+      try {
         const logMessage = renderUpdateEventMessage(
           opts.ctx.user.username || opts.ctx.user.user_id,
           eventUuid,
           eventData.title,
-          oldChanges,
-          updateChanges
+          txResult.oldChanges,
+          txResult.updateChanges
         );
         logger.log("update event telegram notification sent", logMessage);
         await sendLogNotification({ message: logMessage, topic: "event" });
+      } catch (logErr) {
+        logger.error(`[eventRouter] Failed to send update event notification for ${eventUuid}:`, logErr);
+      }
 
-        return { success: true, eventId: opts.ctx.event.event_uuid } as const;
-      });
+      return { success: true, eventId: txResult.eventId } as const;
     } catch (err) {
       logger.error(`[eventRouter]_update_event failed id: ${opts.ctx.event.event_uuid}, error: ${err}`, {
         input: opts.input,

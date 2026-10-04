@@ -2,7 +2,8 @@ import { Address, Cell } from "@ton/core";
 
 export interface CsbtLeafData {
   index: number;
-  ownerAddress: string;
+  ownerAddress?: string;
+  userId?: number | string;
   eventUuid: string;
   metadataHash?: string | Buffer;
   metadata?: Record<string, any>;

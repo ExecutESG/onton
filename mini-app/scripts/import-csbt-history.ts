@@ -146,7 +146,7 @@ export async function importCsbtHistory(options: IngestionOptions): Promise<Inge
         itemIndex: leaf.index,
         itemAddress: `EQ_SBT_${computedRootHex.slice(0, 8)}_${leaf.index}`,
         recipientUserId: rec.user_id ? Number(rec.user_id) : null,
-        recipientWalletAddress: leaf.ownerAddress,
+        recipientWalletAddress: leaf.ownerAddress || "",
         metadataUrl: `ipfs://${computedRootHex}/${leaf.index}`,
         status: "minted",
         metadata: leaf.metadata as any,

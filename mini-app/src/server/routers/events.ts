@@ -1,3 +1,4 @@
+import { eventRegistrants } from "@/db/schema/eventRegistrants";
 import { NonVerifiedHubsIds } from "@/constants";
 import { db } from "@/db/db";
 import eventCategoriesDB from "@/db/modules/eventCategories.db";
@@ -141,6 +142,30 @@ const getEvent = publicProcedure.input(z.object({ event_uuid: z.string() })).que
   };
 
   // If the event does NOT require registration, just return data
+  
+  // Compute manage counts if authorized
+  let manage_counts = { approved: 0, pending: 0, waitlisted: 0 };
+  const hasAdminOrOrganizerAccess = userRole === "admin" || userId === eventData.owner;
+  const guestListAccess = accessRoles.some(r => r.user_id === userId && (r.role === "checkin_officer" || r.role === "admin"));
+  
+  if (hasAdminOrOrganizerAccess || guestListAccess) {
+    const counts = await db.select({ status: eventRegistrants.status, count: sql`count(*)` })
+      .from(eventRegistrants)
+      .where(eq(eventRegistrants.event_uuid, event_uuid))
+      .groupBy(eventRegistrants.status)
+      .execute();
+      
+    for (const row of counts) {
+      const c = Number(row.count);
+      if (row.status === 'approved' || row.status === 'checkedin') manage_counts.approved += c;
+      if (row.status === 'pending') manage_counts.pending += c;
+    }
+    if (!eventData.has_approval) {
+      manage_counts.waitlisted = manage_counts.pending;
+      manage_counts.pending = 0;
+    }
+  }
+
   if (!eventData.has_registration) {
     // Check if user has an attendance/registrant record (e.g. from online secret phrase)
     if (userId) {
@@ -158,7 +183,8 @@ const getEvent = publicProcedure.input(z.object({ event_uuid: z.string() })).que
       registrant_status,
       organizer,
       registrationFromSchema,
-      accessRoles,
+      manage_counts,
+accessRoles,
       ...eventData,
       registrant_uuid,
     };
@@ -220,11 +246,12 @@ const getEvent = publicProcedure.input(z.object({ event_uuid: z.string() })).que
       registrant_status,
       organizer,
       registrationFromSchema,
-      accessRoles,
+      manage_counts,
+accessRoles,
       ...eventData,
       registrant_uuid,
-      capacity: mask_event_capacity ? 99 : eventData.capacity,
-    };
+      capacity: mask_event_capacity ? 99 : eventData.capacity
+};
   }
 
   // no status for registrant
@@ -238,11 +265,12 @@ const getEvent = publicProcedure.input(z.object({ event_uuid: z.string() })).que
         registrant_status,
         organizer,
         registrationFromSchema,
-        accessRoles,
+      manage_counts,
+accessRoles,
         ...eventData,
         registrant_uuid,
-        capacity: mask_event_capacity ? 99 : eventData.capacity,
-      };
+        capacity: mask_event_capacity ? 99 : eventData.capacity
+};
     }
   }
 
@@ -252,11 +280,12 @@ const getEvent = publicProcedure.input(z.object({ event_uuid: z.string() })).que
     registrant_status,
     organizer,
     registrationFromSchema,
-    accessRoles,
+      manage_counts,
+accessRoles,
     ...eventData,
     registrant_uuid,
-    capacity: mask_event_capacity ? 99 : eventData.capacity,
-  };
+    capacity: mask_event_capacity ? 99 : eventData.capacity
+};
 });
 
 const listPaymentTokens = adminOrganizerProtectedProcedure.query(async () => {

@@ -89,6 +89,12 @@ export default function ManageIndexPage() {
     <div>
       {/* Show an EventCard with the event data */}
       <div className="bg-white rounded-2lg mx-4 my-4 pb-3">
+        
+        <div className="px-4 pt-3 pb-1">
+           <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+             {eventData.capacity ? `${eventData.manage_counts?.approved || 0} / ${eventData.capacity} registered` : `${eventData.manage_counts?.approved || 0} registered`}
+           </span>
+        </div>
         <EventCard
           event={{
             eventUuid: eventData.event_uuid,
@@ -177,16 +183,16 @@ export default function ManageIndexPage() {
 
       {/* Action Cards for each sub-route */}
       <div className="px-4 !my-0 flex flex-col gap-4">
-        {eventData.has_payment && canEditEvent && (
-          <>
+        {eventData.has_payment && (user?.user_id === eventData?.owner || user?.role === "admin") && (
             <ActionCard
               onClick={() => router.push(`/events/${eventData.event_uuid}/manage/orders`)}
               iconSrc={ordersIcon}
-              title="Orders"
-              subtitle="Event creation payments"
+              title="Treasury & Sales"
+              subtitle="Tickets sold, revenue, and payouts"
               footerTexts={[]}
             />
-
+        )}
+        {eventData.has_payment && canEditEvent && (
             <ActionCard
               onClick={() => router.push(`/events/${eventData.event_uuid}/manage/promotion-code`)}
               iconSrc={promotionCodeIcon}
@@ -194,7 +200,6 @@ export default function ManageIndexPage() {
               subtitle="Generate and manage codes"
               footerTexts={[]}
             />
-          </>
         )}
 
         {/*{ eventData.participationType === "online" && (*/}
@@ -216,7 +221,16 @@ export default function ManageIndexPage() {
             iconSrc={guestListIcon}
             title="Guests list"
             subtitle="View and manage participants"
-            footerTexts={[]}
+            footerTexts={[
+
+              {
+                count: eventData.manage_counts?.approved || 0,
+                items: "Approved",
+              },
+              ...(eventData.manage_counts?.pending ? [{ count: eventData.manage_counts.pending, items: "Pending" }] : []),
+              ...(eventData.manage_counts?.waitlisted ? [{ count: eventData.manage_counts.waitlisted, items: "Waitlisted" }] : []),
+
+            ]}
           />
         )}
 

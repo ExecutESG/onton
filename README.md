@@ -1,18 +1,23 @@
-# ONTON - Event Manager on Telegram and the Web
+# ONTON: Events with Verified Attendance
 
 <p align="center">
   <img src="logo.png" alt="Onton Logo" />
 </p>
 
-ONTON is an event platform that runs as a Telegram Mini App and as a web app. Organizers create events, sell tickets and check attendees in; attendees register, pay and collect credentials.
+Create an event in a minute. Free events are free forever. Verified attendance, built in.
+
+ONTON is a reliable Luma alternative running as a Telegram Mini App and web platform. Organizers launch events with free onboarding, sell tickets with Telegram Stars or crypto (3% fee), and manage door entry with high-speed rotating QR passes. Attendees register in one tap without wallet friction and receive permanent, portable attendance credentials.
+
+332K people with attendance credentials · 633K verified in-person check-ins.
 
 ## Features
-- **Events**: free events publish immediately, with post-publish moderation and abuse reports.
-- **Registration**: approval, capacity and waitlist with auto-promotion.
-- **Tickets & payments**: TON, USDT (jetton) and Telegram Stars.
-- **Check-in**: rotating QR pass tokens scanned by event managers.
-- **Credentials**: native TEP-85 SBT badges and proof of attendance.
-- **Login**: Telegram, Google and email, with linked identities.
+- **Fast Event Creation**: Free events publish immediately, with post-publish moderation and abuse reports. Free organizer onboarding.
+- **1-Tap RSVP & Registration**: Instant attendee registration without wallet requirements, plus capacity limits, approval flows, and automated waitlist promotion.
+- **Door Check-In**: High-speed check-in using rotating QR pass tokens scanned by event managers.
+- **Verified Attendance & Credentials**: Digital attendance credentials and optional on-chain TEP-85 SBT badges that attendees keep forever.
+- **Flexible Ticketing & Low Fees**: Accept Telegram Stars (in-app card payments) and crypto (TON, USDT jetton) with low 3% ticket fees.
+- **Telegram Native**: Automated attendee group chat gating via single-use invite links.
+- **Flexible Login**: Telegram, Google, and email authentication with linked identities.
 
 ## Repository layout
 | Path | What |

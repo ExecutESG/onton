@@ -4,6 +4,7 @@ import { eventRegistrants } from "@/db/schema/eventRegistrants";
 import { sbtCollections } from "@/db/schema/sbtCollections";
 import { sbtItems } from "@/db/schema/sbtItems";
 import { users } from "@/db/schema/users";
+import { visitors } from "@/db/schema/visitors";
 import eventDB from "@/db/modules/events.db";
 import { usersDB } from "@/db/modules/users.db";
 import { and, asc, eq } from "drizzle-orm";
@@ -100,6 +101,28 @@ export async function GET(req: NextRequest) {
         )
       )
       .orderBy(asc(eventRegistrants.id));
+
+    // Ensure visitors who attended online events are included if not already in checkedIn
+    const visitorRows = await db
+      .select({
+        id: visitors.id,
+        userId: visitors.user_id,
+      })
+      .from(visitors)
+      .where(eq(visitors.event_uuid, eventUuid))
+      .orderBy(asc(visitors.id));
+
+    const existingUserIds = new Set(checkedIn.map((r) => r.userId));
+    for (const v of visitorRows) {
+      if (!existingUserIds.has(v.userId)) {
+        checkedIn.push({
+          id: v.id,
+          registrantUuid: "",
+          userId: v.userId,
+        });
+        existingUserIds.add(v.userId);
+      }
+    }
 
     // Build leaves
     const leaves: CsbtLeafData[] = checkedIn.map((reg, idx) => ({

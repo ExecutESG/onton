@@ -8,6 +8,10 @@ import { getEventById } from "@/db/modules/events.db";
 import eventFieldsDB from "@/db/modules/eventFields.db";
 import { checkRateLimit } from "@/lib/checkRateLimit";
 import { EVENT_PASSWORD_RATE_LIMIT } from "@/constants";
+import { db } from "@/db/db";
+import { eventRegistrants } from "@/db/schema";
+import visitorsDB from "@/db/modules/visitors.db";
+import rewardDB from "@/db/modules/rewards.db";
 
 export const userEventFieldsRouter = router({
   // protect
@@ -89,6 +93,45 @@ export const userEventFieldsRouter = router({
         opts.input.field_id,
         hashPassword
       );
+
+      // Record visitor attendance
+      const visitor = await visitorsDB.addVisitor(opts.ctx.user.user_id, eventData.event_uuid);
+
+      // Record attendee in eventRegistrants as checkedin for off-chain cSBT credentials and attendance tracking
+      await db
+        .insert(eventRegistrants)
+        .values({
+          event_uuid: eventData.event_uuid,
+          user_id: opts.ctx.user.user_id,
+          status: "checkedin",
+          updatedBy: String(opts.ctx.user.user_id),
+        })
+        .onConflictDoUpdate({
+          target: [eventRegistrants.event_uuid, eventRegistrants.user_id],
+          set: {
+            status: "checkedin",
+            updatedAt: new Date(),
+            updatedBy: String(opts.ctx.user.user_id),
+          },
+        })
+        .execute();
+
+      // Ensure reward row is created for attendance tracking
+      if (visitor) {
+        const existingReward = await rewardDB.checkExistingRewardWithType(visitor.id, "ton_society_sbt");
+        if (!existingReward) {
+          await rewardDB.insertRewardRow(
+            visitor.id,
+            null,
+            opts.ctx.user.user_id,
+            "ton_society_sbt",
+            "pending_creation",
+            eventData
+          );
+        }
+      }
+
+      return { success: true };
     }),
 
   // protect

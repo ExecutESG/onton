@@ -138,17 +138,15 @@ const checkinRegistrantRequest = evntManagerPP
       // Send instant check-in Telegram notification to attendee
       try {
         const botUsername = process.env.NEXT_PUBLIC_BOT_USERNAME || "notnonstagebot";
-        const claimLink = `https://t.me/${botUsername}/event?startapp=${event_uuid}`;
+        const credentialsLink = `https://t.me/${botUsername}/event?startapp=ticket_${event_uuid}`;
         const hasSbtBadge = Boolean(event.sbt_collection_address);
-        const notificationMsg = hasSbtBadge
-          ? `🎉 You're Checked In!\n\nWelcome to ${event.title}! You are now eligible to claim your official Soulbound Proof of Attendance badge (SBT).\n\nTap below to connect your TON wallet and claim your badge.`
-          : `🎉 You're Checked In!\n\nWelcome to ${event.title}! Your attendance has been successfully confirmed.`;
+        const notificationMsg = "🎉 You're checked in! Your attendance is recorded in ONTON.";
 
         await sendTelegramMessage({
           chat_id: userId,
           message: notificationMsg,
-          link: hasSbtBadge ? claimLink : undefined,
-          linkText: hasSbtBadge ? "Claim SBT Badge 🎖️" : undefined,
+          link: hasSbtBadge ? credentialsLink : undefined,
+          linkText: hasSbtBadge ? "Put it on-chain" : undefined,
         });
       } catch (tgErr) {
         logger.error(`CHECKIN::Notification failed for user ${userId} and event ${event_uuid}`, tgErr);

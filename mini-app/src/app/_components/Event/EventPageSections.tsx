@@ -553,8 +553,7 @@ const MainButtonHandler = React.memo(() => {
   );
 
   const userCompletedTasks =
-    (isRegistered || !eventData.data?.has_registration) &&
-    user?.wallet_address;
+    isRegistered || !eventData.data?.has_registration;
 
   const isOnlineEvent = eventData.data?.participationType === "online";
   const isCheckedIn = eventData.data?.registrant_status === "checkedin" || isOnlineEvent;
@@ -564,6 +563,7 @@ const MainButtonHandler = React.memo(() => {
   const badgeStatus = trpc.sbt.getAttendeeBadgeStatus.useQuery(
     {
       eventUuid: eventData.data?.event_uuid ?? "",
+      userId: user?.user_id,
       registrantUuid: eventData.data?.registrant_uuid || undefined,
     },
     {
@@ -674,15 +674,14 @@ const EventPassword = React.memo(() => {
   const isOnlineEvent = eventData.data?.participationType === "online";
   const isEventActive = isStarted && isNotEnded;
   const userCompletedTasks =
-    (["approved", "checkedin"].includes(eventData.data?.registrant_status as string) || !eventData.data?.has_registration) &&
-    user?.wallet_address;
+    ["approved", "checkedin"].includes(eventData.data?.registrant_status as string) || !eventData.data?.has_registration;
 
   if (!user) {
     if (eventData.data?.has_registration) return null;
     return (
       <CustomCard
         title="Claim Your Reward"
-        description="Please sign in and connect your wallet to verify participation and claim rewards."
+        description="Please sign in to verify participation and claim rewards."
       >
         <div className="p-4 pt-0">
           <MainButton
@@ -695,7 +694,7 @@ const EventPassword = React.memo(() => {
     );
   }
 
-  if (!((userCompletedTasks && !hasEnteredPassword && isEventActive && isOnlineEvent) || !user?.wallet_address)) return null;
+  if (!(userCompletedTasks && !hasEnteredPassword && isEventActive && isOnlineEvent)) return null;
 
   if (eventData.data?.has_registration) return null;
 
@@ -713,16 +712,6 @@ const EventPassword = React.memo(() => {
 EventPassword.displayName = "EventPassword";
 
 const EventHeader = React.memo(() => {
-  const { eventData, hasEnteredPassword, isStarted, isNotEnded } = useEventData();
-  const { user } = useUserStore();
-
-  const userCompletedTasks =
-    (["approved", "checkedin"].includes(eventData.data?.registrant_status!) || !eventData.data?.has_registration) &&
-    user?.wallet_address;
-
-  const isOnlineEvent = eventData.data?.participationType === "online";
-  const isEventActive = isStarted && isNotEnded;
-
   return (
     <>
       <CustomCard defaultPadding>

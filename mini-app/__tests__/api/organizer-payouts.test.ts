@@ -9,18 +9,40 @@ const {
   mockPayoutsTable,
   mockUpdateFn,
   mockInsertFn,
+  mockTransactionFn,
+  mockFindFirstFn,
+  mockDbUpdate,
+  mockDbSelect,
+  mockSendLogNotification,
 } = vi.hoisted(() => ({
   mockEventsTable: {} as Record<string, any>,
   mockPaymentInfoTable: {} as Record<string, any>,
   mockPayoutsTable: [] as any[],
   mockUpdateFn: vi.fn(),
   mockInsertFn: vi.fn(),
+  mockTransactionFn: vi.fn(),
+  mockFindFirstFn: vi.fn(),
+  mockDbUpdate: vi.fn(),
+  mockDbSelect: vi.fn(),
+  mockSendLogNotification: vi.fn(),
+}));
+
+vi.mock("@/lib/tgBot", () => ({
+  sendLogNotification: mockSendLogNotification,
 }));
 
 vi.mock("@/db/db", () => {
   const trxMock = {
     insert: vi.fn().mockImplementation(() => ({
       values: vi.fn().mockImplementation((val) => ({
+        onConflictDoNothing: vi.fn().mockImplementation(() => ({
+          returning: vi.fn().mockImplementation(() => {
+            const inserted = { id: 1, ...val };
+            mockPayoutsTable.push(inserted);
+            mockInsertFn(val);
+            return [inserted];
+          }),
+        })),
         returning: vi.fn().mockImplementation(() => {
           const inserted = { id: 1, ...val };
           mockPayoutsTable.push(inserted);
@@ -43,7 +65,7 @@ vi.mock("@/db/db", () => {
     db: {
       query: {
         events: {
-          findFirst: vi.fn().mockImplementation(({ where }: any) => {
+          findFirst: mockFindFirstFn.mockImplementation(({ where }: any) => {
             return Object.values(mockEventsTable)[0] || null;
           }),
         },
@@ -53,11 +75,12 @@ vi.mock("@/db/db", () => {
           }),
         },
       },
-      transaction: vi.fn().mockImplementation(async (callback) => {
+      transaction: mockTransactionFn.mockImplementation(async (callback) => {
         return await callback(trxMock);
       }),
       insert: trxMock.insert,
-      update: trxMock.update,
+      update: mockDbUpdate.mockImplementation(trxMock.update),
+      select: mockDbSelect,
     },
   };
 });
@@ -144,7 +167,7 @@ describe("Issue #1033: Organizer Payouts & Upfront Fee Removal", () => {
       const response = await payoutHandler(req);
       expect(response.status).toBe(401);
       const data = await response.json();
-      expect(data.error).toBe("unauthorized");
+      expect(data.error).toBe("authentication_failed");
     });
 
     it("returns 400 when body is malformed JSON", async () => {
@@ -185,7 +208,7 @@ describe("Issue #1033: Organizer Payouts & Upfront Fee Removal", () => {
       const validPayload = {
         event_uuid: TEST_EVENT_UUID,
         amount: "50.5",
-        tx_hash: "0xabcdef123456",
+        tx_hash: "a".repeat(64),
         paid_by: 7013087032,
       };
       const headers = createHmacHeaders(validPayload);
@@ -205,12 +228,13 @@ describe("Issue #1033: Organizer Payouts & Upfront Fee Removal", () => {
       mockEventsTable[TEST_EVENT_UUID] = {
         event_uuid: TEST_EVENT_UUID,
         title: "Test Event",
+        has_payment: true,
       };
 
       const validPayload = {
         event_uuid: TEST_EVENT_UUID,
         amount: "50.5",
-        tx_hash: "0xabcdef123456",
+        tx_hash: "a".repeat(64),
         paid_by: 7013087032,
       };
       const headers = createHmacHeaders(validPayload);
@@ -230,6 +254,7 @@ describe("Issue #1033: Organizer Payouts & Upfront Fee Removal", () => {
       mockEventsTable[TEST_EVENT_UUID] = {
         event_uuid: TEST_EVENT_UUID,
         title: "Test Paid Event",
+        has_payment: true,
       };
       mockPaymentInfoTable[TEST_EVENT_UUID] = {
         id: 42,
@@ -241,7 +266,7 @@ describe("Issue #1033: Organizer Payouts & Upfront Fee Removal", () => {
       const validPayload = {
         event_uuid: TEST_EVENT_UUID,
         amount: "150.75",
-        tx_hash: "0x7788aabbccdd",
+        tx_hash: "a".repeat(64),
         paid_by: 7013087032,
       };
       const headers = createHmacHeaders(validPayload);
@@ -258,7 +283,7 @@ describe("Issue #1033: Organizer Payouts & Upfront Fee Removal", () => {
       expect(data.payout).toBeDefined();
       expect(data.payout.event_uuid).toBe(TEST_EVENT_UUID);
       expect(data.payout.amount).toBe("150.75");
-      expect(data.payout.tx_hash).toBe("0x7788aabbccdd");
+      expect(data.payout.tx_hash).toBe("a".repeat(64));
       expect(data.payout.paid_by).toBe(7013087032);
       expect(data.payout.token_id).toBe(1);
 
@@ -272,10 +297,20 @@ describe("Issue #1033: Organizer Payouts & Upfront Fee Removal", () => {
     });
   describe("Payout Additional Validation", () => {
     it("returns 409 duplicate_tx for identical tx_hash", async () => {
+      mockEventsTable[TEST_EVENT_UUID] = {
+        event_uuid: TEST_EVENT_UUID,
+        title: "Test Event",
+        has_payment: true,
+      };
+      mockPaymentInfoTable[TEST_EVENT_UUID] = {
+        id: 42,
+        event_uuid: TEST_EVENT_UUID,
+        token_id: 1,
+      };
       const validPayload = {
         event_uuid: TEST_EVENT_UUID,
         amount: "150.75",
-        tx_hash: "0x7788aabbccdd",
+        tx_hash: "a".repeat(64),
         paid_by: 7013087032,
         token_id: 1,
       };
@@ -341,23 +376,18 @@ describe("Issue #1033: Organizer Payouts & Upfront Fee Removal", () => {
     it("sets payout_reminder_sent_at without altering organizer_payment_status, and skips when no message_id", async () => {
       const { sendPaymentReminder } = await import("@/cronJobs/tasks/sendPaymentReminder");
       
-      const mockSendLogNotification = vi.fn();
-      vi.mock("@/server/utils/telegramTools", () => ({
-        sendLogNotification: mockSendLogNotification,
-      }));
-
-      // Mock database queries
-      const mockDbUpdate = vi.fn().mockReturnValue({ set: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ execute: vi.fn() }) }) });
-      mockDb.update = mockDbUpdate;
-      
-      mockDb.select = vi.fn().mockReturnValue({
+      mockDbUpdate.mockReturnValue({ set: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ execute: vi.fn() }) }) });
+      mockDbSelect.mockReturnValue({
         from: vi.fn().mockReturnValue({
-          leftJoin: vi.fn().mockReturnValue({
-            where: vi.fn().mockReturnValue({
-              execute: vi.fn().mockResolvedValue([{
+          innerJoin: vi.fn().mockReturnValue({
+            innerJoin: vi.fn().mockReturnValue({
+              where: vi.fn().mockReturnValue({
+                execute: vi.fn().mockResolvedValue([{
                 events: { event_uuid: "123", title: "Test Event" },
                 event_payment_info: { price: 1, bought_capacity: 10, ticket_type: "NFT", recipient_address: "address" },
-              }]),
+                event_tokens: { symbol: "TON", is_native: true },
+                }]),
+              }),
             }),
           }),
           where: vi.fn().mockReturnValue({ execute: vi.fn().mockResolvedValue([{ nft_count: 5 }]) }),

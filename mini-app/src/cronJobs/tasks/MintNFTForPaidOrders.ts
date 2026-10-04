@@ -153,9 +153,13 @@ export const processSinglePaidOrder = async (orderUuid: string): Promise<boolean
       }
 
       try {
-        const { deployNftCollection } = await import("./handleTicketType");
+        const { deployNftCollection } = await import("../helper/deployNftCollection");
         const deployedAddress = await deployNftCollection(eventData as any, paymentInfo);
         
+        if (!deployedAddress) {
+          throw new Error("deployedAddress is null");
+        }
+
         const updateRes = await db
           .update(eventPayment)
           .set({ collectionAddress: deployedAddress.toString() })

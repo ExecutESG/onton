@@ -1,7 +1,7 @@
 import { db } from "@/db/db";
 import { orders } from "@/db/schema";
 import eventTokensDB from "@/db/modules/eventTokens.db";
-import { and, count, eq, isNull, not, or } from "drizzle-orm";
+import { and, count, eq, isNull, not, or, sql } from "drizzle-orm";
 import { is_dev_env, is_stage_env } from "../../server/utils/evnutils";
 import { OrderTypeValues } from "@/db/schema/orders";
 
@@ -29,16 +29,13 @@ const updateOrderState = async (orderUuid: string, userId: number, newState: "ca
 
   const finalWhere =
     newState === "confirming"
-      ? and(
-          baseWhere,
-          not(or(eq(orders.order_type, "event_creation"), eq(orders.order_type, "event_capacity_increment")))
-        )
+      ? sql`${baseWhere} AND "order_type" NOT IN ('event_creation', 'event_capacity_increment')`
       : baseWhere;
 
   return db
     .update(orders)
     .set({ state: newState })
-    .where(finalWhere)
+    .where(finalWhere!)
     .returning({ uuid: orders.uuid })
     .execute();
 };

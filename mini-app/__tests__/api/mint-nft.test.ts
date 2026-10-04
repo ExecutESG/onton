@@ -13,10 +13,10 @@ vi.mock("@/server/utils/logger", () => ({
 }));
 
 vi.mock("@/lib/redisTools", () => ({
-  redisTools: { acquireLock: vi.fn() },
+  redisTools: { acquireLock: vi.fn(), releaseLock: vi.fn(), getCache: vi.fn(), setCache: vi.fn(), deleteCache: vi.fn() },
 }));
 
-vi.mock("@/cronJobs/tasks/handleTicketType", () => ({
+vi.mock("@/cronJobs/helper/deployNftCollection", () => ({
   deployNftCollection: vi.fn(),
 }));
 
@@ -32,10 +32,12 @@ describe("MintNFTForPaidOrders lazy deploy", () => {
 
   beforeEach(async () => {
     vi.resetModules();
+    vi.clearAllMocks();
     process.env.MNEMONIC = "test mnemonic string words here";
     
     vi.mock("@/server/config", () => ({
-      default: { ONTON_MINTER_WALLET: "minter_wallet" }
+      default: { ONTON_MINTER_WALLET: "minter_wallet" },
+      config: { ONTON_MINTER_WALLET: "minter_wallet" }
     }));
     vi.mock("@/context/ConfigContext", () => ({
       useConfig: () => ({ ONTON_MINTER_WALLET: "minter_wallet" })
@@ -43,7 +45,7 @@ describe("MintNFTForPaidOrders lazy deploy", () => {
 
     const { db } = await import("@/db/db");
     const { redisTools } = await import("@/lib/redisTools");
-    const { deployNftCollection } = await import("@/cronJobs/tasks/handleTicketType");
+    const { deployNftCollection } = await import("@/cronJobs/helper/deployNftCollection");
     
     // We mock config at the top level
     
@@ -69,7 +71,8 @@ describe("MintNFTForPaidOrders lazy deploy", () => {
     mockDb.update.mockReturnValue({
       set: vi.fn().mockReturnValue({
         where: vi.fn().mockReturnValue({
-          returning: vi.fn().mockResolvedValue([{ collectionAddress: "deployed-addr" }])
+          returning: vi.fn().mockResolvedValue([{ collectionAddress: "deployed-addr" }]),
+          execute: vi.fn().mockResolvedValue([])
         })
       })
     });

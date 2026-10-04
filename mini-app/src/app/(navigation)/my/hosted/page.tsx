@@ -104,15 +104,15 @@ export default function MyHostedPage() {
                 <div className="flex flex-col gap-5">
                   <DataStatus
                     status="archive_duck"
-                    title="It’s looking quiet here..."
-                    description="Enter an Event and watch this space light up with your activity."
+                    title="No hosted events yet"
+                    description="Create your first event in a minute. Free events are free forever."
                     size="lg"
                   />
                   <Link
-                    href="/"
+                    href="/events/create"
                     prefetch
                   >
-                    <CustomButton>Explore Events</CustomButton>
+                    <CustomButton>Create an Event</CustomButton>
                   </Link>
                 </div>
               </CustomCard>

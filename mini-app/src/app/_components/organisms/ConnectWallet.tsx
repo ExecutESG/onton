@@ -15,6 +15,10 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import { toast } from "sonner";
 import CustomCard from "../atoms/cards/CustomCard";
+<<<<<<< HEAD
+=======
+
+>>>>>>> 83d4f8b8 (docs(mini-app): update onboarding, empty states, and wallet-optional copy)
 export function ConnectWalletCard() {
   const [isOpen, setOpen] = useState(false);
 
@@ -159,7 +163,9 @@ function ConfirmConnectDialog({ open, onClose }: { open: boolean; onClose: () =>
         variant="body"
         className="text-center mb-6 font-normal"
       >
-        <b>You are becoming an ONTON organizer.</b>
+        <b>Connect your TON wallet</b>
+        <br />
+        Optional: connect a wallet for crypto ticket payouts, crypto purchases, or on-chain credentials. Creating events, attending, and door check-ins never require a wallet.
       </Typography>
       <Button
         className="py-6 rounded-[10px] mb-3"

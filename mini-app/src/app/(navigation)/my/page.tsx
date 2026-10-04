@@ -125,12 +125,11 @@ export default function ProfilePage() {
         }}
         iconSrc={calendarStarIcon}
         title="Hosted"
-        subtitle={user?.hosted_event_count ? "You Created" : "Events you create"}
+        subtitle={user?.hosted_event_count ? "You Created" : "Create your first event"}
         footerTexts={[
-          {
-            items: "Events",
-            count: user?.hosted_event_count || 0,
-          },
+          user?.hosted_event_count
+            ? { items: "Events", count: user?.hosted_event_count || 0 }
+            : { items: "Free to host" },
         ]}
       />
       <ActionCard

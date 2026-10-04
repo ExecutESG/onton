@@ -14,14 +14,14 @@ const GLOSSARY_TERMS: GlossaryTerm[] = [
       "Engagement loyalty points earned across the ONTON ecosystem by attending events, hosting gatherings, completing quests, and climbing tournament leaderboards.",
   },
   {
-    term: "Soulbound Token (SBT) / POA",
-    category: "Web3 Credentials",
+    term: "Soulbound Token (SBT) / PoA",
+    category: "Event Credentials",
     definition:
-      "Proof of Attendance tokens minted directly on the TON blockchain to an attendee's wallet address. SBTs cannot be transferred or sold, serving as a permanent badge of presence.",
+      "Proof of Attendance digital credentials verifying event attendance. Available off-chain in your profile or minted on-chain to a TON wallet as permanent badges of presence.",
   },
   {
     term: "TonConnect",
-    category: "Web3 Authentication",
+    category: "Wallet Authentication",
     definition:
       "The official decentralized wallet connection standard for The Open Network (TON), allowing seamless interaction with Tonkeeper, MyTonWallet, OpenMask, and Telegram Wallet.",
   },
@@ -65,7 +65,7 @@ export default function GlossaryPage() {
           ONTON Glossary
         </Typography>
         <Typography variant="caption1" className="text-slate-500 dark:text-slate-400 mt-1">
-          Key terms and concepts powering the ONTON Web3 event ecosystem
+          Key terms and concepts powering the ONTON event ecosystem
         </Typography>
       </div>
 

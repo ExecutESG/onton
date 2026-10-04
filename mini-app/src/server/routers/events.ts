@@ -300,8 +300,8 @@ const addEvent = initDataProtectedProcedure.input(z.object({ eventData: EventDat
   }
   try {
     const result = await db.transaction(async (trx) => {
-      // Advisory lock inside transaction
-      await trx.execute(sql`SELECT pg_advisory_xact_lock(1031, ${user_id})`);
+      // Advisory lock inside transaction (keyed by 64-bit user_id)
+      await trx.execute(sql`SELECT pg_advisory_xact_lock(${user_id}::bigint)`);
       // Recount after lock to avoid race conditions
       await organizerLimitsService.assertCanCreateEvent(user_id, input_event_data);
 

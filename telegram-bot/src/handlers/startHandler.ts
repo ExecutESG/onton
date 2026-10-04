@@ -47,16 +47,18 @@ export const startHandler = async (ctx: Context) => {
     }
 
     // 7) Send or edit a welcome message, showing your start keyboard
-    const welcomeMessage = `✨ <b>Welcome to ONTON — The Luma of Telegram & Web3</b> ✨
+    const welcomeMessage = `<b>ONTON: Events with Verified Attendance</b>
 
-Discover, host, and experience the best events across the Telegram & Web3 ecosystem!
+Create an event in a minute. Free events are free forever. Verified attendance, built in.
 
-🎟️ <b>1-Tap Free RSVP</b> — Join events in one click without wallet friction.
-⭐ <b>Telegram Stars & Crypto</b> — Buy tickets natively with Stars (Apple/Google Pay) or TON/USDT.
-💬 <b>Instant Event Chat Access</b> — Get private, single-use invite links to attendee groups.
-🏆 <b>Proof-of-Attendance Badges</b> — Collect verifiable digital badges as memories.
+🎟️ <b>1-Tap RSVP:</b> Register in seconds with zero wallet friction.
+⭐ <b>Flexible Ticketing:</b> Pay with Telegram Stars (Apple/Google Pay) or crypto (TON/USDT).
+🔒 <b>Automated Chat Gating:</b> Single-use invite links to attendee groups.
+🏅 <b>Verified Attendance:</b> Portable credentials and digital event badges.
 
-Ready to explore? Choose an option below 👇`;
+332K people with attendance credentials · 633K verified in-person check-ins.
+
+Choose an option below:`;
 
     await editOrSend(
       ctx,

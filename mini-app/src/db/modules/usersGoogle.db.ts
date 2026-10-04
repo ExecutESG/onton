@@ -21,9 +21,11 @@ async function upsertGoogleAccount(p: {
   gAvatarUrl?: string;
 }) {
   try {
-    /* enforce single‑Google‑per‑TG : delete old mapping first */
+    const existing = await getUserIdByGoogleUserId(p.gUserId);
+    if (existing && existing !== p.userId) {
+      throw new Error("This Google account is already linked to another user.");
+    }
     await db.delete(usersGoogle).where(eq(usersGoogle.userId, p.userId)).execute();
-    await db.delete(usersGoogle).where(eq(usersGoogle.gUserId, p.gUserId)).execute();
 
     await db
       .insert(usersGoogle)

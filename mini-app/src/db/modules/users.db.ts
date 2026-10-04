@@ -852,7 +852,7 @@ export const ensureOrganizerRole = async (userId: number): Promise<boolean> => {
           updated_at: new Date(),
         })
         .onConflictDoUpdate({
-          target: [user_identities.user_id, user_identities.provider],
+          target: [user_identities.provider, user_identities.provider_user_id],
           set: { verified: true, updated_at: new Date() },
         })
         .execute();

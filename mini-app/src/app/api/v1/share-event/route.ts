@@ -17,7 +17,7 @@ export async function GET(req: NextRequest): Promise<Response> {
   const body = {
     user_id,
     id: event_uuid,
-    url: `${process.env.NEXT_PUBLIC_APP_BASE_URL}/ptma/event/${event_uuid}`,
+    url: `${process.env.NEXT_PUBLIC_APP_BASE_URL}/events/${event_uuid}`,
     share_link: `https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME}/event?startapp=${event_uuid}`,
   };
 

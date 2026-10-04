@@ -9,13 +9,18 @@ vi.mock("../../src/db/db", () => ({
     execute: vi.fn().mockResolvedValue([]),
     insert: vi.fn().mockReturnThis(),
     values: vi.fn().mockReturnThis(),
+    select: vi.fn().mockReturnThis(),
+    from: vi.fn().mockReturnThis(),
   },
 }));
 
 vi.mock("../../src/lib/redisTools", () => ({
   redisTools: {
     cacheKeys: { userGoogle: "ug", userGoogleByGId: "ugg" },
+    cacheLvl: { medium: 3600 },
     deleteCache: vi.fn(),
+    getCache: vi.fn().mockResolvedValue(null),
+    setCache: vi.fn(),
   },
 }));
 
@@ -26,7 +31,7 @@ describe("usersGoogleDB.upsertGoogleAccount", () => {
       gUserId: "g123",
     });
     
-    // We expect db.delete to have been called for both userId and gUserId
-    expect(db.delete).toHaveBeenCalledTimes(2);
+    // We expect db.delete to have been called once for userId
+    expect(db.delete).toHaveBeenCalledTimes(1);
   });
 });

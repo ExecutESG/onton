@@ -35,7 +35,6 @@ async function MainCronJob() {
   new CronJob("*/7 * * * * *", cronJobs.CheckTransactions, null, true);
   new CronJob("*/9 * * * * *", cronJobRunner(cronJobs.MintNFTForPaidOrders), null, true);
   new CronJob("*/11 * * * * *", cronJobRunner(cronJobs.TsCsbtTicketOrder), null, true);
-  new CronJob("*/21 * * * * *", cronJobs.OrganizerPromoteProcessing, null, true);
   //runPendingCallbackTasks
   new CronJob(
     "*/60 * * * * *",

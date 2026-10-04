@@ -28,6 +28,7 @@ import { EventActions } from "./EventActions";
 import { useEventData } from "./eventPageContext";
 import { EventPasswordAndWalletInput } from "./EventPasswordInput";
 import { ManageEventButton } from "./ManageEventButton";
+import FoundingOrganizerBadge from "@/app/_components/FoundingOrganizerBadge";
 import UserRegisterForm from "./UserRegisterForm";
 import BadgeDetailModal, { BadgeItemData } from "@/components/sbt/BadgeDetailModal";
 import { ShieldCheck, Award } from "lucide-react";
@@ -360,14 +361,17 @@ const OrganizerCard = React.memo(() => {
             router.push(`/channels/${eventData.data?.owner}/`);
           }}
           title={
-            <Typography
-              variant="headline"
-              weight="medium"
-              className="text-primary w-52"
-              truncate
-            >
-              {organizer.org_channel_name || "Untitled organizer"}
-            </Typography>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Typography
+                variant="headline"
+                weight="medium"
+                className="text-primary max-w-[200px]"
+                truncate
+              >
+                {organizer.org_channel_name || "Untitled organizer"}
+              </Typography>
+              {organizer.founding_organizer_at && <FoundingOrganizerBadge />}
+            </div>
           }
           subtitle={
             <Typography

@@ -534,6 +534,7 @@ export interface Channel {
   org_bio: string | null;
   org_image: string | null;
   hosted_event_count?: number | null;
+  founding_organizer_at?: Date | string | null;
 }
 
 type OptionalKeys<T> = {

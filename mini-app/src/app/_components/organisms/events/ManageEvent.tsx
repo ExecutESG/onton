@@ -96,7 +96,8 @@ function ManageEvent({ event }: ManageEventProps) {
           has_web3: Boolean(
             event.has_web3 ||
               event.tsRewardImage ||
-              event.payment_details?.token_id
+              event.payment_details?.ticket_type === "NFT" ||
+              event.payment_details?.ticket_type === "TSCSBT"
           ),
 
           // Registration

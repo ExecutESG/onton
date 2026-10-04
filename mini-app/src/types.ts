@@ -165,21 +165,23 @@ export const PaidEventSchema = z
   })
   .superRefine((data, ctx) => {
     if (data.has_payment) {
-      // Validate that `payment_recipient_address` is not empty
-      if (!data.payment_recipient_address)
-        ctx.addIssue({ code: "custom", path: ["payment_recipient_address"], message: "Recipient address is Required" });
-      else {
-        try {
-          /*
-           * This will throw if invalid address is passed
-           */
-          Address.parse(data.payment_recipient_address);
-        } catch (error) {
-          ctx.addIssue({
-            code: "custom",
-            path: ["payment_recipient_address"],
-            message: "Recipient address is Invalid!",
-          });
+      // Validate that `payment_recipient_address` is not empty when Web3/NFT is used
+      if (data.has_nft) {
+        if (!data.payment_recipient_address)
+          ctx.addIssue({ code: "custom", path: ["payment_recipient_address"], message: "Recipient address is Required" });
+        else {
+          try {
+            /*
+             * This will throw if invalid address is passed
+             */
+            Address.parse(data.payment_recipient_address);
+          } catch (error) {
+            ctx.addIssue({
+              code: "custom",
+              path: ["payment_recipient_address"],
+              message: "Recipient address is Invalid!",
+            });
+          }
         }
       }
 

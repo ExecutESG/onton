@@ -316,7 +316,6 @@ function NFTInfo() {
         disabled={isEdit}
         error={paid_info_errors.nft_description?.[0]}
       />
-      <Capacity />
       <TicketMedia />
     </>
   );
@@ -392,8 +391,15 @@ const PaidEventCreationInputs = () => {
         <>
           <NFTPayment />
           <PaymentAmount />
-          <PaymentsRecipient />
-          <NFTInfo />
+          <Capacity />
+          {eventData.has_web3 ? (
+            <>
+              <PaymentsRecipient />
+              <NFTInfo />
+            </>
+          ) : (
+            <p className="px-4 pb-4 text-sm text-gray-500">Plain ticket with QR check-in. Turn on Web3 to issue NFT tickets.</p>
+          )}
         </>
       )}
     </ListLayout>

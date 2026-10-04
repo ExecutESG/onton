@@ -228,13 +228,23 @@ export const useCreateEventStore = create<CreateEventStoreType>()(
       },
       toggleHasWeb3: () => {
         set((state) => {
-          state.eventData.has_web3 = !state.eventData.has_web3;
-          if (!state.eventData.has_web3) {
+          const enabled = !state.eventData.has_web3;
+          state.eventData.has_web3 = enabled;
+          if (!enabled) {
             state.eventData.ts_reward_url = undefined;
             state.eventData.video_url = undefined;
             if (state.eventData.paid_event?.has_payment) {
-              state.eventData.paid_event.has_payment = false;
-              state.eventData.capacity = null;
+              state.eventData.paid_event.has_nft = false;
+              state.eventData.paid_event.ticket_type = "TICKET";
+              state.eventData.paid_event.nft_image_url = undefined;
+              state.eventData.paid_event.nft_video_url = undefined;
+              state.eventData.paid_event.nft_title = undefined;
+              state.eventData.paid_event.nft_description = undefined;
+            }
+          } else {
+            if (state.eventData.paid_event?.has_payment) {
+              state.eventData.paid_event.has_nft = true;
+              state.eventData.paid_event.ticket_type = "NFT";
             }
           }
         });
@@ -246,8 +256,17 @@ export const useCreateEventStore = create<CreateEventStoreType>()(
             state.eventData.ts_reward_url = undefined;
             state.eventData.video_url = undefined;
             if (state.eventData.paid_event?.has_payment) {
-              state.eventData.paid_event.has_payment = false;
-              state.eventData.capacity = null;
+              state.eventData.paid_event.has_nft = false;
+              state.eventData.paid_event.ticket_type = "TICKET";
+              state.eventData.paid_event.nft_image_url = undefined;
+              state.eventData.paid_event.nft_video_url = undefined;
+              state.eventData.paid_event.nft_title = undefined;
+              state.eventData.paid_event.nft_description = undefined;
+            }
+          } else {
+            if (state.eventData.paid_event?.has_payment) {
+              state.eventData.paid_event.has_nft = true;
+              state.eventData.paid_event.ticket_type = "NFT";
             }
           }
         });
@@ -255,19 +274,20 @@ export const useCreateEventStore = create<CreateEventStoreType>()(
       togglePaidEvent: () => {
         set((state) => {
           const hasPayment = !state.eventData?.paid_event?.has_payment;
+          const hasWeb3 = Boolean(state.eventData.has_web3);
           const paidEventInfo = {
+            ...state.eventData?.paid_event,
             has_payment: hasPayment,
-            has_nft: true,
+            has_nft: hasWeb3,
             token_id: state.eventData?.paid_event?.token_id ?? 1,
-            ticket_type: "NFT",
-            payment_amount: 1,
+            ticket_type: hasWeb3 ? "NFT" : "TICKET",
+            payment_amount: state.eventData?.paid_event?.payment_amount ?? 1,
           } as Partial<PaidEventType>;
 
           state.eventData.paid_event = paidEventInfo;
           if (hasPayment) {
             state.eventData.has_registration = true;
-            state.eventData.has_web3 = true;
-            state.eventData.capacity = 5;
+            state.eventData.capacity = state.eventData.capacity || 5;
           } else {
             state.eventData.capacity = null;
           }

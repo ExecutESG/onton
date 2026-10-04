@@ -94,6 +94,17 @@ const RegistrationStep = () => {
       ts_reward_url: undefined,
       video_url: undefined,
       secret_phrase: eventData?.secret_phrase || undefined,
+      ...(eventData.paid_event?.has_payment && {
+        paid_event: {
+          ...eventData.paid_event,
+          ticket_type: "TICKET",
+          has_nft: false,
+          nft_image_url: undefined,
+          nft_video_url: undefined,
+          nft_title: undefined,
+          nft_description: undefined,
+        },
+      }),
     };
 
     if (isEdit && edit?.eventHash) {

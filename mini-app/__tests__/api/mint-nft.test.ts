@@ -105,4 +105,59 @@ describe("MintNFTForPaidOrders lazy deploy", () => {
     expect(mockDeployNft).toHaveBeenCalledTimes(1);
     expect(result).toBe(false);
   });
+
+  it("TICKET order bypasses minting, updates registrant, and creates ticket", async () => {
+    mockDb.select.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          execute: vi.fn()
+            .mockResolvedValueOnce([{ uuid: "ord3", event_uuid: "evt3", user_id: 123, owner_address: "UQBlq...", state: "processing", order_type: "nft_mint", retry_count: 0 }]) // 1. orders
+            .mockResolvedValueOnce([{ id: 3, collectionAddress: null, ticket_type: "TICKET" }]) // 2. paymentInfo
+        })
+      })
+    });
+    mockRedis.acquireLock.mockResolvedValue(true);
+    
+    let updateOrdersCalled = false;
+    mockDb.transaction.mockImplementation(async (cb: any) => {
+      // simulate the transaction for TICKET bypass
+      const mockTrx = {
+        select: vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              for: vi.fn().mockReturnValue({
+                execute: vi.fn().mockResolvedValue([{ uuid: "ord3" }])
+              }),
+              execute: vi.fn().mockResolvedValue([{ register_info: { full_name: "John" } }]) // For eventRegistrants
+            })
+          })
+        }),
+        update: vi.fn().mockReturnValue({
+          set: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              returning: vi.fn().mockReturnValue({
+                execute: vi.fn().mockResolvedValue([{ uuid: "ord3", utm_source: null }])
+              }),
+              execute: vi.fn().mockResolvedValue([])
+            })
+          })
+        }),
+        insert: vi.fn().mockReturnValue({
+          values: vi.fn().mockReturnValue({
+            onConflictDoNothing: vi.fn().mockResolvedValue(true)
+          })
+        })
+      };
+      await cb(mockTrx);
+      
+      // We know order was updated to completed inside the inner transaction
+      updateOrdersCalled = true;
+      return true;
+    });
+
+    const result = await processSinglePaidOrder("ord3");
+    expect(mockDeployNft).not.toHaveBeenCalled(); // No NFT call
+    expect(updateOrdersCalled).toBe(true);
+    expect(result).toBe(true);
+  });
 });

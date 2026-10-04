@@ -213,8 +213,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
             first_name: organizer.first_name,
             last_name: organizer.last_name,
             org_channel_name: organizer.org_channel_name,
+            org_image: organizer.org_image,
+            hosted_event_count: organizer.hosted_event_count,
             org_x_link: organizer.org_x_link,
             org_support_telegram_user_name: organizer.org_support_telegram_user_name,
+            founding_organizer_at: organizer.founding_organizer_at,
           }
         : null;
 

@@ -161,7 +161,7 @@ const RegistrationStep = () => {
         />
       </ListLayout>
 
-      {eventData.has_web3 && <PaidEventCreationInputs />}
+      <PaidEventCreationInputs />
     </form>
   );
 };

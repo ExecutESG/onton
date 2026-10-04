@@ -14,9 +14,9 @@ describe("Instant Auto-Publishing & Frontend Decoupling Flow (#1011, #1012)", ()
       expect(isHidden).toBe(false);
     });
 
-    it("enforces hidden = true for paid events pending payment setup", async () => {
+    it("auto-publishes paid events without upfront fee or payment setup (#1033)", async () => {
       const isHidden = await eventDB.shouldEventBeHidden(true, 12345);
-      expect(isHidden).toBe(true);
+      expect(isHidden).toBe(false);
     });
   });
 

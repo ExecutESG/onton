@@ -3,8 +3,14 @@ import { MyContext } from "../types/MyContext";
 import { pool } from "../db/pool";
 import { redisTools } from "../lib/redisTools";
 import { logger } from "../utils/logger";
+import {
+  fetchUserLimits,
+  setUserLimitsOverride,
+  OrganizerLimitsOverride,
+} from "../utils/miniAppClient";
 
 export const moderationComposer = new Composer<MyContext>();
+
 
 /**
  * Check if the user has moderator privileges.
@@ -474,3 +480,165 @@ moderationComposer.callbackQuery(/^(approve|yesApprove|noApprove|rejectCustom|re
     show_alert: true,
   });
 });
+
+// ==========================================
+// 8) Admin Limits Override Commands
+// ==========================================
+moderationComposer.command(["limits", "setlimits"], async (ctx) => {
+  const modUserId = ctx.from?.id;
+  if (!modUserId || !(await isModerator(modUserId))) {
+    return;
+  }
+
+  const text = ctx.message?.text || "";
+  const parts = text.trim().split(/\s+/).slice(1);
+
+  if (parts.length === 0) {
+    await ctx.reply(
+      `⚙️ <b>Organizer Abuse Limits Management</b>\n\n` +
+        `<b>Usage:</b>\n` +
+        `• <code>/limits &lt;userId&gt;</code> — View tier, limits, and usage\n` +
+        `• <code>/limits &lt;userId&gt; clear</code> — Clear override (reset to tier defaults)\n` +
+        `• <code>/limits &lt;userId&gt; unlimited</code> — Remove limits for this user\n` +
+        `• <code>/limits &lt;userId&gt; &lt;eventsPerDay&gt; &lt;maxUpcoming&gt; &lt;maxCapacity&gt;</code>\n` +
+        `  <i>(use 'null' or 'none' for uncapped)</i>\n` +
+        `• <code>/limits &lt;userId&gt; json &lt;jsonPayload&gt;</code>\n\n` +
+        `<b>Examples:</b>\n` +
+        `• <code>/limits 12345678</code>\n` +
+        `• <code>/limits 12345678 clear</code>\n` +
+        `• <code>/limits 12345678 unlimited</code>\n` +
+        `• <code>/limits 12345678 10 20 2000</code>\n` +
+        `• <code>/limits 12345678 json {"maxCapacity":5000}</code>`,
+      { parse_mode: "HTML" }
+    );
+    return;
+  }
+
+  const targetUserId = parseInt(parts[0], 10);
+  if (isNaN(targetUserId)) {
+    await ctx.reply("❌ Invalid user ID. Please provide a numeric user ID.");
+    return;
+  }
+
+  // 1. Just inspect: /limits <userId>
+  if (parts.length === 1) {
+    const summary = await fetchUserLimits(targetUserId);
+    if (!summary) {
+      await ctx.reply(
+        `❌ Could not fetch limits for user <code>${targetUserId}</code>. User may not exist or Mini App is unreachable.`,
+        { parse_mode: "HTML" }
+      );
+      return;
+    }
+
+    const tierBadge = summary.tier === "trusted" ? "⭐️ Trusted" : "🌱 New";
+    const overrideStatus = summary.override
+      ? `<code>${JSON.stringify(summary.override)}</code>`
+      : "<i>None (tier defaults active)</i>";
+
+    await ctx.reply(
+      `📊 <b>Organizer Limits for</b> <code>${targetUserId}</code>\n\n` +
+        `• <b>Tier:</b> ${tierBadge}\n` +
+        `• <b>Account Age:</b> ${summary.accountAgeDays} days\n` +
+        `• <b>Has Past Check-ins:</b> ${summary.hasPastCheckIns ? "Yes ✅" : "No ❌"}\n` +
+        `• <b>Is Admin:</b> ${summary.isAdmin ? "Yes 👑" : "No"}\n\n` +
+        `<b>Effective Limits:</b>\n` +
+        `• Events / 24h: <b>${summary.effectiveLimits.eventsPerDay}</b> (used: ${summary.eventsCreatedLast24Hours})\n` +
+        `• Max Upcoming: <b>${summary.effectiveLimits.maxUpcoming ?? "Unlimited"}</b> (current: ${summary.upcomingEventsCount})\n` +
+        `• Max Capacity: <b>${summary.effectiveLimits.maxCapacity ?? "Unlimited"}</b>\n\n` +
+        `<b>Limits Override:</b>\n${overrideStatus}`,
+      { parse_mode: "HTML" }
+    );
+    return;
+  }
+
+  const action = parts[1].toLowerCase();
+
+  // 2. Clear override: /limits <userId> clear
+  if (action === "clear" || action === "reset") {
+    const res = await setUserLimitsOverride(targetUserId, null);
+    if (!res.success) {
+      await ctx.reply(`❌ Failed to clear limits override: ${res.error}`);
+      return;
+    }
+    await ctx.reply(
+      `✅ Limits override cleared for user <code>${targetUserId}</code>. Tier defaults are now active.`,
+      { parse_mode: "HTML" }
+    );
+    return;
+  }
+
+  // 3. Unlimited: /limits <userId> unlimited
+  if (action === "unlimited") {
+    const override: OrganizerLimitsOverride = {
+      eventsPerDay: 1000,
+      maxUpcoming: null,
+      maxCapacity: null,
+    };
+    const res = await setUserLimitsOverride(targetUserId, override);
+    if (!res.success) {
+      await ctx.reply(`❌ Failed to set unlimited override: ${res.error}`);
+      return;
+    }
+    await ctx.reply(`👑 Unlimited override applied for user <code>${targetUserId}</code>.`, {
+      parse_mode: "HTML",
+    });
+    return;
+  }
+
+  // 4. JSON: /limits <userId> json <rawJson>
+  if (action === "json") {
+    const jsonStr = parts.slice(2).join(" ");
+    try {
+      const parsed = JSON.parse(jsonStr);
+      const res = await setUserLimitsOverride(targetUserId, parsed);
+      if (!res.success) {
+        await ctx.reply(`❌ Failed to set override: ${res.error}`);
+        return;
+      }
+      await ctx.reply(
+        `✅ Override updated for user <code>${targetUserId}</code>:\n<code>${JSON.stringify(parsed)}</code>`,
+        { parse_mode: "HTML" }
+      );
+      return;
+    } catch {
+      await ctx.reply("❌ Invalid JSON string provided.");
+      return;
+    }
+  }
+
+  // 5. Positional: /limits <userId> <eventsPerDay> <maxUpcoming> <maxCapacity>
+  const parseVal = (val: string | undefined): number | null | undefined => {
+    if (!val || val === "null" || val === "none" || val === "-") return null;
+    const n = parseInt(val, 10);
+    return isNaN(n) ? undefined : n;
+  };
+
+  const eventsPerDay = parseVal(parts[1]);
+  const maxUpcoming = parseVal(parts[2]);
+  const maxCapacity = parseVal(parts[3]);
+
+  if (eventsPerDay === undefined && maxUpcoming === undefined && maxCapacity === undefined) {
+    await ctx.reply("❌ Invalid arguments. Run <code>/limits</code> without arguments to see help.", {
+      parse_mode: "HTML",
+    });
+    return;
+  }
+
+  const override: OrganizerLimitsOverride = {};
+  if (eventsPerDay !== undefined && eventsPerDay !== null) override.eventsPerDay = eventsPerDay;
+  if (maxUpcoming !== undefined) override.maxUpcoming = maxUpcoming;
+  if (maxCapacity !== undefined) override.maxCapacity = maxCapacity;
+
+  const res = await setUserLimitsOverride(targetUserId, override);
+  if (!res.success) {
+    await ctx.reply(`❌ Failed to update override: ${res.error}`);
+    return;
+  }
+
+  await ctx.reply(
+    `✅ Limits override successfully updated for user <code>${targetUserId}</code>:\n<code>${JSON.stringify(override)}</code>`,
+    { parse_mode: "HTML" }
+  );
+});
+

@@ -9,9 +9,8 @@ import eventFieldsDB from "@/db/modules/eventFields.db";
 import { checkRateLimit } from "@/lib/checkRateLimit";
 import { EVENT_PASSWORD_RATE_LIMIT } from "@/constants";
 import { db } from "@/db/db";
-import { eventRegistrants } from "@/db/schema";
-import visitorsDB from "@/db/modules/visitors.db";
-import rewardDB from "@/db/modules/rewards.db";
+import { eventRegistrants, visitors } from "@/db/schema";
+import { and, eq } from "drizzle-orm";
 
 export const userEventFieldsRouter = router({
   // protect
@@ -94,42 +93,48 @@ export const userEventFieldsRouter = router({
         hashPassword
       );
 
-      // Record visitor attendance
-      const visitor = await visitorsDB.addVisitor(opts.ctx.user.user_id, eventData.event_uuid);
+      // Wrap visitor + registrant writes in a single db.transaction
+      await db.transaction(async (tx) => {
+        // Record visitor attendance
+        const existingVisitor = (
+          await tx
+            .select()
+            .from(visitors)
+            .where(and(eq(visitors.user_id, opts.ctx.user.user_id), eq(visitors.event_uuid, eventData.event_uuid)))
+            .limit(1)
+            .execute()
+        )[0];
 
-      // Record attendee in eventRegistrants as checkedin for off-chain cSBT credentials and attendance tracking
-      await db
-        .insert(eventRegistrants)
-        .values({
-          event_uuid: eventData.event_uuid,
-          user_id: opts.ctx.user.user_id,
-          status: "checkedin",
-          updatedBy: String(opts.ctx.user.user_id),
-        })
-        .onConflictDoUpdate({
-          target: [eventRegistrants.event_uuid, eventRegistrants.user_id],
-          set: {
-            status: "checkedin",
-            updatedAt: new Date(),
-            updatedBy: String(opts.ctx.user.user_id),
-          },
-        })
-        .execute();
-
-      // Ensure reward row is created for attendance tracking
-      if (visitor) {
-        const existingReward = await rewardDB.checkExistingRewardWithType(visitor.id, "ton_society_sbt");
-        if (!existingReward) {
-          await rewardDB.insertRewardRow(
-            visitor.id,
-            null,
-            opts.ctx.user.user_id,
-            "ton_society_sbt",
-            "pending_creation",
-            eventData
-          );
+        if (!existingVisitor) {
+          await tx
+            .insert(visitors)
+            .values({
+              user_id: opts.ctx.user.user_id,
+              event_uuid: eventData.event_uuid,
+              updatedBy: String(opts.ctx.user.user_id),
+            })
+            .execute();
         }
-      }
+
+        // Record attendee in eventRegistrants as checkedin for off-chain cSBT credentials and attendance tracking
+        await tx
+          .insert(eventRegistrants)
+          .values({
+            event_uuid: eventData.event_uuid,
+            user_id: opts.ctx.user.user_id,
+            status: "checkedin",
+            updatedBy: String(opts.ctx.user.user_id),
+          })
+          .onConflictDoUpdate({
+            target: [eventRegistrants.event_uuid, eventRegistrants.user_id],
+            set: {
+              status: "checkedin",
+              updatedAt: new Date(),
+              updatedBy: String(opts.ctx.user.user_id),
+            },
+          })
+          .execute();
+      });
 
       return { success: true };
     }),

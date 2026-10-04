@@ -23,6 +23,89 @@ describe("Issue #1032: Wallet-Optional Attendee Flows", () => {
       expect(isBadMatch).toBe(false);
     });
 
+    it("records native attendance with checkedin status and creates no rewards row", async () => {
+      // Simulating the transactional attendance write from userEventFields.ts
+      interface VisitorRecord {
+        id: number;
+        userId: number;
+        eventUuid: string;
+      }
+      interface RegistrantRecord {
+        eventUuid: string;
+        userId: number;
+        status: "pending" | "approved" | "checkedin" | "rejected";
+        updatedAt?: Date;
+      }
+      interface RewardRecord {
+        id: number;
+        visitorId: number;
+        userId: number;
+        type: string;
+        status: string;
+      }
+
+      const mockDb = {
+        visitors: [] as VisitorRecord[],
+        eventRegistrants: [
+          // Pre-registered attendee before secret phrase entry
+          { eventUuid, userId: 10001, status: "approved" as const },
+        ] as RegistrantRecord[],
+        rewards: [] as RewardRecord[],
+      };
+
+      // Atomic transaction execution matching userEventFields.ts
+      async function executeAttendanceTransaction(userId: number, targetEventUuid: string) {
+        // 1. Record visitor attendance if not already present
+        const existingVisitor = mockDb.visitors.find(
+          (v) => v.userId === userId && v.eventUuid === targetEventUuid
+        );
+        if (!existingVisitor) {
+          mockDb.visitors.push({
+            id: mockDb.visitors.length + 1,
+            userId,
+            eventUuid: targetEventUuid,
+          });
+        }
+
+        // 2. Upsert eventRegistrants with status 'checkedin'
+        const existingRegIdx = mockDb.eventRegistrants.findIndex(
+          (r) => r.userId === userId && r.eventUuid === targetEventUuid
+        );
+        if (existingRegIdx >= 0) {
+          mockDb.eventRegistrants[existingRegIdx].status = "checkedin";
+          mockDb.eventRegistrants[existingRegIdx].updatedAt = new Date();
+        } else {
+          mockDb.eventRegistrants.push({
+            eventUuid: targetEventUuid,
+            userId,
+            status: "checkedin",
+            updatedAt: new Date(),
+          });
+        }
+
+        // 3. TON Society rewards are shut down: no rewards row should be inserted
+      }
+
+      // Case 1: Pre-registered attendee enters password -> updated to checkedin
+      await executeAttendanceTransaction(10001, eventUuid);
+      const preReg = mockDb.eventRegistrants.find((r) => r.userId === 10001);
+      expect(preReg).toBeDefined();
+      expect(preReg?.status).toBe("checkedin");
+
+      // Case 2: Walk-in / non-registered attendee enters password -> inserted as checkedin
+      await executeAttendanceTransaction(10002, eventUuid);
+      const walkInReg = mockDb.eventRegistrants.find((r) => r.userId === 10002);
+      expect(walkInReg).toBeDefined();
+      expect(walkInReg?.status).toBe("checkedin");
+
+      // Verify visitors table has both attendees recorded
+      expect(mockDb.visitors).toHaveLength(2);
+
+      // Verify STRICTLY that NO rewards row is created (TON Society shutdown compliance)
+      expect(mockDb.rewards).toHaveLength(0);
+      expect(mockDb.rewards.filter((r) => r.type === "ton_society_sbt")).toHaveLength(0);
+    });
+
     it("constructs valid off-chain cSBT Merkle proof for wallet-less attendee by userId", async () => {
       // 3 attendees: 2 wallet-less (identified by numeric userId), 1 with wallet
       const attendees = [

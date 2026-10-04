@@ -23,6 +23,7 @@ async function upsertGoogleAccount(p: {
   try {
     /* enforce single‑Google‑per‑TG : delete old mapping first */
     await db.delete(usersGoogle).where(eq(usersGoogle.userId, p.userId)).execute();
+    await db.delete(usersGoogle).where(eq(usersGoogle.gUserId, p.gUserId)).execute();
 
     await db
       .insert(usersGoogle)

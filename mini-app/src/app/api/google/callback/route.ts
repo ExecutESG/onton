@@ -74,11 +74,22 @@ export async function GET(req: NextRequest) {
     }
 
     /* 4️⃣  Upsert mapping in user_identities & users_google ----- */
-    await userIdentitiesDB.linkIdentity(userId, "google", ui.sub, {
+    const linkRes = await userIdentitiesDB.linkIdentity(userId, "google", ui.sub, {
       email: ui.email,
       name: ui.name,
       picture: ui.picture,
     });
+
+    if (!linkRes.success) {
+      let targetUrl = returnUrl;
+      try {
+        const parsed = new URL(targetUrl);
+        parsed.searchParams.set("error", "identity_already_linked");
+        targetUrl = parsed.toString();
+      } catch (e) {}
+      await redisTools.deleteCache(`goauth:${state}`);
+      return NextResponse.redirect(new URL(targetUrl, process.env.NEXT_PUBLIC_APP_BASE_URL || "https://app.dev.onton.live"));
+    }
 
     await usersGoogleDB.upsertGoogleAccount({
       userId: userId,

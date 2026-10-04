@@ -254,7 +254,6 @@ const EventRegistrationStatus = () => {
     return null;
   }
 
-  const isCustom = Boolean(eventData.data?.registrationFromSchema?.isCustom);
   console.log(
     "EventRegistrationStatus: hasWaitingList or !capacityFilled and registrantStatus === ''",
     registrantStatus,

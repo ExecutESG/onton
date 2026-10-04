@@ -25,7 +25,7 @@ export interface OrganizerLimitsSummary {
 }
 
 /**
- * Resolves the Mini App base URL.
+ * Resolves the Mini App base URL (internal URL only).
  */
 export function getMiniAppBaseUrl(): string {
   if (process.env.INTERNAL_MINI_APP_URL) {
@@ -38,40 +38,43 @@ export function getMiniAppBaseUrl(): string {
 }
 
 /**
- * Generates HMAC signature and authentication headers for Mini App requests.
+ * Signs a request to the Mini App using HMAC-SHA256.
+ * Creates canonical string: `${timestamp}.${method}.${pathname}.${rawBody}`
  */
-export function getMiniAppHeaders(body?: unknown): Record<string, string> {
-  const secret =
-    process.env.BOT_API_HMAC_SECRET ||
-    process.env.ONTON_API_SECRET ||
-    process.env.BOT_TOKEN ||
-    "";
-  const timestamp = Date.now().toString();
-  const payload = `${timestamp}.${
-    typeof body === "object" && body !== null ? JSON.stringify(body) : body ?? ""
-  }`;
-  const signature = secret
-    ? crypto.createHmac("sha256", secret).update(payload).digest("hex")
-    : "";
+export async function signedRequest<T>(method: "GET" | "POST" | "PATCH" | "DELETE", pathname: string, body?: any): Promise<AxiosResponse<T>> {
+  const secret = process.env.BOT_API_HMAC_SECRET;
+  if (!secret) {
+    throw new Error("BOT_API_HMAC_SECRET is not set");
+  }
 
-  return {
-    "Content-Type": "application/json",
-    "x-api-key": secret,
-    "x-signature": signature,
-    "x-timestamp": timestamp,
-  };
+  const timestamp = Date.now().toString();
+  const rawBody = body ? JSON.stringify(body) : "";
+  const canonicalString = `${timestamp}.${method}.${pathname}.${rawBody}`;
+  
+  const signature = crypto.createHmac("sha256", secret).update(canonicalString).digest("hex");
+
+  const url = `${getMiniAppBaseUrl()}${pathname}`;
+  
+  return axios.request<T>({
+    url,
+    method,
+    data: rawBody,
+    headers: {
+      "Content-Type": "application/json",
+      "x-signature": signature,
+      "x-timestamp": timestamp,
+    },
+    timeout: 5000,
+  });
 }
 
 /**
  * Fetches organizer limits and tier summary for a user from the Mini App.
  */
 export async function fetchUserLimits(userId: number): Promise<OrganizerLimitsSummary | null> {
-  const url = `${getMiniAppBaseUrl()}/api/v1/user/${userId}/limits`;
+  const pathname = `/api/v1/user/${userId}/limits`;
   try {
-    const res: AxiosResponse<OrganizerLimitsSummary> = await axios.get(url, {
-      headers: getMiniAppHeaders(),
-      timeout: 5000,
-    });
+    const res = await signedRequest<OrganizerLimitsSummary>("GET", pathname);
     return res.data;
   } catch (err) {
     logger.error(`fetchUserLimits failed for userId ${userId}:`, err);
@@ -86,13 +89,10 @@ export async function setUserLimitsOverride(
   userId: number,
   limitsOverride: OrganizerLimitsOverride | null
 ): Promise<{ success: boolean; summary?: OrganizerLimitsSummary; error?: string }> {
-  const url = `${getMiniAppBaseUrl()}/api/v1/user/${userId}/limits`;
+  const pathname = `/api/v1/user/${userId}/limits`;
   const body = { limits_override: limitsOverride };
   try {
-    const res = await axios.patch(url, body, {
-      headers: getMiniAppHeaders(body),
-      timeout: 5000,
-    });
+    const res = await signedRequest<{ success: boolean; summary?: OrganizerLimitsSummary }>("PATCH", pathname, body);
     return { success: true, summary: res.data?.summary };
   } catch (err: unknown) {
     logger.error(`setUserLimitsOverride failed for userId ${userId}:`, err);

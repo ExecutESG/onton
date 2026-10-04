@@ -1,10 +1,18 @@
 import { organizerLimitsService } from "@/services/organizerLimits";
-import { OrganizerLimitsOverride } from "@/db/schema/users";
-import { apiKeyAuthentication } from "@/server/apiKeyAuth";
+import { verifyBotHmac } from "@/server/botHmacAuth";
 import { NextRequest } from "next/server";
+import { z } from "zod";
+
+export const runtime = "nodejs";
+
+const overrideSchema = z.object({
+  eventsPerDay: z.number().int().min(0).optional(),
+  maxUpcoming: z.number().int().min(0).nullable().optional(),
+  maxCapacity: z.number().int().min(1).nullable().optional(),
+}).strict();
 
 export async function GET(req: NextRequest, { params }: { params: { user_id: string } }) {
-  const authError = apiKeyAuthentication(req);
+  const authError = await verifyBotHmac(req);
   if (authError) return authError;
 
   const userId = parseInt(params.user_id, 10);
@@ -17,12 +25,26 @@ export async function GET(req: NextRequest, { params }: { params: { user_id: str
     return Response.json({ message: "User not found" }, { status: 404 });
   }
 
-  return Response.json(summary);
+  return Response.json({
+    user_id: summary.userId,
+    role: summary.role,
+    tier: summary.tier,
+    accountAgeDays: summary.accountAgeDays,
+    hasPastCheckIns: summary.hasPastCheckIns,
+    override: summary.override,
+    effectiveLimits: {
+      eventsPerDay: summary.effectiveLimits.eventsPerDay,
+      maxUpcoming: summary.effectiveLimits.maxUpcoming,
+      maxCapacity: summary.effectiveLimits.maxCapacity,
+    },
+    isAdmin: summary.isAdmin,
+    eventsCreatedLast24Hours: summary.eventsCreatedLast24Hours,
+    upcomingEventsCount: summary.upcomingEventsCount,
+  });
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { user_id: string } }) {
-  const bodyText = await req.clone().text();
-  const authError = apiKeyAuthentication(req, bodyText);
+  const authError = await verifyBotHmac(req);
   if (authError) return authError;
 
   const userId = parseInt(params.user_id, 10);
@@ -33,10 +55,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { user_id: s
 
   try {
     const body = await req.json();
-    const limitsOverride = body?.limits_override as OrganizerLimitsOverride | null | undefined;
+    let limitsOverride = body?.limits_override;
 
-    if (limitsOverride !== null && limitsOverride !== undefined && typeof limitsOverride !== "object") {
-      return Response.json({ message: "Invalid limits_override format" }, { status: 400 });
+    if (limitsOverride !== null && limitsOverride !== undefined) {
+      const parsed = overrideSchema.safeParse(limitsOverride);
+      if (!parsed.success) {
+        return Response.json({ message: "Invalid limits_override format", details: parsed.error }, { status: 400 });
+      }
+      limitsOverride = parsed.data;
     }
 
     const success = await organizerLimitsService.setOrganizerLimitsOverride(
@@ -51,9 +77,24 @@ export async function PATCH(req: NextRequest, { params }: { params: { user_id: s
     const updatedSummary = await organizerLimitsService.getOrganizerLimitsSummary(userId);
     return Response.json({
       success: true,
-      user_id: userId,
+      user_id: updatedSummary!.userId,
       limits_override: limitsOverride,
-      summary: updatedSummary,
+      summary: {
+        user_id: updatedSummary!.userId,
+        role: updatedSummary!.role,
+        tier: updatedSummary!.tier,
+        accountAgeDays: updatedSummary!.accountAgeDays,
+        hasPastCheckIns: updatedSummary!.hasPastCheckIns,
+        override: updatedSummary!.override,
+        effectiveLimits: {
+          eventsPerDay: updatedSummary!.effectiveLimits.eventsPerDay,
+          maxUpcoming: updatedSummary!.effectiveLimits.maxUpcoming,
+          maxCapacity: updatedSummary!.effectiveLimits.maxCapacity,
+        },
+        isAdmin: updatedSummary!.isAdmin,
+        eventsCreatedLast24Hours: updatedSummary!.eventsCreatedLast24Hours,
+        upcomingEventsCount: updatedSummary!.upcomingEventsCount,
+      }
     });
   } catch (error) {
     return Response.json({ message: "Invalid JSON payload" }, { status: 400 });

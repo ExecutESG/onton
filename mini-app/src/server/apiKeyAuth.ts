@@ -1,5 +1,3 @@
-import crypto from "crypto";
-
 /**
  * Constant-time string comparison to prevent timing attacks.
  * Safe for Edge runtime and Node.js.
@@ -16,23 +14,13 @@ export function safeTimingEqual(a: string, b: string): boolean {
 }
 
 /**
- * Validates request authentication via HMAC signature or x-api-key header.
- * Supports BOT_API_HMAC_SECRET, ONTON_API_SECRET, and BOT_TOKEN.
- * @param req Request
- * @param bodyText Optional raw request body string for HMAC verification
+ * Validates x-api-key header against ONTON_API_SECRET using constant-time comparison.
+ * Safe for Next.js Edge middleware and Node.js runtime.
+ * @param req {Request}
  */
-export function apiKeyAuthentication(req: Request, bodyText?: string) {
-  // 1. Check HMAC signature if x-signature and x-timestamp are present
-  const signature = req.headers.get("x-signature");
-  const timestampStr = req.headers.get("x-timestamp");
-
-  const apiKey =
-    req.headers.get("x-api-key") ||
-    (req.headers.get("authorization")?.startsWith("Bearer ")
-      ? req.headers.get("authorization")?.slice(7).trim()
-      : null);
-
-  if (!signature && !apiKey) {
+export function apiKeyAuthentication(req: Request) {
+  const apiKey = req.headers.get("x-api-key");
+  if (!apiKey)
     return Response.json(
       {
         error: "authentication_failed",
@@ -40,15 +28,9 @@ export function apiKeyAuthentication(req: Request, bodyText?: string) {
       },
       { status: 401 }
     );
-  }
 
-  const allowedSecrets = [
-    process.env.ONTON_API_SECRET,
-    process.env.BOT_API_HMAC_SECRET,
-    process.env.BOT_TOKEN,
-  ].filter(Boolean) as string[];
-
-  if (allowedSecrets.length === 0) {
+  const secret = process.env.ONTON_API_SECRET;
+  if (!secret || !safeTimingEqual(apiKey, secret))
     return Response.json(
       {
         error: "authentication_failed",
@@ -56,38 +38,6 @@ export function apiKeyAuthentication(req: Request, bodyText?: string) {
       },
       { status: 401 }
     );
-  }
 
-  if (signature && timestampStr) {
-    const timestamp = parseInt(timestampStr, 10);
-    const now = Date.now();
-    // 60-second replay window
-    if (!isNaN(timestamp) && Math.abs(now - timestamp) <= 60000) {
-      const payload = `${timestampStr}.${bodyText || ""}`;
-      const isSignatureValid = allowedSecrets.some((secret) => {
-        const expectedSig = crypto.createHmac("sha256", secret).update(payload).digest("hex");
-        return safeTimingEqual(signature, expectedSig);
-      });
-      if (isSignatureValid) {
-        return null;
-      }
-    }
-  }
-
-  if (apiKey) {
-    const isValid = allowedSecrets.some((secret) => safeTimingEqual(apiKey, secret));
-    if (isValid) {
-      return null;
-    }
-  }
-
-  return Response.json(
-    {
-      error: "authentication_failed",
-      message: "Invalid x-api-key header found",
-    },
-    { status: 401 }
-  );
+  return null;
 }
-
-

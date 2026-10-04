@@ -15,6 +15,7 @@ import { AffiliationCustomDataForJoinTasks } from "@/db/schema/taskUsers";
 import { userScoreRulesDB } from "@/db/modules/userScoreRules.db";
 import { user_identities } from "@/db/schema/userIdentities";
 import { ensureUserIdentitiesTable } from "@/db/modules/userIdentities.db";
+export const ALLOWED_ORGANIZER_PROVIDERS = ["telegram", "google", "email"];
 // User data from the init data
 
 // Cache key prefix
@@ -832,15 +833,35 @@ export const ensureOrganizerRole = async (userId: number): Promise<boolean> => {
   try {
     const user = await selectUserById(userId);
     if (!user) return false;
+    if (user.role === "ban") return false;
     if (user.role === "organizer" || user.role === "admin") {
       return true;
     }
 
     await ensureUserIdentitiesTable();
+
+    // If they have a telegram_id but no identity, upsert one
+    if (user.telegram_id) {
+      await db
+        .insert(user_identities)
+        .values({
+          user_id: userId,
+          provider: "telegram",
+          provider_user_id: user.telegram_id.toString(),
+          verified: true,
+          updated_at: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: [user_identities.user_id, user_identities.provider],
+          set: { verified: true, updated_at: new Date() },
+        })
+        .execute();
+    }
+
     const verifiedIdentity = await db.query.user_identities.findFirst({
       where: and(
         eq(user_identities.user_id, userId),
-        inArray(user_identities.provider, ["telegram", "google", "email"]),
+        inArray(user_identities.provider, ALLOWED_ORGANIZER_PROVIDERS),
         eq(user_identities.verified, true)
       ),
     });
@@ -849,8 +870,12 @@ export const ensureOrganizerRole = async (userId: number): Promise<boolean> => {
       return false;
     }
 
-    const updateRes = await updateUserRole(userId, "organizer");
-    return updateRes.success;
+    if (user.role === "user") {
+      const updateRes = await updateUserRole(userId, "organizer");
+      return updateRes.success;
+    }
+
+    return false; // leave other roles unchanged and do not treat them as organizer
   } catch (err) {
     logger.error(`Error in ensureOrganizerRole for user ${userId}:`, err);
     return false;

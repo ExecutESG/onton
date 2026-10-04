@@ -35,13 +35,8 @@ export default function ProfilePage() {
     enabled: !!user,
   });
 
-  const hasVerifiedIdentity = Boolean(
-    user?.telegram_id ||
-      (user?.email && user?.auth_provider === "google") ||
-      identities?.some(
-        (item) => ["telegram", "google", "email"].includes(item.provider) && (item.verified ?? true)
-      )
-  );
+  const { data: canCreateEvents } = trpc.users.canCreateEvents.useQuery(undefined, { enabled: !!user });
+  const hasVerifiedIdentity = canCreateEvents === true;
 
   const { data: totalPoints, isLoading: loadingTotalPoints } = trpc.usersScore.getTotalScoreByUserId.useQuery(undefined, {
     enabled: !!user,

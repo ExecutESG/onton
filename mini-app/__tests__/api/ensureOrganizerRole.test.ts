@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockState = vi.hoisted(() => ({
-  currentUser: null as any,
-  identities: [] as any[],
-  updateCalls: [] as any[],
+  currentUser: null as Record<string, unknown> | null,
+  identities: [] as Record<string, unknown>[],
+  updateCalls: [] as Record<string, unknown>[],
 }));
 
 vi.mock("@/lib/redisTools", () => ({
@@ -28,17 +28,32 @@ vi.mock("@/db/modules/userIdentities.db", () => ({
 
 vi.mock("@/db/db", () => ({
   db: {
+    
     select: vi.fn().mockImplementation(() => ({
       from: vi.fn().mockReturnValue({
         where: vi.fn().mockImplementation(() => ({
+          limit: vi.fn().mockImplementation(() => ({
+            execute: vi.fn().mockImplementation(async () => {
+              return mockState.currentUser ? [mockState.currentUser] : [];
+            }),
+          })),
           execute: vi.fn().mockImplementation(async () => {
             return mockState.currentUser ? [mockState.currentUser] : [];
           }),
         })),
       }),
     })),
+
+    
+    insert: vi.fn().mockImplementation(() => ({
+      values: vi.fn().mockImplementation(() => ({
+        onConflictDoUpdate: vi.fn().mockImplementation(() => ({
+          execute: vi.fn().mockResolvedValue([]),
+        })),
+      })),
+    })),
     update: vi.fn().mockImplementation(() => ({
-      set: vi.fn().mockImplementation((setData: any) => ({
+      set: vi.fn().mockImplementation((setData: Record<string, unknown>) => ({
         where: vi.fn().mockImplementation(() => ({
           execute: vi.fn().mockImplementation(async () => {
             mockState.updateCalls.push(setData);
@@ -56,7 +71,7 @@ vi.mock("@/db/db", () => ({
           return (
             mockState.identities.find(
               (id) =>
-                ["telegram", "google", "email"].includes(id.provider) &&
+                ALLOWED_ORGANIZER_PROVIDERS.includes(id.provider as string) &&
                 id.verified === true
             ) || null
           );
@@ -74,7 +89,7 @@ vi.mock("@/server/utils/logger", () => ({
   },
 }));
 
-import { ensureOrganizerRole } from "@/db/modules/users.db";
+import { ensureOrganizerRole, ALLOWED_ORGANIZER_PROVIDERS } from "@/db/modules/users.db";
 
 describe("ensureOrganizerRole (Issue #1031)", () => {
   beforeEach(() => {

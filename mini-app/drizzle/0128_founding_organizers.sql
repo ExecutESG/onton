@@ -1,39 +1,23 @@
-ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "founding_organizer_at" timestamptz NULL;
---> statement-breakpoint
-ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "fee_waiver_tickets_remaining" integer NOT NULL DEFAULT 0;
+-- 1. Add founding_organizer_at column
+ALTER TABLE users ADD COLUMN IF NOT EXISTS founding_organizer_at timestamp;
 
---> statement-breakpoint
--- Promote orders in 'processing' -> complete + promote
-UPDATE "orders"
-SET "state" = 'completed',
-    "updated_at" = COALESCE("updated_at", NOW()),
-    "updated_by" = 'migration_0128'
-WHERE "order_type" = 'promote_to_organizer'
-  AND "state" = 'processing';
-
---> statement-breakpoint
--- Backfill: users with a completed promote_to_organizer order -> founding_organizer_at = order completion time, waiver = 100
-UPDATE "users" u
-SET "founding_organizer_at" = COALESCE(o.completed_time, NOW()),
-    "fee_waiver_tickets_remaining" = 100,
-    "role" = CASE WHEN u.role = 'admin' THEN 'admin' ELSE 'organizer' END,
-    "updated_at" = NOW(),
-    "updated_by" = 'migration_0128'
+-- 2. Backfill for users with paid or confirmed NFT orders
+-- The completion time is orders.updated_at because there is no completion column.
+UPDATE users u
+SET 
+  founding_organizer_at = sub.promoted_at,
+  role = CASE WHEN u.role = 'user' THEN 'organizer'::role_enum ELSE u.role END
 FROM (
-  SELECT user_id, MIN(COALESCE(updated_at, created_at)) as completed_time
-  FROM "orders"
-  WHERE order_type = 'promote_to_organizer'
-    AND state = 'completed'
-    AND user_id IS NOT NULL
+  SELECT 
+    user_id,
+    MIN(updated_at) as promoted_at
+  FROM orders
+  WHERE order_type IN ('new', 'confirming')
+    AND payment_status = 'processing'
   GROUP BY user_id
-) o
-WHERE u.user_id = o.user_id;
+) sub
+WHERE u.user_id = sub.user_id
+  AND u.founding_organizer_at IS NULL;
 
---> statement-breakpoint
--- Cancel orders in 'new' or 'confirming'
-UPDATE "orders"
-SET "state" = 'cancelled',
-    "updated_at" = NOW(),
-    "updated_by" = 'migration_0128'
-WHERE "order_type" = 'promote_to_organizer'
-  AND "state" IN ('new', 'confirming');
+-- 3. Create partial index for fast lookups
+CREATE INDEX IF NOT EXISTS users_founding_organizer_at_idx ON users (founding_organizer_at) WHERE founding_organizer_at IS NOT NULL;

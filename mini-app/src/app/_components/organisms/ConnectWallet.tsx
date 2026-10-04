@@ -161,9 +161,7 @@ function ConfirmConnectDialog({ open, onClose }: { open: boolean; onClose: () =>
         variant="body"
         className="text-center mb-6 font-normal"
       >
-        <b>You are becoming an ONTON organizer.</b>
-        <br />
-        To create a channel and use special event publishing features, you need to pay {NFT_EVENT_PRICE} TON
+        To mint your channel and use special event publishing features, you need to pay {NFT_EVENT_PRICE} TON
       </Typography>
       <Button
         className="py-6 rounded-[10px] mb-3"

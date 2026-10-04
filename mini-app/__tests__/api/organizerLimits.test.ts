@@ -46,6 +46,11 @@ vi.mock("@/db/db", () => ({
           }),
         }),
         where: vi.fn().mockReturnValue({
+          limit: vi.fn().mockReturnValue({
+            execute: vi.fn().mockImplementation(async () => {
+              return [mockState.mockUser];
+            })
+          }),
           execute: vi.fn().mockImplementation(async () => {
             return [{ count: mockState.mockEventsCreatedLast24Hours }];
           }),
@@ -118,7 +123,7 @@ describe("organizerLimits Tier Logic & Enforcement (Issue #1031)", () => {
 
       const limits = computeEffectiveLimits("organizer", "trusted", null);
       expect(limits).toEqual({
-        eventsPerDay: 20,
+        eventsPerDay: 5,
         maxUpcoming: null,
         maxCapacity: null,
       });
@@ -129,7 +134,7 @@ describe("organizerLimits Tier Logic & Enforcement (Issue #1031)", () => {
       expect(determineOrganizerTier(60, false)).toBe("trusted");
 
       const limits = computeEffectiveLimits("organizer", "trusted", null);
-      expect(limits.eventsPerDay).toBe(20);
+      expect(limits.eventsPerDay).toBe(5);
       expect(limits.maxUpcoming).toBeNull();
       expect(limits.maxCapacity).toBeNull();
     });
@@ -230,7 +235,7 @@ describe("organizerLimits Tier Logic & Enforcement (Issue #1031)", () => {
       mockState.mockPastEventWithCheckIn = false;
 
       await expect(
-        assertCanUpdateEvent(1, { capacity: 450 })
+        assertCanUpdateEvent(1, 1, { capacity: 100 }, { capacity: 450 })
       ).resolves.not.toThrow();
     });
 
@@ -239,11 +244,11 @@ describe("organizerLimits Tier Logic & Enforcement (Issue #1031)", () => {
       mockState.mockPastEventWithCheckIn = false;
 
       await expect(
-        assertCanUpdateEvent(1, { capacity: 800 })
+        assertCanUpdateEvent(1, 1, { capacity: 100 }, { capacity: 800 })
       ).rejects.toThrowError(TRPCError);
 
       await expect(
-        assertCanUpdateEvent(1, { capacity: 800 })
+        assertCanUpdateEvent(1, 1, { capacity: 100 }, { capacity: 800 })
       ).rejects.toThrow(/exceeds allowed limit of 500/);
     });
 
@@ -252,7 +257,7 @@ describe("organizerLimits Tier Logic & Enforcement (Issue #1031)", () => {
       mockState.mockPastEventWithCheckIn = false;
 
       await expect(
-        assertCanUpdateEvent(1, { capacity: 5000 })
+        assertCanUpdateEvent(1, 1, { capacity: 100 }, { capacity: 5000 })
       ).resolves.not.toThrow();
     });
   });

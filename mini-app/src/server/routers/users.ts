@@ -60,6 +60,10 @@ export const usersRouter = router({
       }
     }),
 
+  
+  canCreateEvents: initDataProtectedProcedure.query(async (opts) => {
+    return await usersDB.ensureOrganizerRole(opts.ctx.user.user_id);
+  }),
   getLinkedIdentities: initDataProtectedProcedure.query(async (opts) => {
     const identities = await userIdentitiesDB.getIdentitiesByUserId(opts.ctx.user.user_id);
     return identities.map((item) => ({

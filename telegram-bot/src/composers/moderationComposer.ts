@@ -17,6 +17,37 @@ export const moderationComposer = new Composer<MyContext>();
  * Allows superadmins (@ontonadmin: 7013087032, Mahdi: 23932283, or ADMIN_TELEGRAM_ID),
  * users with role 'admin', or users with user_custom_flags 'moderator'.
  */
+
+/**
+ * Check if the user has admin privileges.
+ * Allows superadmins (@ontonadmin: 7013087032, Mahdi: 23932283, or ADMIN_TELEGRAM_ID),
+ * or users with role 'admin'.
+ */
+export async function isAdmin(userId: number): Promise<boolean> {
+  if (
+    userId === 7013087032 ||
+    userId === 23932283 ||
+    (process.env.ADMIN_TELEGRAM_ID && userId === Number(process.env.ADMIN_TELEGRAM_ID))
+  ) {
+    return true;
+  }
+
+  const client = await pool.connect();
+  try {
+    const res = await client.query(
+      `SELECT role FROM users WHERE user_id = $1`,
+      [userId]
+    );
+    if (res.rows.length === 0) return false;
+    return res.rows[0].role === "admin";
+  } catch (err) {
+    logger.error("Error checking admin status:", err);
+    return false;
+  } finally {
+    client.release();
+  }
+}
+
 export async function isModerator(userId: number): Promise<boolean> {
   if (
     userId === 7013087032 ||
@@ -486,7 +517,7 @@ moderationComposer.callbackQuery(/^(approve|yesApprove|noApprove|rejectCustom|re
 // ==========================================
 moderationComposer.command(["limits", "setlimits"], async (ctx) => {
   const modUserId = ctx.from?.id;
-  if (!modUserId || !(await isModerator(modUserId))) {
+  if (!modUserId || !(await isAdmin(modUserId))) {
     return;
   }
 
@@ -609,14 +640,24 @@ moderationComposer.command(["limits", "setlimits"], async (ctx) => {
 
   // 5. Positional: /limits <userId> <eventsPerDay> <maxUpcoming> <maxCapacity>
   const parseVal = (val: string | undefined): number | null | undefined => {
-    if (!val || val === "null" || val === "none" || val === "-") return null;
+    if (val === undefined) return undefined;
+    if (val === "null" || val === "none") return null;
     const n = parseInt(val, 10);
-    return isNaN(n) ? undefined : n;
+    if (isNaN(n) || n < 0) throw new Error("Invalid number");
+    return n;
   };
 
-  const eventsPerDay = parseVal(parts[1]);
-  const maxUpcoming = parseVal(parts[2]);
-  const maxCapacity = parseVal(parts[3]);
+
+  let eventsPerDay, maxUpcoming, maxCapacity;
+  try {
+    eventsPerDay = parseVal(parts[1]);
+    maxUpcoming = parseVal(parts[2]);
+    maxCapacity = parseVal(parts[3]);
+  } catch (e) {
+    await ctx.reply("❌ Rejecting negative numbers or NaN. Use valid positive integers, 'null', or 'none'.");
+    return;
+  }
+
 
   if (eventsPerDay === undefined && maxUpcoming === undefined && maxCapacity === undefined) {
     await ctx.reply("❌ Invalid arguments. Run <code>/limits</code> without arguments to see help.", {

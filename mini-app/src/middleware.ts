@@ -7,7 +7,7 @@ import { checkEdgeRateLimit, extractClientIp } from "@/lib/edgeRateLimiter";
 const protectWithAPIKeyPatterns: ProtectedRoute[] = [
   { methods: ["POST"], pattern: /^\/api\/v1\/ticket(\/.*)?$/ },
   { methods: ["PATCH"], pattern: /^\/api\/v1\/order(\/.*)?$/ },
-  { methods: ["*"], pattern: /^\/api\/v1\/user(\/.*)?$/ },
+  { methods: ["*"], pattern: /^\/api\/v1\/user(?!\/[^/]+\/limits)(\/.*)?$/ },
 ];
 
 // New patterns for the `/api/client/v1/protected/*` routes (protected routes, no API key auth)

@@ -25,6 +25,7 @@ import LoginRequired from "@/app/_components/auth/LoginRequired";
  */
 export default function MyHostedPage() {
   const { user } = useUserStore();
+  const { data: canCreateEvents } = trpc.users.canCreateEvents.useQuery(undefined, { enabled: !!user });
   const webApp = useWebApp();
   const userId = webApp?.initDataUnsafe?.user?.id || user?.user_id;
   const [eventsSearch, setEventsSearch] = useDebouncedState("", 500);
@@ -75,6 +76,7 @@ export default function MyHostedPage() {
     [eventsInfinite.data?.pages]
   );
 
+  if (canCreateEvents === false) { return <div className="p-4 text-center">You must link a verified identity to create and manage events.</div>; }
   return (
     <div className="bg-brand-bg p-4 min-h-screen flex flex-col gap-4">
       <Tabs

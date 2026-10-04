@@ -40,7 +40,7 @@ import { TonSocietyRegisterActivityT } from "@/types/event.types";
 import searchEventsInputZod from "@/zodSchema/searchEventsInputZod";
 import { TRPCError } from "@trpc/server";
 import dotenv from "dotenv";
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import { Bot } from "grammy";
 import { Message } from "grammy/types";
 import { v4 as uuidv4 } from "uuid";
@@ -289,6 +289,11 @@ const addEvent = initDataProtectedProcedure.input(z.object({ eventData: EventDat
   }
   try {
     const result = await db.transaction(async (trx) => {
+      // Advisory lock inside transaction
+      await trx.execute(sql`SELECT pg_advisory_xact_lock(1031, ${user_id})`);
+      // Recount after lock to avoid race conditions
+      await organizerLimitsService.assertCanCreateEvent(user_id, input_event_data);
+
       const event_has_payment = input_event_data.paid_event && input_event_data.paid_event.has_payment;
       const event_in_person = input_event_data.eventLocationType === "in_person";
       let hashedSecretPhrase = undefined;
@@ -588,7 +593,7 @@ const updateEvent = eventManagerPP
     const user_id = opts.ctx.user.user_id;
 
     // Enforce tiered abuse limits on event update (including capacity changes)
-    await organizerLimitsService.assertCanUpdateEvent(user_id, eventData);
+    await organizerLimitsService.assertCanUpdateEvent(user_id, opts.ctx.event.owner, { capacity: opts.ctx.event.capacity }, eventData);
 
     const category = await eventCategoriesDB.fetchCategoryById(eventData.category_id);
     if (!category || !category.enabled) {

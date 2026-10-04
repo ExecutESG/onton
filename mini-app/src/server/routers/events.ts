@@ -34,6 +34,7 @@ import { tgBotModerationMenu, tgBotPostPublishModerationMenu, tgBotReportedEvent
 import eventReportsDB from "@/db/modules/eventReports.db";
 import { logger } from "@/server/utils/logger";
 import { CreateTonSocietyDraft } from "@/services/tonSocietyService";
+import { organizerLimitsService } from "@/services/organizerLimits";
 import { EventDataSchema, UpdateEventDataSchema } from "@/types";
 import { TonSocietyRegisterActivityT } from "@/types/event.types";
 import searchEventsInputZod from "@/zodSchema/searchEventsInputZod";
@@ -123,8 +124,10 @@ const getEvent = publicProcedure.input(z.object({ event_uuid: z.string() })).que
         first_name: ownerUser.first_name,
         hosted_event_count: ownerUser.hosted_event_count,
         is_ts_verified,
+        founding_organizer_at: ownerUser.founding_organizer_at,
       }
     : null;
+
 
   const accessData = await userRolesDB.listActiveUserRolesForEvent("event", Number(eventData.event_id));
   const accessRoles = accessData.map(({ userId, role }) => ({
@@ -268,14 +271,17 @@ const addEvent = initDataProtectedProcedure.input(z.object({ eventData: EventDat
   const user_id = opts.ctx.user.user_id;
   const userCacheKey = getUserCacheKey(user_id);
 
-  // Auto-promote user to organizer role upon creating their first event
-  if (opts.ctx.user.role === "user") {
-    try {
-      await usersDB.updateUserRole(user_id, "organizer");
-    } catch (err) {
-      logger.error("Failed to auto-promote user to organizer:", err);
-    }
+  // Ensure user has verified identity and promote to organizer role
+  const isOrganizer = await usersDB.ensureOrganizerRole(user_id);
+  if (!isOrganizer) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Please link a verified identity (Telegram, Google, or email) to create events",
+    });
   }
+
+  // Enforce tiered abuse limits on event creation
+  await organizerLimitsService.assertCanCreateEvent(user_id, input_event_data);
 
   const category = await eventCategoriesDB.fetchCategoryById(input_event_data.category_id);
   if (!category || !category.enabled) {
@@ -580,6 +586,10 @@ const updateEvent = eventManagerPP
     const eventUuid = opts.ctx.event.event_uuid;
     const eventId = opts.ctx.event.event_id;
     const user_id = opts.ctx.user.user_id;
+
+    // Enforce tiered abuse limits on event update (including capacity changes)
+    await organizerLimitsService.assertCanUpdateEvent(user_id, eventData);
+
     const category = await eventCategoriesDB.fetchCategoryById(eventData.category_id);
     if (!category || !category.enabled) {
       throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid or disabled category" });

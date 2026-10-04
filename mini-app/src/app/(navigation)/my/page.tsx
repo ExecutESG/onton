@@ -24,6 +24,7 @@ import badgeAwardIcon from "./badge-award.svg";
 import LoginRequired from "@/app/_components/auth/LoginRequired";
 import LinkedAccountsCard from "@/app/_components/auth/LinkedAccountsCard";
 import PaymentCard from "./PaymentCard";
+import ConsentCard from "@/components/consent/ConsentCard";
 
 export default function ProfilePage() {
   const { user } = useUserStore();
@@ -142,6 +143,7 @@ export default function ProfilePage() {
       <ConnectWalletCard />
       {!isOrganizer && <PaymentCard visible={hasWallet} />}
       <LinkedAccountsCard />
+      <ConsentCard />
     </div>
   );
 }

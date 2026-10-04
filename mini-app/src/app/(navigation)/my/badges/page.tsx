@@ -14,6 +14,7 @@ import CustomButton from "@/app/_components/Button/CustomButton";
 import DataStatus from "@/app/_components/molecules/alerts/DataStatus";
 import Typography from "@/components/Typography";
 import BadgeDetailModal, { BadgeItemData, parseDate } from "@/components/sbt/BadgeDetailModal";
+import ConsentCard from "@/components/consent/ConsentCard";
 
 export default function MyBadgesPage() {
   const { user } = useUserStore();
@@ -58,6 +59,9 @@ export default function MyBadgesPage() {
           </Typography>
         </div>
       </div>
+
+      {/* GDPR Data & Privacy Consents */}
+      <ConsentCard />
 
       {/* Loading Skeleton */}
       {isLoading && (

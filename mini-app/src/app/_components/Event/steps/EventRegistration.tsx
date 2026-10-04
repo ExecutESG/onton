@@ -74,12 +74,23 @@ const RegistrationStep = () => {
       ? "Update Event"
       : "Create Event";
 
-  useMainButton(() => {
-    formRef.current?.requestSubmit();
-  }, buttonText);
+  useMainButton(
+    () => {
+      if (!addEvent.isLoading) {
+        formRef.current?.requestSubmit();
+      }
+    },
+    buttonText,
+    {
+      isLoading: addEvent.isLoading || updateEvent.isLoading,
+      disabled: addEvent.isLoading || updateEvent.isLoading,
+    }
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (addEvent.isLoading || updateEvent.isLoading) return;
 
     if (eventData.has_web3) {
       setSection("event_setup_form_reward_step");

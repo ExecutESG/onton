@@ -56,6 +56,7 @@ import { userEventFieldRelations, userEventFields } from "./schema/userEventFiel
 import { userRelations, users } from "./schema/users";
 import { user_identities, userIdentitiesRelations, UserIdentityRow, UserIdentityInsert } from "./schema/userIdentities";
 import { eventReports, eventReportsRelations, EventReportRow, EventReportInsert } from "./schema/eventReports";
+import { organizerPayouts, organizerPayoutsRelations, OrganizerPayoutRow, NewOrganizerPayout } from "./schema/organizerPayouts";
 import { visitors } from "./schema/visitors";
 import { walletChecks } from "./schema/walletChecks";
 import { affiliateLinks, AffiliateLinksRow, AffiliateItemTypeEnum, affiliateItemType } from "./schema/affiliateLinks";
@@ -352,6 +353,8 @@ export {
   ontoSetting,
   orders,
   organizerPaymentStatus,
+  organizerPayouts,
+  organizerPayoutsRelations,
   rewards,
   sbtRewardCollections,
   sideEvents,
@@ -550,4 +553,6 @@ export type {
   EventTicketTierRow,
   EventReportRow,
   EventReportInsert,
+  OrganizerPayoutRow,
+  NewOrganizerPayout,
 };

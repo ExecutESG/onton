@@ -35,6 +35,7 @@ export const eventPayment = pgTable(
     created_at: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).$onUpdate(() => new Date()),
     updatedBy: text("updated_by").default("system").notNull(),
+    payout_reminder_sent_at: timestamp("payout_reminder_sent_at", { withTimezone: true }),
   },
   (table) => ({
     uniqueEven: uniqueIndex().on(table.event_uuid),

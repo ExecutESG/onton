@@ -3,7 +3,7 @@ import { db } from "@/db/db";
 import { eventPayment } from "@/db/schema/eventPayment";
 import { eventTokens } from "@/db/schema/eventTokens";
 import { events } from "@/db/schema/events";
-import { and, count, eq, isNotNull, lt, or, sql } from "drizzle-orm";
+import { and, count, eq, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import { orders } from "@/db/schema/orders";
 import { nftItems } from "@/db/schema/nft_items";
 import { sendLogNotification } from "@/lib/tgBot";
@@ -22,6 +22,7 @@ export const sendPaymentReminder = async () => {
     .where(
       and(
         eq(eventPayment.organizer_payment_status, "not_payed"),
+        isNull(eventPayment.payout_reminder_sent_at),
         lt(events.end_date, currentTimestamp - oneDayInSeconds),
         isNotNull(eventPayment.collectionAddress)
       )
@@ -95,10 +96,10 @@ Recipient : <code>${recipient_address}</code>
     });
 
     if (message_result?.message_id) {
-      //Successful Message send
+      // Successful Message send - record timestamp for idempotency without flipping organizer_payment_status
       await db
         .update(eventPayment)
-        .set({ organizer_payment_status: "payed_to_organizer" })
+        .set({ payout_reminder_sent_at: new Date() })
         .where(eq(eventPayment.id, event.event_payment_info.id))
         .execute();
     }

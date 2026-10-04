@@ -16,7 +16,6 @@ import { and, asc, count, desc, eq, gt, inArray, isNotNull, lt, or, sql } from "
 import { unionAll } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import { logger } from "../../server/utils/logger";
-import { CSBT_EVENT_PRICE, NFT_EVENT_PRICE } from "@/constants";
 
 export const getEventIDCacheKey = (eventID: number) => redisTools.cacheKeys.event_id + eventID;
 export const getEventUUIDCacheKey = (eventUUID: string) => redisTools.cacheKeys.event_uuid + eventUUID;
@@ -696,33 +695,14 @@ const updateEventSbtCollection = async (
   }
 };
 
-export const getPaidEventPrice = (capacity: number, ticketType: EventTicketType): number => {
-  // test environments for all ticket types:
-  const notProductionPrice = 0.001 + 0.00055 * capacity;
-  // NFT Event Creation Price
-  const nftEventCreationPrice = NFT_EVENT_PRICE + 0.06 * capacity;
-  // TSCSBT Event Creation Price
-  const tscsbtEventCreationPrice = CSBT_EVENT_PRICE; // we didnt get money for tscsbt event creation capacity
-
-  // local/dev/stage environments for all ticket types:
-  if (!is_prod_env()) {
-    return notProductionPrice;
-  }
-  // For production:
-  switch (ticketType) {
-    case "NFT":
-      return nftEventCreationPrice;
-    case "TSCSBT":
-      return tscsbtEventCreationPrice;
-    default:
-      throw new Error(`Unsupported ticket type: ${ticketType}`);
-  }
-};
-
-const shouldEventBeHidden = async (event_is_paid: boolean, _user_id: number) => {
-  if (event_is_paid) return true;
+/**
+ * Issue #1033: Upfront event fees removed.
+ * All events (both free and paid) publish immediately without being hidden.
+ */
+const shouldEventBeHidden = async (_event_is_paid: boolean, _user_id: number) => {
   return false;
 };
+
 const updateActivityId = async (event_uuid: string, activity_id: number) => {
   await db.update(events).set({ activity_id }).where(eq(events.event_uuid, event_uuid)).execute();
   await eventDB.deleteEventCache(event_uuid);
@@ -772,7 +752,6 @@ const eventDB = {
   fetchEventsWithNonNullActivityIdDESC,
   fetchEventsWithNonNullActivityIdAfterStartDateDESC,
   updateEventSbtCollection,
-  getPaidEventPrice,
   shouldEventBeHidden,
   updateActivityId,
   fetchUpcomingEventsWithGroup,

@@ -5,7 +5,6 @@ import type {} from "@redux-devtools/extension";
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
-import { NFT_EVENT_PRICE } from "@/constants";
 // required for devtools typing
 
 export type StoreEventData = Omit<EventDataSchemaAllOptional, "paid_event"> & {
@@ -255,54 +254,21 @@ export const useCreateEventStore = create<CreateEventStoreType>()(
       },
       togglePaidEvent: () => {
         set((state) => {
+          const hasPayment = !state.eventData?.paid_event?.has_payment;
           const paidEventInfo = {
-            has_payment: !state.eventData?.paid_event?.has_payment,
+            has_payment: hasPayment,
             has_nft: true,
             token_id: state.eventData?.paid_event?.token_id ?? 1,
             ticket_type: "NFT",
             payment_amount: 1,
           } as Partial<PaidEventType>;
 
-          /*
-           * Handle Confirmation and Notifying user that they need to pay to create a paid event
-           */
-          if (!state.eventData.paid_event.has_payment) {
-            try {
-              const confirmMsg =
-                "You will need to pay " +
-                NFT_EVENT_PRICE +
-                " TON to create a paid event if the ticket type is NFT it will include 0.06 TON for each person buying the ticket (minting fees) this does not include cSBT ticket type";
-
-              if (window.Telegram?.WebApp?.showConfirm) {
-                window.Telegram.WebApp.showConfirm(confirmMsg, (confirmed: boolean) => {
-                  if (confirmed) {
-                    set((state) => {
-                      state.eventData.paid_event = paidEventInfo;
-                      state.eventData.has_registration = true;
-                      state.eventData.has_web3 = true;
-                    });
-                  }
-                });
-              } else if (typeof window !== "undefined") {
-                const confirmed = window.confirm(confirmMsg);
-                if (confirmed) {
-                  set((state) => {
-                    state.eventData.paid_event = paidEventInfo;
-                    state.eventData.has_registration = true;
-                    state.eventData.has_web3 = true;
-                  });
-                }
-              }
-            } catch {
-              state.eventData.paid_event = paidEventInfo;
-              state.eventData.has_registration = true;
-              state.eventData.has_web3 = true;
-            }
-
-            state.eventData.capacity = 5;
+          state.eventData.paid_event = paidEventInfo;
+          if (hasPayment) {
+            state.eventData.has_registration = true;
             state.eventData.has_web3 = true;
+            state.eventData.capacity = 5;
           } else {
-            state.eventData.paid_event = paidEventInfo;
             state.eventData.capacity = null;
           }
         });

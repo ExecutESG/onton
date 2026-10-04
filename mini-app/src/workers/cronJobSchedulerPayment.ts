@@ -33,8 +33,6 @@ async function MainCronJob() {
 
   new CronJob("0 */4 * * *", cronJobs.sendPaymentReminder, null, true);
   new CronJob("*/7 * * * * *", cronJobs.CheckTransactions, null, true);
-  new CronJob("*/24 * * * * *", cronJobRunner(cronJobs.UpdateEventCapacity), null, true);
-  new CronJob("*/19 * * * * *", cronJobRunner(cronJobs.CreateEventOrders), null, true);
   new CronJob("*/9 * * * * *", cronJobRunner(cronJobs.MintNFTForPaidOrders), null, true);
   new CronJob("*/11 * * * * *", cronJobRunner(cronJobs.TsCsbtTicketOrder), null, true);
   new CronJob("*/21 * * * * *", cronJobs.OrganizerPromoteProcessing, null, true);

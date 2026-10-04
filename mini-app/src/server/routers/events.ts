@@ -10,7 +10,7 @@ import { EventTicketTierRow } from "@/db/schema/eventTicketTiers";
 import { userHasModerationAccess } from "@/db/modules/userFlags.db";
 import { userRolesDB } from "@/db/modules/userRoles.db";
 import { getUserCacheKey, usersDB } from "@/db/modules/users.db";
-import { EventCategoryRow, eventFields, eventPayment, events, orders } from "@/db/schema";
+import { EventCategoryRow, eventFields, eventPayment, events } from "@/db/schema";
 import { EventPaymentSelectType } from "@/db/schema/eventPayment";
 import { EventTokenRow } from "@/db/schema/eventTokens";
 import { hashPassword } from "@/lib/bcrypt";
@@ -370,20 +370,6 @@ const addEvent = initDataProtectedProcedure.input(z.object({ eventData: EventDat
           throw new TRPCError({ code: "BAD_REQUEST", message: "Unknown payment token selected" });
 
         const ticketType = opts.input.eventData?.paid_event?.ticket_type;
-        const order_price = eventDB.getPaidEventPrice(input_event_data.capacity, ticketType);
-
-        const tonToken = await eventTokensDB.getTokenBySymbol("TON");
-        if (!tonToken) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "TON token not configured" });
-
-        await trx.insert(orders).values({
-          event_uuid: eventData.event_uuid,
-          user_id: user_id,
-          total_price: order_price,
-          token_id: tonToken.token_id,
-          state: "new",
-          order_type: "event_creation",
-          owner_address: "",
-        });
 
         let event_ticket_price = Math.max(input_event_data.paid_event.payment_amount || 0, 0.001); // Price > 0.001
         event_ticket_price = Math.round(event_ticket_price * 1000) / 1000; // Round to 3 Decimals
@@ -608,18 +594,15 @@ const updateEvent = eventManagerPP
         /* -------------------------------------------------------------------------- */
         /*                                 Paid Event                                 */
         /* -------------------------------------------------------------------------- */
-        //can't have capacity null if it's paid event
-        //should create order for increasing capacity
+        // Paid events require capacity, but capacity is now immediately editable without upfront fees.
+        // Keep bought_capacity in sync with capacity.
         if (oldEvent.has_payment) {
-          /* -------------------------------------------------------------------------- */
-          //can't have capacity null if it's paid event
           if (!eventData.capacity)
             throw new TRPCError({
               code: "BAD_REQUEST",
               message: "Paid Events Must have capacity",
             });
 
-          /* -------------------------------------------------------------------------- */
           const paymentInfo = (
             await trx.select().from(eventPayment).where(eq(eventPayment.event_uuid, eventUuid)).execute()
           ).pop();
@@ -629,67 +612,13 @@ const updateEvent = eventManagerPP
           if (paymentInfo.ticket_type === undefined) {
             throw new TRPCError({ code: "BAD_REQUEST", message: "Ticket Type Required for paid events" });
           }
-          // Update Create Order If Event is not published yet
-          if (!oldEvent.enabled && eventData.capacity < paymentInfo!.bought_capacity) {
-            const where_condition = and(
-              eq(orders.event_uuid, eventUuid),
-              eq(orders.order_type, "event_creation"),
-              ne(orders.state, "processing"),
-              ne(orders.state, "completed")
-            );
-            const createEventOrder = await trx.query.orders.findFirst({ where: where_condition });
-            const ticketType = paymentInfo.ticket_type;
-            if (createEventOrder) {
-              await trx
-                .update(orders)
-                .set({ total_price: eventDB.getPaidEventPrice(eventData.capacity, ticketType) })
-                .where(where_condition)
-                .execute();
-              await trx
-                .update(eventPayment)
-                .set({ bought_capacity: eventData.capacity })
-                .where(eq(eventPayment.event_uuid, eventUuid))
-                .execute();
-            }
-          }
 
-          /* ------------------- Create Order For Increase Capacity ------------------- */
-          if (eventData.capacity > paymentInfo!.bought_capacity) {
-            const tonToken = await eventTokensDB.getTokenBySymbol("TON");
-            if (!tonToken) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "TON token not configured" });
-            // Increase in event capacity
-            // create an update_capacity_order if not exists otherwise just update it
-            const update_order = (
-              await trx
-                .select()
-                .from(orders)
-                .where(and(eq(orders.event_uuid, eventUuid), eq(orders.order_type, "event_capacity_increment")))
-                .execute()
-            ).pop();
-            /* -------------------- update order exists and its paid -------------------- */
-            if (update_order && update_order.state == "processing") {
-              throw new TRPCError({
-                code: "BAD_REQUEST",
-                message: "You Already have a Paid Capacity Update pending ... please try again in few minutes ",
-              });
-            }
-            /* -------------------------------------------------------------------------- */
-            /* ---------------------------- Update OR Insert ---------------------------- */
-            const upsert_data = {
-              event_uuid: eventUuid,
-              order_type: "event_capacity_increment" as const,
-              state: "new" as const,
-              token_id: tonToken.token_id,
-              total_price: 0.06 * (eventData.capacity - paymentInfo!.bought_capacity),
-              user_id: user_id,
-            };
-            if (update_order && (update_order.state === "new" || update_order.state === "confirming")) {
-              await trx.update(orders).set(upsert_data).where(eq(orders.uuid, update_order.uuid));
-            } else {
-              await trx.insert(orders).values(upsert_data);
-            }
-            //can't update capacity unless organizer pays
-            eventData.capacity = oldEvent.capacity!;
+          if (eventData.capacity !== undefined && eventData.capacity !== paymentInfo.bought_capacity) {
+            await trx
+              .update(eventPayment)
+              .set({ bought_capacity: eventData.capacity })
+              .where(eq(eventPayment.event_uuid, eventUuid))
+              .execute();
           }
         }
 

@@ -9,7 +9,7 @@ import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import greenCheckIcon from "./green-check.svg";
 import usePollPromoteToOrganizer from "./usePollPromoteToOrganizer";
-import { NFT_EVENT_PRICE, ORGANIZER_PROMOTE_PRICE } from "@/constants";
+import { ORGANIZER_PROMOTE_PRICE } from "@/constants";
 
 export default function PaymentCard({ visible }: { visible: boolean }) {
   const [confirmPayDialogOpen, setConfirmPayDialogOpen] = useState(false);
@@ -131,7 +131,7 @@ function ConfirmPayDialog({ open, onClose, onPay }: { open: boolean; onClose: ()
       >
         <b>You are becoming an ONTON organizer.</b>
         <br />
-        In order to create your channel you need to pay {NFT_EVENT_PRICE} tons so that you can create your first event
+        In order to create your channel you need to pay {ORGANIZER_PROMOTE_PRICE} tons so that you can create your first event
         afterwards.
       </Typography>
       <Button

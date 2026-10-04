@@ -1,6 +1,4 @@
 import { CheckTransactions } from "@/cronJobs/tasks/CheckTransactions";
-import { CreateEventOrders } from "@/cronJobs/tasks/CreateEventOrders";
-import { UpdateEventCapacity } from "@/cronJobs/tasks/UpdateEventCapacity";
 import { MintNFTForPaidOrders } from "@/cronJobs/tasks/MintNFTForPaidOrders";
 import { TsCsbtTicketOrder } from "@/cronJobs/tasks/TsCsbtTicketOrder";
 import { sendPaymentReminder } from "@/cronJobs/tasks/sendPaymentReminder";
@@ -38,8 +36,6 @@ import { sendAllPendingPrizeNotifications } from "@/cronJobs/tasks/sendAllPendin
 
 const cronJobs = {
   CheckTransactions,
-  CreateEventOrders,
-  UpdateEventCapacity,
   MintNFTForPaidOrders,
   TsCsbtTicketOrder,
   sendPaymentReminder,

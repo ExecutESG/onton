@@ -124,14 +124,6 @@ const findOrderByEventUserByType = async (eventUuid: string, telegramUserId: num
   });
 };
 
-/** Returns all "event_creation" orders in a "processing" state. */
-const getProcessingEventCreationOrders = async () =>
-  db
-    .select()
-    .from(orders)
-    .where(and(eq(orders.state, "processing"), eq(orders.order_type, "event_creation")))
-    .execute();
-
 // New method to get (userId, walletAddress, orderType) from completed orders:
 export const getDistinctCompletedOwnerWallets = async (): Promise<
   {
@@ -166,7 +158,6 @@ const ordersDB = {
   checkIfSoldOut,
   findExistingCompletedOrder,
   findOrderByEventUser,
-  getProcessingEventCreationOrders,
   findOrderByEventUserByType,
   getDistinctCompletedOwnerWallets,
 };

@@ -80,9 +80,7 @@ services:
     hostname: redis
     volumes:
       - redis_data:/data
-    ports:
-      - "127.0.0.1:${REDIS_PORT}:${REDIS_PORT}"
-    command: redis-server --port ${REDIS_PORT}
+    command: sh -c 'if [ -n "$${REDIS_PASSWORD}" ]; then exec redis-server --port "$${REDIS_PORT:-6379}" --requirepass "$${REDIS_PASSWORD}"; else exec redis-server --port "$${REDIS_PORT:-6379}"; fi'
     deploy:
       resources:
         limits:

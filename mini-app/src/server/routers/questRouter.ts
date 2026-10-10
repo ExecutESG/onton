@@ -19,9 +19,10 @@ async function checkTelegramMembership(userId: number, target: string | number):
     let token: string | null = null;
     try {
       const { configProtected } = await fetchOntonSettings();
-      token = (configProtected?.["check_join_bot_token"] as string) || process.env.BOT_TOKEN || null;
+      const joinToken = configProtected?.["check_join_bot_token"] as string | undefined;
+      token = joinToken && joinToken.trim() !== "" ? joinToken : (process.env.BOT_TOKEN ?? null);
     } catch {
-      token = process.env.BOT_TOKEN || null;
+      token = process.env.BOT_TOKEN ?? null;
     }
 
     if (!token) return null;

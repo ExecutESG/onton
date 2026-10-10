@@ -589,7 +589,6 @@ export const gmtTimeZones = [
   "Zulu",
 ];
 
-export const SHARED_SECRET = process.env.ONTON_API_SECRET!;
 export const DOMAINS = [
   process.env.MINI_APP_DOMAIN!,
   "onton.live",
@@ -787,6 +786,12 @@ export const PARTNER_HASH_LOCAL_KEY = "fairlaunch_partner_aff"; // localStorage 
 export const PARTNER_ONION_CAP = 3000000;
 export const TBOOK_FAIRLAUNCH_MINIAPP_URL = "https://engage.tbook.com/fair-launch/onion";
 
-export const ORGANIZER_PROMOTE_PRICE = 1; // TON
-export const NFT_EVENT_PRICE = 1; // TON
-export const CSBT_EVENT_PRICE = 1; // TON
+
+export const SBT_ONCHAIN_UPGRADE_PRICE = 0.1; // TON paid by attendee for on-chain TEP-85 token
+export const SBT_MINT_GAS_FEE = 0.055; // TON forwarded to smart contract for deployment/storage
+export const SBT_PLATFORM_FEE = 0.045; // TON protocol revenue retained in treasury
+
+/* GDPR User Consents */
+export const CURRENT_PRIVACY_POLICY_VERSION = "2024-09-11";
+
+

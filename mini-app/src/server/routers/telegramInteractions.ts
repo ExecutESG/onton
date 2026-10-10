@@ -17,7 +17,6 @@ import Papa from "papaparse";
 import { selectVisitorsByEventUuid } from "@/db/modules/visitors.db";
 import { VisitorsWithDynamicFields } from "@/db/modules/dynamicType/VisitorsWithDynamicFields";
 import axios from "axios";
-import { getSBTClaimedStatus } from "@/lib/ton-society-api";
 import { usersDB } from "@/db/modules/users.db";
 import couponSchema from "@/zodSchema/couponSchema";
 import { couponDefinitionsDB } from "@/db/modules/couponDefinitions.db";
@@ -27,6 +26,7 @@ import { tournamentsDB } from "@/db/modules/tournaments.db";
 import { fromNano } from "@ton/core";
 import { sumSpinCountByAffiliateHash, tokenCampaignOrdersDB } from "@/db/modules/tokenCampaignOrders.db";
 import { affiliateLinksDB, getAffiliateLinkForOnionCampaign } from "@/db/modules/affiliateLinks.db";
+import { getTelegramBotBaseUrl, getTelegramBotHeaders } from "@/lib/tgBotConfig";
 
 const requestShareEvent = initDataProtectedProcedure
   .input(
@@ -124,13 +124,11 @@ const requestExportFile = evntManagerPP.mutation(async (opts) => {
                 ? row.event_registrants.register_info
                 : JSON.parse(String(row.event_registrants.register_info || "{}"));
 
-            const sbtClaimStatus = await getSBTClaimedStatus(eventData.activity_id!, row.users.user_id);
-
             const expandedRow = {
               ...row.event_registrants,
               ...row.users,
               ...registerInfo,
-              sbt_claim_status: sbtClaimStatus.status,
+              sbt_claim_status: "N/A",
             };
 
             delete expandedRow.register_info;
@@ -188,13 +186,11 @@ const requestExportFile = evntManagerPP.mutation(async (opts) => {
               delete visitorData.ticket_id;
             }
 
-            const sbtClaimStatus = await getSBTClaimedStatus(eventData?.activity_id!, visitorData.user_id!);
-
             delete visitorData.dynamicFields;
             return {
               ...visitorData,
               // dynamicFields: JSON.stringify(visitor.dynamicFields),
-              sbt_claim_status: sbtClaimStatus.status,
+              sbt_claim_status: "N/A",
             };
           })
         );
@@ -236,11 +232,12 @@ const requestExportFile = evntManagerPP.mutation(async (opts) => {
     formData.append("fileName", eventData?.title || "visitors");
     const userId = opts.ctx.user.user_id;
     const response = await axios.post(
-      `http://${process.env.IP_TELEGRAM_BOT}:${process.env.TELEGRAM_BOT_PORT}/send-file?id=${userId}`,
+      `${getTelegramBotBaseUrl()}/send-file?id=${userId}`,
       formData,
       {
         headers: {
           "Content-Type": "multipart/form-data",
+          ...getTelegramBotHeaders(),
         },
       }
     );
@@ -257,8 +254,9 @@ const requestSendQRCode = evntManagerPP
   .mutation(async (opts) => {
     try {
       const response = await axios.get(
-        `http://${process.env.IP_TELEGRAM_BOT}:${process.env.TELEGRAM_BOT_PORT}/generate-qr`,
+        `${getTelegramBotBaseUrl()}/generate-qr`,
         {
+          headers: getTelegramBotHeaders(),
           params: {
             id: opts.ctx.user.user_id,
             url: opts.input.url,
@@ -427,11 +425,12 @@ const getCouponItemsCSV = eventManagementProtectedProcedure
       try {
         const userId = ctx.user.user_id;
         const response = await axios.post(
-          `http://${process.env.IP_TELEGRAM_BOT}:${process.env.TELEGRAM_BOT_PORT}/send-file?id=${userId}`,
+          `${getTelegramBotBaseUrl()}/send-file?id=${userId}`,
           formData,
           {
             headers: {
               "Content-Type": "multipart/form-data",
+              ...getTelegramBotHeaders(),
             },
           }
         );

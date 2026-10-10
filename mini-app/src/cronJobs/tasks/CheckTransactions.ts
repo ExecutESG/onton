@@ -2,12 +2,138 @@ import { config } from "@/server/config";
 import { logger } from "@/server/utils/logger";
 import { db } from "@/db/db";
 import { walletChecks } from "@/db/schema/walletChecks";
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import tonCenter from "@/services/tonCenter";
 import { Address } from "@ton/core";
 import { orders } from "@/db/schema/orders";
-import { tokenCampaignOrders, TokenCampaignOrdersStatus } from "@/db/schema";
+import { tokenCampaignOrders, TokenCampaignOrdersStatus, eventPayment, events } from "@/db/schema";
 import { eventTokens } from "@/db/schema/eventTokens";
+import { publishOrderPaidEvent } from "@/lib/orderEvents";
+import { verifyFeeSplitTrace } from "@/lib/platformFee";
+import eventTicketTiersDB from "@/db/modules/eventTicketTiers.db";
+import { sendOversellAdminAlert } from "@/lib/notifications/adminAlert";
+
+/**
+ * Handles late payments for orders expired by cron.
+ * Under row lock: re-reserves inventory if capacity exists, or marks failed with
+ * capacity_exceeded_refund_required and sends an idempotent admin alert.
+ */
+async function handleLatePaymentOnCancelledOrder(params: {
+  orderUuid: string;
+  orderRow: any;
+  ownerAddress: string;
+  trxHash: string;
+  tokenSymbol: string;
+}): Promise<boolean> {
+  const { orderUuid, orderRow, ownerAddress, trxHash, tokenSymbol } = params;
+
+  let oversold = false;
+  let fulfilled = false;
+
+  await db.transaction(async (trx) => {
+    const [locked] = await trx
+      .select()
+      .from(orders)
+      .where(and(eq(orders.uuid, orderUuid), eq(orders.state, "cancelled")))
+      .for("update")
+      .execute();
+
+    if (!locked) return;
+
+    if (locked.tier_id) {
+      const { isSoldOut } = await eventTicketTiersDB.lockAndCheckTierCapacityTrx(trx, locked.tier_id);
+      if (isSoldOut) {
+        oversold = true;
+      } else {
+        await eventTicketTiersDB.incrementTierSoldCountTrx(trx, locked.tier_id, 1);
+      }
+    } else if (locked.event_uuid) {
+      const [lockedEvent] = await trx
+        .select({ capacity: events.capacity })
+        .from(events)
+        .where(eq(events.event_uuid, locked.event_uuid))
+        .for("update")
+        .execute();
+
+      if (lockedEvent?.capacity && lockedEvent.capacity > 0) {
+        const [{ count: activeCount }] = await trx
+          .select({ count: sql`count(*)`.mapWith(Number) })
+          .from(orders)
+          .where(
+            and(
+              eq(orders.event_uuid, locked.event_uuid),
+              or(
+                eq(orders.state, "completed"),
+                eq(orders.state, "processing"),
+                eq(orders.state, "confirming"),
+                eq(orders.state, "new")
+              ),
+              eq(orders.order_type, locked.order_type)
+            )
+          )
+          .execute();
+        if (activeCount >= lockedEvent.capacity) {
+          oversold = true;
+        }
+      }
+    }
+
+    if (oversold) {
+      await trx
+        .update(orders)
+        .set({
+          state: "failed",
+          last_error: "capacity_exceeded_refund_required",
+          owner_address: ownerAddress,
+          trx_hash: trxHash,
+          updatedAt: new Date(),
+          updatedBy: "cron_trx_cancelled_oversell",
+        })
+        .where(eq(orders.uuid, orderUuid))
+        .execute();
+    } else {
+      await trx
+        .update(orders)
+        .set({
+          state: "processing",
+          inventory_reserved: true,
+          reserved_at: new Date(),
+          owner_address: ownerAddress,
+          trx_hash: trxHash,
+          updatedAt: new Date(),
+          updatedBy: "cron_trx_late_payment",
+        })
+        .where(eq(orders.uuid, orderUuid))
+        .execute();
+      fulfilled = true;
+    }
+  });
+
+  if (oversold) {
+    logger.error(`[Late Payment Oversell] Cancelled order ${orderUuid} payment confirmed, but inventory is sold out.`);
+    await sendOversellAdminAlert({
+      orderUuid,
+      eventUuid: orderRow.event_uuid || undefined,
+      trxHash,
+      paymentMethod: tokenSymbol,
+      reason: "capacity_exceeded_refund_required",
+    });
+    return false;
+  }
+
+  if (fulfilled) {
+    logger.info(`[Late Payment Fulfilled] Cancelled order ${orderUuid} re-reserved inventory and moved to processing.`);
+    await publishOrderPaidEvent({
+      orderUuid,
+      eventUuid: orderRow.event_uuid || undefined,
+      userId: orderRow.user_id ? Number(orderRow.user_id) : undefined,
+      paymentMethod: tokenSymbol,
+    });
+    return true;
+  }
+
+  return false;
+}
 
 export const CheckTransactions = async () => {
   // Get Orders to be Checked (Sort By Order.TicketDetails.Id)
@@ -56,6 +182,8 @@ export const CheckTransactions = async () => {
     }
   };
 
+  let minPendingLt: bigint | null = null;
+
   for (const o of parsed_orders) {
     const orderRow = await db.query.orders.findFirst({ where: eq(orders.uuid, o.order_uuid) });
     if (!orderRow) continue;
@@ -80,30 +208,112 @@ export const CheckTransactions = async () => {
       }
     }
     const decimals = token.decimals ?? 0;
-    const amount = Number(o.rawAmount) / 10 ** decimals;
-    const normalizedAmount = parseFloat(amount.toFixed(Math.min(decimals, 9)));
-    const orderAmount = Number(orderRow.total_price ?? 0);
-    if (Number.isFinite(orderAmount)) {
-      const diff = Math.abs(orderAmount - normalizedAmount);
-      if (diff > 1e-4) {
-        logger.warn("cron_trx_amount_mismatch", {
+    const txRawAmount = BigInt(o.rawAmount.toString());
+    const expectedRawAmount = BigInt(Math.round(Number(orderRow.total_price ?? 0) * 10 ** decimals));
+
+    // Allow at most 1000 nanotons (1e-6 TON) tolerance for minor network rounding if applicable
+    const maxTolerance = decimals >= 6 ? BigInt(10 ** (decimals - 6)) : BigInt(1);
+
+    const hasFeeSplit = orderRow.platform_fee_raw !== null && orderRow.organizer_amount_raw !== null;
+    const expectedTreasuryAmount = hasFeeSplit ? orderRow.platform_fee_raw! : expectedRawAmount;
+
+    const diffRaw =
+      txRawAmount > expectedTreasuryAmount
+        ? txRawAmount - expectedTreasuryAmount
+        : expectedTreasuryAmount - txRawAmount;
+
+    if (diffRaw > maxTolerance) {
+      logger.warn("cron_trx_amount_mismatch", {
+        uuid: o.order_uuid,
+        expectedRaw: expectedTreasuryAmount.toString(),
+        txRaw: txRawAmount.toString(),
+        diffRaw: diffRaw.toString(),
+      });
+      continue;
+    }
+
+    if (hasFeeSplit) {
+      const paymentInfo = await db.query.eventPayment.findFirst({
+        where: eq(eventPayment.event_uuid, orderRow.event_uuid!),
+      });
+
+      if (!paymentInfo?.recipient_address) {
+        logger.warn("cron_trx_recipient_missing", { uuid: o.order_uuid });
+        continue;
+      }
+
+      let trace: any = null;
+      try {
+        trace = await tonCenter.fetchTrace(o.trx_hash);
+      } catch (traceErr) {
+        logger.warn("cron_trx_trace_fetch_failed", { uuid: o.order_uuid, error: traceErr });
+        if (o.lt) {
+          if (minPendingLt === null || o.lt < minPendingLt) {
+            minPendingLt = o.lt;
+          }
+        }
+        continue;
+      }
+
+      // If trace is empty or traces array is empty, indexer has not yet parsed trace tree; retry later
+      if (!trace || (Array.isArray(trace?.traces) && trace.traces.length === 0)) {
+        logger.warn("cron_trx_trace_empty_pending", { uuid: o.order_uuid });
+        if (o.lt) {
+          if (minPendingLt === null || o.lt < minPendingLt) {
+            minPendingLt = o.lt;
+          }
+        }
+        continue;
+      }
+
+      const traceVerification = verifyFeeSplitTrace({
+        trace,
+        orderUuid: o.order_uuid,
+        expectedPlatformFeeRaw: orderRow.platform_fee_raw!,
+        expectedOrganizerAmountRaw: orderRow.organizer_amount_raw!,
+        recipientAddress: paymentInfo.recipient_address,
+        treasuryAddress: wallet_address,
+        isJetton: orderTokenIsJetton,
+        expectedJettonMaster: token.master_address,
+        decimals,
+      });
+
+      if (!traceVerification.valid) {
+        logger.warn("cron_trx_fee_split_verification_failed", {
           uuid: o.order_uuid,
-          orderAmount,
-          txAmount: normalizedAmount,
-          diff,
+          reason: traceVerification.reason,
         });
         continue;
       }
     }
+
+    const normalizedAmount = Number(txRawAmount) / 10 ** decimals;
     logger.log("cron_trx_", o.order_uuid, token.symbol, normalizedAmount, {
       order_state: orderRow.state,
       order_total: orderRow.total_price,
       token_id: orderRow.token_id,
       order_created: orderRow.created_at,
     });
+    if (orderRow.state === "cancelled") {
+      await handleLatePaymentOnCancelledOrder({
+        orderUuid: o.order_uuid,
+        orderRow,
+        ownerAddress: o.owner.toString(),
+        trxHash: o.trx_hash,
+        tokenSymbol: token.symbol,
+      });
+      continue;
+    }
+
     const updated = await db
       .update(orders)
-      .set({ state: "processing", owner_address: o.owner.toString(), trx_hash: o.trx_hash, created_at: new Date() })
+      .set({
+        state: "processing",
+        owner_address: o.owner.toString(),
+        trx_hash: o.trx_hash,
+        updatedAt: new Date(),
+        updatedBy: "cron_trx_payment",
+      })
       .where(
         and(
           eq(orders.uuid, o.order_uuid),
@@ -113,7 +323,15 @@ export const CheckTransactions = async () => {
       )
       .returning({ uuid: orders.uuid });
 
-    if (updated.length === 0) {
+    if (updated.length > 0) {
+      // Sub-second fulfillment: publish order.paid event to RabbitMQ
+      await publishOrderPaidEvent({
+        orderUuid: o.order_uuid,
+        eventUuid: orderRow.event_uuid || undefined,
+        userId: orderRow.user_id ? Number(orderRow.user_id) : undefined,
+        paymentMethod: token.symbol,
+      });
+    } else {
       logger.warn("cron_trx_update_skipped", {
         uuid: o.order_uuid,
         expectedAmount: normalizedAmount,
@@ -122,6 +340,83 @@ export const CheckTransactions = async () => {
         tokenId: orderRow.token_id,
       });
     }
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /*                  Check Pending Fee-Waived Crypto Orders                    */
+  /* -------------------------------------------------------------------------- */
+  try {
+    const pendingWaivedOrders = await db.query.orders.findMany({
+      where: and(
+        or(eq(orders.state, "new"), eq(orders.state, "confirming"), eq(orders.state, "cancelled")),
+        eq(orders.platform_fee_raw, BigInt(0))
+      ),
+    });
+
+    for (const ord of pendingWaivedOrders) {
+      if (Number(ord.total_price) <= 0 || !ord.event_uuid) continue;
+      const paymentInfo = await db.query.eventPayment.findFirst({
+        where: eq(eventPayment.event_uuid, ord.event_uuid),
+      });
+      if (!paymentInfo?.recipient_address) continue;
+      const token = tokensById.get(ord.token_id);
+      if (!token) continue;
+
+      const recipientTrxs = await tonCenter.fetchAllTransactions(paymentInfo.recipient_address, hour_ago);
+      const recipientOrders = await tonCenter.parseTransactions(recipientTrxs, "onton_order=");
+      const matchingTrx = recipientOrders.find((ro) => ro.order_uuid === ord.uuid);
+      if (!matchingTrx) continue;
+
+      const decimals = token.decimals ?? 0;
+      const maxTolerance = decimals >= 6 ? BigInt(10 ** (decimals - 6)) : BigInt(1);
+      const expectedOrganizerAmount =
+        ord.organizer_amount_raw ?? BigInt(Math.round(Number(ord.total_price) * 10 ** decimals));
+      const diff =
+        matchingTrx.rawAmount > expectedOrganizerAmount
+          ? matchingTrx.rawAmount - expectedOrganizerAmount
+          : expectedOrganizerAmount - matchingTrx.rawAmount;
+
+      if (diff <= maxTolerance) {
+        if (ord.state === "cancelled") {
+          await handleLatePaymentOnCancelledOrder({
+            orderUuid: ord.uuid,
+            orderRow: ord,
+            ownerAddress: matchingTrx.owner.toString(),
+            trxHash: matchingTrx.trx_hash,
+            tokenSymbol: token.symbol,
+          });
+          continue;
+        }
+
+        const updated = await db
+          .update(orders)
+          .set({
+            state: "processing",
+            owner_address: matchingTrx.owner.toString(),
+            trx_hash: matchingTrx.trx_hash,
+            updatedAt: new Date(),
+            updatedBy: "cron_trx_waived_payment",
+          })
+          .where(
+            and(
+              eq(orders.uuid, ord.uuid),
+              or(eq(orders.state, "new"), eq(orders.state, "confirming"))
+            )
+          )
+          .returning({ uuid: orders.uuid });
+
+        if (updated.length > 0) {
+          await publishOrderPaidEvent({
+            orderUuid: ord.uuid,
+            eventUuid: ord.event_uuid,
+            userId: ord.user_id ? Number(ord.user_id) : undefined,
+            paymentMethod: token.symbol,
+          });
+        }
+      }
+    }
+  } catch (waivedErr) {
+    logger.warn("cron_check_waived_orders_failed", waivedErr);
   }
   const campaign_wallet_checks_details = await db
     .select({ checked_lt: walletChecks.checked_lt })
@@ -180,19 +475,26 @@ export const CheckTransactions = async () => {
   //-- Finished Checking
   if (transactions && transactions.length) {
     const last_lt = BigInt(transactions[transactions.length - 1].lt);
+    const newCheckedLt =
+      minPendingLt !== null
+        ? minPendingLt > BigInt(0)
+          ? minPendingLt - BigInt(1)
+          : BigInt(0)
+        : last_lt;
+
     if (start_lt) {
       await db
         .update(walletChecks)
-        .set({ checked_lt: last_lt })
+        .set({ checked_lt: newCheckedLt })
         .where(eq(walletChecks.wallet_address, wallet_address))
         .execute();
     } else {
       await db
         .insert(walletChecks)
-        .values({ wallet_address: wallet_address, checked_lt: last_lt })
+        .values({ wallet_address: wallet_address, checked_lt: newCheckedLt })
         .onConflictDoUpdate({
           target: walletChecks.wallet_address,
-          set: { checked_lt: last_lt },
+          set: { checked_lt: newCheckedLt },
         })
         .execute();
     }

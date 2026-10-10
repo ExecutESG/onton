@@ -4,8 +4,11 @@ import time
 import sys
 import select
 
-HOST = "65.109.212.86"
-PASS = "89*evddQFpZXHA7BCnmV"
+HOST = os.environ.get("PROD_HOST", "65.109.212.86")
+PASS = os.environ.get("PROD_PASS")
+if not PASS:
+    import getpass
+    PASS = getpass.getpass(f"Enter root password for {HOST}: ")
 
 CMDS = """
 export TERM=xterm
@@ -14,7 +17,7 @@ PG_CONTAINER=$(docker ps -q -f name=postgres | head -n 1)
 if [ -n "$PG_CONTAINER" ]; then
     echo "Found Postgres Container: $PG_CONTAINER"
     # Dump and gzip directly to save space
-    docker exec -e PGPASSWORD=@GqjCiFjdywo2hliunXyeLBD $PG_CONTAINER pg_dumpall -c -U onton | gzip > /root/prod_db_dump_$(date +%Y%m%d).sql.gz
+    docker exec -e PGPASSWORD="${PGPASSWORD}" $PG_CONTAINER pg_dumpall -c -U onton | gzip > /root/prod_db_dump_$(date +%Y%m%d).sql.gz
     echo "✅ DUMP COMPLETE: /root/prod_db_dump_$(date +%Y%m%d).sql.gz"
     ls -lh /root/prod_db_dump_$(date +%Y%m%d).sql.gz
 else

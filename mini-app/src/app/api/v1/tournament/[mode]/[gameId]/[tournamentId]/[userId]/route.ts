@@ -11,19 +11,16 @@ import axios from "axios";
 import FormData from "form-data";
 import { File as FormidableFile } from "formidable";
 import jwt from "jsonwebtoken";
+import { readRequiredSecret } from "@/server/utils/requiredSecrets";
 import fs from "fs";
 import { parseMultipartForm } from "@/lib/parseMultipartForm";
 import { z } from "zod";
-import { TonSocietyRegisterActivityT } from "@/types/event.types";
-
 import { PLACEHOLDER_IMAGE, PLACEHOLDER_VIDEO } from "@/constants";
 import { fetchSBTRewardCollectionById, SBTRewardCollectionDB } from "@/db/modules/SBTRewardCollection.db";
-import { registerActivity } from "@/lib/ton-society-api";
 
 /** Env config / constants **/
 
 const UPLOAD_FILE_ENDPOINT = (process.env.NEXT_PUBLIC_APP_BASE_URL || "http://localhost:3000") + "/api/files/upload";
-const UPLOAD_TOKEN = process.env.ONTON_API_SECRET || "fallback-secret";
 
 export const runtime = "nodejs";
 
@@ -87,7 +84,6 @@ export async function POST(
     let fileBuffer: Buffer | null = null;
     let mimeType: string | null = null;
     let tLink: string | null = null;
-    let society_hub_id: string | null = null;
     let sbt_collection_id: string | null = null;
     try {
       const { fields, files } = await parseMultipartForm(req);
@@ -100,16 +96,12 @@ export async function POST(
       if (!fields?.sbt_collection_id) {
         return new Response(JSON.stringify({ message: "sbt_collection_id_required" }), { status: 400 });
       }
-      if (!fields?.society_hub_id) {
-        return new Response(JSON.stringify({ message: "society_hub_id_required" }), { status: 400 });
-      }
       if (fields.sbt_collection_id) {
         const sbtCollection = await fetchSBTRewardCollectionById(Number(fields.sbt_collection_id));
         if (!sbtCollection) {
           return new Response(JSON.stringify({ message: "sbt_collection_not_found" }), { status: 404 });
         }
       }
-      society_hub_id = Array.isArray(fields.society_hub_id) ? fields.society_hub_id[0] : fields.society_hub_id;
       sbt_collection_id = Array.isArray(fields.sbt_collection_id) ? fields.sbt_collection_id[0] : fields.sbt_collection_id;
       // read the file
       const fileData = Array.isArray(files.file) ? files.file[0] : files.file;
@@ -178,7 +170,10 @@ export async function POST(
       });
       formData.append("subfolder", "event");
 
-      const token = jwt.sign({ scope: "uploadImage" }, UPLOAD_TOKEN, { expiresIn: "1h" });
+      const token = jwt.sign({ scope: "uploadImage" }, readRequiredSecret("ONTON_API_SECRET"), {
+        expiresIn: "1h",
+        algorithm: "HS256",
+      });
       const res = await axios.post(UPLOAD_FILE_ENDPOINT, formData, {
         headers: {
           ...formData.getHeaders(),
@@ -273,66 +268,7 @@ export async function POST(
           throw new Error("Failed to insert tournament");
         }
 
-        const tournamentDraft: TonSocietyRegisterActivityT = {
-          title: details.Name,
-          subtitle: gameRow.name ?? "",
-          description: `${details.Name} - ${gameRow.name}`,
-          hub_id: parseInt(society_hub_id),
-          start_date: details.StartDate,
-          end_date: details.EndDate,
-          additional_info: "Online",
-          cta_button: {
-            link: `https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME}/event?startapp=tournaments_${insertedTournament.id}`,
-            label: "Enter Tournament",
-          },
-
-          rewards: {
-            mint_type: "manual",
-            collection: {
-              title: details.Name,
-              description: `${details.Name} - ${gameRow.name}`,
-              image: {
-                url: process.env.ENV !== "local" ? (insertedTournament.tsRewardImage ?? undefined) : PLACEHOLDER_IMAGE,
-              },
-              cover: {
-                url: process.env.ENV !== "local" ? (insertedTournament.tsRewardImage ?? undefined) : PLACEHOLDER_IMAGE,
-              },
-              item_title: details.Name,
-              item_description: "Reward for participation",
-              item_image: {
-                url: process.env.ENV !== "local" ? (insertedTournament.tsRewardImage ?? undefined) : PLACEHOLDER_IMAGE,
-              },
-              ...(insertedTournament.tsRewardVideo
-                ? {
-                    item_video: {
-                      url:
-                        process.env.ENV !== "local"
-                          ? new URL(insertedTournament.tsRewardVideo).origin +
-                            new URL(insertedTournament.tsRewardVideo).pathname
-                          : PLACEHOLDER_VIDEO,
-                    },
-                  }
-                : {}),
-              item_metadata: {
-                activity_type: "event",
-                place: {
-                  type: "Online",
-                },
-              },
-            },
-          },
-        };
-        const ton_society_result = await registerActivity(tournamentDraft);
-        if (!ton_society_result.data.activity_id) {
-          throw new Error("Failed to create activity in Ton Society");
-        }
-        logger.log(
-          `Created activity in Ton Society with ID: ${ton_society_result.data.activity_id} for tournament ID: ${insertedTournament.id}`
-        );
-        // Update the tournament with the activity ID
-        await tournamentsDB.updateActivityIdTrx(trx, ton_society_result.data.activity_id, insertedTournament.id);
-
-        return { insertedTournament, activity_id: ton_society_result.data.activity_id };
+        return { insertedTournament, activity_id: null };
       });
       return new Response(JSON.stringify({ message: "success", tournament: result.insertedTournament }), {
         status: 200,

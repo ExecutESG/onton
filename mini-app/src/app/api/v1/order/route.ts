@@ -1,17 +1,21 @@
 import { db } from "@/db/db";
-import { eventRegistrants, orders, tickets } from "@/db/schema";
+import { eventRegistrants, orders, tickets, users, events, eventTicketTiers } from "@/db/schema";
 import "@/lib/gracefullyShutdown";
 import { removeKey } from "@/lib/utils";
 import { getAuthenticatedUser } from "@/server/auth";
 import eventDB from "@/db/modules/events.db";
 import ordersDB from "@/db/modules/orders.db";
 import eventTokensDB from "@/db/modules/eventTokens.db";
+import eventTicketTiersDB from "@/db/modules/eventTicketTiers.db";
 import { Address } from "@ton/core";
-import { and, eq } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { logger } from "@/server/utils/logger";
 import { applyCouponDiscount } from "@/lib/applyCouponDiscount";
 import { issueAndSendEventInviteLink } from "@/lib/eventInviteService";
+import { checkRateLimit } from "@/lib/checkRateLimit";
+import { computeSplit, STARS_FEE_BPS } from "@/lib/platformFee";
+import { config } from "@/server/config";
 
 const addOrderSchema = z.object({
   event_uuid: z.string().uuid(),
@@ -20,6 +24,7 @@ const addOrderSchema = z.object({
   company: z.string().optional(),
   position: z.string().optional(),
   affiliate_id: z.string().nullable().optional(),
+  tier_id: z.number().int().positive().optional().nullable(),
   owner_address: z
     .string()
     .optional()
@@ -43,9 +48,18 @@ const addOrderSchema = z.object({
 //reactivate order with current price
 
 export async function POST(request: Request) {
-  const [userId, error] = getAuthenticatedUser();
+  const [userId, error] = getAuthenticatedUser(request);
   if (error) {
     return error;
+  }
+
+  // Application-level rate limiting: max 20 order creation attempts per minute per user
+  const rl = await checkRateLimit(String(userId), "create_order", 20, 60);
+  if (!rl.allowed) {
+    return Response.json(
+      { error: "too_many_requests", message: "Too many order requests. Please wait a minute." },
+      { status: 429 }
+    );
   }
 
   const rawBody = await request.json();
@@ -88,15 +102,48 @@ export async function POST(request: Request) {
   /* -------------------------------------------------------------------------- */
   /*                   OrderType Based On Event Ticket Setting                  */
   /* -------------------------------------------------------------------------- */
-  const eventTicketingType = eventPaymentInfo.ticket_type;
+  let selectedTier = undefined;
+  if (body.data.tier_id) {
+    selectedTier = await eventTicketTiersDB.getTierById(body.data.tier_id);
+    if (!selectedTier || selectedTier.event_uuid !== body.data.event_uuid) {
+      return Response.json(
+        { message: "Invalid ticket tier for this event" },
+        { status: 400 }
+      );
+    }
+  } else {
+    // Auto-select tier if exactly one explicit tier exists for this event (#1055)
+    const tiers = await db
+      .select()
+      .from(eventTicketTiers)
+      .where(eq(eventTicketTiers.event_uuid, body.data.event_uuid))
+      .execute();
+    if (tiers.length === 1) {
+      selectedTier = tiers[0];
+    }
+  }
+
+  if (selectedTier) {
+    const tierCapacity = await eventTicketTiersDB.checkTierCapacity(selectedTier.id);
+    if (tierCapacity.isSoldOut) {
+      return Response.json(
+        { message: "Selected ticket tier is sold out" },
+        { status: 410 }
+      );
+    }
+  }
+
+  const effectivePrice = selectedTier ? selectedTier.price : eventPaymentInfo.price;
+  const eventTicketingType = selectedTier ? selectedTier.ticket_type : eventPaymentInfo.ticket_type;
 
   const ticketOrderTypeMap = {
     NFT: "nft_mint",
     TSCSBT: "ts_csbt_ticket",
+    TICKET: "nft_mint", // Treat TICKET as nft_mint for routing to existing workers
   } as const;
 
   // Ensure TypeScript recognizes the valid key
-  const ticketOrderType = ticketOrderTypeMap[eventTicketingType];
+  const ticketOrderType = ticketOrderTypeMap[eventTicketingType as keyof typeof ticketOrderTypeMap] || "nft_mint";
 
   const { isSoldOut } = await ordersDB.checkIfSoldOut(body.data.event_uuid, ticketOrderType, eventData.capacity || 0);
 
@@ -123,7 +170,8 @@ export async function POST(request: Request) {
       eq(orders.user_id, userId),
       eq(orders.order_type, ticketOrderType),
       eq(orders.event_uuid, eventData.event_uuid),
-      eq(orders.token_id, eventPaymentInfo.token_id)
+      eq(orders.token_id, eventPaymentInfo.token_id),
+      selectedTier ? eq(orders.tier_id, selectedTier.id) : undefined
     ),
   });
   /* -------------------------------------------------------------------------- */
@@ -132,11 +180,53 @@ export async function POST(request: Request) {
   const { discountedPrice, couponId, errorResponse } = await applyCouponDiscount(
     body.data.coupon_code,
     body.data.event_uuid,
-    eventPaymentInfo
+    { price: effectivePrice }
   );
   if (errorResponse) {
     return errorResponse;
   }
+
+  /* -------------------------------------------------------------------------- */
+  /*                            Fee Split Calculation                           */
+  /* -------------------------------------------------------------------------- */
+  const organizerUser = await db.query.users.findFirst({
+    where: eq(users.user_id, eventData.owner),
+  });
+  const feeWaiverTicketsRemaining = organizerUser?.fee_waiver_tickets_remaining ?? 0;
+
+  const isFree = discountedPrice === 0;
+  let platformFeeRaw: bigint = BigInt(0);
+  let organizerAmountRaw: bigint = BigInt(0);
+  let feeBps: number = 0;
+
+  if (!isFree) {
+    const isStarsPayment = body.data.payment_method === "STAR" || paymentToken.symbol === "STAR";
+    if (isStarsPayment) {
+      const decimals = paymentToken.decimals ?? 9;
+      const totalAmountRaw = BigInt(Math.round(discountedPrice * 10 ** decimals));
+      if (feeWaiverTicketsRemaining > 0) {
+        feeBps = 0;
+        platformFeeRaw = BigInt(0);
+        organizerAmountRaw = totalAmountRaw;
+      } else {
+        feeBps = STARS_FEE_BPS; // 500 bps (5%)
+        platformFeeRaw = (totalAmountRaw * BigInt(STARS_FEE_BPS)) / BigInt(10000);
+        organizerAmountRaw = totalAmountRaw - platformFeeRaw;
+      }
+    } else {
+      const currency: "TON" | "USDT" =
+        body.data.payment_method === "USDT" || paymentToken.symbol === "USDT" ? "USDT" : "TON";
+      const decimals = paymentToken.decimals ?? (currency === "USDT" ? 6 : 9);
+      const totalAmountRaw = BigInt(Math.round(discountedPrice * 10 ** decimals));
+      const split = computeSplit(totalAmountRaw, currency, feeWaiverTicketsRemaining);
+      platformFeeRaw = split.platformFeeRaw;
+      organizerAmountRaw = split.organizerAmountRaw;
+      feeBps = split.feeBps;
+    }
+  }
+
+  const effectiveRecipientAddress = eventPaymentInfo.recipient_address || config?.ONTON_WALLET_ADDRESS || null;
+
   /* -------------------------------------------------------------------------- */
   /*                            Already Have an Order                           */
   /* -------------------------------------------------------------------------- */
@@ -161,7 +251,13 @@ export async function POST(request: Request) {
         },
         utm_tag: body.data.affiliate_id,
         total_price: userOrder.total_price,
-        default_price: eventPaymentInfo.price,
+        default_price: effectivePrice,
+        tier_id: selectedTier ? selectedTier.id : userOrder.tier_id,
+        tier_name: selectedTier?.tier_name || null,
+        platform_fee_raw: userOrder.platform_fee_raw?.toString() ?? "0",
+        organizer_amount_raw: userOrder.organizer_amount_raw?.toString() ?? "0",
+        fee_bps: userOrder.fee_bps ?? 0,
+        recipient_address: effectiveRecipientAddress,
       });
     }
 
@@ -169,12 +265,72 @@ export async function POST(request: Request) {
       if (errorResponse) {
         return errorResponse;
       }
-      // Reactivate Order
-      await db
-        .update(orders)
-        .set({ state: "new", updatedAt: new Date(), total_price: eventPaymentInfo.price })
-        .where(eq(orders.uuid, userOrder.uuid))
-        .execute();
+      try {
+        await db.transaction(async (trx) => {
+          if (selectedTier) {
+            const { isSoldOut } = await eventTicketTiersDB.lockAndCheckTierCapacityTrx(trx, selectedTier.id);
+            if (isSoldOut) {
+              throw new Error("TIER_SOLD_OUT");
+            }
+            await eventTicketTiersDB.incrementTierSoldCountTrx(trx, selectedTier.id, 1);
+          } else if (eventData.capacity && eventData.capacity > 0) {
+            const [lockedEv] = await trx
+              .select({ capacity: events.capacity })
+              .from(events)
+              .where(eq(events.event_uuid, body.data.event_uuid))
+              .for("update")
+              .execute();
+
+            const curCap = lockedEv?.capacity ?? eventData.capacity;
+            if (curCap && curCap > 0) {
+              const [{ count: activeTicketsCount }] = await trx
+                .select({ count: sql`count(*)`.mapWith(Number) })
+                .from(orders)
+                .where(
+                  and(
+                    eq(orders.event_uuid, body.data.event_uuid),
+                    or(
+                      eq(orders.state, "completed"),
+                      eq(orders.state, "processing"),
+                      eq(orders.state, "confirming"),
+                      eq(orders.state, "new")
+                    ),
+                    eq(orders.order_type, ticketOrderType)
+                  )
+                )
+                .execute();
+              if (activeTicketsCount >= curCap) {
+                throw new Error("EVENT_SOLD_OUT");
+              }
+            }
+          }
+
+          // Reactivate Order with inventory reserved
+          await trx
+            .update(orders)
+            .set({
+              state: "new",
+              updatedAt: new Date(),
+              total_price: effectivePrice,
+              tier_id: selectedTier ? selectedTier.id : userOrder.tier_id,
+              platform_fee_raw: platformFeeRaw,
+              organizer_amount_raw: organizerAmountRaw,
+              fee_bps: feeBps,
+              inventory_reserved: true,
+              reserved_at: new Date(),
+            })
+            .where(eq(orders.uuid, userOrder.uuid))
+            .execute();
+        });
+      } catch (txError: any) {
+        if (txError.message === "TIER_SOLD_OUT") {
+          return Response.json({ message: "Selected ticket tier is sold out" }, { status: 410 });
+        }
+        if (txError.message === "EVENT_SOLD_OUT") {
+          return Response.json({ message: "Event tickets are sold out" }, { status: 410 });
+        }
+        throw txError;
+      }
       return Response.json({
         order_id: userOrder.uuid,
         message: "order reactivated successfully",
@@ -188,61 +344,141 @@ export async function POST(request: Request) {
         },
         utm_tag: body.data.affiliate_id,
         total_price: userOrder.total_price,
-        default_price: eventPaymentInfo.price,
+        default_price: effectivePrice,
+        tier_id: selectedTier ? selectedTier.id : userOrder.tier_id,
+        tier_name: selectedTier?.tier_name || null,
+        platform_fee_raw: platformFeeRaw.toString(),
+        organizer_amount_raw: organizerAmountRaw.toString(),
+        fee_bps: feeBps,
+        recipient_address: effectiveRecipientAddress,
       });
     }
 
     if (userOrder.state === "new" || userOrder.state === "confirming") {
-      const isFree = discountedPrice === 0;
       const targetState = isFree ? "completed" : "confirming";
 
-      await db.transaction(async (trx) => {
-        await trx
-          .update(orders)
-          .set({
-            state: targetState,
-            updatedAt: new Date(),
-            total_price: discountedPrice,
-            owner_address: body.data.owner_address || userOrder.owner_address,
-          })
-          .where(eq(orders.uuid, userOrder.uuid))
-          .execute();
+      try {
+        await db.transaction(async (trx) => {
+          const needsReservation = !userOrder.inventory_reserved;
+          if (selectedTier && needsReservation) {
+            const { isSoldOut } = await eventTicketTiersDB.lockAndCheckTierCapacityTrx(trx, selectedTier.id);
+            if (isSoldOut) {
+              throw new Error("TIER_SOLD_OUT");
+            }
+            await eventTicketTiersDB.incrementTierSoldCountTrx(trx, selectedTier.id, 1);
+          } else if (selectedTier && userOrder.tier_id && userOrder.tier_id !== selectedTier.id && userOrder.inventory_reserved) {
+            // Tier changed: release old tier and reserve new tier
+            const { isSoldOut } = await eventTicketTiersDB.lockAndCheckTierCapacityTrx(trx, selectedTier.id);
+            if (isSoldOut) {
+              throw new Error("TIER_SOLD_OUT");
+            }
+            await eventTicketTiersDB.decrementTierSoldCountTrx(trx, userOrder.tier_id, 1);
+            await eventTicketTiersDB.incrementTierSoldCountTrx(trx, selectedTier.id, 1);
+          }
 
-        const register_info = removeKey(body.data, "event_uuid");
-        await trx
-          .insert(eventRegistrants)
-          .values({
-            event_uuid: body.data.event_uuid,
-            status: isFree ? "approved" : "pending",
-            register_info: register_info,
-            user_id: userId,
-          })
-          .onConflictDoUpdate({
-            target: [eventRegistrants.event_uuid, eventRegistrants.user_id],
-            set: {
+          if (!selectedTier && eventData.capacity && eventData.capacity > 0) {
+            const [lockedEv] = await trx
+              .select({ capacity: events.capacity })
+              .from(events)
+              .where(eq(events.event_uuid, body.data.event_uuid))
+              .for("update")
+              .execute();
+
+            const curCap = lockedEv?.capacity ?? eventData.capacity;
+            if (curCap && curCap > 0) {
+              const [{ count: activeTicketsCount }] = await trx
+                .select({ count: sql`count(*)`.mapWith(Number) })
+                .from(orders)
+                .where(
+                  and(
+                    eq(orders.event_uuid, body.data.event_uuid),
+                    or(
+                      eq(orders.state, "completed"),
+                      eq(orders.state, "processing"),
+                      eq(orders.state, "confirming"),
+                      eq(orders.state, "new")
+                    ),
+                    eq(orders.order_type, ticketOrderType)
+                  )
+                )
+                .execute();
+              if (activeTicketsCount >= curCap && needsReservation) {
+                throw new Error("EVENT_SOLD_OUT");
+              }
+            }
+          }
+
+          await trx
+            .update(orders)
+            .set({
+              state: targetState,
+              updatedAt: new Date(),
+              total_price: discountedPrice,
+              owner_address: body.data.owner_address || userOrder.owner_address,
+              tier_id: selectedTier ? selectedTier.id : userOrder.tier_id,
+              platform_fee_raw: platformFeeRaw,
+              organizer_amount_raw: organizerAmountRaw,
+              fee_bps: feeBps,
+              inventory_reserved: true,
+              reserved_at: new Date(),
+            })
+            .where(eq(orders.uuid, userOrder.uuid))
+            .execute();
+
+          const { event_uuid: _eu, tier_id: _ti, ...restData } = body.data;
+          const register_info: Record<string, string | null> = {
+            full_name: restData.full_name,
+            telegram: restData.telegram,
+            company: restData.company || null,
+            position: restData.position || null,
+            owner_address: restData.owner_address || null,
+            affiliate_id: restData.affiliate_id || null,
+            payment_method: restData.payment_method || null,
+            coupon_code: restData.coupon_code || null,
+          };
+          await trx
+            .insert(eventRegistrants)
+            .values({
+              event_uuid: body.data.event_uuid,
               status: isFree ? "approved" : "pending",
               register_info: register_info,
-            },
-          })
-          .execute();
-
-        if (isFree) {
-          await trx
-            .insert(tickets)
-            .values({
-              name: body.data.full_name,
-              telegram: body.data.telegram,
-              company: body.data.company,
-              position: body.data.position,
-              order_uuid: userOrder.uuid,
-              status: "UNUSED",
-              event_uuid: body.data.event_uuid,
-              ticket_id: eventPaymentInfo.id,
               user_id: userId,
             })
+            .onConflictDoUpdate({
+              target: [eventRegistrants.event_uuid, eventRegistrants.user_id],
+              set: {
+                status: isFree ? "approved" : "pending",
+                register_info: register_info,
+              },
+            })
             .execute();
+
+          if (isFree) {
+            await trx
+              .insert(tickets)
+              .values({
+                name: body.data.full_name,
+                telegram: body.data.telegram,
+                company: body.data.company,
+                position: body.data.position,
+                order_uuid: userOrder.uuid,
+                status: "UNUSED",
+                event_uuid: body.data.event_uuid,
+                ticket_id: eventPaymentInfo.id,
+                user_id: userId,
+              })
+              .execute();
+          }
+        });
+      } catch (txError: any) {
+        if (txError.message === "TIER_SOLD_OUT") {
+          return Response.json({ message: "Selected ticket tier is sold out" }, { status: 410 });
         }
-      });
+        if (txError.message === "EVENT_SOLD_OUT") {
+          return Response.json({ message: "Event tickets are sold out" }, { status: 410 });
+        }
+        throw txError;
+      }
 
       let inviteLink: string | null = null;
       if (isFree) {
@@ -269,7 +505,13 @@ export async function POST(request: Request) {
           logo_url: paymentToken.logo_url,
         },
         total_price: discountedPrice,
-        default_price: eventPaymentInfo.price,
+        default_price: effectivePrice,
+        tier_id: selectedTier ? selectedTier.id : userOrder.tier_id,
+        tier_name: selectedTier?.tier_name || null,
+        platform_fee_raw: platformFeeRaw.toString(),
+        organizer_amount_raw: organizerAmountRaw.toString(),
+        fee_bps: feeBps,
+        recipient_address: effectiveRecipientAddress,
       });
     }
   }
@@ -277,7 +519,6 @@ export async function POST(request: Request) {
   let new_order = null;
   let new_order_uuid = null;
   let new_order_price = -1;
-  const isFree = discountedPrice === 0;
   const initialOrderState = isFree ? "completed" : "confirming";
   const initialRegistrantStatus = isFree ? "approved" : "pending";
   let insertedRegistrantId: number | null = null;
@@ -286,74 +527,138 @@ export async function POST(request: Request) {
   /*                              Create New Order                              */
   /* -------------------------------------------------------------------------- */
 
-  await db.transaction(async (trx) => {
-    logger.info("Coupon Code: ", body.data.coupon_code);
+  try {
+    await db.transaction(async (trx) => {
+      logger.info("Coupon Code: ", body.data.coupon_code);
 
-    new_order = (
-      await trx
-        .insert(orders)
+      if (selectedTier) {
+        const { isSoldOut } = await eventTicketTiersDB.lockAndCheckTierCapacityTrx(trx, selectedTier.id);
+        if (isSoldOut) {
+          throw new Error("TIER_SOLD_OUT");
+        }
+        await eventTicketTiersDB.incrementTierSoldCountTrx(trx, selectedTier.id, 1);
+      } else if (eventData.capacity && eventData.capacity > 0) {
+        const [lockedEv] = await trx
+          .select({ capacity: events.capacity })
+          .from(events)
+          .where(eq(events.event_uuid, body.data.event_uuid))
+          .for("update")
+          .execute();
+
+        const curCap = lockedEv?.capacity ?? eventData.capacity;
+        if (curCap && curCap > 0) {
+          const [{ count: activeTicketsCount }] = await trx
+            .select({ count: sql`count(*)`.mapWith(Number) })
+            .from(orders)
+            .where(
+              and(
+                eq(orders.event_uuid, body.data.event_uuid),
+                or(
+                  eq(orders.state, "completed"),
+                  eq(orders.state, "processing"),
+                  eq(orders.state, "confirming"),
+                  eq(orders.state, "new")
+                ),
+                eq(orders.order_type, ticketOrderType)
+              )
+            )
+            .execute();
+          if (activeTicketsCount >= curCap) {
+            throw new Error("EVENT_SOLD_OUT");
+          }
+        }
+      }
+
+      new_order = (
+        await trx
+          .insert(orders)
+          .values({
+            event_uuid: body.data.event_uuid,
+            user_id: userId,
+
+            default_price: effectivePrice,
+            total_price: discountedPrice,
+            token_id: eventPaymentInfo.token_id,
+
+            state: initialOrderState,
+            order_type: ticketOrderType,
+            owner_address: body.data.owner_address || null,
+
+            utm_source: body.data.affiliate_id,
+            updatedBy: "system",
+            coupon_id: couponId,
+            tier_id: selectedTier ? selectedTier.id : null,
+            platform_fee_raw: platformFeeRaw,
+            organizer_amount_raw: organizerAmountRaw,
+            fee_bps: feeBps,
+            inventory_reserved: true,
+            reserved_at: new Date(),
+          })
+          .returning()
+          .execute()
+      ).pop();
+
+      new_order_price = new_order?.total_price || -1;
+      new_order_uuid = new_order?.uuid;
+
+      // insert event registrants
+      const { event_uuid: _newEu, tier_id: _newTi, ...restNewData } = body.data;
+      const register_info: Record<string, string | null> = {
+        full_name: restNewData.full_name,
+        telegram: restNewData.telegram,
+        company: restNewData.company || null,
+        position: restNewData.position || null,
+        owner_address: restNewData.owner_address || null,
+        affiliate_id: restNewData.affiliate_id || null,
+        payment_method: restNewData.payment_method || null,
+        coupon_code: restNewData.coupon_code || null,
+      };
+      const [regRow] = await trx
+        .insert(eventRegistrants)
         .values({
           event_uuid: body.data.event_uuid,
-          user_id: userId,
-
-          default_price: eventPaymentInfo.price,
-          total_price: discountedPrice,
-          token_id: eventPaymentInfo.token_id,
-
-          state: initialOrderState,
-          order_type: ticketOrderType,
-          owner_address: body.data.owner_address || null,
-
-          utm_source: body.data.affiliate_id,
-          updatedBy: "system",
-          coupon_id: couponId,
-        })
-        .returning()
-        .execute()
-    ).pop();
-
-    new_order_price = new_order?.total_price || -1;
-    new_order_uuid = new_order?.uuid;
-
-    // insert event registrants
-    const register_info = removeKey(body.data, "event_uuid");
-    const [regRow] = await trx
-      .insert(eventRegistrants)
-      .values({
-        event_uuid: body.data.event_uuid,
-        status: initialRegistrantStatus,
-        register_info: register_info,
-        user_id: userId,
-      })
-      .onConflictDoUpdate({
-        target: [eventRegistrants.event_uuid, eventRegistrants.user_id],
-        set: {
           status: initialRegistrantStatus,
           register_info: register_info,
-        },
-      })
-      .returning({ id: eventRegistrants.id })
-      .execute();
-
-    insertedRegistrantId = regRow?.id || null;
-
-    if (isFree && new_order_uuid) {
-      await trx
-        .insert(tickets)
-        .values({
-          name: body.data.full_name,
-          telegram: body.data.telegram,
-          company: body.data.company,
-          position: body.data.position,
-          order_uuid: new_order_uuid,
-          status: "UNUSED",
-          event_uuid: body.data.event_uuid,
-          ticket_id: eventPaymentInfo.id,
           user_id: userId,
         })
+        .onConflictDoUpdate({
+          target: [eventRegistrants.event_uuid, eventRegistrants.user_id],
+          set: {
+            status: initialRegistrantStatus,
+            register_info: register_info,
+          },
+        })
+        .returning({ id: eventRegistrants.id })
         .execute();
+
+      insertedRegistrantId = regRow?.id || null;
+
+      if (isFree && new_order_uuid) {
+        await trx
+          .insert(tickets)
+          .values({
+            name: body.data.full_name,
+            telegram: body.data.telegram,
+            company: body.data.company,
+            position: body.data.position,
+            order_uuid: new_order_uuid,
+            status: "UNUSED",
+            event_uuid: body.data.event_uuid,
+            ticket_id: eventPaymentInfo.id,
+            user_id: userId,
+          })
+          .execute();
+      }
+    });
+  } catch (txError: any) {
+    if (txError.message === "TIER_SOLD_OUT") {
+      return Response.json({ message: "Selected ticket tier is sold out" }, { status: 410 });
     }
-  });
+    if (txError.message === "EVENT_SOLD_OUT") {
+      return Response.json({ message: "Event tickets are sold out" }, { status: 410 });
+    }
+    throw txError;
+  }
 
   let inviteLink: string | null = null;
   if (isFree && insertedRegistrantId) {
@@ -377,7 +682,13 @@ export async function POST(request: Request) {
         logo_url: paymentToken.logo_url,
       },
       total_price: new_order_price,
-      default_price: eventPaymentInfo.price,
+      default_price: effectivePrice,
+      tier_id: selectedTier ? selectedTier.id : null,
+      tier_name: selectedTier?.tier_name || null,
+      platform_fee_raw: platformFeeRaw.toString(),
+      organizer_amount_raw: organizerAmountRaw.toString(),
+      fee_bps: feeBps,
+      recipient_address: effectiveRecipientAddress,
     });
   } else {
     return Response.json({

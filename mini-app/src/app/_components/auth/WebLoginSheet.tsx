@@ -1,18 +1,35 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import OntonDialog from "@/components/OntonDialog";
 import { useLoginStore } from "@/context/store/login.store";
-import { TonConnectButton } from "@tonconnect/ui-react";
+import { TonConnectButton, useTonConnectModal, useTonWallet } from "@tonconnect/ui-react";
+import { Mail } from "lucide-react";
+import { WebAuthModal } from "./WebAuthModal";
 
 export default function WebLoginSheet() {
   const { isOpen, closeLogin } = useLoginStore();
+  const wallet = useTonWallet();
+  const { state: tonModalState } = useTonConnectModal();
+  const isTonModalOpen = tonModalState?.status === "opened";
+  const prevWalletRef = useRef(wallet);
+  const [isEmailModalOpen, setIsEmailModalOpen] = React.useState(false);
+  const isEmailOtpEnabled = process.env.NEXT_PUBLIC_AUTH_EMAIL_OTP_ENABLED === "true";
+
+  useEffect(() => {
+    // If the wallet was just connected while the login sheet is open, close the login sheet
+    if (!prevWalletRef.current && wallet && isOpen) {
+      closeLogin();
+    }
+    prevWalletRef.current = wallet;
+  }, [wallet, isOpen, closeLogin]);
 
   return (
     <OntonDialog
       open={isOpen}
       onClose={closeLogin}
       title="Sign in to ONTON"
+      className={isTonModalOpen ? "opacity-0 pointer-events-none" : undefined}
     >
       <div className="flex flex-col gap-6 py-4 items-center w-full">
         <p className="text-sm text-gray-500 dark:text-gray-400 text-center max-w-xs">
@@ -42,7 +59,8 @@ export default function WebLoginSheet() {
           <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Web2 Sign In</span>
           <button
             onClick={() => {
-              window.location.href = "/api/auth/google/web";
+              const currentPath = typeof window !== "undefined" ? window.location.pathname + window.location.search : "/";
+              window.location.href = `/api/auth/google/web?return_to=${encodeURIComponent(currentPath)}`;
             }}
             className="flex items-center justify-center gap-3 w-full bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 font-medium py-2.5 px-4 rounded-xl shadow-sm transition-all text-sm"
           >
@@ -67,8 +85,27 @@ export default function WebLoginSheet() {
             </svg>
             Continue with Google
           </button>
+          {isEmailOtpEnabled && (
+            <button
+              onClick={() => setIsEmailModalOpen(true)}
+              className="flex items-center justify-center gap-3 w-full bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 font-medium py-2.5 px-4 rounded-xl shadow-sm transition-all text-sm mt-2"
+            >
+              <Mail className="w-4 h-4 text-gray-600" />
+              Continue with Email
+            </button>
+          )}
         </div>
       </div>
+      {isEmailOtpEnabled && (
+        <WebAuthModal
+          open={isEmailModalOpen}
+          onClose={() => setIsEmailModalOpen(false)}
+          onSuccess={() => {
+            setIsEmailModalOpen(false);
+            closeLogin();
+          }}
+        />
+      )}
     </OntonDialog>
   );
 }

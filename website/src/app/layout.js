@@ -6,18 +6,17 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
-  title: "ONTON — The Luma of Telegram & Web3 Event OS",
+  title: "ONTON — Events with Verified Attendance",
   description:
-    "Host and attend events effortlessly inside Telegram. 1-tap Free RSVPs without wallet friction, native Telegram Stars & crypto checkout, automated private chat gating, and Proof-of-Attendance badges.",
+    "Create an event in a minute. Free events are free forever. Verified attendance, built in. 1-tap RSVPs on Telegram and web, verified check-in, portable credentials, and low ticket fees.",
   keywords: [
+    "Events with verified attendance",
     "Telegram events",
-    "Luma for Telegram",
-    "Web3 events",
-    "TON blockchain",
-    "Telegram Stars payments",
+    "Luma alternative",
     "Event management",
     "Proof of Attendance",
-    "SBT badges",
+    "Portable credentials",
+    "Telegram Stars payments",
     "Telegram Mini App",
     "RSVP Telegram",
   ],
@@ -26,9 +25,9 @@ export const metadata = {
   publisher: "ONTON",
   metadataBase: new URL("https://onton.live"),
   openGraph: {
-    title: "ONTON — The Luma of Telegram & Web3 Event OS",
+    title: "ONTON — Events with Verified Attendance",
     description:
-      "Host and attend events effortlessly inside Telegram. 1-tap Free RSVPs, Telegram Stars payments, automated group chat gating, and Proof-of-Attendance badges.",
+      "Create an event in a minute. Free events are free forever. Verified attendance, built in. 1-tap RSVPs, Telegram Stars & crypto payments, and portable credentials.",
     url: "https://onton.live",
     siteName: "ONTON",
     images: [
@@ -36,7 +35,7 @@ export const metadata = {
         url: "/onton-landing-1.svg",
         width: 1200,
         height: 630,
-        alt: "ONTON — The Luma of Telegram & Web3",
+        alt: "ONTON — Events with Verified Attendance",
       },
     ],
     locale: "en_US",
@@ -44,9 +43,9 @@ export const metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "ONTON — The Luma of Telegram & Web3 Event OS",
+    title: "ONTON — Events with Verified Attendance",
     description:
-      "Host and attend events effortlessly inside Telegram. 1-tap Free RSVPs, Telegram Stars payments, automated group gating, and Proof-of-Attendance badges.",
+      "Create an event in a minute. Free events are free forever. Verified attendance, built in. 1-tap RSVPs, Telegram Stars & crypto payments, and portable credentials.",
     creator: "@ontonbot",
     images: ["/onton-landing-1.svg"],
   },

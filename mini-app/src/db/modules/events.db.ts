@@ -3,10 +3,8 @@ import { event_details_search_list, eventRegistrants, events, EventTicketType, r
 import { EventRow } from "@/db/schema/events";
 import { redisTools } from "@/lib/redisTools";
 import { roundDateToInterval } from "@/lib/time.utils";
-import { findActivity } from "@/lib/ton-society-api";
 import { removeKey } from "@/lib/utils";
 import eventFieldsDB from "@/db/modules/eventFields.db";
-import { organizerTsVerified } from "@/db/modules/userFlags.db";
 import { selectUserById } from "@/db/modules/users.db";
 import { is_prod_env } from "@/server/utils/evnutils";
 import { validateMiniAppData } from "@/utils";
@@ -17,7 +15,6 @@ import { and, asc, count, desc, eq, gt, inArray, isNotNull, lt, or, sql } from "
 import { unionAll } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import { logger } from "../../server/utils/logger";
-import { CSBT_EVENT_PRICE, NFT_EVENT_PRICE } from "@/constants";
 
 export const getEventIDCacheKey = (eventID: number) => redisTools.cacheKeys.event_id + eventID;
 export const getEventUUIDCacheKey = (eventUUID: string) => redisTools.cacheKeys.event_uuid + eventUUID;
@@ -663,72 +660,23 @@ export const fetchEventsWithPendingRewards = async () =>
     .orderBy(desc(events.end_date));
 
 const updateEventSbtCollection = async (
-  start_date: number | null | undefined,
-  end_date: number | null | undefined,
-  activity_id: number | null | undefined,
-  sbt_collection_address: string | null | undefined,
-  event_uuid: string | null | undefined
+  _start_date: number | null | undefined,
+  _end_date: number | null | undefined,
+  _activity_id: number | null | undefined,
+  _sbt_collection_address: string | null | undefined,
+  _event_uuid: string | null | undefined
 ) => {
-  if (!start_date || !end_date || !activity_id) return;
-  /* -------------------------------------------------------------------------- */
-  const now = Date.now();
-  if (now < start_date) return;
-  /* -------------------------------------------------------------------------- */
-  if (sbt_collection_address) return;
-  /* -------------------------------------------------------------------------- */
-  // Keeping Low Load if sbt-collection is not
-  // Check only 10% of time if event is not ended
-  const checkSbtCollection = now > end_date ? now % 3 !== 1 : now % 10 === 1;
-  if (checkSbtCollection) {
-    try {
-      const result = await findActivity(activity_id);
-      const sbt_collection_address = result.data.rewards.collection_address;
-      if (sbt_collection_address) {
-        await db
-          .update(events)
-          .set({ sbt_collection_address: sbt_collection_address })
-          .where(eq(events.activity_id, activity_id))
-          .execute();
-        await eventDB.deleteEventCache(event_uuid!!);
-      }
-    } catch (error) {
-      return;
-    }
-  }
+  return;
 };
 
-export const getPaidEventPrice = (capacity: number, ticketType: EventTicketType): number => {
-  // test environments for all ticket types:
-  const notProductionPrice = 0.001 + 0.00055 * capacity;
-  // NFT Event Creation Price
-  const nftEventCreationPrice = NFT_EVENT_PRICE + 0.06 * capacity;
-  // TSCSBT Event Creation Price
-  const tscsbtEventCreationPrice = CSBT_EVENT_PRICE; // we didnt get money for tscsbt event creation capacity
-
-  // local/dev/stage environments for all ticket types:
-  if (!is_prod_env()) {
-    return notProductionPrice;
-  }
-  // For production:
-  switch (ticketType) {
-    case "NFT":
-      return nftEventCreationPrice;
-    case "TSCSBT":
-      return tscsbtEventCreationPrice;
-    default:
-      throw new Error(`Unsupported ticket type: ${ticketType}`);
-  }
-};
-
-const shouldEventBeHidden = async (event_is_paid: boolean, user_id: number) => {
-  if (event_is_paid) return true;
-
-  const is_ts_verified = await organizerTsVerified(user_id);
-
-  if (!is_ts_verified) return true;
-
+/**
+ * Issue #1033: Upfront event fees removed.
+ * All events (both free and paid) publish immediately without being hidden.
+ */
+const shouldEventBeHidden = async (_event_is_paid: boolean, _user_id: number) => {
   return false;
 };
+
 const updateActivityId = async (event_uuid: string, activity_id: number) => {
   await db.update(events).set({ activity_id }).where(eq(events.event_uuid, event_uuid)).execute();
   await eventDB.deleteEventCache(event_uuid);
@@ -778,7 +726,6 @@ const eventDB = {
   fetchEventsWithNonNullActivityIdDESC,
   fetchEventsWithNonNullActivityIdAfterStartDateDESC,
   updateEventSbtCollection,
-  getPaidEventPrice,
   shouldEventBeHidden,
   updateActivityId,
   fetchUpcomingEventsWithGroup,

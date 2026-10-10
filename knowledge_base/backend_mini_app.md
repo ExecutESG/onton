@@ -1,38 +1,71 @@
-# Mini-App Core Service
+# Mini-App Core Service (Backend)
 
-The **Mini-App** (`ontonbot/mini-app`) is the central brain of the Onton platform. It is a **Node.js** application (likely Next.js API routes or a custom server) acting as the primary backend.
+> Last verified against dev: 2026-10-03
 
-## 1. Role & Responsibilities
-- **API Gateway**: Exposes REST/TRPC endpoints for Frontends (TMA, Client Panel).
-- **Business Logic Hub**: Handles Event creation, Order processing, and User management.
-- **Orchestrator**: Sends messages to RabbitMQ for async processing (Workers) and communicates with the NFT Manager.
+`mini-app/` is the main backend. It is a Next.js 14 App Router app that exposes tRPC (`mini-app/src/server/`) and REST route handlers (`mini-app/src/app/api/`). Overview of services and workers: [mini_app_overview.md](mini_app_overview.md).
 
-## 2. API Structure (`src/server/routers`)
-The API is organized into modular routers, likely using **TRPC** or a similar pattern.
+## 1. Role
 
-### Core Domains
-- **`events.ts`**: Event CRUD. Creating events, fetching details, searching.
-- **`orders.ts`**: Order lifecycle. Creating orders, checking payment status.
-- **`tickets.ts`**: Ticket retrieval and management.
-- **`users.ts`**: User profile management.
+- API for the Mini App / web frontend (tRPC) and for REST clients (`/api/v1/*`).
+- Business logic: events, registration, orders, tickets, check-in, SBTs, users and identities.
+- Sends Telegram messages through the bot's HMAC-signed HTTP API (`mini-app/src/lib/tgBot.ts`).
+- Publishes to RabbitMQ (`notifications`, `tg_messages`, `order_paid`). Background work runs in separate worker processes (`src/workers/`). There is no call to a separate NFT Manager service; minting runs in-process (`src/lib/nft.ts`, `src/lib/sbt.ts`).
 
-### Integrations & Auth
-- **`tonProofRouter.ts`**: Handles TON Wallet proof verification (TON Connect).
-- **`usersXRouter.ts`, `usersGoogleRouter.ts`, etc.**: OAuth handlers for social login.
-- **`telegramInteractions.ts`**: specialized logic for interacting with Telegram API.
+## 2. tRPC routers
 
-### Gamification
-- **`campaignRouter.ts`**: Managing promotional campaigns.
-- **`raffleRouter.ts`**: Handling event raffles.
-- **`questRouter.ts`**, **`tasksRouter.ts`**: Managing user engagement tasks.
+All routers are in `mini-app/src/server/routers/` and are combined into `appRouter` in `mini-app/src/server/index.ts`.
 
-## 3. Data Access
-Uses **Drizzle ORM** (configured in `@/db`) to interact with the Postgres `mini-app` schema.
-- See individual schema definitions in `src/db/schema/*.ts`.
+| Area | appRouter key → file |
+|---|---|
+| Events | `events` → `events.ts`, `eventTicket` → `eventTicket.ts`, `location`, `hubs`, `config` → `OntonSetting.ts` |
+| Registration / check-in | `registrant` → `registrant.ts`, `visitors`, `ticket` → `tickets.ts`, `EventPOA` → `POA.ts`, `userEventFields`, `userRoles` |
+| Orders / coupons | `orders` → `orders.ts` (order state, promote-to-organizer orders), `coupon` |
+| Credentials | `sbt` → `sbt.ts`, `sbtRewardCollection` |
+| Users / auth | `users`, `organizers`, `tonProof` → `tonProofRouter.ts`, `usersX`, `usersGithub`, `usersLinkedin`, `usersGoogle`, `usersOutlook` |
+| Engagement | `campaign`, `task` → `tasksRouter.ts`, `quest`, `raffle`, `tournaments`, `usersScore`, `affiliate` |
+| Misc | `files`, `telegramInteractions` |
 
-## 4. Key Logic Pattern
-Most routers follow a standard flow:
-1.  **Validation**: Zod schemas (in `zodSchema/`) validate incoming request data.
-2.  **Authorization**: Middleware checks user session/role.
-3.  **DB Operation**: Drizzle performs the query/mutation.
-4.  **Side Effects**: If needed, a message is published to RabbitMQ (e.g., "Send Confirmation Email").
+Ticket order creation is **REST**, not tRPC: `POST /api/v1/order` (`mini-app/src/app/api/v1/order/route.ts`). Stars invoices: `POST /api/v1/order/stars-invoice`.
+
+## 3. Procedure types (`mini-app/src/server/trpc.ts`)
+
+| Procedure | Rule |
+|---|---|
+| `publicProcedure` | No auth |
+| `initDataProtectedProcedure` | Any authenticated user (initData, Bearer platform JWT, cookie or API key). Role `ban` → FORBIDDEN. |
+| `adminOrganizerProtectedProcedure` | Global role `admin` or `organizer` |
+| `adminOrganizerCoOrganizerProtectedProcedure` | Admin/organizer, or an event-level `admin` on whitelisted paths |
+| `eventManagementProtectedProcedure` | Global admin, owning organizer, event `admin`, or `checkin_officer` on whitelisted paths (`accessRolesPathConfig.ts`) |
+| `walletJWTProtectedProcedure` | Authenticated + `x-session-jwt` from TonProof |
+
+Auth context resolution is in `mini-app/src/server/context.ts` (header → cookie → API key). See [workflow_auth.md](workflow_auth.md).
+
+### Access on sensitive procedures
+
+| Procedure | Access |
+|---|---|
+| `ticket.getTicketByUuid`, `ticket.checkInTicket` | Event manager only. The scan step rejects static UUID passes. |
+| `ticket.getTicketQrToken`, `registrant.getRegistrantQrToken` | Ticket / registration owner only |
+| `registrant.checkinRegistrantRequest` | Event manager only; requires a live pass token |
+| `sbt.mintBadge` | Global admin only |
+| `sbt.claimAttendanceSbt`, `sbt.materializeOnChainSbt` | Ticket owner only |
+| Other `sbt.*` reads (`getUserBadges`, `getTicketCsbt`, ...) | Public |
+| `users.addWallet` | Authenticated; stores the wallet without TonProof |
+
+## 4. Data access
+
+- Drizzle ORM. Schema: `mini-app/src/db/schema.ts` and `mini-app/src/db/schema/`. Query modules: `mini-app/src/db/modules/`.
+- Migrations: apply SQL files by hand with `psql -v ON_ERROR_STOP=1`. Never run `yarn db:migrate`.
+
+## 5. Typical procedure flow
+
+1. Input validation with Zod (`mini-app/src/zodSchema/` or inline).
+2. Authorization via the procedure type (and extra checks in the handler, e.g. ticket owner).
+3. Drizzle query/mutation.
+4. Side effects where needed: bot HTTP API call, RabbitMQ publish, Redis lock or cache update.
+
+## Known issues (tracked in QA)
+
+- F-27: email OTP codes are logged, not emailed.
+- F-36: free SBT at check-in/claim vs paid on-chain upgrade.
+- Secret env vars have insecure fallbacks if unset; set them in every environment.

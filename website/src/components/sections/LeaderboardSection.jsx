@@ -19,8 +19,8 @@ export default function LeaderboardSection() {
                                 Earn Points and Climb the Leaderboard
                             </h2>
 
-                            <p className="text-[15px] mb-4 md:text-[17px]">
-                                At ONton, every event participation counts! Our innovative points system tracks your engagement based on the Soulbound Tokens (SBTs) you receive. Each Token earned through participating in events, will add points to your profile and get you higher in weekly and monthly leaderboards.
+                            <p className="text-[15px] mb-4 md:text-[17px] text-gray-600">
+                                At ONTON, every event attendance counts. Your engagement tracks your verified check-ins and credentials. Each event you attend adds points to your profile and advances your rank on weekly and monthly leaderboards.
                             </p>
                         </div>
 

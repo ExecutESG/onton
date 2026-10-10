@@ -23,18 +23,34 @@ const affiliateLinksLimitCount = 150;
 export const affiliateComposer = new Composer<MyContext>();
 
 /**
- *  MIDDLEWARE: Check if user is at least organizer or admin
+ *  MIDDLEWARE: Check if user is at least organizer or admin for affiliate routes
  */
 affiliateComposer.use(async (ctx, next) => {
+  const isAffiliateCommand = Boolean(ctx.hasCommand?.("affiliate") || ctx.message?.text?.startsWith("/affiliate"));
+  const isAffiliateCallback = Boolean(
+    ctx.callbackQuery?.data?.startsWith("aff_") ||
+    ctx.callbackQuery?.data?.startsWith("choose_event_")
+  );
+  const isAffiliateSession = Boolean(ctx.session?.affiliateStep);
+
+  // If this update is not related to the affiliate flow, pass through immediately
+  if (!isAffiliateCommand && !isAffiliateCallback && !isAffiliateSession) {
+    return next();
+  }
+
   const userIdString = ctx.from?.id?.toString();
   if (!userIdString) {
-    await ctx.reply("Could not detect your user ID. Please try again.");
+    if (isAffiliateCommand) await ctx.reply("Could not detect your user ID. Please try again.");
     return;
   }
 
   const { isOrganizerOrAdmin } = await isUserOrganizerOrAdmin(userIdString);
   if (!isOrganizerOrAdmin) {
-    // Stop the flow (silently)
+    if (isAffiliateCommand) {
+      await ctx.reply("You are not authorized to access affiliate management features.");
+    } else if (ctx.callbackQuery) {
+      await ctx.answerCallbackQuery({ text: "Unauthorized: Organizer or Admin role required." });
+    }
     return;
   }
 

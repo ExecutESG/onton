@@ -1,0 +1,93 @@
+[
+  {
+    "test_id": "UAT-ORG-01",
+    "status": "PASS",
+    "final_message_id": 6959,
+    "final_text": "Success! The event now has a Telegram group ID set.",
+    "date": "2026-10-03T15:26:30+00:00"
+  },
+  {
+    "test_id": "UAT-ORG-04",
+    "status": "FAIL",
+    "message_id": 11909,
+    "date": "2026-10-02T06:38:25+00:00",
+    "snippet": "\ud83d\udcc5 **[TEST] Events Topic Verification**\nEvent creations and auto-publish notifications route to Topic #2.",
+    "topic_id": 2
+  },
+  {
+    "test_id": "UAT-ATT-02",
+    "status": "PASS",
+    "message_id": 6952,
+    "date": "2026-10-03T15:26:19+00:00",
+    "buttons": [
+      "\ud83c\udf1f Explore Events",
+      "\ud83c\udf9f\ufe0f Host an Event",
+      "\ud83d\udce2 Official Channel"
+    ],
+    "snippet": "\u2728 **Welcome to ONTON \u2014 The Luma of Telegram & Web3** \u2728\n\nDiscover, host, and experience the best even"
+  },
+  {
+    "test_id": "UAT-ADM-01",
+    "status": "PASS",
+    "topics": {
+      "events_topic": {
+        "topic_id": 2,
+        "message_count": 5,
+        "sample": {
+          "id": 11909,
+          "text": "\ud83d\udcc5 **[TEST] Events Topic Verification** Event creations and auto-publish notifica",
+          "date": "2026-10-02T06:38:25+00:00"
+        }
+      },
+      "tickets_topic": {
+        "topic_id": 4,
+        "message_count": 5,
+        "sample": {
+          "id": 2449,
+          "text": "NFT 2 **Nto nft** \ud83d\udc64user_id : `748891997` \ud83d\udc64username : @samyar_kd [\ud83c\udfa8Collection](ht",
+          "date": "2025-05-05T19:12:11+00:00"
+        }
+      },
+      "payments_topic": {
+        "topic_id": 276,
+        "message_count": 5,
+        "sample": {
+          "id": 11908,
+          "text": "\ud83d\udcb0 **[TEST] Payments Topic Verification** Stars/TON ticket purchases and organize",
+          "date": "2026-10-02T06:38:24+00:00"
+        }
+      },
+      "system_topic": {
+        "topic_id": 12,
+        "message_count": 5,
+        "sample": {
+          "id": 11907,
+          "text": "\ud83d\udea8 **[TEST] System Topic Verification** Uncaught runtime exceptions, cron failure",
+          "date": "2026-10-02T06:38:24+00:00"
+        }
+      }
+    }
+  },
+  {
+    "test_id": "UAT-ADM-02",
+    "status": "PASS",
+    "message_id": 56,
+    "date": "2026-10-03T14:33:31+00:00",
+    "buttons": [
+      "\ud83d\udeab Delist Event",
+      "\u26a0\ufe0f Warn Organizer",
+      "\ud83d\udd28 Ban Organizer",
+      "\ud83d\udd03 Update Data"
+    ],
+    "snippet": "\ud83c\udd95 **New Event Published (****Lu.ma**** Instant Model)**\n\n\ud83d\udccc **Title:** QA-E2E-20261003-Checkin-0433\n\ud83d\udc64 **Organizer:** @ont"
+  },
+  {
+    "test_id": "UAT-ADM-03",
+    "status": "PASS",
+    "message_id": 60,
+    "date": "2026-10-03T15:24:39+00:00",
+    "event_uuid_present": true,
+    "reason_present": true,
+    "reporter_present": true
+  }
+]

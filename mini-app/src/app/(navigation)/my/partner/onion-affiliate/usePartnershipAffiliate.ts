@@ -41,7 +41,7 @@ export const usePartnershipAffiliate = () => {
       /* If running inside Telegram Mini‑App */
       if (window.Telegram?.WebApp?.openTelegramLink) {
         const deep = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
-        window.Telegram.WebApp.openTelegramLink(deep);
+        window.Telegram?.WebApp?.openTelegramLink(deep);
       } else if (navigator.share) {
       /* Outside Telegram but Web‑Share‑API available */
         await navigator.share({ title: "ONTON Fairlaunch", text, url });

@@ -4,10 +4,10 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { initDataProtectedProcedure, router } from "../trpc";
 
-import { handleSingleRewardUpdate } from "@/cronJobs/helper/handleSingleRewardUpdate";
 import { RewardType } from "@/db/enum";
 import eventDB from "@/db/modules/events.db";
 import visitorsDB from "@/db/modules/visitors.db";
+import rewardDB from "@/db/modules/rewards.db";
 import { RewardTonSocietyStatusType } from "@/db/schema/rewards";
 import { logger } from "@/server/utils/logger";
 
@@ -195,15 +195,6 @@ export const UsersScoreRouter = router({
         });
       }
 
-      /* Activity-ID must exist (event integrated with Ton Society) */
-      const activityId = eventRow.activity_id;
-      if (!activityId) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "This event is not eligible for Ton Society rewards",
-        });
-      }
-
       /* There must be a visitor row for this user and event */
       const visitor = await visitorsDB.findVisitorByUserAndEvent(userId, eventRow.event_uuid);
       if (!visitor) {
@@ -213,24 +204,14 @@ export const UsersScoreRouter = router({
         });
       }
 
-      /* Sync with Ton Society and maybe insert a user score */
-      const rewardResult = await handleSingleRewardUpdate(activityId, visitor.id, eventId, "ton_society_sbt" as RewardType);
+      /* Check local reward status */
+      const rewardRow = await rewardDB.checkExistingRewardWithType(visitor.id, "ton_society_sbt" as RewardType);
+      const tonSocietyStatus = (rewardRow?.tonSocietyStatus as RewardTonSocietyStatusType) || "NOT_CLAIMED";
 
-      if (!rewardResult.success) {
-        // If Ton Society says NOT_ELIGIBLE, treat as forbidden; otherwise server error
-        const baseCode = rewardResult.tonSocietyStatus === "NOT_ELIGIBLE" ? "FORBIDDEN" : "INTERNAL_SERVER_ERROR";
-
-        throw new TRPCError({
-          code: baseCode,
-          message: rewardResult.error ?? "Unable to update reward status",
-        });
-      }
-
-      /* Success → return points just granted (or 0 if already had them) */
       return {
         success: true,
-        tonSocietyStatus: rewardResult.tonSocietyStatus,
-        userPoint: rewardResult.userScore?.user_point ?? 0,
+        tonSocietyStatus,
+        userPoint: 0,
         visitorId: visitor.id,
       };
     }),

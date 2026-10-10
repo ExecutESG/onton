@@ -107,8 +107,8 @@ export default function MyParticipatedEventsPage() {
                 <div className="flex flex-col gap-5">
                   <DataStatus
                     status="archive_duck"
-                    title="It’s looking quiet here..."
-                    description="Participate in an event and see your activity here."
+                    title="No registered events yet"
+                    description="RSVP to an event in one tap to see your passes and verified attendance here."
                     size="lg"
                   />
                   <Link

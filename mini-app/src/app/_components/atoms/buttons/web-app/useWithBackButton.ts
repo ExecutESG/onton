@@ -1,4 +1,6 @@
 "use client";
+
+import { getPlatformBridge } from "@/lib/platform/platformBridge";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
@@ -10,37 +12,27 @@ let isButtonShown = false;
 
 const useWithBackButton = ({ whereTo }: BackButtonProps) => {
   const router = useRouter();
-  const goBack = () => {
-    router.push(whereTo);
-  };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const WebApp = window.Telegram.WebApp;
-    const backButton = WebApp.BackButton;
-    backButton.show();
+
+    const bridge = getPlatformBridge();
+    const goBack = () => {
+      router.push(whereTo);
+    };
+
+    bridge.showBackButton(goBack);
     isButtonShown = true;
 
     return () => {
       isButtonShown = false;
       setTimeout(() => {
         if (!isButtonShown) {
-          backButton.hide();
+          bridge.hideBackButton();
         }
       }, 10);
     };
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const WebApp = window.Telegram.WebApp;
-    WebApp.onEvent("backButtonClicked", goBack);
-
-    return () => {
-      WebApp.offEvent("backButtonClicked", goBack);
-    };
-  }, [whereTo]);
+  }, [router, whereTo]);
 };
 
 export { useWithBackButton };

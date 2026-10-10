@@ -82,9 +82,9 @@ const PrivacyPage = () => {
           your name, email address, and Telegram username.{" "}
         </li>
         <li>
-          <strong>TON Society:</strong> We share your TON wallet address with
-          TON Society for the purpose of minting SBTs (Soulbound Tokens) as
-          proof of attendance at events.{" "}
+          <strong>On-Chain Minting:</strong> When claiming SBTs (Soulbound Tokens) as
+          proof of attendance at events, your TON wallet address is submitted directly
+          to smart contracts on the TON blockchain.{" "}
         </li>
         <li>
           <strong>Third-Party Service Providers:</strong> We may share your

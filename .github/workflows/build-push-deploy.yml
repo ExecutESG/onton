@@ -31,7 +31,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
   # Deployed: 2026-07-11 - Stack separation (onton-dev)
 
 permissions:
@@ -58,17 +58,8 @@ jobs:
           echo "Determining services that have changed..."
           declare -a services_to_build=()
           # Define service directory mappings
-          #  ["client-web"]="client-web-panel"
           declare -A service_dirs=(
             ["mini-app"]="mini-app"
-            ["participant-tma"]="newton/apps/participant-tma"
-            ["mini-app-sbt-worker"]="mini-app"
-            ["mini-app-nft-api-worker"]="mini-app"
-            ["mini-app-ordinary-worker"]="mini-app"
-            ["mini-app-reward-worker"]="mini-app"
-            ["mini-app-poa-worker"]="mini-app"
-            ["mini-app-notification-socket"]="mini-app"
-            ["mini-app-moderation-bot"]="mini-app"
             ["telegram-bot"]="telegram-bot"
             ["website"]="website"
             ["caddy"]="devops"
@@ -160,13 +151,16 @@ jobs:
         env:
           SERVICES: ${{ needs.determine-services.outputs.services_to_build }}
         run: |
+          set -e
           echo "Validating changed services: $SERVICES"
 
           if echo "$SERVICES" | grep -q -E "mini-app"; then
             echo "--> Validating mini-app..."
             cd mini-app
             yarn install --frozen-lockfile --prefer-offline --ignore-engines || yarn install --ignore-engines
-            yarn lint:quiet || echo "Linting reported warnings"
+            yarn lint:quiet
+            echo "--> Running mini-app automated API & Unit test suite (Issues #980, #1008)..."
+            yarn test:api
             cd ..
           fi
 
@@ -174,7 +168,7 @@ jobs:
             echo "--> Validating telegram-bot..."
             cd telegram-bot
             yarn install --prefer-offline || yarn install
-            yarn run build || echo "telegram-bot typecheck warning (service runs via ts-node at runtime)"
+            yarn run build
             cd ..
           fi
 
@@ -210,6 +204,7 @@ jobs:
       DEV_TONAPI_API_KEY: ${{ secrets.DEV_TONAPI_API_KEY }}
       DEV_TON_CENTER_TOKEN: ${{ secrets.DEV_TON_CENTER_TOKEN }}
       DEV_TON_SOCIETY_API_KEY: ${{ secrets.DEV_TON_SOCIETY_API_KEY }}
+      DEV_GOOGLE_CLIENT_SECRET: ${{ secrets.DEV_GOOGLE_CLIENT_SECRET }}
       MAIN_BOT_TOKEN: ${{ secrets.MAIN_BOT_TOKEN }}
       MAIN_CLIENT_API_FIXED_KEY: ${{ secrets.MAIN_CLIENT_API_FIXED_KEY }}
       MAIN_CLIENT_API_JWT_SECRET: ${{ secrets.MAIN_CLIENT_API_JWT_SECRET }}
@@ -313,14 +308,6 @@ jobs:
         run: |
           #["client-web"]="client-web-panel"
           declare -A services=(
-            ["participant-tma"]="newton/apps/participant-tma"
-            ["mini-app-sbt-worker"]="mini-app"
-            ["mini-app-nft-api-worker"]="mini-app"
-            ["mini-app-ordinary-worker"]="mini-app"
-            ["mini-app-reward-worker"]="mini-app"
-            ["mini-app-poa-worker"]="mini-app"
-            ["mini-app-notification-socket"]="mini-app"
-            ["mini-app-moderation-bot"]="mini-app"
             ["mini-app"]="mini-app"
             ["telegram-bot"]="telegram-bot"
             ["website"]="website"
@@ -345,10 +332,7 @@ jobs:
           echo "Processing service: $service"
           echo "Build path: $build_path"
 
-          if  [ "$service" == "participant-tma" ]; then
-            dockerfile_path="newton/apps/participant-tma/Dockerfile"
-            build_context="./newton"
-           elif [ "$service" == "caddy" ]; then
+          if [ "$service" == "caddy" ]; then
             dockerfile_path="devops/caddy/Dockerfile"
             build_context="./devops/caddy/"
           else
@@ -357,17 +341,6 @@ jobs:
           fi
 
           if [ -f "$dockerfile_path" ]; then
-            echo "Using Dockerfile at $dockerfile_path"
-            # Create commit details file
-            COMMIT_DETAILS_FILE=$(mktemp)
-            echo "Commit SHA: ${{ github.sha }}" > "$COMMIT_DETAILS_FILE"
-            echo "Commit Author: ${{ github.actor }}" >> "$COMMIT_DETAILS_FILE"
-            echo "Commit Message: ${{ github.event.head_commit.message }}" >> "$COMMIT_DETAILS_FILE"
-            echo "Commit Date: ${{ github.event.head_commit.timestamp }}" >> "$COMMIT_DETAILS_FILE"
-
-            # Move the commit details file to the appropriate build context
-            mv "$COMMIT_DETAILS_FILE" "$build_context/commit_details.txt"
-            chmod 644 "$build_context/commit_details.txt"
             # Create temporary build args file
             BUILD_ARGS_FILE=$(mktemp)
 
@@ -378,15 +351,17 @@ jobs:
             # Process environment variables for build args
             python3 devops/export_env.py build_args "$branch_prefix" "$BUILD_ARGS_FILE"
 
-            # Add package manager
+            # Add package manager and commit metadata
             echo "PACKAGE_MANAGER=pnpm" >> "$BUILD_ARGS_FILE"
+            echo "COMMIT_SHA=${{ github.sha }}" >> "$BUILD_ARGS_FILE"
+            echo "COMMIT_AUTHOR=${{ github.actor }}" >> "$BUILD_ARGS_FILE"
 
             # Debug output (without showing sensitive values)
             echo "Generated build args file with $(wc -l < "$BUILD_ARGS_FILE") variables"
             echo "Dockerfile path: $dockerfile_path"
             echo "Build context: $build_context"
             # Create Docker build command with proper escaping
-            DOCKER_CMD="docker buildx build --push "
+            DOCKER_CMD="docker buildx build --push --cache-from type=gha --cache-to type=gha,mode=min "
 
             # Check if branch name is dev or sandbox
             #
@@ -398,10 +373,17 @@ jobs:
             #              DOCKER_CMD+=" --target production "
             #            fi
             DOCKER_CMD+=" --target production "
-            # Add build args from file
+            # Add build args from file (filtered to non-sensitive keys only, #1053)
             while IFS='=' read -r key value; do
               if [ -n "$key" ]; then
-                DOCKER_CMD+="--build-arg $key=\"$value\" "
+                case "$key" in
+                  NEXT_PUBLIC_*|COMMIT_SHA|COMMIT_AUTHOR|PACKAGE_MANAGER)
+                    DOCKER_CMD+="--build-arg $key=\"$value\" "
+                    ;;
+                  *)
+                    echo "Skipping non-public build arg: $key"
+                    ;;
+                esac
               fi
             done < "$BUILD_ARGS_FILE"
 
@@ -470,7 +452,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: [ determine-services,build-and-push ]
-    if: ${{ needs.determine-services.outputs.services_to_build != '[]' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
+    if: ${{ needs.determine-services.outputs.services_to_build != '[]' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/dev' }}
     permissions:
       contents: read
       packages: read
@@ -494,6 +476,13 @@ jobs:
       DEV_TONAPI_API_KEY: ${{ secrets.DEV_TONAPI_API_KEY }}
       DEV_TON_CENTER_TOKEN: ${{ secrets.DEV_TON_CENTER_TOKEN }}
       DEV_TON_SOCIETY_API_KEY: ${{ secrets.DEV_TON_SOCIETY_API_KEY }}
+      DEV_AUTH_JWT_SECRET: ${{ secrets.DEV_AUTH_JWT_SECRET }}
+      DEV_TOTP_SECRET: ${{ secrets.DEV_TOTP_SECRET }}
+      DEV_BOT_API_HMAC_SECRET: ${{ secrets.DEV_BOT_API_HMAC_SECRET }}
+      DEV_GOOGLE_CLIENT_SECRET: ${{ secrets.DEV_GOOGLE_CLIENT_SECRET }}
+      MAIN_AUTH_JWT_SECRET: ${{ secrets.MAIN_AUTH_JWT_SECRET }}
+      MAIN_TOTP_SECRET: ${{ secrets.MAIN_TOTP_SECRET }}
+      MAIN_BOT_API_HMAC_SECRET: ${{ secrets.MAIN_BOT_API_HMAC_SECRET }}
       MAIN_BOT_TOKEN: ${{ secrets.MAIN_BOT_TOKEN }}
       MAIN_CLIENT_API_FIXED_KEY: ${{ secrets.MAIN_CLIENT_API_FIXED_KEY }}
       MAIN_CLIENT_API_JWT_SECRET: ${{ secrets.MAIN_CLIENT_API_JWT_SECRET }}
@@ -618,36 +607,21 @@ jobs:
           echo "Setting up SSH environment variables..."
           branch_name="${{ github.ref_name }}"
 
-          # Use case-insensitive prefix matching for branch name
           if [[ "$branch_name" == "dev" ]]; then
             echo "SSH_IP=${{ secrets.SSH_DEV_IP }}" >> $GITHUB_ENV
             echo "SSH_PORT=${{ secrets.SSH_DEV_PORT }}" >> $GITHUB_ENV
-          elif [[ "$branch_name" == "main" ]]; then
-            echo "SSH_IP=${{ secrets.SSH_DEV_IP }}" >> $GITHUB_ENV
-            echo "SSH_PORT=${{ secrets.SSH_DEV_PORT }}" >> $GITHUB_ENV
-          elif [[ "$branch_name" == "staging" ]]; then
-            echo "SSH_IP=${{ secrets.SSH_STAGING_IP }}" >> $GITHUB_ENV
-            echo "SSH_PORT=${{ secrets.SSH_STAGING_PORT }}" >> $GITHUB_ENV
           else
-            echo "Error: Unknown branch name, unable to set SSH credentials."
+            echo "Error: Automated deploy is only configured for 'dev' branch (staging host 65.109.182.13). Pushing to 'main' must not deploy over staging (Issue #1048)."
             exit 1
           fi
 
       - name: Set up Compose File Variable
         run: |
-          if [[ "${{ github.ref_name }}" == "dev" ]]; then
-            echo "COMPOSE_FILE=docker-compose-server-dev.yml" >> $GITHUB_ENV
-          else
-            echo "COMPOSE_FILE=docker-compose-server.yml" >> $GITHUB_ENV
-          fi
+          echo "COMPOSE_FILE=docker-compose-server-dev.yml" >> $GITHUB_ENV
 
       - name: Set up Stack Name
         run: |
-          if [[ "${{ github.ref_name }}" == "dev" ]]; then
-            echo "STACK_NAME=onton-dev" >> $GITHUB_ENV
-          else
-            echo "STACK_NAME=onton" >> $GITHUB_ENV
-          fi
+          echo "STACK_NAME=onton-dev" >> $GITHUB_ENV
 
       - name: Deploy Changed Services
         env:
@@ -690,8 +664,6 @@ jobs:
             echo "$CR_PAT" | docker login ghcr.io -u ${{ github.actor }} --password-stdin 
           
             echo "services to build: $services_to_build"
-            echo "Cleaning up dangling images before pull..."
-            docker image prune -f || true
 
             # Remove the square brackets and split by comma
             echo "Pulling latest images of changed services..."
@@ -801,17 +773,26 @@ jobs:
               fi
 
               case "$service" in
-                mini-app|mini-app-reward-worker|mini-app-sbt-worker|mini-app-ordinary-worker|mini-app-nft-api-worker|mini-app-poa-worker|mini-app-moderation-bot|mini-app-notification-socket)
-                  echo "Forcing reload of worker: ${STACK_NAME}_${service}..."
-                  docker service update --detach=true --update-failure-action rollback --update-max-failure-ratio 0.5 --force ${STACK_NAME}_${service} || true
+                mini-app)
+                  echo "Forcing reload of service: ${STACK_NAME}_mini-app..."
+                  docker service update --detach=true --update-failure-action rollback --update-max-failure-ratio 0.5 --force ${STACK_NAME}_mini-app || true
+                  for worker in mini-app-reward-worker mini-app-sbt-worker mini-app-ordinary-worker mini-app-nft-api-worker mini-app-poa-worker mini-app-notification-socket; do
+                    w_replicas=\$(docker service inspect --format '{{if .Spec.Mode.Replicated}}{{.Spec.Mode.Replicated.Replicas}}{{else}}1{{end}}' "${STACK_NAME}_\${worker}" 2>/dev/null | tr -d '[:space:]')
+                    if [ "\$w_replicas" != "0" ] && [ -n "\$w_replicas" ]; then
+                      echo "Forcing reload of running worker: ${STACK_NAME}_\${worker}..."
+                      docker service update --detach=true --update-failure-action rollback --update-max-failure-ratio 0.5 --force ${STACK_NAME}_\${worker} || true
+                    fi
+                  done
                   ;;
-                telegram-bot|website|participant-tma)
+                telegram-bot|website)
                   echo "Forcing reload of service: ${STACK_NAME}_${service}..."
                   docker service update --detach=true --update-failure-action rollback --update-max-failure-ratio 0.5 --force ${STACK_NAME}_${service} || true
                   ;;
               esac
             done
             echo "Services deployed successfully."
+            echo "Cleaning up dangling images after deployment..."
+            docker image prune -f || true
           EOF
 
           echo "Services deployed successfully."
@@ -875,6 +856,18 @@ jobs:
               echo "Warning: Could not purge Cloudflare cache with available credentials"
             fi
           fi
+
+      - name: Run Post-Deploy Playwright Smoke Tests Gate (Issue #1008)
+        if: success() && github.ref == 'refs/heads/dev'
+        timeout-minutes: 10
+        run: |
+          TARGET_URL="https://app.dev.onton.live"
+          echo "Executing automated Playwright smoke verification gate against $TARGET_URL..."
+          cd tests/e2e
+          npm install --prefer-offline || npm install
+          npx playwright install --with-deps chromium
+          BASE_URL="$TARGET_URL" npx playwright test smoke.spec.ts
+          echo "✅ Live post-deploy smoke gate passed successfully on $TARGET_URL!"
 
       - name: Send Telegram Message - Deployment Success
         if: success()

@@ -86,7 +86,6 @@ echo "
 app.dev.onton.live {
     ${TLS_CONFIG}
     ${LOG_CONFIG}
-    reverse_proxy /ptma* http://${PROXY_PARTICIPANT_TMA}:3001
     reverse_proxy http://${PROXY_MINI_APP}:${MINI_APP_PORT}
 }
 
@@ -94,7 +93,6 @@ app.dev.onton.live {
 app.onton.live {
     ${TLS_CONFIG}
     ${LOG_CONFIG}
-    reverse_proxy /ptma* http://host.docker.internal:8001
     reverse_proxy http://host.docker.internal:8000
 }
 
@@ -107,7 +105,6 @@ onton.live, www.onton.live {
 ${MINI_APP_DOMAIN} {
     ${TLS_CONFIG}
     ${LOG_CONFIG}
-    reverse_proxy /ptma* http://${PROXY_PARTICIPANT_TMA}:3001
     reverse_proxy /swagger* http://${PROXY_SWAGGER_UI}:${SWAGGER_UI_PORT}
     reverse_proxy http://${PROXY_MINI_APP}:${MINI_APP_PORT}
 }

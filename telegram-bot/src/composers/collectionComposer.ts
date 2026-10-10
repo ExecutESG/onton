@@ -6,7 +6,7 @@ import { isUserAdmin } from "../db/users";
 import { createCollection, getCollectionsByHubId, updateCollection } from "../db/db";
 import { SbtRewardCollection } from "../types/SbtRewardCollection";
 import { uploadImageToMinio, uploadVideoToMinio } from "../utils/uploadHelpers";
-import { getHubs, HubType, SocietyHub } from "../helpers/getHubs";
+import { getHubs, Hub } from "../helpers/getHubs";
 
 
 export const collectionComposer = new Composer<MyContext>();
@@ -22,11 +22,9 @@ collectionComposer.command("collections", async (ctx) => {
     return;
   }
 
-  // 2) Fetch hubs from the external endpoint
-  let hubs: SocietyHub[] = [];
+  // 2) Fetch hubs
+  let hubs: Hub[] = [];
   try {
-
-    // The top-level shape is { data: HubType[] }
     hubs = await getHubs();
   } catch (error) {
     logger.error("Error fetching hubs:", error);
@@ -41,7 +39,7 @@ collectionComposer.command("collections", async (ctx) => {
 
   // 3) Build an inline keyboard for available hubs
   const kb = new InlineKeyboard();
-  hubs.forEach((hub: SocietyHub) => {
+  hubs.forEach((hub: Hub) => {
     kb.text(hub.name || `Hub ${hub.id}`, `hub_select_${hub.id}`).row();
   });
 

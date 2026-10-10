@@ -8,24 +8,59 @@ import rewardDB from "@/db/modules/rewards.db";
 import { getUserCacheKey } from "@/db/modules/users.db";
 import visitorsDB, { addVisitor } from "@/db/modules/visitors.db";
 import telegramService from "@/services/telegramService";
+import { sendTelegramMessage } from "@/lib/tgBot";
 import { eventManagementProtectedProcedure as evntManagerPP, initDataProtectedProcedure, router } from "@/server/trpc";
 import { logger } from "@/server/utils/logger";
+import { LinkService } from "@/lib/links/linkService";
 import { CombinedEventRegisterSchema } from "@/types";
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, like, lt, ne, or } from "drizzle-orm";
+import { and, asc, desc, eq, like, lt, ne, or, sql } from "drizzle-orm";
 import { z } from "zod";
+import { generatePassToken, verifyPassToken } from "@/lib/totp/passToken";
+
+/** Returns a rotating pass token. Only the registrant who owns the pass can get it. */
+const getRegistrantQrToken = initDataProtectedProcedure
+  .input(
+    z.object({
+      registrant_uuid: z.string().uuid(),
+    })
+  )
+  .query(async (opts) => {
+    const registrant = (
+      await db
+        .select({ user_id: eventRegistrants.user_id })
+        .from(eventRegistrants)
+        .where(eq(eventRegistrants.registrant_uuid, opts.input.registrant_uuid))
+        .execute()
+    ).pop();
+
+    if (!registrant || registrant.user_id !== opts.ctx.user.user_id) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Pass not found" });
+    }
+
+    return generatePassToken(opts.input.registrant_uuid);
+  });
 
 const checkinRegistrantRequest = evntManagerPP
   .input(
     z.object({
       event_uuid: z.string().uuid(),
-      registrant_uuid: z.string().uuid(),
+      registrant_uuid: z.string(), // Dynamic rotating token (ONTON:v1:...) only
     })
   )
   .mutation(async (opts) => {
     const event_uuid = opts.input.event_uuid;
     const event = await eventDB.selectEventByUuid(event_uuid);
-    const registrant_uuid = opts.input.registrant_uuid;
+
+    const verification = verifyPassToken(opts.input.registrant_uuid);
+    if (!verification.valid) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: verification.message || "Invalid or expired ticket pass QR code",
+      });
+    }
+
+    const registrant_uuid = verification.uuid!;
 
     if (!event) {
       throw new TRPCError({ code: "NOT_FOUND", message: "event not found" });
@@ -54,13 +89,13 @@ const checkinRegistrantRequest = evntManagerPP
       if (!registrant) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: `Registrant Not Found/Invalid for ${event_uuid} and registrant_uuid ${registrant_uuid}`,
+          message: "Attendee pass not found or invalid",
         });
       }
       if (registrant.event_uuid !== event_uuid) {
         throw new TRPCError({
           code: "CONFLICT",
-          message: `Registrant Not for this event ${event_uuid} and registrant_uuid ${registrant_uuid}`,
+          message: "This attendee pass belongs to a different event",
         });
       }
 
@@ -70,7 +105,7 @@ const checkinRegistrantRequest = evntManagerPP
       if (registrant.status !== "approved") {
         throw new TRPCError({
           code: "CONFLICT",
-          message: `Registrant Not Approved for this event ${event_uuid} and registrant_uuid ${registrant_uuid}`,
+          message: "Registrant is not approved for this event",
         });
       }
 
@@ -100,6 +135,23 @@ const checkinRegistrantRequest = evntManagerPP
         .where(eq(eventRegistrants.registrant_uuid, registrant_uuid))
         .execute();
 
+      // Send instant check-in Telegram notification to attendee
+      try {
+        const botUsername = process.env.NEXT_PUBLIC_BOT_USERNAME || "notnonstagebot";
+        const credentialsLink = `https://t.me/${botUsername}?start=ticket_${event_uuid}`;
+        const hasSbtBadge = Boolean(event.sbt_collection_address);
+        const notificationMsg = "🎉 You're checked in! Your attendance is recorded in ONTON.";
+
+        await sendTelegramMessage({
+          chat_id: userId,
+          message: notificationMsg,
+          link: hasSbtBadge ? credentialsLink : undefined,
+          linkText: hasSbtBadge ? "Put it on-chain" : undefined,
+        });
+      } catch (tgErr) {
+        logger.error(`CHECKIN::Notification failed for user ${userId} and event ${event_uuid}`, tgErr);
+      }
+
       const final_message = event.has_payment ? "Reward Link will be sent to user" : "User can claim reward on the event page";
       return { code: 200, message: final_message };
     } finally {
@@ -124,6 +176,16 @@ const processRegistrantRequest = evntManagerPP
       throw new TRPCError({ code: "NOT_FOUND", message: "event not found" });
     }
 
+    const prevStatus = (
+      await db
+        .select({ status: eventRegistrants.status })
+        .from(eventRegistrants)
+        .where(and(eq(eventRegistrants.event_uuid, event_uuid), eq(eventRegistrants.user_id, user_id)))
+        .execute()
+    )[0]?.status;
+
+    const wasApproved = prevStatus === "approved";
+
     await db
       .update(eventRegistrants)
       .set({
@@ -139,7 +201,7 @@ const processRegistrantRequest = evntManagerPP
       .execute();
 
     if (opts.input.status === "approved" || opts.input.status === "rejected") {
-      const share_link = `https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME}/event?startapp=${event_uuid}`;
+      const share_link = LinkService.getEventUrl(event_uuid);
 
       const approved_message = `✅ Your request has been approved for the event : <b>${event.title}</b> \n${share_link}`;
       const rejected_message = `❌ Your request has been rejected for the event : <b>${event.title}</b> \n${share_link}`;
@@ -153,6 +215,58 @@ const processRegistrantRequest = evntManagerPP
 
       // Clear the organizer user cache so it will be reloaded next time
       await redisTools.deleteCache(getUserCacheKey(user_id));
+    }
+
+    // Auto-promote waitlisted attendee when an approved registration is rejected (#967)
+    if (wasApproved && opts.input.status === "rejected") {
+      try {
+        const approvedCount = await eventRegistrantsDB.getApprovedRequestsCount(event_uuid);
+        const capacityAvailable = !event.capacity || approvedCount < event.capacity;
+
+        if (capacityAvailable && !event.has_approval) {
+          const [nextWaitlisted] = await db
+            .select()
+            .from(eventRegistrants)
+            .where(
+              and(
+                eq(eventRegistrants.event_uuid, event_uuid),
+                eq(eventRegistrants.status, "pending")
+              )
+            )
+            .orderBy(asc(eventRegistrants.created_at))
+            .limit(1)
+            .execute();
+
+          if (nextWaitlisted) {
+            await db
+              .update(eventRegistrants)
+              .set({ status: "approved" })
+              .where(eq(eventRegistrants.registrant_uuid, nextWaitlisted.registrant_uuid))
+              .execute();
+
+            logger.log(
+              `[WAITLIST PROMOTION] Auto-promoted attendee ${nextWaitlisted.user_id} for event ${event_uuid}`
+            );
+
+            const promoUrl = LinkService.getEventUrl(event_uuid);
+            const promoMsg = `🎉 A spot opened up! Your registration has been approved for <b>${event.title}</b>.\n${promoUrl}`;
+
+            await telegramService
+              .sendEventPhoto({
+                event_id: event.event_uuid,
+                user_id: nextWaitlisted.user_id,
+                message: promoMsg,
+              })
+              .catch((err) => {
+                logger.warn(`Failed sending waitlist promotion telegram notification to ${nextWaitlisted.user_id}:`, err);
+              });
+
+            await redisTools.deleteCache(getUserCacheKey(nextWaitlisted.user_id));
+          }
+        }
+      } catch (promotionErr) {
+        logger.error("Waitlist auto-promotion error:", promotionErr);
+      }
     }
 
     return { code: 201, message: "ok" };
@@ -199,36 +313,50 @@ const eventRegister = initDataProtectedProcedure.input(CombinedEventRegisterSche
   }
 
   try {
-    let event_filled_and_has_waiting_list = false;
+    const registrationResult = await db.transaction(async (trx) => {
+      let event_filled_and_has_waiting_list = false;
 
-    if (event.capacity) {
-      const approved_requests_count = await eventRegistrantsDB.getApprovedRequestsCount(event_uuid);
-      const event_cap_filled = approved_requests_count >= event.capacity;
+      if (event.capacity) {
+        const [countRow] = await trx
+          .select({ count: sql`count(*)`.mapWith(Number) })
+          .from(eventRegistrants)
+          .where(
+            and(
+              eq(eventRegistrants.event_uuid, event_uuid),
+              or(eq(eventRegistrants.status, "approved"), eq(eventRegistrants.status, "checkedin"))
+            )
+          )
+          .execute();
 
-      event_filled_and_has_waiting_list = !!(event_cap_filled && event.has_waiting_list);
+        const approved_requests_count = countRow?.count || 0;
+        const event_cap_filled = approved_requests_count >= event.capacity;
 
-      if (event_cap_filled && !event.has_waiting_list) {
-        // Event capacity filled and no waiting list
-        throw new TRPCError({
-          code: "CONFLICT",
-          message: `Event Capacity Reached for event ${event.event_uuid}`,
-        });
+        event_filled_and_has_waiting_list = !!(event_cap_filled && event.has_waiting_list);
+
+        if (event_cap_filled && !event.has_waiting_list) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: `Event Capacity Reached for event ${event.event_uuid}`,
+          });
+        }
       }
-    }
 
-    const request_status = !!event.has_approval || event_filled_and_has_waiting_list ? "pending" : "approved"; // pending if approval is required otherwise auto approve them
+      const request_status = !!event.has_approval || event_filled_and_has_waiting_list ? "pending" : "approved";
 
-    await db.insert(eventRegistrants).values({
-      event_uuid: event_uuid,
-      user_id: userId,
-      status: request_status,
-      register_info: registerInfo,
+      await trx.insert(eventRegistrants).values({
+        event_uuid: event_uuid,
+        user_id: userId,
+        status: request_status,
+        register_info: registerInfo,
+      });
+
+      return { request_status };
     });
+
     await addVisitor(userId, event_uuid);
-    // Clear the organizer user cache so it will be reloaded next time
     await redisTools.deleteCache(getUserCacheKey(userId));
 
-    return { message: "success", code: 201 };
+    return { message: "success", code: 201, status: registrationResult.request_status };
   } finally {
     await redisTools.releaseLock(lockKey);
   }
@@ -311,6 +439,7 @@ const getEventRegistrants = evntManagerPP
   });
 
 export const registrantRouter = router({
+  getRegistrantQrToken,
   checkinRegistrantRequest,
   processRegistrantRequest,
   eventRegister,

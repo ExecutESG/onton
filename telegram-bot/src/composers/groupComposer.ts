@@ -16,19 +16,41 @@ import { isNewCommand } from "../helpers/isNewCommand"; // or wherever you put t
 export const groupComposer = new Composer<MyContext>();
 
 /**
- * 1) Middleware: Ensure user is organizer or admin
+ * 1) Middleware: Ensure user is organizer or admin for group management routes
  */
 groupComposer.use(async (ctx, next) => {
+  const isGroupCommand = Boolean(ctx.hasCommand?.("invitor") || ctx.message?.text?.startsWith("/invitor"));
+  const isGroupCallback = Boolean(ctx.callbackQuery?.data?.startsWith("grpev_"));
+  const isGroupSession = Boolean(ctx.session?.groupStep);
+
+  // If this update is not related to group management, pass through immediately
+  if (!isGroupCommand && !isGroupCallback && !isGroupSession) {
+    return next();
+  }
+
   const userIdString = ctx.from?.id?.toString();
   if (!userIdString) {
-    await ctx.reply("Could not detect your user ID. Please try again.");
+    if (isGroupCommand) await ctx.reply("Could not detect your user ID. Please try again.");
     return;
   }
 
   const { isOrganizerOrAdmin } = await isUserOrganizerOrAdmin(userIdString);
   if (!isOrganizerOrAdmin) {
-    // await ctx.reply("You are not authorized to manage event groups.");
-    return;
+    if (isGroupCommand) {
+      await ctx.reply("You are not authorized to manage event groups.");
+      return;
+    }
+    if (isGroupCallback) {
+      await ctx.answerCallbackQuery({ text: "Unauthorized: Organizer or Admin role required." });
+      return;
+    }
+    // Stale group-flow state from a user without the role: clear it and let other handlers (e.g. /cancel) run.
+    ctx.session.groupStep = undefined;
+    ctx.session.groupEventId = undefined;
+    ctx.session.groupEventUUID = undefined;
+    ctx.session.groupEventTitle = undefined;
+    ctx.session.pendingGroupId = undefined;
+    return next();
   }
 
   await next();
@@ -69,7 +91,7 @@ groupComposer.command("invitor", async (ctx) => {
   }
 
   if (!eventsList || !eventsList.length) {
-    await ctx.reply("No upcoming online events with registration found for you.");
+    await ctx.reply("No upcoming events with registration found for you.");
     return;
   }
 

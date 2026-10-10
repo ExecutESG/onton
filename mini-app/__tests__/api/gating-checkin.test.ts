@@ -112,4 +112,118 @@ describe("Community Gating & Entry Operations API Flow", () => {
       expect(result.error).toBe("TICKET_ALREADY_USED");
     });
   });
+
+  // RSVP Concurrency & Waitlist Auto-Promotion (#967)
+  describe("RSVP Concurrency & Waitlist Auto-Promotion Engine", () => {
+    interface Attendee {
+      id: number;
+      userId: number;
+      status: "approved" | "pending" | "rejected";
+      createdAt: number;
+    }
+
+    function registerAttendee(
+      attendees: Attendee[],
+      userId: number,
+      eventConfig: { capacity: number; hasWaitingList: boolean }
+    ) {
+      const approvedCount = attendees.filter((a) => a.status === "approved").length;
+      const isCapacityFilled = approvedCount >= eventConfig.capacity;
+
+      if (isCapacityFilled && !eventConfig.hasWaitingList) {
+        return { success: false, error: "CAPACITY_REACHED" };
+      }
+
+      const status: "approved" | "pending" = isCapacityFilled ? "pending" : "approved";
+      const newAttendee: Attendee = {
+        id: attendees.length + 1,
+        userId,
+        status,
+        createdAt: Date.now(),
+      };
+      attendees.push(newAttendee);
+
+      return { success: true, status, attendee: newAttendee };
+    }
+
+    function rejectAndPromoteWaitlist(
+      attendees: Attendee[],
+      userIdToReject: number,
+      eventConfig: { capacity: number }
+    ) {
+      const target = attendees.find((a) => a.userId === userIdToReject);
+      if (!target) return { promoted: null };
+
+      const wasApproved = target.status === "approved";
+      target.status = "rejected";
+
+      if (!wasApproved) return { promoted: null };
+
+      const approvedCount = attendees.filter((a) => a.status === "approved").length;
+      if (approvedCount < eventConfig.capacity) {
+        // Find oldest pending
+        const oldestPending = attendees
+          .filter((a) => a.status === "pending")
+          .sort((a, b) => a.createdAt - b.createdAt)[0];
+
+        if (oldestPending) {
+          oldestPending.status = "approved";
+          return { promoted: oldestPending };
+        }
+      }
+
+      return { promoted: null };
+    }
+
+    it("prevents overbooking when capacity is reached and waiting list is disabled", () => {
+      const attendees: Attendee[] = [
+        { id: 1, userId: 101, status: "approved", createdAt: 1 },
+        { id: 2, userId: 102, status: "approved", createdAt: 2 },
+      ];
+      const eventConfig = { capacity: 2, hasWaitingList: false };
+
+      const result = registerAttendee(attendees, 103, eventConfig);
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("CAPACITY_REACHED");
+      expect(attendees.filter((a) => a.status === "approved").length).toBe(2);
+    });
+
+    it("places registrant on pending waitlist when capacity is full and waiting list is enabled", () => {
+      const attendees: Attendee[] = [
+        { id: 1, userId: 101, status: "approved", createdAt: 1 },
+        { id: 2, userId: 102, status: "approved", createdAt: 2 },
+      ];
+      const eventConfig = { capacity: 2, hasWaitingList: true };
+
+      const result = registerAttendee(attendees, 103, eventConfig);
+      expect(result.success).toBe(true);
+      expect(result.status).toBe("pending");
+      expect(attendees.find((a) => a.userId === 103)?.status).toBe("pending");
+    });
+
+    it("auto-promotes the oldest pending waitlisted user when an approved attendee cancels/is rejected", () => {
+      const attendees: Attendee[] = [
+        { id: 1, userId: 101, status: "approved", createdAt: 100 },
+        { id: 2, userId: 102, status: "approved", createdAt: 200 },
+        { id: 3, userId: 103, status: "pending", createdAt: 300 }, // Oldest pending
+        { id: 4, userId: 104, status: "pending", createdAt: 400 },
+      ];
+      const eventConfig = { capacity: 2 };
+
+      // Reject approved user 101
+      const outcome = rejectAndPromoteWaitlist(attendees, 101, eventConfig);
+      expect(outcome.promoted).not.toBeNull();
+      expect(outcome.promoted?.userId).toBe(103);
+      expect(outcome.promoted?.status).toBe("approved");
+
+      // Verify approved count remains exactly at capacity (2)
+      const approvedUsers = attendees.filter((a) => a.status === "approved");
+      expect(approvedUsers.length).toBe(2);
+      expect(approvedUsers.map((u) => u.userId)).toEqual([102, 103]);
+
+      // Verify user 104 is still pending in queue
+      expect(attendees.find((a) => a.userId === 104)?.status).toBe("pending");
+    });
+  });
 });
+

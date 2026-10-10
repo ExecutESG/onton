@@ -75,10 +75,6 @@ export type TRequiredEventFields = {
   location: string;
   image_url: string;
   secret_phrase: string;
-  society_hub: {
-    id: string;
-    name: string;
-  };
   start_date: number | null;
   end_date: number | null;
   timezone: string;
@@ -165,16 +161,25 @@ export const PaidEventSchema = z
   })
   .superRefine((data, ctx) => {
     if (data.has_payment) {
-      // Validate that `payment_recipient_address` is not empty
-      if (!data.payment_recipient_address)
-        ctx.addIssue({ code: "custom", path: ["payment_recipient_address"], message: "Recipient address is Required" });
-      else {
+      // Validate that `payment_recipient_address` is valid
+      if (data.has_nft) {
+        if (!data.payment_recipient_address || data.payment_recipient_address.trim() === "") {
+          ctx.addIssue({ code: "custom", path: ["payment_recipient_address"], message: "Recipient address is Required" });
+        } else {
+          try {
+            Address.parse(data.payment_recipient_address);
+          } catch {
+            ctx.addIssue({
+              code: "custom",
+              path: ["payment_recipient_address"],
+              message: "Recipient address is Invalid!",
+            });
+          }
+        }
+      } else if (data.payment_recipient_address && data.payment_recipient_address.trim() !== "") {
         try {
-          /*
-           * This will throw if invalid address is passed
-           */
           Address.parse(data.payment_recipient_address);
-        } catch (error) {
+        } catch {
           ctx.addIssue({
             code: "custom",
             path: ["payment_recipient_address"],
@@ -244,13 +249,13 @@ export const EventDataSchema = z
       .optional(),
     ts_reward_url: z
       .string({ required_error: "reward URL is required" })
-      .url({ message: "Please select a valid reward image URL" }),
+      .url({ message: "Please select a valid reward image URL" })
+      .optional(),
+
+    /* ------------------------------ Web3 Features ----------------------------- */
+    has_web3: z.boolean().default(false),
 
     /* -------------------------- Organization Info ------------------------- */
-    society_hub: z.object({
-      id: z.string({ required_error: "society_hub.id is required" }),
-      name: z.string({ required_error: "society_hub.name is required" }),
-    }),
     owner: z.number({ required_error: "owner is required" }),
     activity_id: z.number({ required_error: "activity ID is required" }).optional(),
 
@@ -276,12 +281,34 @@ export const EventDataSchema = z
       .positive(),
   })
   .superRefine((data, ctx) => {
-    // Validate secret_phrase is required for non-paid events
-    if (!data.paid_event?.has_payment && !data.has_registration && !data.secret_phrase) {
+    // Require reward badge only when Web3 is enabled
+    if (data.has_web3 && !data.ts_reward_url) {
       ctx.addIssue({
         code: "custom",
-        path: ["secret_phrase"],
-        message: "Secret phrase is required for free events.",
+        path: ["ts_reward_url"],
+        message: "Reward badge image is required when Web3 features are enabled.",
+      });
+    }
+
+    // TSCSBT is deprecated and disallowed for new events
+    if (data.paid_event?.has_payment && data.paid_event?.ticket_type === "TSCSBT") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["paid_event", "ticket_type"],
+        message: "TSCSBT ticket type is deprecated and not supported for new events.",
+      });
+    }
+
+    // Require capacity for in-person registered events
+    if (
+      data.has_registration &&
+      data.eventLocationType === "in_person" &&
+      (data.capacity === null || data.capacity === undefined || data.capacity < 1)
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["capacity"],
+        message: "Capacity is mandatory for in-person events and must be at least 1.",
       });
     }
   });
@@ -323,11 +350,10 @@ export const UpdateEventDataSchema = z.object({
     })
     .optional(),
 
+  /* ------------------------------ Web3 Features ----------------------------- */
+  has_web3: z.boolean().default(false).optional(),
+
   /* -------------------------- Organization Info ------------------------- */
-  society_hub: z.object({
-    id: z.string({ required_error: "society_hub.id is required" }),
-    name: z.string({ required_error: "society_hub.name is required" }),
-  }),
   owner: z.number({ required_error: "owner is required" }),
   activity_id: z.number().optional(),
 
@@ -339,6 +365,7 @@ export const UpdateEventDataSchema = z.object({
   dynamic_fields: DynamicFieldsSchema,
 
   /* -------------------------- Free Event Registration Update ------------------------- */
+  has_registration: z.boolean().optional(),
   has_approval: z.boolean({
     required_error: "approval status is required",
   }),
@@ -357,6 +384,19 @@ export const UpdateEventDataSchema = z.object({
   paid_event: PaidEventSchema.optional(),
   /* -------------------------- Event Category ------------------------- */
   category_id: z.number({ required_error: "category_id is required" }).int().positive(),
+})
+.superRefine((data, ctx) => {
+  if (
+    data.has_registration &&
+    data.eventLocationType === "in_person" &&
+    (data.capacity === null || data.capacity === undefined || data.capacity < 1)
+  ) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["capacity"],
+      message: "Capacity is mandatory for in-person events and must be at least 1.",
+    });
+  }
 });
 
 export const EventRegisterSchema = z.object({
@@ -365,42 +405,25 @@ export const EventRegisterSchema = z.object({
   full_name: z
     .string({ required_error: "Full name is required" })
     .min(2, { message: "Full name must be at least 2 characters long" })
-    .max(40, { message: "Full name must be at most 40 characters long" }),
-  company: z
-    .string({ required_error: "Company name is required" })
-    .min(2, { message: "Company name must be at least 2 characters long" })
-    .max(40, { message: "Company name must be at most 40 characters long" }),
-  position: z
-    .string({ required_error: "Position is required" })
-    .min(2, { message: "Position must be at least 2 characters long" })
-    .max(40, { message: "Position must be at most 40 characters long" }),
+    .max(50, { message: "Full name must be at most 50 characters long" }),
+  company: z.string().max(60).optional().or(z.literal("")),
+  position: z.string().max(60).optional().or(z.literal("")),
 
   /* -------------------------- Optional Fields ------------------------- */
   linkedin: z
     .string()
     .max(100)
     .optional()
+    .or(z.literal(""))
     .refine((value) => !value || /^(https?:\/\/)?([\w]+\.)?linkedin\.com\/.+/.test(value), {
       message: "Please enter a valid LinkedIn URL",
     }),
-  github: z.string({ required_error: "GitHub URL is required" }).max(30).optional(),
-  notes: z.string({ required_error: "notes are required" }).max(512).optional(),
+  github: z.string().max(30).optional().or(z.literal("")),
+  notes: z.string().max(512).optional().or(z.literal("")),
 });
 
-export const CustomEventRegisterSchema = z.object({
-  event_uuid: z.string(),
-  full_name: z.string().min(1, "Full Name is required."),
-  company: z.string().min(1, "Organization is required."),
-  role: z.string().min(1, "Your role is required."),
-  linkedin: z.string().optional(),
-  github: z.string().optional(),
-  email: z.string().min(1, "Email is required.").email("Invalid email format."),
-  career: z.string().min(1, "Please select an option."),
-  developer_type: z.string().default(""),
-  main_goal: z.string().min(1, "Main request/goal is required."),
-});
-
-export const CombinedEventRegisterSchema = z.union([EventRegisterSchema, CustomEventRegisterSchema]);
+export const CustomEventRegisterSchema = EventRegisterSchema;
+export const CombinedEventRegisterSchema = EventRegisterSchema;
 
 export const AgendaItemSchema = z.object({
   time: z.string({ required_error: "time is required" }), // assuming time is a string, e.g., "10:00 AM"
@@ -507,6 +530,7 @@ export interface Channel {
   org_bio: string | null;
   org_image: string | null;
   hosted_event_count?: number | null;
+  founding_organizer_at?: Date | string | null;
 }
 
 type OptionalKeys<T> = {

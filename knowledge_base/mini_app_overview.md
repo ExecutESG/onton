@@ -1,94 +1,104 @@
 # ONTON Mini App Service Overview
 
-The `mini-app` is the core of the ONTON platform. It is a **Next.js** application that serves both the User Interface (the Mini App inside Telegram) and the Organizer Dashboard (Web). It also acts as the primary API server using **tRPC**.
+> Last verified against dev: 2026-10-03
 
-## 1. Technology Stack
+`mini-app/` is the core of ONTON. It is a Next.js app that serves the Telegram Mini App and the web app (attendees and organizers), the tRPC and REST APIs, and — through other entry points — the background workers and the notification socket.
 
-*   **Framework:** Next.js 14 (App Router & Pages Router hybrid)
-*   **Language:** TypeScript
-*   **API:** tRPC (End-to-end typesafe API)
-*   **Database:** PostgreSQL (via Drizzle ORM)
-*   **State Management:** Zustand + Tanstack Query
-*   **Styling:** TailwindCSS + Shadcn/UI (Radix) + Material UI
-*   **Real-time:** Socket.io (via separate entry point)
+## 1. Stack
 
-## 2. Architecture & Components
+| Item | Value |
+|---|---|
+| Framework | Next.js 14 (`14.2.28`), **App Router only** (no `src/pages`) |
+| Language | TypeScript |
+| API | tRPC (`src/server/routers/`) and REST route handlers (`src/app/api/`) |
+| Database | PostgreSQL via Drizzle ORM |
+| Client state | Zustand + TanStack Query |
+| Styling | TailwindCSS, shadcn/ui (Radix, `src/components/ui/`), MUI |
+| Real-time | Socket.io server (`src/sockets/index.ts`) |
+| Tests | Vitest: `yarn test:api` |
 
-The `mini-app` codebase is monolithic but deploys into multiple specialized services (containers) based on the entry point command.
+## 2. Services built from this codebase
 
-| Service Name | Entry Point | Purpose |
-| :--- | :--- | :--- |
-| **`mini-app`** | `next start` | Main Web Server. Handles UI and tRPC API requests. |
-| **`mini-app-notification-socket`** | `src/sockets/index.ts` | WebSocket Server. Handles real-time updates (notifications, status changes). |
-| **Workers** | `src/workers/*.ts` | Background processes for heavy lifting (see below). |
+All workers reuse the `mini-app` image with a different command.
 
-### Background Workers
-These run as separate Docker services to keep the main web server responsive:
+| Service | Command | What it runs |
+|---|---|---|
+| `mini-app` | `next start` | UI, tRPC, REST |
+| `mini-app-notification-socket` | `start:socket` | Socket.io. Port from the required `SOCKET_PORT` env. |
+| Payment scheduler | `start-cron-payment` (`src/workers/cronJobSchedulerPayment.ts`) | `CheckTransactions` (7 s), `MintNFTForPaidOrders` (9 s), `TsCsbtTicketOrder`, `CreateEventOrders`, `UpdateEventCapacity`, `OrganizerPromoteProcessing`, payment reminders, raffles, the `order_paid` consumer |
+| `mini-app-reward-worker` | `start-cron-reward` | `CreateRewards`, reward notifications, tournament rewards, `CheckSbtStatus` (prod only) |
+| `mini-app-ordinary-worker` | `start-cron-ordinary` | Block checks, invite-link cron, click batches, tournaments, promo codes, wallet balances (prod only) |
+| `mini-app-nft-api-worker` / NFT-API scheduler | `start-cron-nft-api` (`src/workers/cronJobSchedulerNFTApi.ts`) | `deployNFTApiCollections`, `mintNFTApiCollections` (5 s each) |
+| `mini-app-poa-worker` | `start:poa` (`src/workers/poaWorker.ts`) | Polls the DB every 4 s and creates PoA trigger notifications for ongoing events. No RabbitMQ. |
 
-*   **`mini-app-sbt-worker`**: Handles Soulbound Token (SBT) minting on TON.
-*   **`mini-app-reward-worker`**: Processes reward distributions to users.
-*   **`mini-app-poa-worker`**: Validates "Proof of Action" (PoA) submissions.
-*   **`mini-app-nft-api-worker`**: Syncs NFT data from external APIs.
-*   **`mini-app-ordinary-worker`**: Routine maintenance tasks.
+> [!WARNING]
+> The `mini-app-sbt-worker` name is misleading. In local/prod `docker-compose.yml` it runs `start-cron-nft-api`, and a separate `mini-app-payment-worker` runs `start-cron-payment`. In `docker-compose-server.yml` and `docker-compose-server-dev.yml` the `sbt-worker` runs `start-cron-payment` and there is no payment-worker. On staging all workers and the socket run 0 replicas.
 
-## 3. Key Directory Structure
+Play2Win UI is retired, but `checkAndEnrollUserInPlay2WinCampaign` (reward) and `syncPlay2WinScores` (ordinary) are still scheduled.
+
+## 3. Directory structure
 
 ```text
 mini-app/
+├── drizzle/              # SQL migrations (apply by hand with psql)
 ├── src/
-│   ├── app/                # Next.js App Router (Pages & Layouts)
-│   ├── components/         # Reusable React Components
-│   ├── db/                 # Database Schema & Drizzle Config
-│   ├── server/             # Backend Logic
-│   │   ├── routers/        # tRPC Routers (API Endpoints)
-│   │   ├── trpc.ts         # tRPC Configuration
-│   │   └── context.ts      # Auth & Context Creation
-│   ├── services/           # Business Logic Services (Wallet, Telegram, etc.)
-│   ├── sockets/            # Socket.io Server Code
-│   ├── workers/            # Worker Scripts (Entry points for Cron Jobs)
-│   │   ├── cronJobSchedulerPayment.ts
-│   │   ├── poaWorker.ts
-│   │   └── ...
-│   └── cronJobs/           # Logic for the cron jobs
-└── package.json            # Scripts & Dependencies
+│   ├── app/              # App Router pages, layouts, REST routes (app/api/)
+│   ├── components/       # React components (ui/ = shadcn)
+│   ├── db/               # schema.ts, schema/, modules/ (queries)
+│   ├── server/
+│   │   ├── index.ts      # appRouter
+│   │   ├── routers/      # tRPC routers
+│   │   ├── trpc.ts       # procedure types
+│   │   └── context.ts    # auth context
+│   ├── services/         # e.g. sbtService.ts
+│   ├── lib/              # tgBot.ts, rabbitMQ.ts, totp/, csbt/, nft, ...
+│   ├── cronJobs/         # cron task logic
+│   ├── workers/          # worker entry points
+│   ├── sockets/          # Socket.io server
+│   └── moderationBot/    # leftover helpers/menu/types used by the mini-app
+└── package.json
 ```
 
-## 4. API & Data Flow
+## 4. API and data
 
-### tRPC (Client-Server Communication)
-The frontend communicates with the backend via tRPC.
-*   **Routers:** Located in `src/server/routers`.
-*   **Definition:** `src/server/index.ts` combines all routers into `appRouter`.
-*   **Usage:**
-    *   **Backend:** Define a procedure: `publicProcedure.query(...)`
-    *   **Frontend:** Call it hook-style: `trpc.user.getProfile.useQuery()`
+- tRPC routers live in `src/server/routers/` and are combined into `appRouter` in `src/server/index.ts`. See [backend_mini_app.md](backend_mini_app.md).
+- Drizzle schema: `src/db/schema.ts` (used by `drizzle.config.ts`) plus `src/db/schema/`.
 
-### Database Access
-*   **ORM:** Drizzle ORM is used for all DB interactions.
-*   **Schema:** Defined in `src/db/schema`.
-*   **Migrations:** Managed via `drizzle-kit`.
+> [!CAUTION]
+> Never run `yarn db:migrate`; the Drizzle journal is stale. Apply new SQL files with `psql -v ON_ERROR_STOP=1 -f mini-app/drizzle/<file>.sql`. `yarn db:up` is `drizzle-kit up` (snapshot upgrade), not a migration.
 
-## 5. Development & Commands
+## 5. Commands
 
 | Command | Description |
-| :--- | :--- |
-| `yarn dev` | Starts the Next.js dev server. |
-| `yarn db:gen` | Generates SQL migrations from schema changes. |
-| `yarn db:up` | Applies migrations to the database. |
-| `yarn start:socket` | Starts the Socket.io server locally. |
-| `yarn start:poa` | Starts the POA worker locally. |
+|---|---|
+| `yarn dev` | Inits MinIO and starts `next dev` on `MINI_APP_PORT` using `../.env` |
+| `yarn build && yarn start:local` | Production build, run locally |
+| `yarn lint` / `yarn lint:quiet` | Lint (CI runs `lint:quiet`) |
+| `yarn type:check` | Type check |
+| `yarn test:api` | Vitest unit tests (CI) |
+| `yarn db:gen` | Generate SQL from schema changes (`drizzle-kit generate`) |
+| `yarn start:socket` / `yarn start:poa` | Socket server / PoA worker |
+| `yarn local:start-cron-<payment\|reward\|ordinary\|nft-api>` | Workers with `../.env` |
 
-## 6. Payment System
+## 6. Payments
 
-The Mini App handles payments (Ticket Sales, Organizer Upgrades) using a **Verify-then-Process** mechanism on the TON blockchain.
+| Rail | Flow |
+|---|---|
+| Free | `POST /api/v1/order` creates a `completed` order and a ticket right away. |
+| TON / USDT (jetton) | Order `confirming` → `CheckTransactions` (TonCenter v3, memo `onton_order=<id>`) sets `processing` → `MintNFTForPaidOrders` mints the NFT and sets `completed`. |
+| Telegram Stars | The bot's `successful_payment` handler sets `completed` directly. No NFT mint. |
 
-*   **Flow:** User creates an order (API) -> User sends TON with a specific comment -> Background worker verifies transaction -> Order marked as paid -> NFT Minted.
-*   **Key Workers:** `CheckTransactions` (Verification), `MintNFTForPaidOrders` (Fulfillment).
-*   **Detailed Guide:** See [Payment System Overview](payment_system_overview.md) or the [Visual Guide](payment_system_overview.html).
+There is no `PAID` order state. Details: [payment_system_overview.md](payment_system_overview.md).
 
-## 7. Integration Points
+## 7. Integration points
 
-*   **Telegram Bot:** The Mini App relies on the `telegram-bot` service for sending messages to users. It calls the Bot's internal API (e.g., `http://telegram-bot:3333/send-message`).
-*   **MinIO:** Used for object storage (images, videos).
-*   **RabbitMQ:** Used for message queuing (handling high-volume events).
-*   **Redis:** Used for caching and socket adapters.
+- **Telegram bot**: the mini-app calls the bot's HMAC-signed HTTP API (`src/lib/tgBot.ts`, port `TELEGRAM_BOT_PORT`, default 3333) to send messages, photos, files, invites and Stars invoices.
+- **MinIO**: object storage (images, NFT/SBT metadata).
+- **RabbitMQ**: `${STAGE_NAME}-notifications` (with a DLX + 5 s retry queue), `-tg_messages` and `-order_paid` (`src/sockets/constants.ts`, `src/lib/rabbitMQ.ts`). Not deployed on staging.
+- **Redis**: caching, locks, rate limits, socket adapter.
+
+## Known issues (tracked in QA)
+
+- F-35: the `order_paid` consumer is likely failing; the `MintNFTForPaidOrders` cron is the real fulfillment path.
+- F-33: Stars pre-checkout approves without validating order, price or capacity.
+- F-34: paid tier `sold_count` is not incremented; no tier-creation API.

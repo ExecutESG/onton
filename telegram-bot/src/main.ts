@@ -4,7 +4,7 @@ import express from "express";
 import fileUpload from "express-fileupload";
 import { Bot, session } from "grammy";
 import { mainComposer } from "./composers";
-import { RATE_LIMIT_OPTIONS } from "./constants";
+import { BOT_TOKEN, RATE_LIMIT_OPTIONS } from "./constants";
 import { checkBotAdminHandler } from "./controllers/checkBotAdminHandler";
 import { createInviteLinkHandler } from "./controllers/createInviteLinkHandler";
 import { deleteInviteLinkHandler } from "./controllers/deleteInviteLinkHandler";
@@ -23,6 +23,7 @@ import { startHandler } from "./handlers/startHandler";
 import { updateAdminOrganizerProfilesHandler } from "./handlers/updateAdminOrganizerProfilesHandler";
 import { isBotNewlyAddedOrPromoted } from "./helpers/isBotNewlyAddedOrPromoted";
 import { connectRedis } from "./lib/redisTools";
+import { hmacAuthMiddleware } from "./middleware/hmacAuth";
 import { MyContext } from "./types/MyContext";
 import { checkRateLimit } from "./utils/checkRateLimit";
 import { logger } from "./utils/logger";
@@ -34,7 +35,17 @@ import { createStarsInvoiceHandler } from "./controllers/starsInvoiceHandler";
 import { handleStarsPreCheckout, handleStarsSuccessfulPayment } from "./handlers/starsPaymentHandler";
 
 import { startPollSenderCron } from "./cronJobs/initializer";
-export const bot = new Bot<MyContext>(process.env.BOT_TOKEN || "");
+import { assertRequiredSecrets } from "./utils/requiredSecrets";
+
+// Fail fast (#1052): refuse to start with missing, short or default secrets. Message names keys only.
+try {
+  assertRequiredSecrets();
+} catch (err) {
+  console.error(`[startup] ${err instanceof Error ? err.message : String(err)}`);
+  process.exit(1);
+}
+
+export const bot = new Bot<MyContext>(BOT_TOKEN);
 
 (async function bootstrap() {
   try {
@@ -76,12 +87,20 @@ export const bot = new Bot<MyContext>(process.env.BOT_TOKEN || "");
     });
 
 
+    // --- TELEGRAM STARS PAYMENT HANDLERS (CRITICAL: MUST PRECEDE ALL COMPOSERS) ---
+    bot.on("pre_checkout_query", handleStarsPreCheckout);
+    bot.on(":successful_payment", handleStarsSuccessfulPayment);
+
     // 3) Register commands, handlers, etc.
     bot.command("update_profiles", updateAdminOrganizerProfilesHandler);
     bot.command("org", orgHandler);
     bot.command("cmd", cmdHandler);
     bot.command("banner", bannerHandler);
-    bot.command("start", startHandler);
+    bot.command("start", async (ctx) => {
+      // /start must always escape any stuck multi-step flow (same as /cancel).
+      ctx.session = {};
+      await startHandler(ctx);
+    });
     //bot.command("sbtdist", sbtdistHandler);
     bot.command("id", async (ctx) => {
       await announceBotAdded(ctx);
@@ -96,19 +115,24 @@ export const bot = new Bot<MyContext>(process.env.BOT_TOKEN || "");
 
     bot.use(mainComposer);
 
-    // Stars payment handlers
-    bot.on("pre_checkout_query", handleStarsPreCheckout);
-    bot.on(":successful_payment", handleStarsSuccessfulPayment);
-
     bot.catch((e) => console.log(e));
 
     // 4) Start the bot (non-blocking)
     bot
       .start({
         drop_pending_updates: true,
+        onStart: (botInfo) => {
+          logger.log(`Bot @${botInfo.username} started polling successfully.`);
+        },
       })
-      .then(() => logger.log("Bot started"))
-      .catch((err) => logger.error("Bot start error:", err));
+      .then(() => logger.log("Bot stopped gracefully"))
+      .catch((err) => {
+        logger.error(
+          "Fatal: Bot polling runner terminated with error. Exiting process for restart:",
+          err,
+        );
+        process.exit(1);
+      });
 
     // 5) Create and configure Express
     const port = process.env.TELEGRAM_BOT_PORT || 3333;
@@ -121,10 +145,25 @@ export const bot = new Bot<MyContext>(process.env.BOT_TOKEN || "");
       req.bot = bot;
       next();
     });
+    app.use(hmacAuthMiddleware);
 
     // 6) Register routes
     app.get("/health", (_, res) => {
-      res.json({ status: "ok", timestamp: Date.now() });
+      const isRunning = bot.isRunning();
+      const isInited = bot.isInited();
+      if (!isRunning) {
+        return res.status(503).json({
+          status: "error",
+          message: "Telegram bot polling is not running",
+          bot: { isInited, isRunning },
+          timestamp: Date.now(),
+        });
+      }
+      return res.json({
+        status: "ok",
+        bot: { isInited, isRunning },
+        timestamp: Date.now(),
+      });
     });
     app.post("/send-file", handleFileSend);
     app.get("/generate-qr", handleSendQRCode);

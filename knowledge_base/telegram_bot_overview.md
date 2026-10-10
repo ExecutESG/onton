@@ -1,73 +1,98 @@
 # ONTON Telegram Bot Service Overview
 
-The `telegram-bot` service is a specialized Node.js application responsible for all direct interactions with the Telegram Platform API. It uses the **Grammy** framework to handle user commands and **Express** to provide an internal API for other services.
+> Last verified against dev: 2026-10-03
 
-## 1. Technology Stack
+`telegram-bot/` is a grammY bot plus an Express HTTP API. It handles Telegram commands, moderation callbacks and Telegram Stars payments, and it sends messages, files and invites on behalf of the mini-app.
 
-*   **Runtime:** Node.js (TypeScript)
-*   **Bot Framework:** [Grammy](https://grammy.dev/)
-*   **API Server:** Express.js
-*   **Database:** PostgreSQL (Direct connection via `pg`) & Redis (Session storage)
-*   **Process Manager:** `ts-node` (Dev) / `node` (Prod)
-*   **Storage:** MinIO (S3) for file uploads
+See also: [backend_bot_commands.md](backend_bot_commands.md), [backend_telegram_bot.md](backend_telegram_bot.md).
 
-## 2. Core Responsibilities
+## 1. Stack
 
-1.  **User Interaction:** Handles commands like `/start`, `/org`, `/cmd` directly from Telegram users.
-2.  **Internal Notification Gateway:** The Mini App calls this service to send messages, files, or notifications to users (bypassing the need for the Mini App to hold the Bot Token directly).
-3.  **Cron Jobs:** Runs the `PollSenderCron` to broadcast polls or scheduled messages.
-4.  **Admin Tools:** Provides commands for admins to update profiles or check stats.
+| Item | Value |
+|---|---|
+| Runtime | Node.js, TypeScript |
+| Bot framework | grammY (`telegram-bot/src/main.ts`) |
+| HTTP API | Express (`main.ts`) |
+| Database | PostgreSQL via `pg` (`telegram-bot/src/db/`) |
+| Redis | Rate limiter only |
+| Sessions | grammY default in-memory `session({ initial })`, no storage adapter. State is lost on restart. |
+| Storage | MinIO client (`minio` package) |
+| Prod start | `ts-node` (`telegram-bot/package.json`) |
+| Lint | None. Use `yarn build` (tsc). CI runs `yarn build`. |
 
-## 3. Key Directory Structure
+## 2. Responsibilities
+
+1. Commands from admins and organizers (see [backend_bot_commands.md](backend_bot_commands.md)).
+2. Post-publish moderation callbacks (`telegram-bot/src/composers/moderationComposer.ts`). The separate mini-app moderation bot was removed (commit 3b51b56e).
+3. Telegram Stars payments (`telegram-bot/src/handlers/starsPaymentHandler.ts`, `telegram-bot/src/controllers/starsInvoiceHandler.ts`).
+4. HMAC-protected HTTP API used by the mini-app (`mini-app/src/lib/tgBot.ts`).
+5. Crons: `pollSenderCron` and `broadcastSenderCron`, both every 10 s (`telegram-bot/src/cronJobs/initializer.ts`). The log line in `main.ts` that says "every 2 minutes" is wrong.
+
+The bot does **not** use RabbitMQ.
+
+## 3. Directory structure
 
 ```text
-telegram-bot/
-├── src/
-│   ├── main.ts             # Entry point (Bot + Express setup)
-│   ├── composers/          # Middleware & routing logic (Grammy composers)
-│   ├── controllers/        # Express Route Handlers (Internal API)
-│   │   ├── sendMessage.ts
-│   │   ├── handleFileSend.ts
-│   │   └── ...
-│   ├── handlers/           # Telegram Command Handlers
-│   │   ├── startHandler.ts
-│   │   ├── cmdHandler.ts
-│   │   └── ...
-│   ├── cronJobs/           # Background tasks (PollSender)
-│   ├── db/                 # Database queries
-│   └── lib/                # External services (Redis, etc.)
-└── package.json
+telegram-bot/src/
+├── main.ts          # bot + Express setup, command registration
+├── composers/       # grammY composers (commands, moderation callbacks)
+├── handlers/        # /start, /org, /cmd, /banner, Stars payments, ...
+├── controllers/     # Express route handlers
+├── middleware/      # hmacAuth.ts
+├── cronJobs/        # poll and broadcast senders
+├── db/              # SQL queries (pg)
+└── lib/, utils/     # helpers (deep links, Redis, ...)
 ```
 
-## 4. Internal API Endpoints
+## 4. HTTP API
 
-The `telegram-bot` exposes an HTTP server (default port `3333`) strictly for internal use by the `mini-app` or workers.
+Port: `TELEGRAM_BOT_PORT` (default 3333). All routes except `/health` pass `hmacAuthMiddleware` (`telegram-bot/src/middleware/hmacAuth.ts`): HMAC-SHA256 over `timestamp.body` with a 60 s replay window. Secret: `BOT_API_HMAC_SECRET` (falls back to other secrets if unset; set it in every environment).
 
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `POST` | `/send-message` | Sends a text message to a user. |
-| `POST` | `/send-file` | Uploads and sends a file to a user. |
-| `POST` | `/generate-qr` | Generates a QR code for a specific link. |
-| `POST` | `/share-event` | Sends an event card to a user. |
-| `POST` | `/check-bot-admin` | Checks if the bot is an admin in a channel. |
+| Method | Route |
+|---|---|
+| GET | `/health` (no auth) |
+| POST | `/send-file` |
+| GET | `/generate-qr` |
+| POST | `/share-event` |
+| POST | `/send-message` |
+| POST | `/send-photo` |
+| POST | `/share-organizer` |
+| POST | `/share-tournament` |
+| POST | `/check-block-status` |
+| POST | `/check-bot-admin` |
+| POST | `/create-invite` |
+| POST | `/delete-invite` |
+| POST | `/create-stars-invoice` |
+| POST | `/share-affiliate-link` |
+| POST | `/share-join-onton-link-affiliate` |
 
-## 5. Middleware & Logic
+## 5. Middleware and runtime
 
-*   **Rate Limiting:** Implemented in `main.ts` using Redis. Limits users to ~10 commands/minute to prevent spam.
-*   **Session Management:** Uses Redis to store conversation state (e.g., multi-step forms).
-*   **Admin Checks:** Middleware protects sensitive commands by verifying user IDs against the admin list.
+- Rate limit: Redis-backed, 10 commands per minute per user (`main.ts`, `telegram-bot/src/constants.ts`).
+- `/start` resets the session (`main.ts`, `handlers/startHandler.ts`).
+- Long polling with `drop_pending_updates`. Run a single replica per bot token, otherwise Telegram returns polling conflicts.
+- Stars handlers are registered before the composers (`main.ts`).
 
-## 6. How it runs
-The `src/main.ts` file does two things in parallel:
-1.  **Starts the Bot:** `bot.start()` (Long polling mode).
-2.  **Starts Express:** `app.listen(3333)`.
+## 6. Telegram Stars flow
 
-> **Note:** In production (Docker Swarm), this service runs as a single replica to avoid "conflict" errors with long polling (unless using Webhooks, but the current code uses polling `bot.start()`).
+1. Mini-app `POST /api/v1/order/stars-invoice` converts the order price with fixed pegs and calls the bot's `/create-stars-invoice`, which calls `createInvoiceLink` with currency `XTR`.
+2. Frontend opens the invoice with `webApp.openInvoice` (`CheckoutForm.tsx`).
+3. `pre_checkout_query` is approved.
+4. `successful_payment` sets the order to `completed`, approves the registrant, inserts a ticket row if missing, creates a 1-use group invite and replies with a button to `/tickets/<event_uuid>`.
 
-## 7. Common Commands
+The Stars path does not mint an NFT, does not publish `order_paid`, and does not increment affiliate or tier counters.
 
-*   `/start` - User onboarding & welcome message.
-*   `/org` - Organizer tools menu.
-*   `/cmd` - List of available commands.
-*   `/banner` - Banner management (Admin).
-*   `/update_profiles` - Sync admin profiles (Admin).
+## 7. Environments
+
+| Env | Bot |
+|---|---|
+| Production | `@theontonbot` |
+| Staging | `@notnonstagebot` |
+| Local | `@ontonlocaldevbot` |
+
+The runtime `.env` is the source of truth for the bot identity.
+
+## Known issues (tracked in QA)
+
+- F-33: Stars pre-checkout approves without validating order, price or capacity.
+- Secret env vars have insecure fallbacks if unset; set them in every environment.

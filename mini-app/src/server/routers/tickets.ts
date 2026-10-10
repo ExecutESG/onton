@@ -1,20 +1,59 @@
-import { publicProcedure, router } from "../trpc";
+import {
+  eventManagementProtectedProcedure,
+  initDataProtectedProcedure,
+  router,
+} from "../trpc";
 import { z } from "zod";
 import ticketDB from "@/db/modules/ticket.db";
 import { TRPCError } from "@trpc/server";
-import rewardsService from "@/services/rewardsService";
 import { logger } from "../utils/logger";
 import visitorsDB from "@/db/modules/visitors.db";
 import rewardDB from "@/db/modules/rewards.db";
 import eventDB from "@/db/modules/events.db";
+import { usersDB } from "@/db/modules/users.db";
+import { sbtService } from "@/services/sbtService";
+import { generatePassToken, verifyPassToken, isDynamicToken } from "@/lib/totp/passToken";
 
 // Type guard to check if result is alreadyCheckedIn type
-function isAlreadyCheckedIn(result: any): result is { alreadyCheckedIn: boolean } {
-  return result && "alreadyCheckedIn" in result;
+function isAlreadyCheckedIn(result: unknown): result is { alreadyCheckedIn: boolean } {
+  return typeof result === "object" && result !== null && "alreadyCheckedIn" in result;
+}
+
+/** Throws unless the ticket exists and belongs to the given event. */
+async function getTicketForEventOrThrow(ticketUuid: string, eventUuid: string) {
+  const ticket = await ticketDB.getTicketByUuid(ticketUuid);
+  if (!ticket) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "Ticket not found" });
+  }
+  if (ticket.event_uuid !== eventUuid) {
+    throw new TRPCError({ code: "CONFLICT", message: "This ticket belongs to a different event" });
+  }
+  return ticket;
 }
 
 export const ticketRouter = router({
-  getTicketByUuid: publicProcedure
+  /** Scan step: event managers resolve a live rotating pass token. Static UUIDs are rejected. */
+  getTicketByUuid: eventManagementProtectedProcedure
+    .input(
+      z.object({
+        event_uuid: z.string().uuid(),
+        ticketUuid: z.string(),
+      })
+    )
+    .query(async (opts) => {
+      const verification = verifyPassToken(opts.input.ticketUuid);
+      if (!verification.valid || !verification.uuid) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: verification.message || "Invalid or expired ticket pass QR code",
+        });
+      }
+
+      return getTicketForEventOrThrow(verification.uuid, opts.input.event_uuid);
+    }),
+
+  /** Rotating pass token. Only the ticket owner can get it. */
+  getTicketQrToken: initDataProtectedProcedure
     .input(
       z.object({
         ticketUuid: z.string(),
@@ -22,25 +61,41 @@ export const ticketRouter = router({
     )
     .query(async (opts) => {
       const ticket = await ticketDB.getTicketByUuid(opts.input.ticketUuid);
-
-      if (!ticket) {
+      if (!ticket || ticket.user_id !== opts.ctx.user.user_id) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Ticket not found",
         });
       }
-
-      return ticket;
+      return generatePassToken(opts.input.ticketUuid);
     }),
 
-  checkInTicket: publicProcedure
+  /**
+   * Check-in by an event manager. Accepts a live pass token, or the order UUID
+   * already resolved by the scan step (the caller is an authorized manager).
+   */
+  checkInTicket: eventManagementProtectedProcedure
     .input(
       z.object({
+        event_uuid: z.string().uuid(),
         ticketUuid: z.string(),
       })
     )
     .mutation(async (opts) => {
-      const result = await ticketDB.checkInTicket(opts.input.ticketUuid);
+      let resolvedTicketUuid = opts.input.ticketUuid.trim();
+      if (isDynamicToken(resolvedTicketUuid)) {
+        const verification = verifyPassToken(resolvedTicketUuid);
+        if (!verification.valid || !verification.uuid) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: verification.message || "Invalid or expired ticket pass QR code",
+          });
+        }
+        resolvedTicketUuid = verification.uuid;
+      }
+
+      await getTicketForEventOrThrow(resolvedTicketUuid, opts.input.event_uuid);
+      const result = await ticketDB.checkInTicket(resolvedTicketUuid);
 
       if (!result) {
         throw new TRPCError({
@@ -49,7 +104,14 @@ export const ticketRouter = router({
         });
       }
 
-      const ticketData = await ticketDB.getTicketByUuid(opts.input.ticketUuid);
+      if ("error" in result && result.error) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: ("message" in result ? result.message : undefined) || "Failed to check in",
+        });
+      }
+
+      const ticketData = await ticketDB.getTicketByUuid(resolvedTicketUuid);
 
       if (ticketData && ticketData?.user_id && ticketData?.event_uuid) {
         // Create a reward for the user
@@ -60,32 +122,44 @@ export const ticketRouter = router({
           logger.error(`Visitor ${userId} not found for event ${ticketData.event_uuid} in handleNotificationReply`);
           throw new Error(`Visitor ${userId} not found`);
         }
+
+        const eventData = await eventDB.fetchEventByUuid(ticketData.event_uuid);
+        if (!eventData) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Event not found",
+          });
+        }
+
+        const user = await usersDB.selectUserById(userId);
+        let sbtStatus: "pending_creation" | "created" = "pending_creation";
+        let rewardLink: string | null = null;
+        let sbtAddress: string | null = null;
+
+        // F-36: Auto-mint disabled. Only cSBT is claimable natively.
+
         const existingReward = await rewardDB.checkExistingRewardWithType(visitor?.id, "ton_society_sbt");
         if (!existingReward) {
-          const eventData = await eventDB.fetchEventByUuid(ticketData.event_uuid);
-          if (!eventData) {
-            throw new TRPCError({
-              code: "NOT_FOUND",
-              message: "Event not found",
-            });
-          }
           const reward = await rewardDB.insertRewardRow(
             visitor.id,
-            null,
+            rewardLink ? { reward_link: rewardLink, sbt_address: sbtAddress } : null,
             userId,
             "ton_society_sbt",
-            "pending_creation",
+            sbtStatus,
             eventData
           );
           logger.log(
-            `CHECKIN::SBT::Reward::Created user reward for user ${userId} and event uuid ${ticketData.event_uuid} with reward ID ${reward.id}`,
+            `CHECKIN::SBT::Reward::Created user reward for user ${userId} and event uuid ${ticketData.event_uuid} with reward ID ${reward.id} (status: ${sbtStatus})`,
             reward
           );
-        } else {
-          logger.log(
-            `CHECKIN::SBT::Reward::User reward already exists for user ${userId} and event uuid ${ticketData.event_uuid}`
-          );
+        } else if (existingReward && (sbtStatus as string) === "created" && rewardLink) {
+          await rewardDB.updateReward(existingReward.id, {
+            reward_link: rewardLink,
+            sbt_address: sbtAddress,
+            status: "created",
+          } as any);
         }
+
         if (isAlreadyCheckedIn(result)) {
           return { alreadyCheckedIn: true, result: result };
         }
@@ -94,6 +168,9 @@ export const ticketRouter = router({
           checkInSuccess: true,
           result: result,
           rewardResult: "success",
+          sbtStatus,
+          sbtAddress,
+          rewardLink,
         };
       }
     }),

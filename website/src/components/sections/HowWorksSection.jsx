@@ -22,20 +22,20 @@ const Card = ({ title, description, link, linkText, disabled }) => (
 
 const cards = [
   {
-    title: "1. Create in 60 Seconds",
-    description: "Launch your event directly on Telegram. Enable Free RSVP, accept Telegram Stars (Apple/Google Pay) or TON/USDT, and connect your official group.",
+    title: "1. Create in a Minute",
+    description: "Launch your event on Telegram or web. Free events are free forever. Accept Telegram Stars or crypto (TON/USDT), and link your group chat.",
     link: "https://t.me/theontonbot/event",
     linkText: "Host an Event →"
   },
   {
-    title: "2. 1-Click Frictionless RSVP",
-    description: "Attendees register instantly without crypto wallet setups or gas fees. They receive a personal QR pass and immediate one-time group chat access.",
+    title: "2. 1-Tap RSVP",
+    description: "Attendees register in one tap without wallet friction or seed phrases. They receive a personal QR pass and immediate group chat access.",
     link: "https://t.me/theontonbot",
     linkText: "Explore Events →"
   },
   {
-    title: "3. Door Check-in & Badges",
-    description: "Scan attendee QR codes at the door with the fast mobile scanner. Check-in automatically unlocks verified digital Proof-of-Attendance SBT badges.",
+    title: "3. Door Check-In & Credentials",
+    description: "Scan attendee passes at the door with our fast mobile scanner to verify attendance and issue portable credentials.",
     link: "https://t.me/ontonlive",
     linkText: "Join Community →"
   }

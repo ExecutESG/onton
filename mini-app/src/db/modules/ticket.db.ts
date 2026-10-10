@@ -1,7 +1,8 @@
 import { db } from "@/db/db";
 import { TicketStatus } from "@/db/enum";
-import { eventRegistrants, orders, tickets } from "@/db/schema";
-import { and, eq } from "drizzle-orm";
+import { eventPayment, eventRegistrants, events, nftItems, orders, rewards, tickets, visitors } from "@/db/schema";
+import { and, eq, or } from "drizzle-orm";
+import { sbtDB } from "@/db/modules/sbt.db";
 
 // Function to get a ticket by its UUID (order_uuid, registrant_uuid, or order uuid)
 const getTicketByUuid = async (ticketUuid: string) => {
@@ -76,7 +77,7 @@ const getTicketByUuid = async (ticketUuid: string) => {
   return null;
 };
 
-type CheckInTicketResult = { status: TicketStatus | null } | { alreadyCheckedIn: boolean };
+type CheckInTicketResult = { status: TicketStatus | null } | { alreadyCheckedIn: boolean } | { error: true, code: string, message: string };
 
 // Function to check in a ticket (update its status to "USED" and registrant to "checkedin")
 export const checkInTicket = async (ticketUuid: string): Promise<CheckInTicketResult | null> => {
@@ -100,28 +101,30 @@ export const checkInTicket = async (ticketUuid: string): Promise<CheckInTicketRe
       return { alreadyCheckedIn: true };
     }
 
-    await db
-      .update(tickets)
-      .set({
-        status: "USED" as TicketStatus,
-        updatedAt: new Date(),
-        updatedBy: "system_check-in",
-      })
-      .where(eq(tickets.order_uuid, ticketUuid))
-      .execute();
-
-    if (ticket[0].user_id && ticket[0].event_uuid) {
-      await db
-        .update(eventRegistrants)
-        .set({ status: "checkedin", updatedAt: new Date() })
-        .where(
-          and(
-            eq(eventRegistrants.event_uuid, ticket[0].event_uuid),
-            eq(eventRegistrants.user_id, ticket[0].user_id)
-          )
-        )
+    await db.transaction(async (tx) => {
+      await tx
+        .update(tickets)
+        .set({
+          status: "USED" as TicketStatus,
+          updatedAt: new Date(),
+          updatedBy: "system_check-in",
+        })
+        .where(eq(tickets.order_uuid, ticketUuid))
         .execute();
-    }
+
+      if (ticket[0].user_id && ticket[0].event_uuid) {
+        await tx
+          .update(eventRegistrants)
+          .set({ status: "checkedin", updatedAt: new Date() })
+          .where(
+            and(
+              eq(eventRegistrants.event_uuid, ticket[0].event_uuid),
+              eq(eventRegistrants.user_id, ticket[0].user_id)
+            )
+          )
+          .execute();
+      }
+    });
 
     return ticket[0];
   }
@@ -139,19 +142,25 @@ export const checkInTicket = async (ticketUuid: string): Promise<CheckInTicketRe
     if (r.status === "checkedin") {
       return { alreadyCheckedIn: true };
     }
+    
+    if (r.status !== "approved") {
+      return { error: true, code: "NOT_APPROVED", message: `Registrant is ${r.status}` };
+    }
 
-    await db
-      .update(eventRegistrants)
-      .set({ status: "checkedin", updatedAt: new Date(), updatedBy: "system_check-in" })
-      .where(eq(eventRegistrants.registrant_uuid, ticketUuid))
-      .execute();
+    await db.transaction(async (tx) => {
+      await tx
+        .update(eventRegistrants)
+        .set({ status: "checkedin", updatedAt: new Date(), updatedBy: "system_check-in" })
+        .where(eq(eventRegistrants.registrant_uuid, ticketUuid))
+        .execute();
 
-    // Also update tickets table if present
-    await db
-      .update(tickets)
-      .set({ status: "USED" as TicketStatus, updatedAt: new Date(), updatedBy: "system_check-in" })
-      .where(and(eq(tickets.event_uuid, r.event_uuid), eq(tickets.user_id, r.user_id)))
-      .execute();
+      // Also update tickets table if present
+      await tx
+        .update(tickets)
+        .set({ status: "USED" as TicketStatus, updatedAt: new Date(), updatedBy: "system_check-in" })
+        .where(and(eq(tickets.event_uuid, r.event_uuid), eq(tickets.user_id, r.user_id)))
+        .execute();
+    });
 
     const info = (typeof r.register_info === "object" ? r.register_info : JSON.parse(String(r.register_info || "{}"))) as Record<string, string | null>;
     return {
@@ -180,17 +189,23 @@ export const checkInTicket = async (ticketUuid: string): Promise<CheckInTicketRe
         return { alreadyCheckedIn: true };
       }
 
-      await db
-        .update(eventRegistrants)
-        .set({ status: "checkedin", updatedAt: new Date(), updatedBy: "system_check-in" })
-        .where(eq(eventRegistrants.id, r.id))
-        .execute();
+      if (r.status !== "approved") {
+        return { error: true, code: "NOT_APPROVED", message: `Registrant is ${r.status}` };
+      }
 
-      await db
-        .update(tickets)
-        .set({ status: "USED" as TicketStatus, updatedAt: new Date(), updatedBy: "system_check-in" })
-        .where(eq(tickets.order_uuid, o.uuid))
-        .execute();
+      await db.transaction(async (tx) => {
+        await tx
+          .update(eventRegistrants)
+          .set({ status: "checkedin", updatedAt: new Date(), updatedBy: "system_check-in" })
+          .where(eq(eventRegistrants.id, r.id))
+          .execute();
+
+        await tx
+          .update(tickets)
+          .set({ status: "USED" as TicketStatus, updatedAt: new Date(), updatedBy: "system_check-in" })
+          .where(eq(tickets.order_uuid, o.uuid))
+          .execute();
+      });
 
       const info = (typeof r.register_info === "object" ? r.register_info : JSON.parse(String(r.register_info || "{}"))) as Record<string, string | null>;
       return {
@@ -206,10 +221,183 @@ export const checkInTicket = async (ticketUuid: string): Promise<CheckInTicketRe
   return null;
 };
 
+/**
+ * Fetches ticket pass data for the attendee-facing ticket view.
+ * Replaces the participant-tma HTTP loopback to /api/v1/event/:id/ticket
+ * with a direct Drizzle ORM query.
+ */
+export const fetchTicketPassByEventUuid = async (eventUuid: string, userId: number) => {
+  // 1. Get approved/checked-in registrant
+  const registrant = await db
+    .select()
+    .from(eventRegistrants)
+    .where(
+      and(
+        or(eq(eventRegistrants.status, "approved"), eq(eventRegistrants.status, "checkedin")),
+        eq(eventRegistrants.event_uuid, eventUuid),
+        eq(eventRegistrants.user_id, userId)
+      )
+    )
+    .limit(1)
+    .execute();
+
+  if (!registrant[0]) return null;
+
+  const reg = registrant[0];
+  const registerInfo = (typeof reg.register_info === "object"
+    ? reg.register_info
+    : JSON.parse(String(reg.register_info || "{}"))) as Record<string, string | null>;
+
+  // 2. Get event payment/ticket info
+  const paymentInfo = await db
+    .select()
+    .from(eventPayment)
+    .where(eq(eventPayment.event_uuid, eventUuid))
+    .limit(1)
+    .execute();
+
+  const payment = paymentInfo[0] || null;
+
+  // 3. Get NFT address if exists
+  const nft = await db
+    .select({ nft_address: nftItems.nft_address })
+    .from(nftItems)
+    .where(and(eq(nftItems.event_uuid, eventUuid), eq(nftItems.owner, userId)))
+    .limit(1)
+    .execute();
+
+  // 4. Get event data
+  const event = await db
+    .select({
+      title: events.title,
+      subtitle: events.subtitle,
+      description: events.description,
+      image_url: events.image_url,
+      sbt_collection_address: events.sbt_collection_address,
+      participationType: events.participationType,
+      location: events.location,
+      has_web3: events.has_web3,
+    })
+    .from(events)
+    .where(eq(events.event_uuid, eventUuid))
+    .limit(1)
+    .execute();
+
+  const isOnline = event[0]?.participationType === "online";
+  const meetingUrl =
+    isOnline && (reg.status === "approved" || reg.status === "checkedin") ? event[0]?.location ?? null : null;
+
+  // 5. Get SBT reward if ticket type is TSCSBT
+  let userSbtTicket: { data: { reward_link?: string } | null } | undefined;
+  if (payment?.ticket_type === "TSCSBT") {
+    const visitor = await db
+      .select({ id: visitors.id })
+      .from(visitors)
+      .where(and(eq(visitors.user_id, userId), eq(visitors.event_uuid, eventUuid)))
+      .limit(1)
+      .execute();
+
+    if (visitor[0]) {
+      const reward = await db
+        .select({ data: rewards.data })
+        .from(rewards)
+        .where(and(eq(rewards.visitor_id, visitor[0].id), eq(rewards.type, "ton_society_csbt_ticket")))
+        .limit(1)
+        .execute();
+
+      if (reward[0]) {
+        userSbtTicket = { data: (reward[0].data as { reward_link?: string } | null) ?? null };
+      }
+    }
+  }
+
+  // 6. Get Attendance SBT Badge info if checked in
+  let attendanceSbt: {
+    status: string;
+    itemAddress: string | null;
+    rewardLink: string | null;
+  } | null = null;
+
+  if (reg.status === "checkedin") {
+    const nativeSbt = await sbtDB.findUserSbtForEvent(userId, eventUuid);
+    if (nativeSbt && nativeSbt.status === "minted") {
+      attendanceSbt = {
+        status: "minted",
+        itemAddress: nativeSbt.itemAddress,
+        rewardLink: `https://tonviewer.com/${nativeSbt.itemAddress}`,
+      };
+    } else {
+      const visitor = await db
+        .select({ id: visitors.id })
+        .from(visitors)
+        .where(and(eq(visitors.user_id, userId), eq(visitors.event_uuid, eventUuid)))
+        .limit(1)
+        .execute();
+
+      if (visitor[0]) {
+        const rewardRow = await db
+          .select()
+          .from(rewards)
+          .where(and(eq(rewards.visitor_id, visitor[0].id), eq(rewards.type, "ton_society_sbt")))
+          .limit(1)
+          .execute();
+
+        if (rewardRow[0]) {
+          const rewardData = rewardRow[0].data as { reward_link?: string; sbt_address?: string } | null;
+          const isMinted = rewardRow[0].status === "created" || Boolean(rewardData?.reward_link);
+          attendanceSbt = {
+            status: isMinted ? "minted" : "waiting_for_wallet",
+            itemAddress: rewardData?.sbt_address || null,
+            rewardLink: rewardData?.reward_link || null,
+          };
+        } else {
+          attendanceSbt = {
+            status: "waiting_for_wallet",
+            itemAddress: null,
+            rewardLink: null,
+          };
+        }
+      } else {
+        attendanceSbt = {
+          status: "waiting_for_wallet",
+          itemAddress: null,
+          rewardLink: null,
+        };
+      }
+    }
+  }
+
+  return {
+    full_name: registerInfo?.full_name ?? "",
+    telegram: registerInfo?.telegram ?? "",
+    company: registerInfo?.company ?? null,
+    position: registerInfo?.position ?? null,
+    nftAddress: nft[0]?.nft_address ?? null,
+    status: reg.status ?? "approved",
+    orderUuid: reg.registrant_uuid,
+    eventUuid,
+    needsInfoUpdate: !registerInfo?.full_name,
+    inviteLink: reg.telegram_invite_link ?? null,
+    meetingUrl,
+    attendanceSbt,
+    ticketData: {
+      ticketImage: payment?.ticketImage || event[0]?.image_url || "",
+      eventTitle: event[0]?.title ?? "",
+      eventSubtitle: event[0]?.subtitle ?? null,
+      eventDescription: event[0]?.description ?? "",
+      collectionAddress: payment?.collectionAddress ?? event[0]?.sbt_collection_address ?? null,
+      participationType: event[0]?.participationType ?? "in_person",
+    },
+    userSbtTicket,
+    hasWeb3: Boolean(event[0]?.has_web3),
+  };
+};
+
 // Exporting the functions as part of ticketDB
 const ticketDB = {
   getTicketByUuid,
   checkInTicket,
+  fetchTicketPassByEventUuid,
 };
 
 export default ticketDB;

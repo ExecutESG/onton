@@ -1,68 +1,81 @@
-# Event Creation Lifecycle
+# Event Creation
 
-The Event Creation process is the core workflow for Organizers. It involves data validation, optional payment configuration, third-party integration (Ton Society), and moderation.
+> Last verified against dev: 2026-10-03
 
-## 1. Creation Flow (Technical)
+Main code: `addEvent` and `updateEvent` in `mini-app/src/server/routers/events.ts`.
 
-The `addEvent` mutation in `src/server/routers/events.ts` handles the entire process within a database transaction.
+## 1. Who can create
 
-### Phase 1: Validation
-*   **Organizer Verification:** Checks if the user is `ts_verified`. Unverified organizers cannot publish to certain Hubs.
-*   **Dates:** Ensures `end_date` > `start_date`.
-*   **Payment Config:** If it's a paid event, validates `capacity`, `ticket_type`, and `payment_token`.
+`addEvent` uses `initDataProtectedProcedure`: any logged-in, non-banned user. A user with role `user` is auto-promoted to `organizer` on their first event.
 
-### Phase 2: Database Insertion
-1.  **`events` Table:** Inserts core data (Title, Dates, Location, etc.).
-2.  **`eventPayment` Table:** (If paid) Stores price, recipient address, and NFT metadata.
-3.  **`orders` Table:** (If paid) Creates a `new` order of type `event_creation` for the organizer to pay the initial listing fee/gas.
-4.  **`eventFields` Table:** Inserts dynamic fields (e.g., custom registration questions).
+## 2. `addEvent` steps
 
-### Phase 3: External Integrations
-*   **Ton Society:** Calls `CreateTonSocietyDraft` to sync the event with the Ton Society ecosystem.
-*   **Telegram Notifications:**
-    *   **Verified Organizers:** Immediately posts to the official Events Channel.
-    *   **Unverified:** Sends a request to the **Moderation Group** via the Bot. The event remains hidden until approved.
+### Validation
+- Category must exist and be enabled (also checked in `updateEvent`).
+- Start and end dates must both be present. There is no `end > start` check in the router.
+- Secret phrase is accepted only for non-in-person events; it is trimmed, lowercased and bcrypt-hashed.
+- Paid events: `has_registration` is forced to `true`; `ONTON_WALLET_ADDRESS` must be configured; `capacity`, `ticket_type` and a known `token_id` are required.
 
-## 2. Event States
+### Insert (one DB transaction)
+1. `events`: `enabled: true`, `hidden` = true only for paid events (`shouldEventBeHidden` in `mini-app/src/db/modules/events.db.ts`), `capacity`, `has_approval`, `has_waiting_list`, `participationType`, `ticketToCheckIn = is_paid`, `has_web3`. Society hub defaults to "Onton" / 33.
+2. Paid only:
+   - `orders`: `order_type: event_creation`, `state: new`, price in TON from `getPaidEventPrice(capacity, ticketType)`.
+   - `event_payment_info`: price (≥ 0.001, 3 decimals), recipient, NFT title/image/video, `collectionAddress: null`.
+3. `event_fields`: custom fields, plus `secret_phrase_onton_input` when a secret phrase is set.
 
-*   **Draft/Hidden:** `enabled: false` or `hidden: true`.
-*   **Moderation Pending:** `moderationMessageId` exists, but not yet approved.
-*   **Published:** `enabled: true`, `hidden: false`.
+### TON Society (Decommissioned)
+- TON Society draft creation and activity registration have been removed.
 
-## 3. Updating Events
+### Publishing
+- **Free events**: published right away. The bot posts to the events channel and sends a post-publish moderation message to `MODERATION_GROUP_ID` with the menu Delist / Warn / Ban / Update.
+- **Paid events**: stay hidden until the `event_creation` order is paid. The `CreateEventOrders` cron (`mini-app/src/cronJobs/tasks/CreateEventOrders.ts`, every 19s) then sets `hidden: false, enabled: true`.
 
-The `updateEvent` mutation handles changes.
-*   **Critical Restrictions:** Cannot change `has_payment` status after creation.
-*   **Capacity Increase:** For paid events, increasing capacity triggers a *new* payment order (`event_capacity_increment`) that the organizer must pay before the new spots open up.
-
-## 4. Sequence Diagram
+The paid inputs in the UI are shown only when the `has_web3` toggle is on (`mini-app/src/app/_components/Event/steps/EventRegistration.tsx`).
 
 ```mermaid
 sequenceDiagram
     participant Org as Organizer
-    participant API as tRPC (events.ts)
+    participant API as "events.addEvent"
     participant DB as PostgreSQL
-    participant Ext as Ton Society
-    participant Mod as Moderation Bot
+    participant Bot as "Bot (channel + moderation group)"
+    participant Cron as "CreateEventOrders cron"
 
     Org->>API: addEvent(data)
-    API->>API: Validate Data & User Role
-    
-    rect rgb(240, 240, 240)
-        note right of API: Transaction Start
-        API->>DB: Insert Event Row
-        opt is Paid Event
-            API->>DB: Insert Payment Details
-            API->>DB: Create 'event_creation' Order
-        end
-        API->>Ext: Create Draft Activity
+    API->>API: Validate, promote user to organizer if needed
+    API->>DB: Insert event (+ payment info + creation order if paid)
+    alt Free event
+        API->>Bot: Channel post + moderation alert
+    else Paid event
+        Note over API,DB: Event hidden
+        Org->>DB: Pays event_creation order
+        Cron->>DB: hidden=false, enabled=true
     end
-
-    alt is Verified
-        API->>Mod: Post to Events Channel
-    else is Unverified
-        API->>Mod: Send to Moderation Group
-    end
-    
-    API-->>Org: Success (Event UUID)
+    API-->>Org: Event UUID
 ```
+
+## 3. Event visibility states
+
+| State | Columns |
+|---|---|
+| Published | `enabled: true`, `hidden: false` |
+| Hidden (unpaid paid event, delisted, quarantined) | `hidden: true` and/or `enabled: false` |
+
+Hidden or disabled events are visible only to the owner, admins and moderators (`getEvent`). `moderationMessageId` is not set by `addEvent`; `updateEvent` uses it for moderation follow-ups.
+
+## 4. `updateEvent`
+
+Access: `eventManagementProtectedProcedure` (admin, owning organizer, event `admin`).
+
+- `has_registration` cannot be changed. If the event had no registration, `has_approval`, `capacity` and `has_waiting_list` are reset.
+- `has_payment` cannot be changed; paid events must keep a capacity.
+- Raising capacity on a paid event creates or updates an `event_capacity_increment` order at **0.06 TON per extra seat**. Capacity stays at the old value until it is paid.
+- On paid events only the price and `recipient_address` of the payment info can change. The `bought_capacity` update is strictly scoped to the event.
+- `has_web3` keeps its old value if omitted.
+- `is_ts_verified` is always `false` (the ts_verified gate is retired).
+
+## 5. Reports and moderation
+
+- `reportEvent`: one report per user per event; reasons `phishing | impersonation | inappropriate | spam | other`.
+- 3 or more reports within 1 hour auto-quarantine the event (`hidden: true, enabled: false`, `updatedBy: system_auto_quarantine`) and alert the moderation group.
+- Moderation callbacks are handled in `telegram-bot/src/composers/moderationComposer.ts`: delist, relist, warn, ban (sets role `ban` and delists the organizer's events), dismiss report. Moderators are admins, users with the `moderator` flag in `user_custom_flags`, or Telegram IDs configured in the bot (env `ADMIN_TELEGRAM_ID` and a fixed list in code).
+- Menus: `mini-app/src/moderationBot/menu.ts`.

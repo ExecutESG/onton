@@ -43,7 +43,7 @@ export default function FeaturesSection() {
               check
               label={
                 <span>
-                  <strong>1-Click Free RSVP:</strong> Instant passes with zero wallet friction
+                  <strong>1-Tap RSVP:</strong> Instant registration with zero wallet friction
                 </span>
               }
             />
@@ -51,7 +51,7 @@ export default function FeaturesSection() {
               check
               label={
                 <span>
-                  <strong>Dual-Rail Checkout:</strong> Telegram Stars (Apple/Google Pay) + TON / USDT
+                  <strong>Flexible Checkout:</strong> Telegram Stars (Apple/Google Pay) or crypto (3% fee)
                 </span>
               }
             />
@@ -75,7 +75,7 @@ export default function FeaturesSection() {
               check
               label={
                 <span>
-                  <strong>Proof of Attendance:</strong> Mintable SBT badges & digital event memories
+                  <strong>Verified Attendance:</strong> Digital event badges and verified attendance records
                 </span>
               }
             />
@@ -91,7 +91,7 @@ export default function FeaturesSection() {
               check
               label={
                 <span>
-                  <strong>TON Society:</strong> Seamless integration with the broader TON ecosystem
+                  <strong>Portable Credentials:</strong> Verifiable credentials attendees own and carry across platforms
                 </span>
               }
             />
@@ -99,7 +99,7 @@ export default function FeaturesSection() {
               check
               label={
                 <span>
-                  <strong>Organizer Dashboard:</strong> Real-time attendance, guest list & analytics
+                  <strong>Organizer Dashboard:</strong> Real-time attendance, guest lists, and check-in stats
                 </span>
               }
             />

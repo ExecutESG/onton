@@ -19,10 +19,10 @@ export default function ONIONSection() {
                         Host with ONTON
                     </h2>
                     <h3 className="font-semibold text-[20px] md:text-[28px] mb-3 text-gray-700 leading-tight">
-                        Transform Your Community Gatherings into Unforgettable Events
+                        Tools to host, ticket, and verify attendance
                     </h3>
                     <p className="mb-6 md:mb-8 md:text-[17px] text-gray-600 leading-relaxed">
-                        Whether you are organizing a global Web3 conference, a developer hackathon, or a private VIP dinner, ONTON provides everything you need directly in Telegram. Collect Free RSVPs, accept Telegram Stars (Apple/Google Pay) or crypto, gate community chats automatically, and scan QR tickets at the door.
+                        Whether organizing a conference, hackathon, meetup, or private gathering, ONTON gives you everything in Telegram and on the web. Create free events with zero platform fees, accept Telegram Stars or crypto for tickets, gate community chats automatically, and verify attendance at the door.
                     </p>
 
                     <div className="flex flex-col sm:flex-row gap-3">

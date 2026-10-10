@@ -22,11 +22,17 @@ type ManageEventProps = {
   event?: RouterOutput["events"]["getEvent"];
 };
 
-const steps = [
+const fullSteps = [
   { icon: <span>1</span>, label: "General" },
   { icon: <span>2</span>, label: "Time/place" },
   { icon: <span>3</span>, label: "Registration" },
   { icon: <span>4</span>, label: "Reward" },
+];
+
+const simpleSteps = [
+  { icon: <span>1</span>, label: "General" },
+  { icon: <span>2</span>, label: "Time/place" },
+  { icon: <span>3</span>, label: "Registration" },
 ];
 
 /**
@@ -73,17 +79,16 @@ function ManageEvent({ event }: ManageEventProps) {
           end_date: event.end_date || undefined,
           location: event.location || undefined,
           category_id: event.category_id || undefined,
-          // @ts-ignore
-          society_hub: event.society_hub
-            ? {
-                id: event.society_hub.id,
-                name: event.society_hub.name,
-              }
-            : undefined,
           eventLocationType: event.participationType,
           countryId: event.countryId || undefined,
           cityId: event.cityId || undefined,
           ts_reward_url: event.tsRewardImage || undefined,
+          has_web3: Boolean(
+            event.has_web3 ||
+              event.tsRewardImage ||
+              event.payment_details?.ticket_type === "NFT" ||
+              event.payment_details?.ticket_type === "TSCSBT"
+          ),
 
           // Registration
           has_registration: Boolean(event.has_registration),
@@ -128,13 +133,14 @@ function ManageEvent({ event }: ManageEventProps) {
 
   // We'll read the numeric step from the store's currentSection
   const stepIndex = getStepIndex(getCurrentSection());
+  const activeSteps = eventData?.has_web3 ? fullSteps : simpleSteps;
 
   // 4) Render the Stepper & the relevant step content
   return (
     <>
       <Block className="!-mb-2">
         <Stepper
-          steps={steps}
+          steps={activeSteps}
           currentStep={stepIndex}
         />
       </Block>
@@ -143,7 +149,7 @@ function ManageEvent({ event }: ManageEventProps) {
         {isReset && stepIndex === 1 && <GeneralStep />}
         {isReset && stepIndex === 2 && <TimePlaceStep />}
         {isReset && stepIndex === 3 && <RegistrationStep />}
-        {isReset && stepIndex === 4 && <RewardStep />}
+        {isReset && stepIndex === 4 && eventData?.has_web3 && <RewardStep />}
       </Block>
     </>
   );

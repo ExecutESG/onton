@@ -23,12 +23,12 @@ wait $MINIO_PID
 #mc mb --ignore-existing local/${MINIO_VIDEO_BUCKET}
 #mc mb --ignore-existing local/${MINIO_DOC_BUCKET}
 #mc mb --ignore-existing local/${MINIO_DOC_DEFAULT_BUCKET}
-#mc anonymous set download local/${MINIO_COLLECTION_BUCKET}
-#mc anonymous set download local/${MINIO_ITEM_BUCKET}
-#mc anonymous set download local/${MINIO_IMAGE_BUCKET}
-#mc anonymous set download local/${MINIO_VIDEO_BUCKET}
-#mc anonymous set download local/${MINIO_DOC_BUCKET}
-#mc anonymous set download local/${MINIO_DOC_DEFAULT_BUCKET}
-#mc policy set download local/${MINIO_SBT_COLLECTIONS_BUCKET}
+mc anonymous set download local/${MINIO_COLLECTION_BUCKET} || true
+mc anonymous set download local/${MINIO_ITEM_BUCKET} || true
+mc anonymous set download local/${MINIO_IMAGE_BUCKET} || true
+mc anonymous set download local/${MINIO_VIDEO_BUCKET} || true
+mc anonymous set download local/${MINIO_DOC_BUCKET} || true
+mc anonymous set download local/${MINIO_DOC_DEFAULT_BUCKET} || true
+mc anonymous set download local/${MINIO_SBT_COLLECTIONS_BUCKET} || true
 
 

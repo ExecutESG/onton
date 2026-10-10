@@ -6,7 +6,9 @@ import * as jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
 import { z, ZodError } from "zod";
+import { checkRateLimit } from "@/lib/checkRateLimit";
 import "@/lib/gracefullyShutdown";
+import { getAuthJwtSecret, PLATFORM_JWT_ALGORITHM } from "@/server/utils/jwt";
 
 const userDataSchema = z.object({
   id: z.number(),
@@ -60,6 +62,15 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // Application-level rate limiting (30 requests per minute per user)
+    const rateLimit = await checkRateLimit(String(userdata.data.id), "auth_init_data", 30, 60);
+    if (!rateLimit.allowed) {
+      return Response.json(
+        { error: "too_many_requests", message: "Too many authentication requests. Please wait a minute." },
+        { status: 429, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     // Check if user exists in modules
     let user = (await db.select().from(users).where(eq(users.user_id, userdata.data.id)).execute()).pop();
 
@@ -88,7 +99,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Every time user signs in we generate another jwt token
+    // Every time user signs in we generate another jwt token (AUTH_JWT_SECRET only, #1051)
     const token = jwt.sign(
       {
         id: user?.user_id,
@@ -96,7 +107,8 @@ export async function GET(req: NextRequest) {
         // 6h expiration for jwt token
         exp: Math.floor(Date.now() / 1000) + JWT_COOKIE_EXPIRATION,
       },
-      process.env.BOT_TOKEN as string
+      getAuthJwtSecret(),
+      { algorithm: PLATFORM_JWT_ALGORITHM }
     );
     cookies().set("token", token, {
       // expiration 7 days

@@ -1,6 +1,6 @@
 x-common-extra-hosts: &default-extra-hosts
   extra_hosts:
-    - "${MINI_APP_DOMAIN}:${IP_RANGE_BASE}"
+    - "${MINI_APP_DOMAIN}:${IP_RANGE_BASE:-127.0.0.1}"
     - "host.docker.internal:host-gateway"
 
 x-common-env: &common-env
@@ -12,26 +12,25 @@ x-common-env: &common-env
   ENV: ${ENV}
   PGDATA: "/var/lib/postgresql/data/pgdata"
   GOLANG_SERVER_PORT: ${GOLANG_SERVER_PORT}
-  IP_CLAMAV: ${IP_CLAMAV}
-  IP_CLIENT_WEB: ${IP_CLIENT_WEB}
-  IP_METABASE: ${IP_METABASE}
-  IP_MINI_APP: ${IP_MINI_APP}
-  IP_MINIO: ${IP_MINIO}
-  IP_PARTICIPANT_TMA: ${IP_PARTICIPANT_TMA}
-  IP_PGADMIN: ${IP_PGADMIN}
-  IP_RANGE_BASE: ${IP_RANGE_BASE}
-  IP_SWAGGER_UI: ${IP_SWAGGER_UI}
-  IP_TELEGRAM_BOT: ${IP_TELEGRAM_BOT}
-  IP_WEBSITE: ${IP_WEBSITE}
-  IP_NFT_MANAGER: ${IP_NFT_MANAGER}
-  IP_RABBITMQ: ${IP_RABBITMQ}
-  IP_REDIS: ${IP_REDIS}
+  IP_CLAMAV: ${IP_CLAMAV:-clamav}
+  IP_CLIENT_WEB: ${IP_CLIENT_WEB:-client-web}
+  IP_METABASE: ${IP_METABASE:-metabase}
+  IP_MINI_APP: ${IP_MINI_APP:-mini-app}
+  IP_MINIO: ${IP_MINIO:-minio}
+  IP_PGADMIN: ${IP_PGADMIN:-pgadmin}
+  IP_RANGE_BASE: ${IP_RANGE_BASE:-127.0.0.1}
+  IP_SWAGGER_UI: ${IP_SWAGGER_UI:-swagger-ui}
+  IP_TELEGRAM_BOT: ${IP_TELEGRAM_BOT:-telegram-bot}
+  IP_WEBSITE: ${IP_WEBSITE:-website}
+  IP_NFT_MANAGER: ${IP_NFT_MANAGER:-nft-manager}
+  IP_RABBITMQ: ${IP_RABBITMQ:-rabbitmq}
+  IP_REDIS: ${IP_REDIS:-redis}
   LOCAL_DOMAIN: ${LOCAL_DOMAIN}
   METABASE_DOMAIN: ${METABASE_DOMAIN}
   MINI_APP_DOMAIN: ${MINI_APP_DOMAIN}
   MINI_APP_PORT: ${MINI_APP_PORT}
   MINIO_DASHBOARD_PORT: ${MINIO_DASHBOARD_PORT}
-  MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+  MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio}
   MINIO_PORT: ${MINIO_PORT}
   MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL}
   MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
@@ -44,7 +43,6 @@ x-common-env: &common-env
   NEXT_PUBLIC_GTM: ${NEXT_PUBLIC_GTM}
   NEXT_PUBLIC_BOT_USERNAME: ${NEXT_PUBLIC_BOT_USERNAME}
   NODE_ENV: ${NODE_ENV}
-  NODE_TLS_REJECT_UNAUTHORIZED: ${NODE_TLS_REJECT_UNAUTHORIZED}
   ONTON_API_KEY: ${ONTON_API_KEY}
   ONTON_DOMAIN: ${ONTON_DOMAIN}
   PARTICIPANT_TMA_PORT: ${PARTICIPANT_TMA_PORT}
@@ -64,7 +62,7 @@ x-common-env: &common-env
   RABBITMQ_MANAGEMENT_PORT: ${RABBITMQ_MANAGEMENT_PORT}
   RABBITMQ_NODE_PORT: ${RABBITMQ_NODE_PORT}
   REDIS_DATABASES: ${REDIS_DATABASES}
-  REDIS_HOST: ${IP_REDIS}
+  REDIS_HOST: ${REDIS_HOST:-${IP_REDIS:-redis}}
   REDIS_PASSWORD: ${REDIS_PASSWORD}
   REDIS_PORT: ${REDIS_PORT}
   TELEGRAM_BOT_PORT: ${TELEGRAM_BOT_PORT}
@@ -83,6 +81,11 @@ x-common-env: &common-env
   USE_CLOUDFLARE: ${USE_CLOUDFLARE}
   CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN}
   EVENT_WALLET_ENC_KEY: ${EVENT_WALLET_ENC_KEY}
+  AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-}
+  TOTP_SECRET: ${TOTP_SECRET:-}
+  BOT_API_HMAC_SECRET: ${BOT_API_HMAC_SECRET:-}
+  MNEMONIC: ${MNEMONIC:-}
+  CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
 
 services:
   caddy:
@@ -106,8 +109,7 @@ services:
       - ./devops/generate-caddyfile.sh:/usr/bin/envsh/generate-caddyfile.sh:delegate
       - ./devops/cert:/certs
     networks:
-      onton-network:
-        ipv4_address: "${IP_CADDY}"
+      - onton-network
     environment:
       <<: *common-env
     <<: *default-extra-hosts
@@ -125,8 +127,7 @@ services:
       - minimal
       - full
     networks:
-      onton-network:
-        ipv4_address: "${IP_MINIO}"
+      - onton-network
     ports:
       - "${MINIO_PORT}:${MINIO_PORT}"
       - "${MINIO_DASHBOARD_PORT}:${MINIO_DASHBOARD_PORT}"
@@ -154,8 +155,7 @@ services:
     volumes:
       - ./data/db_data:/var/lib/postgresql/data
     networks:
-      onton-network:
-        ipv4_address: "${IP_POSTGRES}"
+      - onton-network
 
   redis:
     image: redis:7.4.1-bookworm
@@ -171,12 +171,11 @@ services:
       - expecting-mini-app
       - minimal
       - full
-    command: redis-server --save "" --appendonly no --requirepass ${REDIS_PASSWORD}
+    command: sh -c 'if [ -n "$${REDIS_PASSWORD}" ]; then exec redis-server --save "" --appendonly no --requirepass "$${REDIS_PASSWORD}"; else exec redis-server --save "" --appendonly no; fi'
     environment:
       <<: *common-env
     networks:
-      onton-network:
-        ipv4_address: ${IP_REDIS}
+      - onton-network
 
   clamav:
     image: mkodockx/docker-clamav
@@ -195,8 +194,7 @@ services:
       - clamav_data:/var/lib/clamav # Persist virus definition database
     restart: unless-stopped
     networks:
-      onton-network:
-        ipv4_address: "${IP_CLAMAV}"
+      - onton-network
 
   pgadmin:
     image: dpage/pgadmin4
@@ -214,8 +212,7 @@ services:
     depends_on:
       - postgres
     networks:
-      onton-network:
-        ipv4_address: ${IP_PGADMIN}
+      - onton-network
     volumes:
       - pgadmin:/var/lib/pgadmin
 
@@ -236,8 +233,7 @@ services:
     depends_on:
       - postgres
     networks:
-      onton-network:
-        ipv4_address: "${IP_TELEGRAM_BOT}"
+      - onton-network
 
   mini-app:
     hostname: mini-app
@@ -272,8 +268,7 @@ services:
     volumes:
       - ./data/drizzle_data:/app/drizzle
     networks:
-      onton-network:
-        ipv4_address: ${IP_MINI_APP}
+      - onton-network
 
   mini-app-sbt-worker:
     hostname: mini-app-sbt-worker
@@ -371,31 +366,8 @@ services:
       - onton-network
     command: [ "yarn", "run", "start-cron-ordinary" ]
 
-  mini-app-moderation-bot:
-    hostname: mini-app-moderation-bot
-    container_name: ${ENV}-mini-app-moderation-bot
-    build:
-      context: ./mini-app
-      target: production
-      args:
-        <<: *common-env
-    restart: "unless-stopped"
-    stop_grace_period: 10s
-    stop_signal: SIGTERM
-    profiles:
-      - full
-    environment:
-      <<: *common-env
-    depends_on:
-      - postgres
-      - redis
-    volumes:
-      - ./data/drizzle_data:/app/drizzle
-    networks:
-      onton-network:
-        ipv4_address: "${IP_MINI_APP_MODERATION}"
-    command: [ "yarn", "run", "start:moderation" ]
   mini-app-poa-worker:
+
     hostname: mini-app-poa-worker
     container_name: ${ENV}-mini-app-poa-worker
     build:
@@ -417,8 +389,7 @@ services:
     volumes:
       - ./data/drizzle_data:/app/drizzle
     networks:
-      onton-network:
-        ipv4_address: "${IP_POA_WORKER}"
+      - onton-network
     command: [ "yarn", "run", "start:poa" ]
 
   mini-app-notification-socket:
@@ -445,29 +416,17 @@ services:
     volumes:
       - ./data/drizzle_data:/app/drizzle
     networks:
-      onton-network:
-        ipv4_address: "${IP_SOCKET}"
+      - onton-network
     command: [ "yarn", "run", "start:socket" ]
 
-  participant-tma:
-    hostname: participant-tma
-    container_name: ${ENV}-participant-tma
-    <<: *default-extra-hosts
-    ports:
-      - "${PARTICIPANT_TMA_PORT}:${PARTICIPANT_TMA_PORT}"
-    profiles:
-      - full
-    build:
-      context: ./newton/
-      dockerfile: ./apps/participant-tma/Dockerfile
-      args:
-        <<: *common-env
-    restart: "unless-stopped"
-    environment:
-      <<: *common-env
-    networks:
-      onton-network:
-        ipv4_address: "${IP_PARTICIPANT_TMA}"
+  # participant-tma: DECOMMISSIONED — consolidated into mini-app (epic #1022)
+  # hostname: participant-tma
+  # container_name: ${ENV}-participant-tma
+  # profiles:
+  #   - full
+  # build:
+  #   context: ./newton/
+  #   dockerfile: ./apps/participant-tma/Dockerfile
 
   website:
     hostname: website
@@ -484,8 +443,7 @@ services:
     environment:
       <<: *common-env
     networks:
-      onton-network:
-        ipv4_address: ${IP_WEBSITE}
+      - onton-network
 
   metabase:
     image: metabase/metabase:v0.50.18.3
@@ -509,8 +467,7 @@ services:
       MB_ENCRYPTION_SECRET_KEY: ${MB_ENCRYPTION_SECRET_KEY}
       MB_REDIRECT_ALL_REQUESTS_TO_HTTPS: ${MB_REDIRECT_ALL_REQUESTS_TO_HTTPS}
     networks:
-      onton-network:
-        ipv4_address: ${IP_METABASE}
+      - onton-network
     depends_on:
       - postgres
     healthcheck:
@@ -550,8 +507,7 @@ services:
     #    depends_on:
     #      - caddy
     networks:
-      onton-network:
-        ipv4_address: ${IP_CLIENT_WEB}
+      - onton-network
   rabbitmq:
     image: "rabbitmq:4.0.4-management-alpine"
     container_name: ${ENV}-rabbitmq
@@ -578,8 +534,7 @@ services:
     restart: unless-stopped
     tty: true
     networks:
-      onton-network:
-        ipv4_address: ${IP_RABBITMQ}
+      - onton-network
 
   swagger-ui:
     image: swaggerapi/swagger-ui
@@ -608,11 +563,7 @@ services:
 networks:
   onton-network:
     driver: bridge
-    name: ${NETWORK_NAME}
-
-    ipam:
-      config:
-        - subnet: "${IP_RANGE_START}.0.0/${IP_RANGE_SUBNET}"
+    name: ${NETWORK_NAME:-onton-network}
 volumes:
   pgadmin:
   clamav_data:

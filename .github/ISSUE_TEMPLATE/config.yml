@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: "💬 ONTON Dev & QA Team Chat"
+    url: "https://t.me/ontonadmin"
+    about: "For urgent sync, staging environment downtime, or real-time blockers"

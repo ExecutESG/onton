@@ -49,20 +49,17 @@ export default function ActionCard({ onClick, iconSrc, title, subtitle, footerTe
           >
             {subtitle}
           </Typography>
-          <Typography
-            variant="caption1"
-            className="mt-auto flex gap-4"
-          >
+          <div className="mt-auto flex flex-wrap items-center gap-3 text-xs text-gray-500">
             {footerTexts.map((text, index) => (
               <div
                 key={index}
-                className={text.variant === "error" ? "text-red-500" : ""}
+                className={cn("flex items-center gap-1", text.variant === "error" ? "text-red-500" : "")}
               >
-                {text.count !== undefined && <b>{text.count} </b>}
-                {text.items}
+                {text.count !== undefined && <span className="font-semibold text-gray-800 dark:text-gray-200">{text.count}</span>}
+                <span>{text.items}</span>
               </div>
             ))}
-          </Typography>
+          </div>
         </div>
         <div className="self-center">
           <ArrowRight className="text-main-button-color" />

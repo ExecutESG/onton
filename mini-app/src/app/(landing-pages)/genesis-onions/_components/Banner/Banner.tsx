@@ -24,9 +24,11 @@ export const Banner = ({ className }: Props) => {
   const endDate = useMemo(() => new Date(Number(configEndDate[1])), [configEndDate[1]]);
   console.log(endDate);
   const handleOnClick = () => {
-    // telegram web app open link
-    if (window.Telegram?.WebApp?.openLink) {
-      window.Telegram.WebApp.openLink(TBOOK_FAIRLAUNCH_MINIAPP_URL);
+    const wa = typeof window !== "undefined" ? window.Telegram?.WebApp : undefined;
+    if (wa?.openLink) {
+      wa.openLink(TBOOK_FAIRLAUNCH_MINIAPP_URL);
+    } else if (typeof window !== "undefined") {
+      window.open(TBOOK_FAIRLAUNCH_MINIAPP_URL, "_blank", "noopener,noreferrer");
     }
   };
 

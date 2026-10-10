@@ -2,6 +2,7 @@ import { db } from "@/db/db";
 import { apiKeyAuthentication, getAuthenticatedUser } from "@/server/auth";
 import { NextRequest } from "next/server";
 import "@/lib/gracefullyShutdown";
+import { config } from "@/server/config";
 
 type OptionsProps = {
   params: {
@@ -12,7 +13,7 @@ type OptionsProps = {
 export async function GET(req: NextRequest, { params }: OptionsProps) {
   const orderId = params.order_id;
 
-  const [, error] = getAuthenticatedUser();
+  const [, error] = getAuthenticatedUser(req);
   const apiKeyError = apiKeyAuthentication(req);
   if (error && apiKeyError) return error || apiKeyError;
 
@@ -44,10 +45,23 @@ export async function GET(req: NextRequest, { params }: OptionsProps) {
 
   if (!eventPaymentInfo) return Response.json({ message: "event_ticket_not_found" }, { status: 404 });
 
+  let tier = null;
+  if (order.tier_id) {
+    tier = await db.query.eventTicketTiers.findFirst({
+      where(fields, { eq }) {
+        return eq(fields.id, order.tier_id!);
+      },
+    });
+  }
+
   return Response.json({
     ...order,
+    platform_fee_raw: order.platform_fee_raw != null ? order.platform_fee_raw.toString() : null,
+    organizer_amount_raw: order.organizer_amount_raw != null ? order.organizer_amount_raw.toString() : null,
     total_price: order.total_price,
+    recipient_address: eventPaymentInfo.recipient_address || config?.ONTON_WALLET_ADDRESS || null,
     nft_collection_address: eventPaymentInfo.collectionAddress,
+    tier,
     tickets,
   });
 }

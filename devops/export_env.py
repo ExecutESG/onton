@@ -35,7 +35,9 @@ def main():
     with open(output_file, "a" if mode == "build_args" else "w") as f:
         for k, v in sorted(all_vars.items()):
             if mode == "build_args":
-                f.write(f"{k}={v}\n")
+                # Only pass non-sensitive build arguments (#1053)
+                if k.startswith("NEXT_PUBLIC_") or k in {"COMMIT_SHA", "COMMIT_AUTHOR", "PACKAGE_MANAGER"}:
+                    f.write(f"{k}={v}\n")
             else:
                 if v.isdigit():
                     f.write(f"{k}={v}\n")

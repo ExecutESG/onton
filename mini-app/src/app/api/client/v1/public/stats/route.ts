@@ -15,7 +15,6 @@ export async function GET() {
     if (cached) {
       return NextResponse.json(cached, {
         headers: {
-          "Access-Control-Allow-Origin": "*",
           "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300",
         },
       });
@@ -69,30 +68,22 @@ export async function GET() {
 
     return NextResponse.json(responsePayload, {
       headers: {
-        "Access-Control-Allow-Origin": "*",
         "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300",
       },
     });
   } catch (error) {
     console.error("Error fetching public stats:", error);
     // Graceful fallback payload so API never fails
-    return NextResponse.json(
-      {
-        success: true,
-        data: {
-          totalEvents: 2415,
-          totalTickets: 4810,
-          totalUsers: 931793,
-          totalSBTs: 13190848,
-          featuredEvents: [],
-          updatedAt: new Date().toISOString(),
-        },
+    return NextResponse.json({
+      success: true,
+      data: {
+        totalEvents: 2415,
+        totalTickets: 4810,
+        totalUsers: 931793,
+        totalSBTs: 13190848,
+        featuredEvents: [],
+        updatedAt: new Date().toISOString(),
       },
-      {
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-        },
-      }
-    );
+    });
   }
 }

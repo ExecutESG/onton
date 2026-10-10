@@ -1,11 +1,12 @@
 import { db } from "@/db/db";
 import { orders } from "@/db/schema/orders";
-import { and, asc, count, eq, isNotNull, or } from "drizzle-orm";
+import { events } from "@/db/schema/events";
+import { and, asc, count, eq, isNotNull, or, sql } from "drizzle-orm";
 import { logger } from "@/server/utils/logger";
 import { Address } from "@ton/core";
 import { eventPayment } from "@/db/schema/eventPayment";
 import { eventRegistrants } from "@/db/schema/eventRegistrants";
-import { CsbtTicket } from "@/services/rewardsService";
+import { sbtService } from "@/services/sbtService";
 import { selectUserById } from "@/db/modules/users.db";
 import { sendLogNotification } from "@/lib/tgBot";
 import { callTonfestForOnOntonPayment } from "@/cronJobs/helper/callTonfestForOnOntonPayment";
@@ -15,6 +16,8 @@ import { couponItemsDB } from "@/db/modules/couponItems.db";
 import { is_mainnet } from "@/services/tonCenter";
 import eventDB from "@/db/modules/events.db";
 import eventTokensDB from "@/db/modules/eventTokens.db";
+import { eventTicketTiersDB } from "@/db/modules/eventTicketTiers.db";
+import { sendOversellAdminAlert } from "@/lib/notifications/adminAlert";
 
 export const TsCsbtTicketOrder = async (pushLockTTl: () => any) => {
   // Get Orders to be Minted
@@ -71,12 +74,139 @@ export const TsCsbtTicketOrder = async (pushLockTTl: () => any) => {
         logger.error(`TsCsbtTicketOrder: no ticketActivityId for event ${event_uuid}`);
         continue;
       }
-      try {
+      // Capacity check strictly BEFORE on-chain minting and side effects
+      let isSoldOut = false;
+      const orderClaimed = await db.transaction(async (trx) => {
+        const [locked] = await trx
+          .select({ uuid: orders.uuid, state: orders.state, inventory_reserved: orders.inventory_reserved, tier_id: orders.tier_id })
+          .from(orders)
+          .where(and(eq(orders.uuid, ordr.uuid), eq(orders.state, "processing")))
+          .for("update")
+          .execute();
+
+        if (!locked) return false;
+
+        if (!locked.inventory_reserved) {
+          if (locked.tier_id) {
+            const { isSoldOut: tierSoldOut } = await eventTicketTiersDB.lockAndCheckTierCapacityTrx(trx, locked.tier_id);
+            if (tierSoldOut) {
+              isSoldOut = true;
+            } else {
+              await eventTicketTiersDB.incrementTierSoldCountTrx(trx, locked.tier_id, 1);
+              await trx.update(orders).set({ inventory_reserved: true, reserved_at: new Date() }).where(eq(orders.uuid, ordr.uuid)).execute();
+            }
+          } else if (ordr.event_uuid) {
+            const [lockedEv] = await trx
+              .select({ capacity: events.capacity })
+              .from(events)
+              .where(eq(events.event_uuid, ordr.event_uuid))
+              .for("update")
+              .execute();
+
+            if (lockedEv?.capacity && lockedEv.capacity > 0) {
+              const [{ count: activeTicketsCount }] = await trx
+                .select({ count: sql`count(*)`.mapWith(Number) })
+                .from(orders)
+                .where(
+                  and(
+                    eq(orders.event_uuid, ordr.event_uuid),
+                    or(
+                      eq(orders.state, "completed"),
+                      eq(orders.state, "processing"),
+                      eq(orders.state, "confirming"),
+                      eq(orders.state, "new")
+                    ),
+                    eq(orders.order_type, ordr.order_type)
+                  )
+                )
+                .execute();
+
+              if (activeTicketsCount >= lockedEv.capacity) {
+                isSoldOut = true;
+              } else {
+                await trx.update(orders).set({ inventory_reserved: true, reserved_at: new Date() }).where(eq(orders.uuid, ordr.uuid)).execute();
+              }
+            } else {
+              await trx.update(orders).set({ inventory_reserved: true, reserved_at: new Date() }).where(eq(orders.uuid, ordr.uuid)).execute();
+            }
+          }
+        }
+
+        if (isSoldOut) {
+          logger.error(`[Oversell Guard] Capacity exceeded for legacy TSCSBT order ${ordr.uuid}. Marking failed.`);
+          await trx
+            .update(orders)
+            .set({ state: "failed", last_error: "capacity_exceeded_refund_required", updatedAt: new Date() })
+            .where(eq(orders.uuid, ordr.uuid))
+            .execute();
+          return false;
+        }
+
+        await trx
+          .update(orders)
+          .set({ updatedBy: `csbt_lock_${Date.now()}` })
+          .where(eq(orders.uuid, ordr.uuid))
+          .execute();
+
+        return true;
+      });
+
+      if (isSoldOut) {
+        await sendOversellAdminAlert({
+          orderUuid: ordr.uuid,
+          eventUuid: event_uuid || undefined,
+          trxHash: ordr.trx_hash,
+          reason: "capacity_exceeded_refund_required",
+        });
+        continue;
+      }
+
+      if (!orderClaimed) {
+        logger.warn(`TsCsbtTicketOrder: order ${ordr.uuid} already processed or claimed`);
+        continue;
+      }
+
+      // Option A (#1060): Skip on-chain mint for 0-price orders (e.g. 100% coupon or 0-price tier)
+      const isZeroPrice = Number(ordr.total_price) <= 0;
+      if (!isZeroPrice) {
+        try {
+          logger.log(`call sbtService.mintSbtBadge for event ${event_uuid} user ${ordr.user_id} order ${ordr.uuid}`);
+          await sbtService.mintSbtBadge({
+            eventUuid: event_uuid!,
+            userId: ordr.user_id ?? undefined,
+            walletAddress: ordr.owner_address,
+            badgeTitle: `${paymentInfo.title} (SBT Ticket)`,
+            badgeDescription: paymentInfo.description || `Soulbound Ticket for ${paymentInfo.title}`,
+            badgeImage: paymentInfo.ticketImage || undefined,
+            attributes: [
+              { trait_type: "Ticket Type", value: "Soulbound Ticket" },
+              { trait_type: "Price", value: `${paymentInfo.price} ${paymentToken.symbol}` },
+            ],
+          });
+          await callTonfestForOnOntonPayment(ordr, event_uuid!!);
+          await callPridipieForOnOntonPayment(ordr, event_uuid!!);
+        } catch (error) {
+          console.log("create_tscsbt_ticket_failed", error);
+          continue;
+        }
+      } else {
+        logger.info(`[Option A] 0-price ts_csbt_ticket order ${ordr.uuid} skips on-chain SBT mint.`);
+      }
+
+      await db.transaction(async (trx) => {
+        const updateResult = (
+          await trx.update(orders).set({ state: "completed", updatedAt: new Date() }).where(eq(orders.uuid, ordr.uuid)).returning().execute()
+        ).pop();
+        // make coupon item used
+        if (ordr.coupon_id !== null) await couponItemsDB.makeCouponItemUsedTrx(trx, ordr.coupon_id, ordr.event_uuid!);
+        // Increment Affiliate Purchase
+        if (updateResult && updateResult.utm_source)
+          await affiliateLinksDB.incrementAffiliatePurchase(updateResult.utm_source);
+
         if (ordr.user_id) {
-          // if ordr.user_id === null order is manual mint(Gift)
-          await db
+          await trx
             .update(eventRegistrants)
-            .set({ status: "approved" })
+            .set({ status: "approved", updatedAt: new Date() })
             .where(
               and(
                 eq(eventRegistrants.event_uuid, ordr.event_uuid!),
@@ -88,25 +218,6 @@ export const TsCsbtTicketOrder = async (pushLockTTl: () => any) => {
 
           logger.log(`tscsbt_user_approved_${ordr.user_id}`);
         }
-        logger.log(`call CsbtTicket for event ${event_uuid} user ${ordr.user_id} order ${ordr.uuid}`);
-
-        await CsbtTicket(event_uuid!, ordr.user_id!);
-        await callTonfestForOnOntonPayment(ordr, event_uuid!!);
-        await callPridipieForOnOntonPayment(ordr, event_uuid!!);
-      } catch (error) {
-        console.log("create_tscsbt_ticket_failed", error);
-        continue;
-      }
-
-      await db.transaction(async (trx) => {
-        const updateResult = (
-          await trx.update(orders).set({ state: "completed" }).where(eq(orders.uuid, ordr.uuid)).returning().execute()
-        ).pop();
-        // make coupon item used
-        if (ordr.coupon_id !== null) await couponItemsDB.makeCouponItemUsedTrx(trx, ordr.coupon_id, ordr.event_uuid!);
-        // Increment Affiliate Purchase
-        if (updateResult && updateResult.utm_source)
-          await affiliateLinksDB.incrementAffiliatePurchase(updateResult.utm_source);
 
         logger.log(`tscsbt_order_completed_${ordr.uuid}`);
       });

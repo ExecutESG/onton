@@ -1,7 +1,8 @@
-import { bigint, index, integer, pgTable, text, timestamp, uuid, real, pgEnum } from "drizzle-orm/pg-core";
+import { bigint, boolean, index, integer, pgTable, text, timestamp, uuid, real, pgEnum } from "drizzle-orm/pg-core";
 import { coupon_items, eventTokens, orderState } from "@/db/schema";
 import { events } from "@/db/schema/events";
 import { users } from "@/db/schema/users";
+import { eventTicketTiers } from "./eventTicketTiers";
 import { InferSelectModel, relations } from "drizzle-orm";
 
 export const orderTypeValues = [
@@ -33,6 +34,8 @@ export const orders = pgTable(
     trx_hash: text("trx_hash"),
 
     utm_source: text("utm_source").default(""),
+    retry_count: integer("retry_count").default(0).notNull(),
+    last_error: text("last_error"),
     created_at: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at", {
       mode: "date",
@@ -40,6 +43,13 @@ export const orders = pgTable(
     }).$onUpdate(() => new Date()),
     updatedBy: text("updated_by").default("system").notNull(),
     coupon_id: bigint("coupon_id", { mode: "number" }).references(() => coupon_items.id),
+    tier_id: integer("tier_id").references(() => eventTicketTiers.id),
+    platform_fee_raw: bigint("platform_fee_raw", { mode: "bigint" }),
+    organizer_amount_raw: bigint("organizer_amount_raw", { mode: "bigint" }),
+    fee_bps: integer("fee_bps"),
+    notified_at: timestamp("notified_at", { withTimezone: true, mode: "date" }),
+    inventory_reserved: boolean("inventory_reserved").default(false).notNull(),
+    reserved_at: timestamp("reserved_at", { mode: "date" }),
   },
   (table) => ({
     eventUuidIdx: index("orders_event_uuid_idx").on(table.event_uuid),
@@ -48,6 +58,9 @@ export const orders = pgTable(
     ownerAddressIdx: index("orders_owner_address_idx").on(table.owner_address),
     couponIdIdx: index("orders_coupon_id_idx").on(table.coupon_id),
     walletAddressIdx: index("orders_wallet_address_idx").on(table.owner_address),
+    retryCountIdx: index("orders_retry_count_idx").on(table.retry_count),
+    tierIdIdx: index("orders_tier_id_idx").on(table.tier_id),
+    inventoryReservedIdx: index("orders_inventory_reserved_idx").on(table.inventory_reserved),
     //One event_creation per event_uuid
     // uniqueEventCreation: uniqueIndex("unique_event_creation").on(table.event_uuid, table.order_type).where(eq(table.order_type, "event_creation")),
   })
@@ -66,6 +79,10 @@ export const orderRelations = relations(orders, ({ one }) => ({
   token: one(eventTokens, {
     fields: [orders.token_id],
     references: [eventTokens.token_id],
+  }),
+  tier: one(eventTicketTiers, {
+    fields: [orders.tier_id],
+    references: [eventTicketTiers.id],
   }),
 }));
 

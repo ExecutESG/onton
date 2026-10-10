@@ -1,12 +1,12 @@
 import { db } from "@/db/db";
 import { RewardStatus, RewardType } from "@/db/enum";
-import { RewardTonSocietyStatusType, visitors } from "@/db/schema";
+import { events, RewardTonSocietyStatusType, visitors } from "@/db/schema";
 import { RewardType as RewardTypeParitial } from "@/types/event.types";
 
 import { RewardDataTyepe, rewards, RewardsSelectType, RewardVisitorTypePartial } from "@/db/schema/rewards";
 import { redisTools } from "@/lib/redisTools";
 import { Maybe } from "@trpc/server";
-import { and, eq, sql, or, asc, inArray } from "drizzle-orm";
+import { and, eq, sql, or, asc, desc, inArray } from "drizzle-orm";
 import { logger } from "@/server/utils/logger";
 
 export interface RewardChunkRow {
@@ -460,6 +460,42 @@ export const markRewardsAsCreated = async (
   return updatedRows;
 };
 
+export const findUserClaimedTonSocietyBadges = async (userId: number) => {
+  return await db
+    .select({
+      rewardId: rewards.id,
+      rewardData: rewards.data,
+      tonSocietyStatus: rewards.tonSocietyStatus,
+      rewardStatus: rewards.status,
+      createdAt: rewards.created_at,
+      eventUuid: events.event_uuid,
+      eventTitle: events.title,
+      eventDescription: events.description,
+      eventImage: events.image_url,
+      eventRewardImage: events.tsRewardImage,
+      eventStartDate: events.start_date,
+      eventEndDate: events.end_date,
+      eventLocation: events.location,
+      eventParticipationType: events.participationType,
+      sbtCollectionAddress: events.sbt_collection_address,
+    })
+    .from(rewards)
+    .innerJoin(visitors, eq(rewards.visitor_id, visitors.id))
+    .innerJoin(events, eq(visitors.event_uuid, events.event_uuid))
+    .where(
+      and(
+        eq(visitors.user_id, userId),
+        eq(rewards.type, "ton_society_sbt"),
+        or(
+          inArray(rewards.tonSocietyStatus, ["CLAIMED", "RECEIVED"]),
+          and(eq(rewards.status, "created"), sql`${rewards.data}->>'sbt_address' IS NOT NULL`)
+        )
+      )
+    )
+    .orderBy(desc(rewards.created_at))
+    .execute();
+};
+
 const rewardDB = {
   checkExistingReward,
   insert,
@@ -481,6 +517,7 @@ const rewardDB = {
   checkExistingRewardWithType,
   markRewardsAsCreated,
   fetchCreatedRewards,
+  findUserClaimedTonSocietyBadges,
 };
 
 export default rewardDB;

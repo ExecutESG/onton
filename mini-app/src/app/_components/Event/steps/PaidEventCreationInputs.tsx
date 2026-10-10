@@ -181,8 +181,7 @@ function TicketType() {
       footer={
         <>
           <p>
-            Ticket details cannot be changed after event is created. Ticked will be minted as NFT (Transferable) or cSBT
-            (Soul-Bound, users can not transfer or sell the tickets).
+            Ticket details cannot be changed after event is created. Tickets will be minted as NFT (Transferable).
           </p>
           <Segmented
             strong
@@ -200,18 +199,19 @@ function TicketType() {
             >
               NFT
             </SegmentedButton>
-            <SegmentedButton
-              strong
-              active={ticketType === "TSCSBT"}
-              onClick={(e) => {
-                e.preventDefault();
-                if (!isEdit) changeTicketType("TSCSBT");
-              }}
-              itemType="button"
-              className={cn(ticketType === "TSCSBT" && "text-black font-extrabold")}
-            >
-              cSBT
-            </SegmentedButton>
+            {isEdit && ticketType === "TSCSBT" && (
+              <SegmentedButton
+                strong
+                active={ticketType === "TSCSBT"}
+                onClick={(e) => {
+                  e.preventDefault();
+                }}
+                itemType="button"
+                className={cn(ticketType === "TSCSBT" && "text-black font-extrabold")}
+              >
+                SBT (Soulbound - Legacy)
+              </SegmentedButton>
+            )}
           </Segmented>
         </>
       }
@@ -227,7 +227,7 @@ function NFTImage() {
     isEdit: Boolean(state.edit?.eventHash),
   }));
   const { payment } = useCreateEventStore((state) => ({ payment: state.eventData.paid_event }));
-  const label = payment.ticket_type === "TSCSBT" ? "cSBT" : "NFT";
+  const label = payment.ticket_type === "TSCSBT" ? "SBT" : "NFT";
 
   return (
     <UploadImageFile
@@ -250,7 +250,7 @@ function NFTVideo() {
     isEdit: Boolean(state.edit?.eventHash),
   }));
   const { payment } = useCreateEventStore((state) => ({ payment: state.eventData.paid_event }));
-  const label = payment.ticket_type === "TSCSBT" ? "cSBT" : "NFT";
+  const label = payment.ticket_type === "TSCSBT" ? "SBT" : "NFT";
 
   return (
     <UploadVideoFile
@@ -287,7 +287,7 @@ function NFTInfo() {
     isEdit: Boolean(state.edit?.eventHash),
   }));
 
-  const ticketLabel = payment.ticket_type === "TSCSBT" ? "cSBT" : "NFT";
+  const ticketLabel = payment.ticket_type === "TSCSBT" ? "SBT" : "NFT";
 
   return (
     <>
@@ -316,7 +316,6 @@ function NFTInfo() {
         disabled={isEdit}
         error={paid_info_errors.nft_description?.[0]}
       />
-      <Capacity />
       <TicketMedia />
     </>
   );
@@ -332,7 +331,7 @@ function Capacity() {
     eventData: state.eventData,
   }));
 
-  const ticketLabel = eventData?.paid_event?.ticket_type === "TSCSBT" ? "cSBT" : "NFT";
+  const ticketLabel = eventData?.paid_event?.ticket_type === "TSCSBT" ? "SBT" : "NFT";
 
   return (
     <>
@@ -349,16 +348,8 @@ function Capacity() {
         }}
         label="Capacity"
         required
-        info={`Number of users who can buy your Ticket${eventData?.paid_event?.ticket_type === "NFT" ? ` 0.06 TON for each ${ticketLabel} (minting fee)` : ""}.`}
+        info="Number of users who can buy your Ticket."
       />
-
-      {isEdit && (
-        <ListItem
-          title="Bought Capacity"
-          footer="The maximum capacity you can change without extra payment is the bought capacity. If the input capacity exceeds this, you'll need to pay for the extra."
-          after={<b className="font-extrabold">{bought_capacity}</b>}
-        />
-      )}
     </>
   );
 }
@@ -400,8 +391,15 @@ const PaidEventCreationInputs = () => {
         <>
           <NFTPayment />
           <PaymentAmount />
-          <PaymentsRecipient />
-          <NFTInfo />
+          <Capacity />
+          {eventData.has_web3 ? (
+            <>
+              <PaymentsRecipient />
+              <NFTInfo />
+            </>
+          ) : (
+            <p className="px-4 pb-4 text-sm text-gray-500">Plain ticket with QR check-in. Turn on Web3 to issue NFT tickets.</p>
+          )}
         </>
       )}
     </ListLayout>

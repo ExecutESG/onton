@@ -41,11 +41,6 @@ const footerLinks = [
         target: "_blank",
       },
       {
-        text: "TON Society",
-        href: "https://society.ton.org/",
-        target: "_blank",
-      },
-      {
         text: "ONTON Community",
         href: "https://t.me/ontonsupport",
         target: "_blank",
@@ -103,7 +98,7 @@ export default function Footer() {
         <div className="flex flex-col gap-2 md:col-span-1 lg:col-span-1">
           <h1 className="text-md md:text-lg font-semibold text-black">ONTON</h1>
           <p className="text-sm text-gray-600 max-w-md">
-            The Luma of Telegram & Web3 Event OS. Frictionless 1-tap Free RSVPs, native Telegram Stars & crypto payments, automated group chat gating, and Proof-of-Attendance badges.
+            Events with verified attendance on Telegram and the web. Free organizer onboarding, 1-tap RSVPs, verified check-in, and portable credentials.
           </p>
           <div className="flex justify-between md:col-span-1 lg:col-span-1">
             {footerLinks.map((section, index) => (

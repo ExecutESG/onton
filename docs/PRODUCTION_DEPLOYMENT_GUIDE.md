@@ -1,69 +1,83 @@
-# ONTON v2.0 Production Deployment & Operations Guide
+# ONTON 2.0 Production Deployment & Operations Guide
 
-This guide details the deployment architecture, configuration steps, and operational verification procedures for releasing ONTON v2.0 ("The Luma of Telegram & Web3 Event OS") to production.
+> Last verified against dev: 2026-10-03
 
----
+## 1. Environments
 
-## 1. Release & Git Workflow
-
-### Active Branches & Pull Requests
-- **Staging / Active Development Branch:** `dev` (Pushed and up to date with origin/dev)
-- **Production Branch:** `main`
-- **Production Release PR:** [#883 — `feat: ONTON v2.0 — The Luma of Telegram & Web3 Event OS`](https://github.com/ExecutESG/onton/pull/883)
-
-### Atomic Commit History on `dev`:
-1. `55e4f283`: `feat(core): enable zero-friction free RSVP and unified ticket check-in resolution`
-2. `c0c002fc`: `feat(payments): integrate Telegram Stars dual-rail checkout and in-app invoices`
-3. `9bcbbb37`: `feat(bot): add automated telegram group gating and dynamic in-chat share cards`
-4. `0f8ec42f`: `feat(tma): add attendee group invite link button and viral social share loop`
-5. `6a93821b`: `feat(website): update landing page and SEO metadata for Telegram event OS positioning`
-6. `0d9452aa`: `docs(marketing): add comprehensive GTM marketing playbook and launch campaign kit`
-
----
-
-## 2. Automated CI/CD Pipeline
-
-The GitHub Actions workflow [`.github/workflows/build-push-deploy.yml`](../.github/workflows/build-push-deploy.yml) automatically orchestrates:
-1. **Service Change Detection:** Identifies changed services (`mini-app`, `participant-tma`, `telegram-bot`, `website`).
-2. **Container Build & Push:** Compiles images and pushes to GitHub Container Registry (`ghcr.io/executesg/*`).
-3. **Deployment via SSH:**
-   - On branch `dev`: Deploys to the `onton-dev` Swarm stack (`dev.onton.live`).
-   - On branch `main`: Deploys to the `onton` production Swarm stack (`onton.live` / `app.onton.live`).
-
----
-
-## 3. Pre-Flight & BotFather Configuration
-
-### A. Telegram Stars Enablement
-1. Open `@BotFather` on Telegram.
-2. Select your production bot (`@theontonbot` or equivalent).
-3. Go to **Bot Settings** ➔ **Payments** ➔ **Telegram Stars**.
-4. Confirm Stars payments are enabled. *(Note: Telegram Stars uses `currency: "XTR"` with an empty `provider_token: ""`. No merchant bank account or Stripe setup is required).*
-
-### B. Group Admin Permissions
-1. When organizers link an official Telegram group/channel to their event (`event_telegram_group`):
-2. The bot must be added as an **Administrator** with permission to **"Invite Users via Link"**.
-3. This allows the bot to call `createChatInviteLink` to generate private, single-use invite links for confirmed attendees.
-
----
-
-## 4. Production Smoke Test Verification Checklist
-
-Once merged and deployed to production, run this 5-minute end-to-end verification in Telegram:
-
-| Step | Action | Expected Result | Verified? |
+| Env | Host | Runtime | Deploy method |
 |---|---|---|---|
-| **1. Free RSVP** | Open `@theontonbot` ➔ Open a Free Event ➔ Tap `RSVP (Free)` | User registers instantly without connecting a crypto wallet. Confirmation pass appears immediately. | [ ] |
-| **2. Ticket Pass QR** | Open confirmed ticket pass ➔ View ticket details | Pass displays ticket status (`Active Pass 🎟️`), QR code for check-in, and `Invite Friends to Event` button. | [ ] |
-| **3. Group Chat Gating** | Register for event with linked Telegram group | Bot automatically sends private DM with one-time invite link. Ticket page displays `💬 Join Official Event Chat`. | [ ] |
-| **4. Telegram Stars** | Open paid event ➔ Select `⭐ Telegram Stars` ➔ Tap `Pay with Stars` | Native Telegram Stars payment sheet appears (Apple Pay / Google Pay / Stars balance). On approval, order completes and ticket is issued. | [ ] |
-| **5. Door Scanner** | Organizer opens check-in scanner in Mini App ➔ Scans attendee QR pass | QR scanner resolves ticket instantly (handles ticket UUID, registrant UUID, or order UUID) and checks attendee in. | [ ] |
-| **6. Landing Page SEO** | Share `https://onton.live` in a Telegram chat or on X | Rich preview card appears: *"ONTON — The Luma of Telegram & Web3 Event OS"* with updated hero banner. | [ ] |
+| Production | 65.109.212.86 | Plain `docker compose` project `local-onton` in `/root/ontonbot`, built on the server with `--profile full` | **Manual** |
+| Staging | 65.109.182.13 | Docker Swarm stack `onton-dev` (`docker-compose-server-dev.yml`) | CI on push to `dev` |
 
----
+Bots: production `@theontonbot`, staging `@notnonstagebot`, local `@ontonlocaldevbot`.
 
-## 5. Rollback Plan
+- Branches: `dev` = staging / active development, `main` = production source.
+- Production is **not** deployed by CI. See section 2.
 
-If any critical issue arises post-deployment:
-1. Revert PR #883 on `main`: `gh pr revert 883` or redeploy previous commit `eb95a16d`.
-2. The CI/CD pipeline will automatically rebuild the previous image tags and roll back services in Docker Swarm without downtime.
+## 2. CI/CD pipeline (what it actually does)
+
+Workflow: [`.github/workflows/build-push-deploy.yml`](../.github/workflows/build-push-deploy.yml).
+
+| Job | What it does |
+|---|---|
+| `determine-services` | Maps changed paths to `mini-app`, `telegram-bot`, `website`, `caddy`. `Trigger-full-build.txt` builds all. If nothing matches, it builds `telegram-bot`. |
+| `validate-services` | mini-app: `yarn lint:quiet` + `yarn test:api` (Vitest). telegram-bot: `yarn run build` (tsc). Runs on PRs too. |
+| `build-and-push` | Push/dispatch only. Builds `--target production`. Pushes `ghcr.io/executesg/onton/<service>` tagged `<branch>-<run_id>` and `<branch>-latest`. All workers reuse the `mini-app` image. |
+| `deploy` | SSH to the host in `SSH_DEV_IP`, then `docker stack deploy`. `dev` → stack `onton-dev`; `main` → stack `onton` (`docker-compose-server.yml`). Then a post-deploy Playwright smoke run (`smoke.spec.ts`). |
+
+> [!WARNING]
+> Both `dev` and `main` deploy to the **staging host** (F-04). On `main`, the post-deploy smoke test targets `https://app.onton.live` (production) even though nothing was deployed there. A green `main` run does not mean production was updated.
+
+## 3. Manual production deploy
+
+1. Make sure the change is merged to `main` and passed staging.
+2. Take a database dump first. There are **no automated production backups**; see [`knowledge_base/manual_db_maintenance.md`](../knowledge_base/manual_db_maintenance.md).
+3. On the production host, in `/root/ontonbot`: `git pull origin main`.
+4. Apply any new SQL migrations by hand, in order:
+   `psql -v ON_ERROR_STOP=1 -f mini-app/drizzle/<file>.sql`
+   **Never run `yarn db:migrate`** — the Drizzle journal is stale. The Docker images do not run migrations.
+5. Rebuild and restart: `docker compose --profile full up -d --build`.
+6. Verify (section 5).
+
+## 4. Pre-flight configuration
+
+### Telegram Stars
+- The bot creates Stars invoices with currency `XTR` (`telegram-bot/src/controllers/starsInvoiceHandler.ts`). Check that payments work for the production bot in `@BotFather`.
+
+### Event group invite links
+- The bot sends single-use invite links (`member_limit: 1`) to approved/checked-in registrants (`telegram-bot/src/controllers/createInviteLinkHandler.ts`, `mini-app/src/cronJobs/tasks/generateInviteLinksCron.ts`).
+- The bot must be an admin of the event group with permission to create invite links.
+- There is no join-request verification or removal of non-holders; only invite links.
+
+### Secrets
+- Set `AUTH_JWT_SECRET`, `TOTP_SECRET`, `ONTON_API_SECRET`, `BOT_API_HMAC_SECRET` and `MNEMONIC` in the production `.env`. Code falls back to weaker values when some of these are unset.
+
+## 5. Post-deploy verification
+
+Read-only smoke test (safe against production):
+
+```bash
+cd tests/e2e
+BASE_URL=https://app.onton.live npx playwright test smoke.spec.ts
+```
+
+Manual checks (do not create test payments or mutations on `@theontonbot`):
+
+| Step | Check | Expected |
+|---|---|---|
+| 1 | Open the mini-app from `@theontonbot` | Home and event pages load |
+| 2 | Open a ticket pass | QR code rotates (pass token refreshes about every 12s) |
+| 3 | Organizer opens the check-in scanner | Live pass resolves; a static UUID is rejected |
+| 4 | `docker compose ps` on the host | All `full` services are up |
+
+## 6. Rollback
+
+- There is no automatic rollback for production (it is plain compose, not Swarm).
+- Roll back by checking out the previous good commit in `/root/ontonbot` and running `docker compose --profile full up -d --build` again.
+- SQL migrations are not reversed automatically. Restore from the dump taken in step 3.2 if a migration must be undone.
+
+## Known issues (tracked in QA)
+- CI deploys `main` to the staging host; no automated production deploy (F-04).
+- No automated production DB backups.
+- Telegram Stars pre-checkout is approved without order/price/capacity validation (F-33).
+- `order_paid` queue consumer likely fails; the 9s mint cron is the real fulfillment path (F-35).

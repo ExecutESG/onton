@@ -29,7 +29,7 @@ export const ShareAndEarn = () => {
     try {
       await inviteOnTelegram();
 
-      window.Telegram.WebApp.close();
+      window.Telegram?.WebApp?.close?.();
     } catch (error) {
       console.error(error);
       customToast.error("Unable to open the invitation dialogue, please try again later.");

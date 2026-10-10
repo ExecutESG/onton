@@ -48,7 +48,6 @@ x-common-env: &common-env
   NEXT_PUBLIC_GTM: ${NEXT_PUBLIC_GTM}
   NEXT_PUBLIC_BOT_USERNAME: ${NEXT_PUBLIC_BOT_USERNAME}
   NODE_ENV: ${NODE_ENV}
-  NODE_TLS_REJECT_UNAUTHORIZED: ${NODE_TLS_REJECT_UNAUTHORIZED}
   ONTON_API_KEY: ${ONTON_API_KEY}
   ONTON_DOMAIN: ${ONTON_DOMAIN}
   PARTICIPANT_TMA_PORT: ${PARTICIPANT_TMA_PORT}
@@ -76,6 +75,9 @@ x-common-env: &common-env
   REDIS_PORT: ${REDIS_PORT}
   TELEGRAM_BOT_PORT: ${TELEGRAM_BOT_PORT}
   TG_NOTIFICATION_CHANELL: ${TG_NOTIFICATION_CHANELL}
+  LOGS_GROUP_ID: ${LOGS_GROUP_ID:--1002264975789}
+  TG_LOG_BOT_TOKEN: ${TG_LOG_BOT_TOKEN:-}
+  BOT_TOKEN_LOGS: ${TG_LOG_BOT_TOKEN:-}
   TONAPI_API_KEY: ${TONAPI_API_KEY}
   TON_CENTER_TOKEN: ${TON_CENTER_TOKEN}
   TON_CENTER_ENDPOINT: ${TON_CENTER_ENDPOINT}
@@ -89,6 +91,9 @@ x-common-env: &common-env
   SWAGGER_UI_DOMAIN: ${SWAGGER_UI_DOMAIN}
   SWAGGER_UI_PORT: ${SWAGGER_UI_PORT}
   EVENT_WALLET_ENC_KEY: ${EVENT_WALLET_ENC_KEY}
+  BOT_API_HMAC_SECRET: ${BOT_API_HMAC_SECRET:-}
+  AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-}
+  TOTP_SECRET: ${TOTP_SECRET:-}
 services:
   fluentd:
     image: fluent/fluentd:v1.14-1
@@ -168,7 +173,12 @@ services:
     stop_grace_period: 120s
     stop_signal: SIGTERM
     environment:
-      <<: *common-env
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-onton}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      PGPORT: ${POSTGRES_PORT:-5432}
+      PGDATA: /var/lib/postgresql/data/pgdata
     command: >
       postgres -p ${POSTGRES_PORT} -c max_connections=500 -c shared_buffers=8GB -c effective_cache_size=24GB -c maintenance_work_mem=2GB -c work_mem=32MB -c checkpoint_completion_target=0.9 -c wal_buffers=16MB -c log_min_duration_statement=2000     -c log_destination=stderr              -c logging_collector=off             -c log_statement=none
     volumes:
@@ -195,8 +205,6 @@ services:
       - redis_data:/data
     depends_on:
       - fluentd
-    ports:
-      - "127.0.0.1:${REDIS_PORT}:${REDIS_PORT}"
     command: redis-server  --port ${REDIS_PORT} --requirepass ${REDIS_PASSWORD}
     deploy:
       resources:
@@ -309,8 +317,6 @@ services:
     stop_signal: SIGTERM
     environment:
       <<: *common-env
-      TON_SOCIETY_API_KEY: ${TON_SOCIETY_API_KEY}
-      TON_SOCIETY_BASE_URL: ${TON_SOCIETY_BASE_URL}
       TWITTER_CLIENT_ID: ${TWITTER_CLIENT_ID}
       TWITTER_CLIENT_SECRET: ${TWITTER_CLIENT_SECRET}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
@@ -347,7 +353,7 @@ services:
 
   mini-app-sbt-worker:
     hostname: mini-app-sbt-worker
-    image: ghcr.io/executesg/onton/mini-app-sbt-worker:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
     <<: *default-extra-hosts
     deploy:
       resources:
@@ -368,8 +374,6 @@ services:
     environment:
       <<: *common-env
       MNEMONIC: ${MNEMONIC}
-      TON_SOCIETY_API_KEY: ${TON_SOCIETY_API_KEY}
-      TON_SOCIETY_BASE_URL: ${TON_SOCIETY_BASE_URL}
     depends_on:
       - postgres
       - redis
@@ -391,7 +395,7 @@ services:
 
   mini-app-nft-api-worker:
     hostname: mini-app-nft-api-worker
-    image: ghcr.io/executesg/onton/mini-app-nft-api-worker:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
     <<: *default-extra-hosts
     deploy:
       resources:
@@ -412,8 +416,6 @@ services:
     environment:
       <<: *common-env
       MNEMONIC: ${MNEMONIC}
-      TON_SOCIETY_API_KEY: ${TON_SOCIETY_API_KEY}
-      TON_SOCIETY_BASE_URL: ${TON_SOCIETY_BASE_URL}
     depends_on:
       - postgres
       - redis
@@ -436,7 +438,7 @@ services:
 
   mini-app-reward-worker:
     hostname: mini-app-reward-worker
-    image: ghcr.io/executesg/onton/mini-app-reward-worker:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
     <<: *default-extra-hosts
     deploy:
       resources:
@@ -457,8 +459,6 @@ services:
     environment:
       <<: *common-env
       MNEMONIC: ${MNEMONIC}
-      TON_SOCIETY_API_KEY: ${TON_SOCIETY_API_KEY}
-      TON_SOCIETY_BASE_URL: ${TON_SOCIETY_BASE_URL}
     depends_on:
       - postgres
       - redis
@@ -480,7 +480,7 @@ services:
 
   mini-app-ordinary-worker:
     hostname: mini-app-ordinary-worker
-    image: ghcr.io/executesg/onton/mini-app-ordinary-worker:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
     <<: *default-extra-hosts
     deploy:
       resources:
@@ -501,8 +501,6 @@ services:
     environment:
       <<: *common-env
       MNEMONIC: ${MNEMONIC}
-      TON_SOCIETY_API_KEY: ${TON_SOCIETY_API_KEY}
-      TON_SOCIETY_BASE_URL: ${TON_SOCIETY_BASE_URL}
     depends_on:
       - postgres
       - redis
@@ -522,53 +520,9 @@ services:
         tag: "docker.${BRANCH_NAME}-mini-app-ordinary-worker"
         #fluentd-async-connect: "true"
 
-  mini-app-moderation-bot:
-    hostname: mini-app-moderation-bot
-    image: ghcr.io/executesg/onton/mini-app-moderation-bot:${BRANCH_NAME}-latest
-    <<: *default-extra-hosts
-    deploy:
-      resources:
-        limits:
-          memory: 2000M
-          cpus: "1.0"
-      mode: global
-      update_config:
-        failure_action: rollback
-        order: stop-first
-      restart_policy:
-        condition: on-failure
-        delay: 10s
-        max_attempts: 20
-        window: 40s
-    stop_grace_period: 10s
-    stop_signal: SIGTERM
-    environment:
-      <<: *common-env
-      MNEMONIC: ${MNEMONIC}
-      TON_SOCIETY_API_KEY: ${TON_SOCIETY_API_KEY}
-      TON_SOCIETY_BASE_URL: ${TON_SOCIETY_BASE_URL}
-    depends_on:
-      - postgres
-      - redis
-      - minio
-      - fluentd
-    volumes:
-      - drizzle_data_cron:/app/drizzle
-    networks:
-      - onton-network
-    command: [ "yarn", "run", "start:moderation" ]
-    secrets:
-      - registry-onton-config
-    logging:
-      driver: "fluentd"
-      options:
-        fluentd-address: "127.0.0.1:24224"
-        tag: "docker.${BRANCH_NAME}-mini-app-moderation-bot"
-        #fluentd-async-connect: "true"
-
   mini-app-poa-worker:
     hostname: mini-app-poa-worker
-    image: ghcr.io/executesg/onton/mini-app-poa-worker:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
     <<: *default-extra-hosts
     deploy:
       resources:
@@ -590,8 +544,6 @@ services:
     stop_signal: SIGTERM
     environment:
       <<: *common-env
-      TON_SOCIETY_API_KEY: ${TON_SOCIETY_API_KEY}
-      TON_SOCIETY_BASE_URL: ${TON_SOCIETY_BASE_URL}
     depends_on:
       - postgres
       - redis
@@ -614,7 +566,7 @@ services:
 
   mini-app-notification-socket:
     hostname: mini-app-notification-socket
-    image: ghcr.io/executesg/onton/mini-app-notification-socket:${BRANCH_NAME}-latest
+    image: ghcr.io/executesg/onton/mini-app:${BRANCH_NAME}-latest
     <<: *default-extra-hosts
     ports:
       - "${SOCKET_PORT}:${SOCKET_PORT}"
@@ -637,8 +589,6 @@ services:
     stop_signal: SIGTERM
     environment:
       <<: *common-env
-      TON_SOCIETY_API_KEY: ${TON_SOCIETY_API_KEY}
-      TON_SOCIETY_BASE_URL: ${TON_SOCIETY_BASE_URL}
     depends_on:
       - postgres
       - redis
@@ -661,38 +611,9 @@ services:
         #fluentd-async-connect: "true"
 
 
-  participant-tma:
-    hostname: participant-tma
-    image: ghcr.io/executesg/onton/participant-tma:${BRANCH_NAME}-latest
-    ports:
-      - "${PARTICIPANT_TMA_PORT}:${PARTICIPANT_TMA_PORT}"
-    deploy:
-      resources:
-        limits:
-          memory: 3000M
-          cpus: "2.0"
-      replicas: "${SYS_PARTICIPANT_TMA_REPLICAS-1}"
-      update_config:
-        failure_action: rollback
-        order: start-first
-      restart_policy:
-        condition: any
-        delay: 3s
-    depends_on:
-      - mini-app
-      - fluentd
-    environment:
-      <<: *common-env
-    networks:
-      - onton-network
-    secrets:
-      - registry-onton-config
-    logging:
-      driver: "fluentd"
-      options:
-        fluentd-address: "127.0.0.1:24224"
-        tag: "docker.${BRANCH_NAME}-participant-tma"
-        #fluentd-async-connect: "true"
+  # participant-tma: DECOMMISSIONED — consolidated into mini-app (epic #1022)
+  # hostname: participant-tma
+  # image: ghcr.io/executesg/onton/participant-tma:${BRANCH_NAME}-latest
 
   website:
     hostname: website

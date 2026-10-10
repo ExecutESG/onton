@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: "Server misconfiguration" }, { status: 500 });
   }
   try {
-    verify(token, ONTON_API_SECRET);
+    verify(token, ONTON_API_SECRET, { algorithms: ["HS256"] });
   } catch (error) {
     logger.error(`Invalid token: ${error}`);
     return NextResponse.json({ message: "Unauthorized: invalid token" }, { status: 401 });

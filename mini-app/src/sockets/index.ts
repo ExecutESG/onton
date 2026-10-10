@@ -1,3 +1,4 @@
+import "@/server/utils/assertSecretsOnBoot";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import { createClient } from "redis";
@@ -9,17 +10,16 @@ import { allowedOrigins } from "@/sockets/constants";
 import { applyRateLimiting } from "@/sockets/rateLimiter";
 import { logger } from "@/server/utils/logger";
 
-const IP_REDIS = process.env.IP_REDIS;
-const REDIS_PORT = Number(process.env.REDIS_PORT);
+const REDIS_HOST = process.env.REDIS_HOST || process.env.IP_REDIS || "redis";
+const REDIS_PORT = Number(process.env.REDIS_PORT || 6379);
 const SOCKET_PORT = Number(process.env.SOCKET_PORT);
 
 (async () => {
   try {
     logger.log("Starting socket server");
 
-    if (!IP_REDIS || !REDIS_PORT) {
-      throw new Error("Missing IP_REDIS or REDIS_PORT environment variable.");
-
+    if (!REDIS_HOST || !REDIS_PORT) {
+      throw new Error("Missing REDIS_HOST or REDIS_PORT environment variable.");
     }
 
     if (!SOCKET_PORT) {
@@ -29,7 +29,7 @@ const SOCKET_PORT = Number(process.env.SOCKET_PORT);
     // Redis clients for the adapter
     const redisPassword = process.env.REDIS_PASSWORD;
     const authString = redisPassword ? `:${redisPassword}@` : "";
-    const pubClient = createClient({ url: `redis://${authString}${IP_REDIS}:${REDIS_PORT}` });
+    const pubClient = createClient({ url: `redis://${authString}${REDIS_HOST}:${REDIS_PORT}` });
     const subClient = pubClient.duplicate();
 
     await pubClient.connect();

@@ -25,6 +25,7 @@ import LoginRequired from "@/app/_components/auth/LoginRequired";
  */
 export default function MyHostedPage() {
   const { user } = useUserStore();
+  const { data: canCreateEvents } = trpc.users.canCreateEvents.useQuery(undefined, { enabled: !!user });
   const webApp = useWebApp();
   const userId = webApp?.initDataUnsafe?.user?.id || user?.user_id;
   const [eventsSearch, setEventsSearch] = useDebouncedState("", 500);
@@ -75,6 +76,7 @@ export default function MyHostedPage() {
     [eventsInfinite.data?.pages]
   );
 
+  if (canCreateEvents === false) { return <div className="p-4 text-center">You must link a verified identity to create and manage events.</div>; }
   return (
     <div className="bg-brand-bg p-4 min-h-screen flex flex-col gap-4">
       <Tabs
@@ -95,22 +97,22 @@ export default function MyHostedPage() {
                 setEventsSearch(e.target.value);
               }}
             />
-            <Typography variant="title2">Hosted Events ({eventsInfinite.data?.pages[0].items.rowsCount})</Typography>
+            <Typography variant="title2">Hosted Events ({eventsInfinite.data?.pages?.[0]?.items?.rowsCount ?? 0})</Typography>
             {/* if there were no events we show not found state */}
             {events?.length === 0 && (
               <CustomCard defaultPadding>
                 <div className="flex flex-col gap-5">
                   <DataStatus
                     status="archive_duck"
-                    title="It’s looking quiet here..."
-                    description="Enter an Event and watch this space light up with your activity."
+                    title="No hosted events yet"
+                    description="Create your first event in a minute. Free events are free forever."
                     size="lg"
                   />
                   <Link
-                    href="/"
+                    href="/events/create"
                     prefetch
                   >
-                    <CustomButton>Explore Events</CustomButton>
+                    <CustomButton>Create an Event</CustomButton>
                   </Link>
                 </div>
               </CustomCard>

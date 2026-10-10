@@ -16,6 +16,9 @@ import { getCache, setCache, deleteCache, cacheKeys } from "@/lib/redisTools";
 import { Server } from "socket.io";
 import visitorsDB from "@/db/modules/visitors.db";
 import rewardDB from "@/db/modules/rewards.db";
+import { db } from "@/db/db";
+import { eventRegistrants } from "@/db/schema";
+import { and, eq } from "drizzle-orm";
 
 type CallbackFunction = (response: { status: string; message: string }) => void;
 
@@ -183,19 +186,12 @@ export const handleNotificationReply = async (
         return;
       }
 
-      // "Fixed password" logic
-      const today = new Date();
-      const dayOfMonth = today.getDate();
-      const monthNameShort = today.toLocaleString("en-US", { month: "short" });
-      const fixedPassword = `${dayOfMonth}ShahKey@${monthNameShort}`;
-
       const enteredPassword = answer.trim().toLowerCase();
-      const isFixedPasswordCorrect = enteredPassword === fixedPassword.toLowerCase();
       const isRealPasswordCorrect = eventData.secret_phrase
         ? await bcryptLib.comparePassword(enteredPassword, eventData.secret_phrase)
         : false;
 
-      if (!isFixedPasswordCorrect && !isRealPasswordCorrect) {
+      if (!isRealPasswordCorrect) {
         // Wrong password => increment tries
         currentTries += 1;
         await setCache(redisKey, currentTries); // store the new count
@@ -268,6 +264,23 @@ export const handleNotificationReply = async (
             `SBT::Reward::User reward already exists for user ${userId} and event ${relatedPOATrigger.eventId} notification ID ${notificationIdNumber}`
           );
         }
+
+        // Move approved registrant to checkedin for off-chain cSBT credentials and attendance tracking
+        await db
+          .update(eventRegistrants)
+          .set({
+            status: "checkedin",
+            updatedAt: new Date(),
+            updatedBy: String(userId),
+          })
+          .where(
+            and(
+              eq(eventRegistrants.event_uuid, eventData.event_uuid),
+              eq(eventRegistrants.user_id, userId),
+              eq(eventRegistrants.status, "approved")
+            )
+          )
+          .execute();
       } catch (e) {
         logger.error(`SBT::Reward::Error creating user reward for user ${userId} and event ID ${relatedPOATrigger.eventId}`);
         logger.error(e);

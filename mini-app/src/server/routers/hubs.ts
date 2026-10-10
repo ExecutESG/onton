@@ -1,44 +1,18 @@
 import { initDataProtectedProcedure, publicProcedure, router } from "@/server/trpc";
-import { hardCodedHubs, nonVerifiedHubs } from "@/constants";
-import { getHubs as getHubsApi } from "@/lib/ton-society-api";
-import { organizerTsVerified } from "@/db/modules/userFlags.db";
+import { hardCodedHubs } from "@/constants";
 
 const getHubs = publicProcedure.query(async () => {
-  if (process.env?.ENV === "local") {
-    return {
-      status: true,
-      hubs: hardCodedHubs,
-    };
-  }
-  const result = await getHubsApi();
   return {
+    status: true,
     success: true,
-    hubs: result,
+    hubs: hardCodedHubs,
   };
 });
 
-const getOrgHubs = initDataProtectedProcedure.query(async (opts) => {
-  // return hard coded hubs for local env
-  if (process.env?.ENV === "local") {
-    return {
-      status: true,
-      hubs: hardCodedHubs,
-    };
-  }
-
-  const isUserTsVerified = await organizerTsVerified(opts.ctx.user.user_id);
-  // return non verified hubs
-  if (!isUserTsVerified) {
-    return {
-      status: true,
-      hubs: nonVerifiedHubs,
-    };
-  }
-  // return all hubs
-  const result = await getHubsApi();
+const getOrgHubs = initDataProtectedProcedure.query(async () => {
   return {
     status: true,
-    hubs: result,
+    hubs: hardCodedHubs,
   };
 });
 

@@ -9,18 +9,27 @@ import axios, { AxiosError } from "axios";
 import { Bot, InputFile } from "grammy";
 import { InlineKeyboardMarkup, InputMediaPhoto, InputMediaVideo } from "grammy/types";
 
+import { getTelegramBotBaseUrl, getTelegramBotHeaders } from "./tgBotConfig";
+import { LinkService } from "./links/linkService";
+
 interface MediaGroupItem {
   type: "photo" | "video";
   url: string;
 }
 
 const tgClient = axios.create({
-  baseURL: `http://${process.env.IP_TELEGRAM_BOT}:${process.env.TELEGRAM_BOT_PORT}`,
+  baseURL: getTelegramBotBaseUrl(),
+});
+
+tgClient.interceptors.request.use((config) => {
+  const headers = getTelegramBotHeaders(config.data);
+  Object.assign(config.headers, headers);
+  return config;
 });
 
 // Helper to post to your custom Telegram server
 const tgClientPost = (path: string, data: any) =>
-  tgClient.post(`http://${process.env.IP_TELEGRAM_BOT}:${process.env.TELEGRAM_BOT_PORT}/${path}`, data);
+  tgClient.post(`${getTelegramBotBaseUrl()}/${path}`, data);
 
 let botInstance: Bot | null = null;
 const MAX_WAIT_TIME = 30000; // 30 seconds max wait time
@@ -147,6 +156,17 @@ export const sendEventPhoto = async (props: { event_id: string; user_id: string 
   }
 };
 
+export const DEFAULT_LOGS_GROUP_ID = "-1002264975789";
+export const DEFAULT_LOGS_TOPICS = {
+  event: "2",
+  ticket: "4",
+  system: "12",
+  payments: "276",
+  campaign: "2344",
+  general: "1",
+  no_topic: "no_topic",
+} as const;
+
 // 🌳 ---- SEND LOG NOTIFICATION ---- 🌳
 export const sendLogNotification = async (
   props: {
@@ -171,48 +191,39 @@ export const sendLogNotification = async (
     media_group: undefined,
   }
 ) => {
-  // 1) Validate config
-  if (!configProtected?.bot_token_logs || !configProtected?.logs_group_id) {
-    logger.error("Bot token or logs group ID not found in configProtected for this environment");
-    throw new Error("Bot token or logs group ID not found in configProtected for this environment");
+  // 1) Validate config with env fallbacks
+  const isValidToken = (token?: string | null): token is string => Boolean(token && !token.startsWith("$") && !token.includes("${"));
+  const BOT_TOKEN_LOGS =
+    [process.env.BOT_TOKEN, process.env.TELEGRAM_BOT_TOKEN, process.env.BOT_TOKEN_LOGS, configProtected?.bot_token_logs].find(isValidToken);
+  let LOGS_GROUP_ID =
+    props.group_id?.toString() ||
+    process.env.LOGS_GROUP_ID ||
+    configProtected?.logs_group_id;
+
+  if (!BOT_TOKEN_LOGS || !LOGS_GROUP_ID) {
+    logger.warn("mini-app sendLogNotification skipped: Bot token or LOGS_GROUP_ID is unset (non-prod safety)");
+    return { message_id: 0 } as any;
   }
 
-  let { bot_token_logs: BOT_TOKEN_LOGS, logs_group_id: LOGS_GROUP_ID } = configProtected;
-
-  // 2) If the caller provided a custom group_id, override
-  if (props.group_id) {
-    LOGS_GROUP_ID = props.group_id.toString();
-  }
-
-  // 3) Determine pinned topic message if any
+  // 2) Determine pinned topic message if any, falling back to no_topic
+  const isCustomGroup = Boolean(props.group_id && String(props.group_id) !== String(configProtected?.logs_group_id || DEFAULT_LOGS_GROUP_ID));
   const topicMapping: Record<"no_topic" | "event" | "ticket" | "system" | "payments" | "campaign", string | null> = {
-    event: configProtected.events_topic,
-    ticket: configProtected.tickets_topic,
-    system: configProtected.system_topic,
-    payments: configProtected.payments_topic,
-    campaign: configProtected.campaign_topic,
+    event: isCustomGroup ? "no_topic" : (configProtected?.events_topic || DEFAULT_LOGS_TOPICS.event),
+    ticket: isCustomGroup ? "no_topic" : (configProtected?.tickets_topic || DEFAULT_LOGS_TOPICS.ticket),
+    system: isCustomGroup ? "no_topic" : (configProtected?.system_topic || DEFAULT_LOGS_TOPICS.system),
+    payments: isCustomGroup ? "no_topic" : (configProtected?.payments_topic || DEFAULT_LOGS_TOPICS.payments),
+    campaign: isCustomGroup ? "no_topic" : (configProtected?.campaign_topic || DEFAULT_LOGS_TOPICS.campaign),
     no_topic: "no_topic",
   };
 
-  const topicMessageId = topicMapping[props.topic];
-  if (!topicMessageId) {
-    logger.error(`Invalid or unconfigured topic: ${props.topic}`);
-    throw new Error(`Invalid or unconfigured topic: ${props.topic}`);
-  }
+  const topicMessageId = topicMapping[props.topic] || "no_topic";
 
-  // 4) Create a grammY bot instance
+  // 3) Create a grammY bot instance
   const logBot = new Bot(BOT_TOKEN_LOGS);
 
-  // 5) Decide the final 'reply_to_message_id'
-  //    - if props.reply_to_message_id is provided, use it
-  //    - else if topic != "no_topic", use pinned topic message_id
-  //    - else undefined (no reply)
-  let finalReplyTo: number | undefined;
-  if (typeof props.reply_to_message_id === "number") {
-    finalReplyTo = props.reply_to_message_id;
-  } else if (topicMessageId !== "no_topic") {
-    finalReplyTo = Number(topicMessageId);
-  }
+  // 4) Separate forum topic (message_thread_id) from message reply (reply_to_message_id)
+  const messageThreadId = !isCustomGroup && topicMessageId !== "no_topic" ? Number(topicMessageId) : undefined;
+  const replyToMessageId = typeof props.reply_to_message_id === "number" ? props.reply_to_message_id : undefined;
 
   if (props.media_group && props.media_group.length > 0) {
     // Telegram does not allow inline keyboards or individual captions on media groups.
@@ -239,14 +250,34 @@ export const sendLogNotification = async (
     }
 
     // 6b) sendMediaGroup has no 'reply_markup' support
-    //     We can optionally thread it via reply_to_message_id
-    const mediaGroupMessageId = await logBot.api.sendMediaGroup(Number(LOGS_GROUP_ID), mediaArray, {
-      reply_to_message_id: finalReplyTo,
-    });
-    logger.log("Sent media group message", Number(LOGS_GROUP_ID), mediaGroupMessageId);
-    // Note: If you want a single “caption” for the entire media group, you can put it
-    // on the *first* item’s caption field. But then you can't do multiple separate captions
-    // for each item in the group.
+    //     Thread into topic via message_thread_id and optional reply_to_message_id
+    try {
+      const mediaGroupMessageId = await logBot.api.sendMediaGroup(Number(LOGS_GROUP_ID), mediaArray, {
+        message_thread_id: messageThreadId,
+        reply_to_message_id: replyToMessageId,
+      });
+      logger.log("Sent media group message", Number(LOGS_GROUP_ID), mediaGroupMessageId);
+    } catch (err: any) {
+      const errorMsg = String(err?.message || "");
+      const replyNotFound = Boolean(replyToMessageId && errorMsg.includes("message to be replied not found"));
+      const threadNotFound = Boolean(messageThreadId && errorMsg.includes("message thread not found"));
+
+      if (replyNotFound || threadNotFound) {
+        if (threadNotFound) {
+          logger.error(`sendMediaGroup topic ${messageThreadId} not found in group ${LOGS_GROUP_ID}; retrying without message_thread_id:`, errorMsg);
+        }
+        if (replyNotFound) {
+          logger.warn("sendMediaGroup reply failed; retrying without reply_to_message_id", errorMsg);
+        }
+        const mediaGroupMessageId = await logBot.api.sendMediaGroup(Number(LOGS_GROUP_ID), mediaArray, {
+          message_thread_id: threadNotFound ? undefined : messageThreadId,
+          reply_to_message_id: replyNotFound ? undefined : replyToMessageId,
+        });
+        logger.log("Sent media group message fallback", Number(LOGS_GROUP_ID), mediaGroupMessageId);
+      } else {
+        throw err;
+      }
+    }
   }
   // 6) If sending an image
   if (props.image) {
@@ -255,26 +286,75 @@ export const sendLogNotification = async (
 
     logger.log("Sending telegram photo message", Number(LOGS_GROUP_ID), props.image, {
       caption: props.message,
-      reply_to_message_id: finalReplyTo, // <--- Use grammY's reply_to_message_id
+      message_thread_id: messageThreadId,
+      reply_to_message_id: replyToMessageId,
       reply_markup: props.inline_keyboard,
       parse_mode: "HTML",
     });
 
-    return await logBot.api.sendPhoto(Number(LOGS_GROUP_ID), new InputFile(buffer), {
-      caption: props.message,
-      reply_to_message_id: finalReplyTo, // optional
-      reply_markup: props.inline_keyboard,
-      parse_mode: "HTML",
-    });
+    try {
+      return await logBot.api.sendPhoto(Number(LOGS_GROUP_ID), new InputFile(buffer), {
+        caption: props.message,
+        message_thread_id: messageThreadId,
+        reply_to_message_id: replyToMessageId,
+        reply_markup: props.inline_keyboard,
+        parse_mode: "HTML",
+      });
+    } catch (err: any) {
+      const errorMsg = String(err?.message || "");
+      const replyNotFound = Boolean(replyToMessageId && errorMsg.includes("message to be replied not found"));
+      const threadNotFound = Boolean(messageThreadId && errorMsg.includes("message thread not found"));
+
+      if (replyNotFound || threadNotFound) {
+        if (threadNotFound) {
+          logger.error(`sendPhoto topic ${messageThreadId} not found in group ${LOGS_GROUP_ID}; retrying without message_thread_id:`, errorMsg);
+        }
+        if (replyNotFound) {
+          logger.warn("sendPhoto reply failed; retrying without reply_to_message_id", errorMsg);
+        }
+        return await logBot.api.sendPhoto(Number(LOGS_GROUP_ID), new InputFile(buffer), {
+          caption: props.message,
+          message_thread_id: threadNotFound ? undefined : messageThreadId,
+          reply_to_message_id: replyNotFound ? undefined : replyToMessageId,
+          reply_markup: props.inline_keyboard,
+          parse_mode: "HTML",
+        });
+      }
+      throw err;
+    }
   }
 
   // 7) Otherwise, plain text message
-  return await logBot.api.sendMessage(Number(LOGS_GROUP_ID), props.message, {
-    parse_mode: "HTML",
-    reply_to_message_id: finalReplyTo, // optional
-    reply_markup: props.inline_keyboard,
-    link_preview_options: { is_disabled: true },
-  });
+  try {
+    return await logBot.api.sendMessage(Number(LOGS_GROUP_ID), props.message, {
+      parse_mode: "HTML",
+      message_thread_id: messageThreadId,
+      reply_to_message_id: replyToMessageId,
+      reply_markup: props.inline_keyboard,
+      link_preview_options: { is_disabled: true },
+    });
+  } catch (err: any) {
+    const errorMsg = String(err?.message || "");
+    const replyNotFound = Boolean(replyToMessageId && errorMsg.includes("message to be replied not found"));
+    const threadNotFound = Boolean(messageThreadId && errorMsg.includes("message thread not found"));
+
+    if (replyNotFound || threadNotFound) {
+      if (threadNotFound) {
+        logger.error(`sendMessage topic ${messageThreadId} not found in group ${LOGS_GROUP_ID}; retrying without message_thread_id:`, errorMsg);
+      }
+      if (replyNotFound) {
+        logger.warn("sendMessage reply failed; retrying without reply_to_message_id", errorMsg);
+      }
+      return await logBot.api.sendMessage(Number(LOGS_GROUP_ID), props.message, {
+        parse_mode: "HTML",
+        message_thread_id: threadNotFound ? undefined : messageThreadId,
+        reply_to_message_id: replyNotFound ? undefined : replyToMessageId,
+        reply_markup: props.inline_keyboard,
+        link_preview_options: { is_disabled: true },
+      });
+    }
+    throw err;
+  }
 };
 // CSV log sender
 export type CsvLogProps = {
@@ -287,23 +367,25 @@ export type CsvLogProps = {
 };
 
 export async function sendLogNotificationWithCsv(props: CsvLogProps) {
-  if (!configProtected?.bot_token_logs || !configProtected?.logs_group_id) {
-    logger.error("Bot token or logs group ID not found in configProtected for this environment");
-    throw new Error("Bot token or logs group ID not found in configProtected for this environment");
-  }
+  const isValidToken = (token?: string | null): token is string => Boolean(token && !token.startsWith("$") && !token.includes("${"));
+  const BOT_TOKEN_LOGS =
+    [process.env.BOT_TOKEN, process.env.TELEGRAM_BOT_TOKEN, process.env.BOT_TOKEN_LOGS, configProtected?.bot_token_logs].find(isValidToken);
+  let LOGS_GROUP_ID =
+    props.group_id?.toString() ||
+    process.env.LOGS_GROUP_ID ||
+    configProtected?.logs_group_id ||
+    DEFAULT_LOGS_GROUP_ID;
 
-  let { bot_token_logs: BOT_TOKEN_LOGS, logs_group_id: LOGS_GROUP_ID } = configProtected;
-
-  // If a different group/chat ID is specified
-  if (props.group_id) {
-    LOGS_GROUP_ID = props.group_id.toString();
+  if (!BOT_TOKEN_LOGS || !LOGS_GROUP_ID) {
+    logger.error("Bot token or logs group ID not found in configProtected or env for this environment");
+    throw new Error("Bot token or logs group ID not found in configProtected or env for this environment");
   }
 
   const topicMapping: Record<"no_topic" | "event" | "ticket" | "system" | "payments", string | null> = {
-    event: configProtected.events_topic,
-    ticket: configProtected.tickets_topic,
-    system: configProtected.system_topic,
-    payments: configProtected.payments_topic,
+    event: configProtected?.events_topic || DEFAULT_LOGS_TOPICS.event,
+    ticket: configProtected?.tickets_topic || DEFAULT_LOGS_TOPICS.ticket,
+    system: configProtected?.system_topic || DEFAULT_LOGS_TOPICS.system,
+    payments: configProtected?.payments_topic || DEFAULT_LOGS_TOPICS.payments,
     no_topic: "no_topic",
   };
 
@@ -314,24 +396,20 @@ export async function sendLogNotificationWithCsv(props: CsvLogProps) {
   }
 
   const logBot = new Bot(BOT_TOKEN_LOGS);
+  const topicThreadId = topicMessageId !== "no_topic" ? Number(topicMessageId) : undefined;
 
   // Create a buffer for the CSV file
   const csvBuffer = Buffer.from(props.csvContent, "utf-8");
 
   logger.log("Sending telegram message with CSV attachment to", LOGS_GROUP_ID, {
     caption: props.message,
-    reply_parameters:
-      topicMessageId === "no_topic"
-        ? undefined
-        : {
-            message_id: Number(topicMessageId),
-          },
+    message_thread_id: topicThreadId,
   });
 
   // Use sendDocument to attach the CSV
   return await logBot.api.sendDocument(Number(LOGS_GROUP_ID), new InputFile(csvBuffer, props.csvFileName), {
     caption: props.message,
-    reply_parameters: topicMessageId === "no_topic" ? undefined : { message_id: Number(topicMessageId) },
+    message_thread_id: topicThreadId,
     reply_markup: props.inline_keyboard,
     parse_mode: "HTML",
   });
@@ -348,7 +426,7 @@ export const renderUpdateEventMessage = (
 ): string => {
   return `
 @${username} <b>Updated</b> event <code>${event_title}</code> successfully
-🔗Event Link: https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME}/event?startapp=${eventUuid}
+🔗Event Link: ${LinkService.getEventUrl(eventUuid)}
 `;
 };
 
@@ -360,7 +438,7 @@ export const renderAddEventMessage = (username: string | number, eventData: Even
 
 <pre><code>${eventDataWithoutDescription}</code></pre>
 
-Open Event: https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME}/event?startapp=${eventUuid}
+Open Event: ${LinkService.getEventUrl(eventUuid)}
 `;
 };
 
@@ -392,7 +470,52 @@ ${circleEmoji} User currently has <b>${totalNotices}</b> notice(s).
 
 @${username}
 
-Open Event: https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME}/event?startapp=${eventUuid}
+Open Event: ${LinkService.getEventUrl(eventUuid)}
+`;
+}
+
+export async function renderPostPublishModerationMessage(
+  username: string | number,
+  eventData: EventRow
+): Promise<string> {
+  const eventUuid = eventData.event_uuid;
+  const totalNotices = await moderationLogDB.getNoticeCountForOwner(eventData.owner);
+  const circleEmoji = getNoticeEmoji(totalNotices);
+
+  return `
+🆕 <b>New Event Published (Lu.ma Instant Model)</b>
+
+📌 <b>Title:</b> ${eventData.title}
+👤 <b>Organizer:</b> @${username} (ID: <code>${eventData.owner}</code>)
+📍 <b>Location:</b> ${eventData.location || "Online"} (${eventData.participationType})
+🎟️ <b>Format:</b> ${eventData.participationType}
+${circleEmoji} <b>Trust Score:</b> ${totalNotices} prior notice(s)
+
+🔗 <b>Public Link:</b> ${LinkService.getEventUrl(eventUuid)}
+`;
+}
+
+export function renderEventReportAlertMessage(props: {
+  eventTitle: string;
+  eventUuid: string;
+  reporterUsername: string | number;
+  reason: string;
+  notes?: string;
+  totalReports: number;
+  isQuarantined: boolean;
+}): string {
+  const quarantineTag = props.isQuarantined ? "🚨 <b>[AUTO-QUARANTINED]</b>\n" : "";
+  return `
+${quarantineTag}⚠️ <b>COMMUNITY EVENT REPORT</b>
+
+📌 <b>Event:</b> "${props.eventTitle}"
+🆔 <b>UUID:</b> <code>${props.eventUuid}</code>
+⚠️ <b>Reason:</b> ${props.reason}
+📝 <b>Notes:</b> ${props.notes || "None provided"}
+👤 <b>Reported by:</b> @${props.reporterUsername}
+📊 <b>Total Reports:</b> ${props.totalReports}${props.isQuarantined ? " (Exceeded threshold: Hidden from public discovery)" : ""}
+
+🔗 <b>Review:</b> ${LinkService.getEventUrl(props.eventUuid)}
 `;
 }
 
@@ -426,7 +549,7 @@ export async function sendToEventsTgChannel(props: {
 
 📍 <i>${props.participationType.split("_").join(" ").charAt(0).toUpperCase() + props.participationType.split("_").join(" ").slice(1)} ${props.ticketPrice ? "Paid" : "Free"}</i>
 ${props.ticketPrice ? `\n${props.ticketPrice.paymentType === "ton" ? "💎" : props.ticketPrice.paymentType === "star" ? "⭐" : "💲"} <b>Ticket Price:</b> ${props.ticketPrice.amount}${props.ticketPrice.paymentType}\n` : ""}
-👉 <a href="https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME}/event?startapp=${props.event_uuid}">Open event on ONTON</a>
+👉 <a href="${LinkService.getEventUrl(props.event_uuid)}">Open event on ONTON</a>
 
 ⏰ <b>Starts at:</b> ${new Date(props.s_date * 1000).toLocaleString("en-US", {
           timeZone: props.timezone || "UTC",

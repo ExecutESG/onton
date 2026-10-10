@@ -36,6 +36,22 @@ export const initDataProtectedProcedure = trpcApiInstance.procedure.use(async (o
   });
 });
 
+// protected using initData, but allows banned users (e.g. GDPR Article 7(3) consent revocation)
+export const initDataProtectedProcedureAllowBanned = trpcApiInstance.procedure.use(async (opts) => {
+  if (!opts.ctx.user) {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "No auth header found",
+    });
+  }
+
+  return opts.next({
+    ctx: {
+      user: opts.ctx.user,
+    },
+  });
+});
+
 export const adminOrganizerProtectedProcedure = initDataProtectedProcedure.use((opts) => {
   if (opts.ctx.user.role !== "admin" && opts.ctx.user.role !== "organizer") {
     throw new TRPCError({

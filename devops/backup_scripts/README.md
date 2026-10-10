@@ -1,43 +1,81 @@
-# Backup & Restoration Scripts
+# ONTON Production Backup & Disaster Recovery Suite
 
-This directory contains utility scripts for backing up the ONTON infrastructure to a Hetzner Storage Box.
+Automated PostgreSQL database snapshot and disaster recovery system for ONTON 2.0 infrastructure, backing up off-site to Hetzner Storage Box.
 
-## Prerequisites
-- **lftp**: Must be installed on the host machine (`apt install lftp`).
-- **Docker**: Container `production-postgres` must be running.
-- **Environment**: `.env` file must exist in the project root.
+---
 
-## Scripts
+## Features
 
-### 1. `backup_to_hetzner.sh`
-Creates a backup and uploads it.
-- **Usage**: `./backup_to_hetzner.sh [full|db-only]`
-- **Env Vars**: Uses `HETZNER_STORAGE_USER`, `HETZNER_STORAGE_PASS`, etc. from `.env`.
+- **Automated Daily & Weekly Crons**: Daily database dump at 02:00 UTC; weekly full snapshot (DB + `./data`) on Sunday at 03:00 UTC.
+- **Dynamic Container Discovery**: Automatically detects `local-onton-postgres`, `${ENV}-postgres`, or running PostgreSQL instances without hardcoding.
+- **Off-Site SFTP Storage**: Secure transfer to Hetzner Storage Box using `lftp`.
+- **Intelligent Retention Pruning**:
+  - **7 Daily** snapshots (Days 0–7)
+  - **4 Weekly** snapshots (Days 8–35)
+  - **3 Monthly** snapshots (Days 36–90)
+  - Prunes expired snapshots beyond 90 days.
+- **Instant Telegram Telemetry**: Alerts the admin/deployment topic on backup success or failure with execution duration and file size.
+- **Disaster Recovery**: Interactive wizard and non-interactive `--latest` rollback commands.
 
-### 2. `restore_from_hetzner.sh`
-Interactive wizard to restore from a backup.
-- **Usage**: `./restore_from_hetzner.sh`
-- **Warning**: Overwrites existing database and/or data files.
+---
 
-## Automation (Cron Setup)
+## Required Environment Variables
 
-To enable automatic backups, add the following to the root user's crontab on the production server:
+Set the following variables in your root `.env` file:
 
-1. Open crontab:
-   ```bash
-   crontab -e
-   ```
+```bash
+# Hetzner Storage Box Configuration
+HETZNER_STORAGE_USER=u434100
+HETZNER_STORAGE_PASS="<storage-box-password>"
+HETZNER_STORAGE_HOST=u434100.your-storagebox.de
+HETZNER_STORAGE_PORT=22
+HETZNER_REMOTE_ROOT=/backups/ontonbot
 
-2. Add lines (Adjust path to `/root/ontonbot/...`):
-   ```bash
-   # Daily Database Backup at 03:00 AM
-   0 3 * * * /root/ontonbot/devops/backup_scripts/backup_to_hetzner.sh db-only >> /var/log/onton_backup_db.log 2>&1
+# PostgreSQL Configuration
+POSTGRES_USER=ontonont
+POSTGRES_PASSWORD="<db-password>"
 
-   # Weekly Full Backup (DB + Files) on Sunday at 04:00 AM
-   0 4 * * 0 /root/ontonbot/devops/backup_scripts/backup_to_hetzner.sh full >> /var/log/onton_backup_full.log 2>&1
-   ```
+# Optional Telegram Telemetry
+BACKUP_TELEGRAM_BOT_TOKEN="<bot-token>"       # Defaults to BOT_TOKEN
+BACKUP_TELEGRAM_CHAT_ID="-1002264975789"       # Defaults to LOGS_GROUP_ID
+BACKUP_TELEGRAM_THREAD_ID="<topic-thread-id>"  # Defaults to LOGS_THREAD_ID
 
-3. Verify:
-   ```bash
-   crontab -l
-   ```
+# Optional AES-256 Symmetric Snapshot Encryption
+# BACKUP_ENCRYPTION_KEY="<strong-secret-key>"
+```
+
+---
+
+## Quick Start
+
+### 1. Install Automated Crontab & Logrotate (on Host)
+```bash
+sudo ./install_cron.sh
+```
+
+### 2. Manual Backup Execution
+```bash
+# Database only (standard daily snapshot)
+./backup_to_hetzner.sh db-only
+
+# Full backup (database + data directory)
+./backup_to_hetzner.sh full
+```
+
+### 3. Restore Snapshot
+```bash
+# Interactive selection wizard
+./restore_from_hetzner.sh
+
+# Fast non-interactive restore of latest snapshot
+./restore_from_hetzner.sh --latest
+
+# Dry-run verification (no data modified)
+./restore_from_hetzner.sh --latest --dry-run
+```
+
+---
+
+## Documentation
+
+For full step-by-step point-in-time recovery and bare-metal server disaster procedures, consult the **[Disaster Recovery Runbook](DISASTER_RECOVERY.md)**.

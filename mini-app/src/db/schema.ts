@@ -33,6 +33,7 @@ import { coupon_item_status, coupon_items, couponMessageSendStatus, CouponMessag
 import { event_details_search_list } from "./schema/event_details_search_list";
 import { eventFieldRelations, eventFields } from "./schema/eventFields";
 import { eventPayment, EventTicketType, organizerPaymentStatus, pgTicketTypes, ticketTypes } from "./schema/eventPayment";
+import { eventTicketTiers, eventTicketTiersRelations, EventTicketTierRow } from "./schema/eventTicketTiers";
 import { eventPoaResults, eventPoaResultsIndexes } from "./schema/eventPoaResults";
 import { eventPoaTriggers, eventPoaTriggersIndexes } from "./schema/eventPoaTriggers";
 import { eventRegistrants, eventRegistrantStatus } from "./schema/eventRegistrants";
@@ -44,13 +45,29 @@ import { nftItems } from "./schema/nft_items";
 import { notifications } from "./schema/notifications";
 import { ontoSetting } from "./schema/ontoSetting";
 import { orders, orderTypes } from "./schema/orders";
+import { orderDlq, OrderDlqRow, OrderDlqInsert } from "./schema/orderDlq";
 import { rewards, RewardsSelectType, RewardTonSocietyStatusType, tonSocietyStatusEnum } from "./schema/rewards";
 import { sbtRewardCollections } from "./schema/sbtRewardCollections";
+import { sbtCollections, SbtCollectionRow, SbtCollectionInsert, SbtCollectionUpdate } from "./schema/sbtCollections";
+import { sbtItems, SbtItemRow, SbtItemInsert, SbtItemUpdate } from "./schema/sbtItems";
+import { csbtTrees, CsbtTreeRow, CsbtTreeInsert } from "./schema/csbtTrees";
 import { sideEvents } from "./schema/sideEvents";
 import { tickets, ticketsRelations } from "./schema/tickets";
 import { user_custom_flags, user_flags, userFlagsType } from "./schema/user_custom_flags";
 import { userEventFieldRelations, userEventFields } from "./schema/userEventFields";
 import { userRelations, users } from "./schema/users";
+import { user_identities, userIdentitiesRelations, UserIdentityRow, UserIdentityInsert } from "./schema/userIdentities";
+import {
+  user_consents,
+  userConsentsRelations,
+  UserConsentRow,
+  UserConsentInsert,
+  CONSENT_PURPOSES,
+  ConsentPurpose,
+  CURRENT_PRIVACY_POLICY_VERSION,
+} from "./schema/userConsents";
+import { eventReports, eventReportsRelations, EventReportRow, EventReportInsert } from "./schema/eventReports";
+import { organizerPayouts, organizerPayoutsRelations, OrganizerPayoutRow, NewOrganizerPayout } from "./schema/organizerPayouts";
 import { visitors } from "./schema/visitors";
 import { walletChecks } from "./schema/walletChecks";
 import { affiliateLinks, AffiliateLinksRow, AffiliateItemTypeEnum, affiliateItemType } from "./schema/affiliateLinks";
@@ -330,6 +347,8 @@ export {
   eventFieldRelations,
   eventFields,
   eventPayment,
+  eventTicketTiers,
+  eventTicketTiersRelations,
   eventPoaResults,
   eventPoaResultsIndexes,
   eventPoaTriggers,
@@ -344,7 +363,10 @@ export {
   notifications,
   ontoSetting,
   orders,
+  orderDlq,
   organizerPaymentStatus,
+  organizerPayouts,
+  organizerPayoutsRelations,
   rewards,
   sbtRewardCollections,
   sideEvents,
@@ -398,6 +420,17 @@ export {
   usersLinkedin,
   usersGoogle,
   usersOutlook,
+  sbtCollections,
+  sbtItems,
+  csbtTrees,
+  user_identities,
+  userIdentitiesRelations,
+  eventReports,
+  eventReportsRelations,
+  user_consents,
+  userConsentsRelations,
+  CONSENT_PURPOSES,
+  CURRENT_PRIVACY_POLICY_VERSION,
 };
 
 // Type Exports
@@ -526,5 +559,24 @@ export type {
   EventMerchNotifStatusType,
   PartnershipAffiliatePurchasesRow,
   PartnershipAffiliateUserEntryType,
-
+  SbtCollectionRow,
+  SbtCollectionInsert,
+  SbtCollectionUpdate,
+  SbtItemRow,
+  SbtItemInsert,
+  SbtItemUpdate,
+  UserIdentityRow,
+  UserIdentityInsert,
+  EventTicketTierRow,
+  EventReportRow,
+  EventReportInsert,
+  UserConsentRow,
+  UserConsentInsert,
+  ConsentPurpose,
+  CsbtTreeRow,
+  CsbtTreeInsert,
+  OrganizerPayoutRow,
+  NewOrganizerPayout,
+  OrderDlqRow,
+  OrderDlqInsert,
 };

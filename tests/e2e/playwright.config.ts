@@ -7,13 +7,21 @@ export default defineConfig({
     timeout: 10 * 1000,
   },
   fullyParallel: true,
-  retries: 1,
+  retries: 0,
   workers: 2,
-  reporter: [["list"], ["html", { open: "never" }]],
+  reporter: [
+    ["list"],
+    ["html", { open: "never", outputFolder: "playwright-report" }],
+    ["json", { outputFile: "test-results/report.json" }],
+  ],
   use: {
     baseURL: process.env.BASE_URL || "https://app.dev.onton.live",
-    trace: "on-first-retry",
-    screenshot: "only-on-failure",
+    trace: "retain-on-failure",
+    screenshot: "on",
+    video: {
+      mode: "on",
+      size: { width: 1280, height: 720 },
+    },
   },
   projects: [
     {

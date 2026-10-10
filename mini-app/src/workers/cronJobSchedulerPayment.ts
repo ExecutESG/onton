@@ -1,15 +1,12 @@
 import { getErrorMessages } from "@/lib/error";
 import { CronJob } from "cron";
 import "dotenv/config";
+import "@/server/utils/assertSecretsOnBoot";
 import { logger } from "@/server/utils/logger";
 import "@/lib/gracefullyShutdown";
 import cronJobs, { cronJobRunner } from "@/cronJobs";
 import { redisTools } from "@/lib/redisTools";
-import { is_prod_env, is_stage_env } from "@/server/utils/evnutils";
-import { checkMinterTransactions } from "@/cronJobs/tasks/checkNFTTransactions";
-import { mintPlatinumNftForMergedNFTS } from "@/cronJobs/tasks/mintPlatinumNftForMergedNFTS";
-import { distributeRafflesTon } from "@/cronJobs/tasks/distributeRaffleTon";
-import { sendAllPendingPrizeNotifications } from "@/cronJobs/tasks/sendAllPendingPrizeNotifications";
+import { startOrderPaidConsumer } from "./orderPaidConsumer";
 
 process.on("unhandledRejection", (err) => {
   const messages = getErrorMessages(err);
@@ -32,13 +29,14 @@ async function MainCronJob() {
   // this method will delete all the lock keys on startup to avoid any stale locks
   await deleteLockKeys();
 
+  // Instant event-driven payment fulfillment via RabbitMQ (<1s latency)
+  await startOrderPaidConsumer();
+
   new CronJob("0 */4 * * *", cronJobs.sendPaymentReminder, null, true);
   new CronJob("*/7 * * * * *", cronJobs.CheckTransactions, null, true);
-  new CronJob("*/24 * * * * *", cronJobRunner(cronJobs.UpdateEventCapacity), null, true);
-  new CronJob("*/19 * * * * *", cronJobRunner(cronJobs.CreateEventOrders), null, true);
   new CronJob("*/9 * * * * *", cronJobRunner(cronJobs.MintNFTForPaidOrders), null, true);
   new CronJob("*/11 * * * * *", cronJobRunner(cronJobs.TsCsbtTicketOrder), null, true);
-  new CronJob("*/21 * * * * *", cronJobs.OrganizerPromoteProcessing, null, true);
+  new CronJob("0 * * * * *", () => { void cronJobs.expireUnpaidOrders(); }, null, true);
   //runPendingCallbackTasks
   new CronJob(
     "*/60 * * * * *",
@@ -101,81 +99,7 @@ async function MainCronJob() {
     false, // unrefTimeout
     true // waitForCompletion
   );
-
-  // new CronJob(
-  //   "*/2 * * * * *",
-  //   cronJobs.processCampaignOrders, // The function to run
-  //   null, // onComplete (not needed)
-  //   true, // start immediately
-  //   null, // timeZone
-  //   null, // context
-  //   false, // runOnInit => false (don't run on app start)
-  //   null, // utcOffset => null
-  //   false, // unrefTimeout => false
-  //   true // waitForCompletion => true
-  // );
-  // new CronJob(
-  //   "*/3 * * * * *", // Every 3 seconds
-  //   cronJobs.checkMinterTransactions, // The function to run
-  //   null, // onComplete (not needed)
-  //   true, // start immediately
-  //   null, // timeZone
-  //   null, // context
-  //   false, // runOnInit => false (don't run on app start)
-  //   null, // utcOffset => null
-  //   false, // unrefTimeout => false
-  //   true // waitForCompletion => true
-  // );
-  // new CronJob(
-  //   "*/55 * * * * *", // Every 55 seconds
-  //   cronJobs.mintPlatinumNftForMergedNFTS, // The function to run
-  //   null, // onComplete (not needed)
-  //   true, // start immediately
-  //   null, // timeZone
-  //   null, // context
-  //   false, // runOnInit => false (don't run on app start)
-  //   null, // utcOffset => null
-  //   false, // unrefTimeout => false
-  //   true // waitForCompletion => true
-  // );
-  // new CronJob(
-  //   "*/3 * * * * *", // Every 3 seconds
-  //   cronJobs.burnMergedNfts, // The function to run
-  //   null, // onComplete (not needed)
-  //   true, // start immediately
-  //   null, // timeZone
-  //   null, // context
-  //   false, // runOnInit => false (don't run on app start)
-  //   null, // utcOffset => null
-  //   false, // unrefTimeout => false
-  //   true // waitForCompletion => true
-  // );
-  //
-  // /** these cronjob are for minting and affiliate spins for campaigns */
-  // new CronJob(
-  //   "*/2 * * * * *", // Every  2 seconds
-  //   cronJobs.processCampaignAffiliateSpins, // The function to run
-  //   null, // onComplete (not needed)
-  //   true, // start immediately
-  //   null, // timeZone
-  //   null, // context
-  //   false, // runOnInit => false (don't run on app start)
-  //   null, // utcOffset => null
-  //   false, // unrefTimeout => false
-  //   true // waitForCompletion => true
-  // );
-  // new CronJob(
-  //   "*/55 * * * * *", // every 55 seconds
-  //   cronJobs.mintNftForUserSpins, // The function to run
-  //   null, // onComplete (not needed)
-  //   true, // start immediately
-  //   null, // timeZone
-  //   null, // context
-  //   false, // runOnInit => false (don't run on app start)
-  //   null, // utcOffset => null
-  //   false, // unrefTimeout => false
-  //   true // waitForCompletion => true
-  // );
 }
+
 
 MainCronJob().then(() => logger.log("Cron Jobs Started"));

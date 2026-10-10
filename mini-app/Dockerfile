@@ -13,68 +13,21 @@ RUN corepack disable
 # Install Yarn globally
 RUN npm install -g yarn
 
-# ARGS
+# ARGS (Build-time public variables only)
 ARG ENV
 ARG NEXT_PUBLIC_ENV
-ARG DATABASE_URL_NFT_MANAGER
-ARG TON_CENTER_TOKEN
-ARG TONAPI_API_KEY
-ARG DATABASE_URL
-ARG POSTGRES_USER
-ARG POSTGRES_PASSWORD
-ARG BOT_TOKEN
 ARG NEXT_PUBLIC_APP_BASE_URL
 ARG NEXT_PUBLIC_BOT_USERNAME
-ARG CACHE_ENABLED
-ARG TG_NOTIFICATION_CHANELL
-ARG ONTON_API_SECRET
-ARG TON_SOCIETY_API_KEY
-ARG TON_SOCIETY_BASE_URL
-ARG REDIS_HOST
-ARG REDIS_PORT
-ARG REDIS_PASSWORD
-ARG REDIS_DATABASES
-ARG MINI_APP_PORT
-ARG IP_NFT_MANAGER
-ARG NFT_MANAGER_PORT
-ARG CLIENT_API_JWT_SECRET
-ARG CLIENT_API_FIXED_KEY
-ARG CLIENT_API_FIXED_USER
-ARG CLIENT_API_FIXED_ORGANIZER
 ARG NEXT_PUBLIC_SOCKET_URL
-ARG IP_REDIS
-ARG EVENT_WALLET_ENC_KEY
-# Export arguments as environment variables
+ARG MINI_APP_PORT=3000
+
+# Export public arguments as environment variables for build time
 ENV ENV=${ENV}
 ENV NEXT_PUBLIC_ENV=${NEXT_PUBLIC_ENV}
-ENV DATABASE_URL_NFT_MANAGER=${DATABASE_URL_NFT_MANAGER}
-ENV TON_CENTER_TOKEN=${TON_CENTER_TOKEN}
-ENV TONAPI_API_KEY=${TONAPI_API_KEY}
-ENV DATABASE_URL=${DATABASE_URL}
-ENV POSTGRES_USER=${POSTGRES_USER}
-ENV POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-ENV BOT_TOKEN=${BOT_TOKEN}
 ENV NEXT_PUBLIC_APP_BASE_URL=${NEXT_PUBLIC_APP_BASE_URL}
 ENV NEXT_PUBLIC_BOT_USERNAME=${NEXT_PUBLIC_BOT_USERNAME}
-ENV CACHE_ENABLED=${CACHE_ENABLED}
-ENV TG_NOTIFICATION_CHANELL=${TG_NOTIFICATION_CHANELL}
-ENV ONTON_API_SECRET=${ONTON_API_SECRET}
-ENV TON_SOCIETY_API_KEY=${TON_SOCIETY_API_KEY}
-ENV TON_SOCIETY_BASE_URL=${TON_SOCIETY_BASE_URL}
-ENV REDIS_HOST=${IP_REDIS}
-ENV IP_REDIS=${IP_REDIS}
-ENV REDIS_PORT=${REDIS_PORT}
-ENV REDIS_PASSWORD=${REDIS_PASSWORD}
-ENV REDIS_DATABASES=${REDIS_DATABASES}
-ENV MINI_APP_PORT=${MINI_APP_PORT}
-ENV IP_NFT_MANAGER=${IP_NFT_MANAGER}
-ENV NFT_MANAGER_PORT=${NFT_MANAGER_PORT}
-ENV CLIENT_API_JWT_SECRET=${CLIENT_API_JWT_SECRET}
-ENV CLIENT_API_FIXED_KEY=${CLIENT_API_FIXED_KEY}
-ENV CLIENT_API_FIXED_USER=${CLIENT_API_FIXED_USER}
-ENV CLIENT_API_FIXED_ORGANIZER=${CLIENT_API_FIXED_ORGANIZER}
 ENV NEXT_PUBLIC_SOCKET_URL=${NEXT_PUBLIC_SOCKET_URL}
-ENV EVENT_WALLET_ENC_KEY=${EVENT_WALLET_ENC_KEY}
+ENV MINI_APP_PORT=${MINI_APP_PORT}
 
 ##
 # Stage: base
@@ -95,41 +48,40 @@ RUN apk add --no-cache \
 ##
 FROM base AS dependencies
 
-# Copy package files for dependency installation
-COPY ./package.json /app/
-
 # Set the working directory
 WORKDIR /app
 
-# Install production dependencies only using Yarn
-RUN yarn install --production --ignore-engines
+# Copy package files for dependency installation (both package.json and yarn.lock)
+COPY ./package.json ./yarn.lock* /app/
 
-##
-# Stage: with-files
-##
-FROM dependencies AS with-files
-
-# Copy the entire project
-COPY . /app
+# Install all dependencies with frozen lockfile for deterministic, fast builds
+RUN yarn install --frozen-lockfile --ignore-engines
 
 ##
 # Stage: build-stage
 ##
-FROM with-files AS build-stage
+FROM dependencies AS build-stage
 
-# Double check the content
-RUN echo "Build stage files:" && ls -la /app
+# Copy the entire project (node_modules is excluded by .dockerignore)
+COPY . /app
 
-# Install all dependencies (including dev) and build
-RUN yarn install --ignore-engines
-# eslint 9  is not supported in next 14
-#RUN yarn lint:quiet
-RUN yarn build
+# Build Next.js application, then prune build cache to keep image small
+RUN yarn build && \
+    rm -rf /app/.next/cache && \
+    yarn cache clean
 
 ##
 # Stage: production
 ##
 FROM build-stage AS production
+
+ARG COMMIT_SHA=""
+ARG COMMIT_AUTHOR=""
+
+# Write commit details if provided at build time (won't invalidate build-stage cache)
+RUN if [ -n "$COMMIT_SHA" ]; then \
+      printf "Commit SHA: %s\nCommit Author: %s\n" "$COMMIT_SHA" "$COMMIT_AUTHOR" > /app/commit_details.txt; \
+    fi
 
 # Expose the port for your Next.js app
 EXPOSE $MINI_APP_PORT

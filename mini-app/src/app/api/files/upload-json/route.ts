@@ -5,11 +5,11 @@ import { verify } from 'jsonwebtoken';
 import { toNodeJsRequest } from '../helpers/toNodeJsRequest';
 import { minioClient } from '@/lib/minioClient';
 import { filePrefix } from '@/lib/fileUtils';
+import { readRequiredSecret } from '@/server/utils/requiredSecrets';
 
 export const dynamic = 'force-dynamic'; // ensures Next.js does not statically optimize this route
 
-// Adjust to your environment variable key, e.g., process.env.ONTON_API_SECRET
-const JWT_SECRET = process.env.ONTON_API_SECRET || 'fallback-secret';
+// Upload JWTs are verified with ONTON_API_SECRET only (no 'fallback-secret', #1052).
 
 /**
  * Converts the NextRequest into a Node.js-like req (IncomingMessage)
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
 
   // 2. Verify the token using JWT_SECRET
   try {
-    verify(token, JWT_SECRET);
+    verify(token, readRequiredSecret('ONTON_API_SECRET'), { algorithms: ['HS256'] });
     // If it fails, an error is thrown, caught below
   } catch (err) {
     console.error('Invalid JWT:', err);
@@ -96,6 +96,32 @@ export async function POST(req: NextRequest) {
     const finalFilename = subfolder
       ? `${subfolder}/${filePrefix()}${formFile.originalFilename}`
       : `${filePrefix()}${formFile.originalFilename}`;
+
+    // Ensure bucket exists and has public read policy for public metadata buckets like sbt-collections
+    try {
+      const exists = await minioClient.bucketExists(bucketName);
+      if (!exists) {
+        await minioClient.makeBucket(bucketName);
+      }
+      if (bucketName === 'sbt-collections') {
+        const publicReadPolicy = JSON.stringify({
+          Version: "2012-10-17",
+          Statement: [
+            {
+              Sid: "PublicReadGetObject",
+              Effect: "Allow",
+              Principal: "*",
+              Action: ["s3:GetObject"],
+              Resource: [`arn:aws:s3:::${bucketName}/*`],
+            },
+          ],
+        });
+        await minioClient.setBucketPolicy(bucketName, publicReadPolicy);
+      }
+    } catch (bucketErr) {
+      // Non-fatal: log and proceed
+      console.warn(`upload-json: Bucket check/policy update failed for ${bucketName}:`, bucketErr);
+    }
 
     // Upload to MinIO
     await minioClient.putObject(bucketName, finalFilename, fileData, formFile.size, {

@@ -14,7 +14,7 @@ export const sendNftDeployedNotifications = async (
   const token = await eventTokensDB.getTokenById(Number(paymentInfo.token_id));
   const paymentSymbol = token?.symbol?.toLowerCase() ?? "ton";
   await sendLogNotification({
-    message: `Deployed collection for <b>${event.title}</b>\n\n🎈<a href='https://${prefix}getgems.io/collection/${collectionAddress}'>Collection</a>\n\n👤Capacity: ${event.capacity}`,
+    message: `Deployed collection for <b>${event.title}</b>\n\n🎈<a href='https://${prefix}tonviewer.com/${collectionAddress}'>Collection</a>\n\n👤Capacity: ${event.capacity}`,
     topic: "event",
   });
   await sendToEventsTgChannel({

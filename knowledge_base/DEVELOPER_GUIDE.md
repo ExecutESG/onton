@@ -1,119 +1,96 @@
 # ONTON Platform Developer Guide
 
-Welcome to the ONTON engineering team! This guide will help you set up your environment, understand the codebase structure, and contribute effectively.
+> Last verified against dev: 2026-10-03
 
-## 1. Quick Start (Onboarding)
+How to set up the repo locally, where code lives, and what to run before a PR.
+
+## 1. Quick start
 
 ### Prerequisites
-*   **Node.js**: v20+ (managed via nvm recommended)
-*   **Package Manager**: `yarn` (v1.22.x)
-*   **Docker**: Required for local database and services.
+- Node.js 22 (same as `mini-app/Dockerfile` and CI)
+- `yarn` 1.x
+- Docker
 
-### Setup Steps
-1.  **Clone the Repository**:
-    ```bash
-    git clone https://github.com/YourOrg/ontonbot.git
-    cd ontonbot
-    ```
-
-2.  **Install Dependencies**:
-    ```bash
-    # Install root dependencies (if any)
-    yarn install
-    
-    # Install Mini App dependencies
-    cd mini-app
-    yarn install
-    ```
-
-3.  **Environment Variables**:
-    *   Copy `.env.example` to `.env` in `mini-app/`.
-    *   *Ask the lead developer for the required secrets (e.g., specific Bot Token, TON Wallet Seed).*
-
-4.  **Start Local Infrastructure**:
-    *   Spin up PostgreSQL, Redis, and MinIO:
-    ```bash
-    # From root directory
-    docker-compose -f docker-compose.yml up -d
-    ```
-
-5.  **Run Database Migrations**:
-    ```bash
-    cd mini-app
-    yarn run db:up
-    ```
-
-6.  **Start Development Server**:
-    ```bash
-    # In mini-app directory
-    yarn run dev
-    ```
-    *   The app should be running at `http://localhost:3000`.
+### Setup
+1. Clone:
+   ```bash
+   git clone https://github.com/ExecutESG/onton.git ontonbot
+   cd ontonbot
+   ```
+2. Install per app (there is no root `package.json`):
+   ```bash
+   cd mini-app && yarn install
+   ```
+   Same for `telegram-bot/`, `website/`, `client-web-panel/` if you work on them.
+3. Env: copy `.env.example` to `.env` **at the repo root**. App scripts load `../.env`. Ask the lead for secrets. Use the local bot `@ontonlocaldevbot`, never `@theontonbot`.
+4. Start infra (Postgres, Redis, MinIO, RabbitMQ, Caddy):
+   ```bash
+   # from the repo root
+   docker compose --profile minimal up -d
+   ```
+   Every service has a profile; `docker compose up` without `--profile` starts nothing. Use `--profile full` for the whole stack.
+5. Database schema: do **not** run `yarn db:migrate` (stale journal) and do not treat `yarn db:up` as a migration (it is `drizzle-kit up`, a snapshot upgrade). Apply SQL files with `psql -v ON_ERROR_STOP=1` or restore a dump. See [migration_and_syncing.md](./migration_and_syncing.md).
+6. Run the Mini App:
+   ```bash
+   cd mini-app
+   yarn dev
+   ```
+   It runs `init:minio:local`, then `next dev` on `MINI_APP_PORT` from `.env`.
 
 ---
 
-## 2. Architecture Overview
+## 2. Architecture
 
-ONTON is built on a **T3 Stack-inspired architecture** (Next.js + tRPC + Drizzle).
+Next.js (App Router) + tRPC + Drizzle in `mini-app`; grammY bot in `telegram-bot`.
 
-### High-Level Diagram
 ```mermaid
-graph TD
-    User((User)) -->|Browser/Telegram| MiniApp[Mini App (Next.js)]
-    User -->|Chat| Bot[Telegram Bot (Grammy)]
-    
-    subgraph "Backend Services"
-        MiniApp -->|tRPC via HTTP| API[API Server]
-        API -->|Query| DB[(PostgreSQL)]
-        API -->|Cache| Redis[(Redis)]
-        API -->|Task Queue| RMQ[RabbitMQ]
-    end
-    
-    subgraph "Background Workers"
-        RMQ -->|Consume| Workers[Worker Service]
-        Workers -->|Mint/Verify| TON[TON Blockchain]
-        Cron[Cron Scheduler] -->|Trigger| API
-    end
+flowchart TD
+    User["User"] -->|"Telegram / browser"| MiniApp["mini-app (Next.js + tRPC)"]
+    User -->|"Chat"| Bot["telegram-bot (grammY + Express)"]
+    MiniApp --> DB[("PostgreSQL")]
+    MiniApp --> Redis[("Redis")]
+    MiniApp --> MinIO["MinIO"]
+    MiniApp -->|"HMAC-signed HTTP"| Bot
+    MiniApp -->|"publish"| RMQ["RabbitMQ"]
+    Workers["Workers (mini-app image, cron)"] -->|"poll"| DB
+    Workers -->|"consume"| RMQ
+    Workers -->|"mint / verify"| TON["TON blockchain"]
 ```
 
----
-
-## 3. Where Logic Lives
-
-Understanding *where* to put your code is key to maintaining a clean codebase.
-
-### A. Frontend UI (`src/app/`)
-*   **Pages:** `src/app/(navigation)/...`
-*   **Components:** `src/components/` (Reusable UI elements).
-*   **State:** `src/zustand/` (Global client state stores).
-*   **Rule:** Keep logic here strictly to *presentation* and *interaction*. Avoid complex business rules.
-
-### B. Business Logic (`src/server/routers/`)
-*   **tRPC Routers:** This is where the core logic resides.
-    *   `src/server/routers/events.ts`: Event creation, updating, validation.
-    *   `src/server/routers/orders.ts`: Ticket purchase flows.
-    *   `src/server/routers/users.ts`: User profile management.
-*   **Rule:** Validate input using Zod schemas here. Call helpers/services for complex operations.
-
-### C. Data Access (`src/db/`)
-*   **Schema:** `src/db/schema/` (Drizzle definitions).
-*   **Access Modules:** `src/db/modules/` (Helper functions for common DB queries).
-*   **Rule:** Do not write raw SQL in routers if a helper exists.
-
-### D. Background Jobs (`src/workers/` & `src/cronJobs/`)
-*   Use this for long-running tasks:
-    *   Minting NFTs.
-    *   Sending mass notifications.
-    *   Checking blockchain transaction status.
+- Workers are cron schedulers in `mini-app/src/workers/` (payment, reward, ordinary, nft-api, poa, socket). Most work is DB polling; RabbitMQ carries notifications, `tg_messages` and `order_paid`.
+- The bot does not use RabbitMQ.
 
 ---
 
-## 4. Contributing Checklist
+## 3. Where code lives (`mini-app/`)
 
-Before opening a Pull Request (PR):
-1.  **Run Tests:** `yarn test` (or specific test suites relevant to your changes).
-2.  **Lint Code:** `yarn lint`.
-3.  **Format Code:** `yarn format` (Prettier).
-4.  **Check Types:** `yarn type:check` (TypeScript validation).
+### Frontend (`src/app/`)
+- Pages: `src/app/(navigation)/...`, `src/app/events/`, `src/app/tickets/`.
+- Components: `src/components/`.
+- Client state: `src/zustand/`.
 
-*Happy Coding!*
+### API (`src/server/`)
+- tRPC root: `src/server/index.ts`. Procedure types: `src/server/trpc.ts`.
+- Routers in `src/server/routers/`, e.g. `events.ts`, `orders.ts`, `users.ts`, `tickets.ts`, `registrant.ts`, `sbt.ts`.
+- REST routes: `src/app/api/` (e.g. `/api/v1/order`, `/api/v1/auth/*`).
+- Validate input with Zod (`src/zodSchema/`).
+
+### Data (`src/db/`)
+- Schema: `src/db/schema.ts` (used by `drizzle.config.ts`) plus table files in `src/db/schema/`.
+- Query helpers: `src/db/modules/`.
+- SQL migrations: `mini-app/drizzle/`.
+
+### Background jobs
+- `src/workers/` (schedulers) and `src/cronJobs/` (tasks).
+
+---
+
+## 4. PR checklist
+
+Run in `mini-app/`:
+1. Tests: `yarn test:api` (Vitest). `yarn test` is only an ad-hoc script.
+2. Lint: `yarn lint` (CI runs `yarn lint:quiet`).
+3. Format: `yarn format`.
+4. Types: `yarn type:check` (not run by CI; run it yourself).
+
+For `telegram-bot/`: `yarn run build` (`tsc`). It has no lint script.

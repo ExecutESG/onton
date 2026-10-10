@@ -1,109 +1,108 @@
 # System Audit & Architecture Mapping
 
-**Date:** 2026-02-12
-**Scope:** Root Directory Scan (`ontonbot/`)
+> Last verified against dev: 2026-10-03
 
-## 1. Executive Summary
-ONTON is a hybrid platform primarily built on **Next.js** (Mini App) and **Grammy** (Telegram Bot). It leverages the **TON Blockchain** for asset management (NFTs, SBTs) and payments. The architecture is split between a user-facing Mini App for interaction/management and a Telegram Bot for notifications/quick actions, supported by a robust backend using **tRPC** and **Drizzle ORM**.
+**Original audit:** 2026-02-12. Updated for ONTON 2.0 (`dev`).
+**Scope:** repo root (`ontonbot/`).
 
----
-
-## 2. Core Business Modules
-
-### A. Mini App (`ontonbot/mini-app`)
-The core hub for users and organizers.
-*   **Entry Points:**
-    *   **Frontend:** `src/app` (Next.js App Router).
-    *   **API:** `src/server/routers/_app.ts` (tRPC Root).
-    *   **Workers:** `src/workers/` & `src/cronJobs/` (Background processing).
-
-*   **Key Logic Layers (`src/server/routers/`):**
-    *   **Event Management:** `events.ts`, `organizers.ts`, `hubs.ts` - Validating, creating, and listing events.
-    *   **Commerce & access:** `orders.ts`, `tickets.ts`, `registrant.ts` - Purchasing flow, NFT minting triggers, and check-in logic.
-    *   **User Identity:** `users.ts`, `userRolesRouter.ts`, `tonProofRouter.ts` - Telegram Auth & Wallet linking.
-    *   **Engagement:** `campaignRouter.ts`, `raffleRouter.ts`, `questRouter.ts` - Gamification layers.
-    *   **Affiliates:** `affiliateRouter.ts` - Referral tracking.
-
-### B. Telegram Bot (`ontonbot/telegram-bot`)
-Primary interface for notifications and lightweight interactions.
-*   **Entry Point:** `src/main.ts`.
-*   **Framework:** `grammy`.
-*   **Modules:**
-    *   **Composers (`src/composers/`):** Modular message handling (e.g., `start.composer.ts`, `admin.composer.ts`).
-    *   **Handlers (`src/handlers/`):** Specific business logic execution.
-
-### C. DevOps & Infrastructure (`ontonbot/devops`)
-*   **Containerization:** `docker-compose` setup for Server, Shadow, and Dev environments.
-*   **Reverse Proxy:** Caddy (`Caddyfile`) for SSL and routing.
+## 1. Summary
+ONTON is a Next.js Mini App (`mini-app`) plus a grammY Telegram bot (`telegram-bot`). It uses TON for payments and credentials (NFTs, SBTs). The Mini App exposes a tRPC API and REST routes, backed by PostgreSQL (Drizzle), Redis, MinIO and RabbitMQ. Background work runs as cron schedulers that reuse the `mini-app` image.
 
 ---
 
-## 3. Tech Stack & Dependencies
+## 2. Modules
 
-### Frontend / Fullstack (Mini App)
-*   **Framework:** Next.js 14 (App Router).
-*   **Language:** TypeScript.
-*   **Styling:** TailwindCSS, Radix UI, Framer Motion.
-*   **State Management:** Zustand, React Query (@tanstack/react-query).
-*   **API Client:** tRPC Client.
-*   **TON Integration:** @tonconnect/ui-react.
+### A. Mini App (`mini-app/`)
+- Entry points:
+  - Frontend: `src/app` (App Router only).
+  - tRPC root: `src/server/index.ts`; procedure types in `src/server/trpc.ts`; context in `src/server/context.ts`.
+  - REST: `src/app/api/` (e.g. `/api/v1/order`, `/api/v1/auth/*`).
+  - Workers: `src/workers/` (schedulers) and `src/cronJobs/` (tasks).
+- Routers (`src/server/routers/`):
+  - Events: `events.ts`, `organizers.ts`, `hubs.ts`.
+  - Commerce and access: `orders.ts`, `tickets.ts`, `eventTicket.ts`, `registrant.ts`, `couponRouter.ts`.
+  - Credentials: `sbt.ts`, `sbtRewardCollectionRouter.ts`, `POA.ts`, `userEventFields.ts`.
+  - Identity: `users.ts`, `userRolesRouter.ts`, `tonProofRouter.ts`, `usersGoogleRouter.ts` and other `users*Router.ts` social routers.
+  - Engagement: `campaignRouter.ts`, `raffleRouter.ts`, `questRouter.ts`, `tournaments.ts`, `tasksRouter.ts`, `pointsRouter.ts`.
+  - Affiliates: `affiliateRouter.ts`.
 
-### Backend (Mini App Server)
-*   **Runtime:** Node.js (v20+ implied).
-*   **API Framework:** tRPC (Type-safe RPC).
-*   **Database ORM:** Drizzle ORM (PostgreSQL).
-*   **Authentication:** Custom Middleware (`src/server/trpc.ts`) validating Telegram `initData`.
-*   **Queue/Async:** RabbitMQ (`amqplib`), Redis (`redis`).
-*   **Storage:** MinIO (S3-compatible) for metadata/images.
-*   **Blockchain:** @ton/core, @ton/ton.
+### B. Telegram bot (`telegram-bot/`)
+- Entry: `src/main.ts`. grammY with long polling, plus an Express API.
+- Composers in `src/composers/` (e.g. `moderationComposer.ts`, `broadcast.ts`, `pollComposer.ts`, `affiliateComposer.ts`, `helpComposer.ts`). Handlers in `src/handlers/` (e.g. Telegram Stars payments).
+- Express routes are protected by HMAC (`src/middleware/hmacAuth.ts`), except `/health`.
+- Sessions are grammY in-memory (lost on restart). Redis is used for rate limiting. No RabbitMQ.
+- Moderation (formerly a separate mini-app bot) now lives here.
 
-### Database
-*   **Primary:** PostgreSQL.
-*   **Caching:** Redis.
-
----
-
-## 4. Technical Debt & Observations
-
-### A. Monolithic Routers
-*   **Observation:** Files like `events.ts` (42KB) and `campaignRouter.ts` (24KB) in `src/server/routers` are quite large.
-*   **Risk:** Hard to maintain/test. Logic is potentially mixed (Validation + DB + Business Logic).
-*   **Recommendation:** Refactor heavy business logic into dedicated `src/services/` (e.g., `EventService.ts`) and keep routers as thin controllers.
-
-### B. Heavy Reliance on Cron Jobs
-*   **Observation:** `package.json` lists many cron scripts (`cronJobSchedulerPayment`, `cronJobSchedulerReward`, etc.).
-*   **Risk:** Polling databases for changes (e.g., "scan for pending orders") can be inefficient compared to event-driven queues.
-*   **Recommendation:** Ensure `amqplib` is fully utilized for event-driven tasks (e.g., "Order Paid" event -> triggers "Mint Worker" immediately) to reduce polling latency.
-
-### C. Auth Logic Dispersal
-*   **Observation:** Auth checks are heavily embedded in `src/server/trpc.ts` middlewares (`initDataProtectedProcedure`, `adminOrganizerProtectedProcedure`).
-*   **Risk:** As roles grow complexity (e.g., "Co-Organizer"), this file becomes a bottleneck.
-*   **Recommendation:** Centralize Role-Based Access Control (RBAC) definitions in a dedicated policy module.
-
-### D. Hardcoded Configurations
-*   **Observation:** Some scripts and docker files seem to rely on specific environment setups/files (`.env.shadow`, `github_vars_backup_repo.txt`).
-*   **Risk:** fragile deployment if secrets aren't managed via a proper vault or standardized env injection.
+### C. DevOps (`devops/`, root compose files)
+- `docker-compose.yml`: local and production (`--profile full`).
+- `docker-compose-server-dev.yml` / `docker-compose-server.yml`: Swarm stacks deployed by CI to the staging host.
+- Caddy (`Caddyfile`, `devops/caddy/`) for TLS and routing.
 
 ---
 
-## 5. Data Flow Map (Simplified)
+## 3. Tech stack (from `mini-app/package.json`)
+- Next.js 14.2, TypeScript, TailwindCSS 3.
+- Zustand, `@tanstack/react-query` v4, tRPC v10.
+- Drizzle ORM 0.33 on PostgreSQL.
+- `amqplib` (RabbitMQ), `redis` v4, MinIO.
+- `@tonconnect/ui-react`, `@ton/core`, `@ton/ton`.
+- Runtime: Node.js 22.
+
+### Auth (summary)
+- `src/server/context.ts` resolves the user from: Bearer platform JWT → raw Telegram initData → cookies (`onton_token`, `onton_session`, `token`) → API key.
+- Procedure types: `publicProcedure`, `initDataProtectedProcedure` (any authenticated source; role `ban` rejected), `adminOrganizerProtectedProcedure`, `eventManagementProtectedProcedure` (event owner, event admin, or check-in officer for allowed paths).
+
+---
+
+## 4. Technical debt
+
+### A. Large routers
+- `events.ts` (~46 KB) and `campaignRouter.ts` (~24 KB) mix validation, DB access and business logic.
+- Recommendation: move business logic into `src/services/` and keep routers thin.
+
+### B. Cron polling
+- Payment verification (TonCenter, every 7 s) and minting (every 9 s) are DB-polling crons in the payment worker.
+- An `order_paid` RabbitMQ queue and consumer exist, but the consumer is likely failing; the cron is the real fulfillment path (F-35).
+- Recommendation: fix the consumer before relying on events; keep the cron as fallback.
+
+### C. Auth checks in one file
+- Role checks live in `src/server/trpc.ts` middlewares and `accessRolesPathConfig.ts`.
+- `adminOrganizerCoOrganizerProtectedProcedure` allows an admin of *any* event for listed paths, not a specific one.
+- Recommendation: centralize RBAC in a policy module scoped per event.
+
+### D. Configuration
+- Secret env vars have insecure fallbacks if unset. Set them in every environment.
+- Worker naming differs between compose files (`sbt-worker` runs NFT-API locally but payment on servers).
+
+---
+
+## 5. Data flow (simplified)
 
 ```mermaid
-graph TD
-    User[User (Telegram/Web)] -->|HTTPS| Caddy[Caddy Reverse Proxy]
-    Caddy -->|/api| NextJS[Next.js Server (Mini App)]
-    Caddy -->|Webhooks| Bot[Telegram Bot]
-    
-    subgraph Mini App Logic
-        NextJS -->|RPC| tRPC[tRPC Routers]
-        tRPC -->|ORM| DB[(PostgreSQL)]
-        tRPC -->|Cache| Redis[(Redis)]
-        tRPC -->|Storage| MinIO[MinIO Object Storage]
+flowchart TD
+    User["User (Telegram / web)"] -->|"HTTPS"| Caddy["Caddy"]
+    Caddy --> NextJS["mini-app (Next.js)"]
+    Bot["telegram-bot"] -->|"long polling"| TG["Telegram API"]
+    NextJS -->|"HMAC HTTP"| Bot
+
+    subgraph MiniApp["Mini App"]
+        NextJS --> TRPC["tRPC routers + REST"]
+        TRPC --> DB[("PostgreSQL")]
+        TRPC --> Redis[("Redis")]
+        TRPC --> MinIO["MinIO"]
     end
-    
-    subgraph Async Workers
-        Cron[Cron Scheduler] -->|Polls| DB
-        Worker[Workers] -->|Consumes| RabbitMQ[RabbitMQ]
-        Worker -->|Mints| TON[TON Blockchain]
+
+    subgraph Async["Workers"]
+        Cron["Cron schedulers"] -->|"poll"| DB
+        Cron -->|"consume"| RabbitMQ["RabbitMQ"]
+        Cron -->|"mint"| TON["TON"]
     end
 ```
+
+## Known issues (tracked in QA)
+- F-33: Stars pre-checkout approves without validating order, price or capacity.
+- F-34: paid tier `sold_count` not incremented; no tier-creation API.
+- F-35: `order_paid` consumer likely failing; cSBT proofs rebuilt per request and not anchored on chain.
+- F-36: free SBT at check-in/claim vs paid on-chain upgrade.
+- F-27: email OTP codes are logged, not emailed.
+- F-30: PoA has a universal override; slated for removal.

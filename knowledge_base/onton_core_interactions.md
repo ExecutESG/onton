@@ -1,65 +1,45 @@
 # ONTON Core Interactions
 
-This document lists the major interaction steps within the ONTON platform. Each section represents a critical user flow that requires detailed analysis and documentation.
+> Last verified against dev: 2026-10-03
 
-## 1. User Onboarding
-*   **Actor:** New User (Participant/Organizer)
-*   **Entry Point:** Telegram Bot (`/start`) or Mini App (`t.me/ontonbot/app`)
-*   **Key Actions:**
-    *   Telegram Authentication (Data extraction & validation)
-    *   Wallet Connectivity (TON Connect)
-    *   Profile Creation (Database record)
-*   **Status:** Documented in [User Onboarding](user_onboarding.md).
+Index of the main user flows and where each is documented.
 
-## 2. Organizer Upgrade
-*   **Actor:** Participant -> Organizer
-*   **Actions:**
-    *   Click "Become Organizer" in Profile/Dashboard.
-    *   **Payment:** Send TON to system wallet with comment (See [Payment System](payment_system_overview.md)).
-    *   **Verification:** Background worker confirms transaction.
-    *   **Result:** User role updated to `organizer`.
-*   **Status:** Documented in [Payment System Overview](payment_system_overview.md).
+| # | Flow | Actor | Doc |
+|---|---|---|---|
+| 1 | Onboarding & login | User | [user_onboarding.md](user_onboarding.md), [workflow_auth.md](workflow_auth.md) |
+| 2 | Organizer upgrade | User → Organizer | below, [payment_system_overview.md](payment_system_overview.md) |
+| 3 | Event creation | Organizer | [event_creation.md](event_creation.md) |
+| 4 | Registration / ticket purchase | Participant | [workflow_event_lifecycle.md](workflow_event_lifecycle.md), [payment_system_overview.md](payment_system_overview.md) |
+| 5 | Check-in & PoA | Event managers, participant | [checkin_and_poa.md](checkin_and_poa.md) |
+| 6 | Rewards (SBT / NFT) | System, participant | [reward_distribution.md](reward_distribution.md) |
+| 7 | Affiliate | Affiliate, participant | [affiliate_system.md](affiliate_system.md) |
 
-## 3. Event Creation
-*   **Actor:** Organizer
-*   **Actions:**
-    *   **Draft:** Fill event details (Title, Date, Location/Link).
-    *   **Configuration:** Set Quotas, Ticket Type (SBT/NFT), Price.
-    *   **Publishing:** Make event visible to public.
-    *   **Deploy:** (Optional) Deploy SBT collection specific to event.
-*   **Status:** Documented in [Event Creation](event_creation.md).
+## 1. Onboarding
+- Entry: the Mini App (links `https://t.me/<bot>/event?startapp=<eventUuid>`), the bot, or the web app.
+- TMA users are identified by signed initData and upserted on each request. Web users log in with the Telegram widget, Google, or email OTP.
+- Wallet: TON Connect + `users.addWallet`.
 
-## 4. Ticket Purchase
-*   **Actor:** Participant
-*   **Actions:**
-    *   Select Event -> Click "Buy Ticket".
-    *   **Order Generation:** Receive unique Order UUID.
-    *   **Payment:** Transfer TON/Jetton with comment.
-    *   **Fulfillment:** System detects payment and mints NFT Ticket.
-*   **Status:** Documented in [Payment System Overview](payment_system_overview.md).
+## 2. Organizer upgrade
+- Automatic: a `user` becomes `organizer` when they create their first event (`addEvent`).
+- Paid path: `promote_to_organizer` order type, processed by the `OrganizerPromoteProcessing` cron (every 21s) in the payment worker.
 
-## 5. Event Check-in & Proof of Action (PoA)
-*   **Actor:** Participant & Organizer
-*   **Scenario A (Physical):**
-    *   Organizer scans User's QR Code.
-    *   System validates User's Ticket/Registration.
-*   **Scenario B (Digital/Quest):**
-    *   User submits "Proof of Action" (Image/Text/Link).
-    *   Organizer (or AI/Community) validates submission.
-*   **Status:** Documented in [Check-in & PoA](checkin_and_poa.md).
+## 3. Event creation
+- Free events publish immediately with a post-publish moderation alert.
+- Paid events stay hidden until the organizer pays the `event_creation` order; the NFT collection is then deployed.
 
-## 6. Reward Distribution
-*   **Actor:** System (Automated)
-*   **Actions:**
-    *   Event ends -> Worker scans for "attended" users.
-    *   **Minting:** System mints SBT/Reward tokens to attendees.
-    *   **Notification:** Bot notifies users of rewards.
-*   **Status:** Documented in [Reward Distribution](reward_distribution.md).
+## 4. Registration / purchase
+- Free with registration: `registrant.eventRegister` (approval and waitlist supported).
+- Paid: `POST /api/v1/order`, then TON/USDT transfer with memo `onton_order=<id>` or Telegram Stars invoice. TON/USDT orders are fulfilled by the mint cron (NFT ticket); Stars orders are completed by the bot without an NFT.
 
-## 7. Affiliate & Referral
-*   **Actor:** Affiliate / User
-*   **Actions:**
-    *   User generates referral link for an event.
-    *   New user purchases ticket via link.
-    *   System tracks sale and assigns commission/points.
-*   **Status:** Documented in [Affiliate System](affiliate_system.md).
+## 5. Check-in & PoA
+- In-person: an event manager scans the attendee's rotating QR pass (20s step) in the mini-app.
+- Online (no registration): attendee enters the organizer's secret phrase during the event window.
+
+## 6. Rewards
+- Native SBTs are minted at ticket check-in (if a wallet is linked) or claimed by the ticket owner; an on-chain upgrade is paid.
+- Legacy TON Society reward batches have been decommissioned.
+- `notifyUsersForRewards` sends reward notifications.
+
+## 7. Affiliate
+- Links: `t.me/<bot>/event?startapp=join-<hash>`; the hash is read from initData `start_param`.
+- `affiliate_links.total_clicks` and `total_purchase` are tracked. Purchases are counted only on the TON/USDT mint path (not Stars or free orders).

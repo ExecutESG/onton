@@ -19,6 +19,7 @@ import { logger } from "@/server/utils/logger";
 import { and, eq } from "drizzle-orm";
 import { type NextRequest } from "next/server";
 import eventCategoriesDB from "@/db/modules/eventCategories.db";
+import eventTicketTiersDB from "@/db/modules/eventTicketTiers.db";
 
 // Helper function for retrying the HTTP request
 async function getRequestWithRetry(uri: string, retries: number = 3): Promise<any> {
@@ -176,10 +177,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         const ticketOrderTypeMap = {
           NFT: "nft_mint",
           TSCSBT: "ts_csbt_ticket",
+          TICKET: "nft_mint",
         } as const;
 
         // Ensure TypeScript recognizes the valid key
-        const ticketOrderType = ticketOrderTypeMap[eventTicketingType];
+        const ticketOrderType = ticketOrderTypeMap[eventTicketingType as keyof typeof ticketOrderTypeMap] || "nft_mint";
 
         // Use the shared sold-out check function
         const { isSoldOut: iso } = await ordersDB.checkIfSoldOut(
@@ -196,16 +198,40 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       category = await eventCategoriesDB.fetchCategoryById(eventData.category_id);
     }
 
+    const ticketTiers = await eventTicketTiersDB.getTiersByEventUuid(eventData.event_uuid);
+
     if (dataOnly === "true") {
+      const [authUserId] = getAuthenticatedUser();
+      const isOwnerOrAdmin = Boolean(
+        authUserId &&
+          (authUserId === eventData.owner ||
+            accessRoles.some((r) => r.user_id === authUserId))
+      );
+
+      const publicOrganizer = organizer
+        ? {
+            username: organizer.username,
+            first_name: organizer.first_name,
+            last_name: organizer.last_name,
+            org_channel_name: organizer.org_channel_name,
+            org_image: organizer.org_image,
+            hosted_event_count: organizer.hosted_event_count,
+            org_x_link: organizer.org_x_link,
+            org_support_telegram_user_name: organizer.org_support_telegram_user_name,
+            founding_organizer_at: organizer.founding_organizer_at,
+          }
+        : null;
+
       return Response.json(
         {
           ...eventData,
           category,
-          organizer,
+          organizer: isOwnerOrAdmin ? organizer : publicOrganizer,
           eventTicket: event_payment_info,
+          ticket_tiers: ticketTiers,
           isSoldOut,
           hasActiveCoupon,
-          accessRoles,
+          ...(isOwnerOrAdmin ? { accessRoles } : {}),
         },
         {
           status: 200,
@@ -338,6 +364,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       orderAlreadyPlace: !!userOrder,
       organizer,
       eventTicket: event_payment_info,
+      ticket_tiers: ticketTiers,
       isSoldOut,
       hasActiveCoupon,
       ownerAddress,

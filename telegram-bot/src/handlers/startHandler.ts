@@ -4,6 +4,8 @@ import { editOrSend } from "../utils/utils";
 import { startKeyboard } from "../markups";
 import { getUser, updateUserProfile } from "../db/db"; // or wherever you defined update logic
 
+import { resolveDeepLink } from "../utils/deepLink";
+
 export const startHandler = async (ctx: Context) => {
   try {
     // 1) Get basic info from Telegram context
@@ -36,32 +38,27 @@ export const startHandler = async (ctx: Context) => {
     ) {
       const rawParam = messageText.split(" ")[1];
       if (rawParam) {
-        if (rawParam.startsWith("event_")) {
-          const eventUuid = rawParam.replace("event_", "");
-          targetUrl = `${process.env.NEXT_PUBLIC_APP_BASE_URL}/events/${eventUuid}`;
-          buttonText = "Open Event";
-        } else if (rawParam.startsWith("join_")) {
-          targetUrl = `${process.env.NEXT_PUBLIC_APP_BASE_URL}/?startapp=${rawParam}`;
-          buttonText = "Join ONTON";
-        } else if (rawParam.startsWith("tournament_")) {
-          const tournamentId = rawParam.replace("tournament_", "");
-          targetUrl = `${process.env.NEXT_PUBLIC_APP_BASE_URL}/tournaments/${tournamentId}`;
-          buttonText = "Open Tournament";
+        const resolved = resolveDeepLink(rawParam);
+        if (resolved) {
+          targetUrl = resolved.targetUrl;
+          buttonText = resolved.buttonText;
         }
       }
     }
 
     // 7) Send or edit a welcome message, showing your start keyboard
-    const welcomeMessage = `✨ <b>Welcome to ONTON — The Luma of Telegram & Web3</b> ✨
+    const welcomeMessage = `<b>ONTON: Events with Verified Attendance</b>
 
-Discover, host, and experience the best events across the Telegram & Web3 ecosystem!
+Create an event in a minute. Free events are free forever. Verified attendance, built in.
 
-🎟️ <b>1-Tap Free RSVP</b> — Join events in one click without wallet friction.
-⭐ <b>Telegram Stars & Crypto</b> — Buy tickets natively with Stars (Apple/Google Pay) or TON/USDT.
-💬 <b>Instant Event Chat Access</b> — Get private, single-use invite links to attendee groups.
-🏆 <b>Proof-of-Attendance Badges</b> — Collect verifiable digital badges as memories.
+🎟️ <b>1-Tap RSVP:</b> Register in seconds with zero wallet friction.
+⭐ <b>Flexible Ticketing:</b> Pay with Telegram Stars (Apple/Google Pay) or crypto (TON/USDT).
+🔒 <b>Automated Chat Gating:</b> Single-use invite links to attendee groups.
+🏅 <b>Verified Attendance:</b> Portable credentials and digital event badges.
 
-Ready to explore? Choose an option below 👇`;
+332K people with attendance credentials · 633K verified in-person check-ins.
+
+Choose an option below:`;
 
     await editOrSend(
       ctx,

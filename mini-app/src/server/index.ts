@@ -32,6 +32,8 @@ import { usersLinkedinRouter } from "@/server/routers/usersLinkedinRouter";
 import { questRouter } from "@/server/routers/questRouter";
 import { usersGoogleRouter } from "@/server/routers/usersGoogleRouter";
 import { usersOutlookRouter } from "@/server/routers/usersOutlookRouter";
+import { sbtRouter } from "@/server/routers/sbt";
+import { consentsRouter } from "@/server/routers/consents";
 
 export const appRouter = router({
   users: usersRouter,
@@ -65,6 +67,8 @@ export const appRouter = router({
   quest: questRouter,
   usersGoogle: usersGoogleRouter,
   usersOutlook: usersOutlookRouter,
+  sbt: sbtRouter,
+  consents: consentsRouter,
 });
 
 export type AppRouter = typeof appRouter;

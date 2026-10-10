@@ -3,7 +3,6 @@ export type GeneralFormErrors = {
   subtitle?: string[];
   description?: string[];
   image_url?: string[];
-  hub?: string[];
   // registration
   has_registration?: string[];
   has_approval?: string[];

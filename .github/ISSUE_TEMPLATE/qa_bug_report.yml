@@ -1,0 +1,145 @@
+name: "🐛 QA Bug Report"
+description: "Report a bug, defect, or unexpected behavior identified during manual UAT"
+title: "[BUG]: "
+labels: ["qa", "bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### 🔍 ONTON QA Defect Submission Form
+        Ensure all required fields are completed and visual evidence (screen recording/screenshot) is attached.
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity Level
+      description: Rate the impact according to ONTON Severity Taxonomy.
+      options:
+        - "P0 - Blocker (Critical crash, payment loss, authentication lock, broken release blocker)"
+        - "P1 - Critical (Core flow broken with no workaround, e.g. cannot RSVP, QR scan fails)"
+        - "P2 - Major (Feature malfunction or edge case, viable workaround exists)"
+        - "P3 - Minor / Polish (Visual glitch, layout overflow, minor typography/copy typo)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: persona
+    attributes:
+      label: Affected Persona / Role
+      description: Which user persona encountered this issue?
+      options:
+        - "Guest / Unauthenticated Visitor"
+        - "Registered Attendee"
+        - "Event Organizer"
+        - "Check-in Officer"
+        - "Platform Admin"
+        - "Partner / Affiliate"
+        - "System / Background Worker"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os_device
+    attributes:
+      label: Operating System / Client Device
+      description: Platform where the bug was reproduced.
+      options:
+        - "iOS (iPhone) - Native Telegram App"
+        - "Android - Native Telegram App"
+        - "macOS - Telegram Desktop / Swift"
+        - "Windows - Telegram Desktop"
+        - "Web Browser (Chrome / Safari / Brave)"
+    validations:
+      required: true
+
+  - type: input
+    id: client_version
+    attributes:
+      label: Telegram App & Device Details
+      description: "e.g., iPhone 15 Pro, iOS 18.1, Telegram v11.3 (or Samsung S24, Android 15)"
+      placeholder: "iPhone 15, iOS 18.0, Telegram 11.2.1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: theme_mode
+    attributes:
+      label: Theme Mode
+      description: Active Telegram theme during test.
+      options:
+        - "Dark Mode"
+        - "Light Mode"
+        - "System Auto"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Target Environment
+      description: Target bot and backend environment.
+      options:
+        - "Staging (@notnonstagebot / app.dev.onton.live)"
+        - "Local Dev (@ontonlocaldevbot / localhost)"
+        - "Production (@theontonbot) [FLAGGED]"
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary & Impact
+      description: Brief description of the bug and what user journey is impacted.
+      placeholder: "When opening the ticket pass modal, the QR code overlaps with the action buttons on small viewports..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps_to_reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: Clear, numbered step-by-step instructions to reproduce the bug.
+      placeholder: |
+        1. Open @notnonstagebot on iOS
+        2. Launch Mini App and browse to Event 'Tech Meetup 2026'
+        3. Tap 'Get Ticket' and select Free RSVP tier
+        4. Complete registration questionnaire
+        5. Observe the confirmation modal
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: Expected Behavior
+      description: What should have happened according to specs/designs.
+      placeholder: "Ticket pass screen should display the QR code centered above the 'Add to Apple Wallet / Calendar' buttons with proper bottom padding."
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual_behavior
+    attributes:
+      label: Actual Behavior
+      description: What actually occurred.
+      placeholder: "The action buttons overlap the bottom 30% of the QR code, making it unreadable."
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Visual Evidence (Screen Recording or Screenshots)
+      description: Drag & drop your video recording (.mp4, .mov, .webm) or screenshots here. Video is mandatory for gesture, animation, and payment bugs.
+      placeholder: "Drag and drop video/screenshots here..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: technical_logs
+    attributes:
+      label: Technical Logs / Event Slug / User ID (Optional)
+      description: Telegram user ID, event UUID or slug, transaction hash, or browser console errors if available.
+      placeholder: "Event UUID: evt_test_123, Telegram User ID: 12345678"
+    validations:
+      required: false

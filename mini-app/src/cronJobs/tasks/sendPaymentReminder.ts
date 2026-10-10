@@ -3,7 +3,7 @@ import { db } from "@/db/db";
 import { eventPayment } from "@/db/schema/eventPayment";
 import { eventTokens } from "@/db/schema/eventTokens";
 import { events } from "@/db/schema/events";
-import { and, count, eq, isNotNull, lt, or, sql } from "drizzle-orm";
+import { and, count, eq, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import { orders } from "@/db/schema/orders";
 import { nftItems } from "@/db/schema/nft_items";
 import { sendLogNotification } from "@/lib/tgBot";
@@ -22,6 +22,7 @@ export const sendPaymentReminder = async () => {
     .where(
       and(
         eq(eventPayment.organizer_payment_status, "not_payed"),
+        isNull(eventPayment.payout_reminder_sent_at),
         lt(events.end_date, currentTimestamp - oneDayInSeconds),
         isNotNull(eventPayment.collectionAddress)
       )
@@ -70,11 +71,7 @@ export const sendPaymentReminder = async () => {
       .where(eq(nftItems.event_uuid, event.events.event_uuid))
       .execute();
 
-    const bought_capacity = event.event_payment_info.bought_capacity;
-
     const nft_count: number = Number(total_amount_of_nft.pop()?.nft_count);
-    const unused_capacity = bought_capacity - (nft_count || 0);
-    const unused_refund = unused_capacity * (0.06 * 0.9);
 
     const message_result = await sendLogNotification({
       message: `💵💵 Payment For Event
@@ -83,7 +80,6 @@ Total Sold : ${rounder(total, 2)}
 Total Mints : ${nft_count}
 🤑Commision : <code>${rounder(commission, 2)}</code>
 
-Unused Capacity Amount : ${rounder(unused_refund, 2)} TON🔵
 Payment Type : <b>${payment_type}</b>${payment_type_emojis}
 💰Organizer Payment : <code>${rounder(payment_amount, 2)}</code>
 Recipient : <code>${recipient_address}</code>
@@ -95,10 +91,10 @@ Recipient : <code>${recipient_address}</code>
     });
 
     if (message_result?.message_id) {
-      //Successful Message send
+      // Successful Message send - record timestamp for idempotency without flipping organizer_payment_status
       await db
         .update(eventPayment)
-        .set({ organizer_payment_status: "payed_to_organizer" })
+        .set({ payout_reminder_sent_at: new Date() })
         .where(eq(eventPayment.id, event.event_payment_info.id))
         .execute();
     }

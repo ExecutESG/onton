@@ -23,6 +23,7 @@ export interface TicketPassData {
     eventSubtitle: string | null;
     eventDescription: string;
     collectionAddress: string | null;
+    participationType: string;
   };
   userSbtTicket?: {
     data: { reward_link?: string } | null;

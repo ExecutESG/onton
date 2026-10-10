@@ -1,10 +1,17 @@
-import { bigint, text, timestamp, boolean, integer, varchar, index, pgTable, uuid } from "drizzle-orm/pg-core";
+import { bigint, text, timestamp, boolean, integer, varchar, index, pgTable, uuid, jsonb } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { airdropRoutines } from "@/db/schema/airdropRoutines";
 import { tickets } from "@/db/schema/tickets";
 import { userEventFields } from "@/db/schema/userEventFields";
 import { usersX } from "./usersX";
 import { user_identities } from "./userIdentities";
+
+export interface OrganizerLimitsOverride {
+  eventsPerDay?: number;
+  maxUpcoming?: number | null;
+  maxCapacity?: number | null;
+}
+
 
 // @ts-ignore
 // @ts-ignore
@@ -47,6 +54,13 @@ export const users = pgTable(
     /* -------------------------------------------------------------------------- */
     user_point: integer("user_point").notNull().default(0),
     affiliatorUserId: bigint("affiliator_user_id", { mode: "number" }),
+
+    /* -------------------------------------------------------------------------- */
+    /*                              Founding & Limits                             */
+    /* -------------------------------------------------------------------------- */
+    founding_organizer_at: timestamp("founding_organizer_at", { withTimezone: true, mode: "date" }),
+    fee_waiver_tickets_remaining: integer("fee_waiver_tickets_remaining").notNull().default(0),
+    limits_override: jsonb("limits_override").$type<OrganizerLimitsOverride | null>(),
   },
   (table) => ({
     usernameIdx: index("users_username_idx").on(table.username),
@@ -61,6 +75,7 @@ export const users = pgTable(
     uuidIdx: index("users_uuid_idx").on(table.uuid),
     emailIdx: index("users_email_idx").on(table.email),
     telegramIdIdx: index("users_telegram_id_idx").on(table.telegram_id),
+    foundingOrganizerAtIdx: index("users_founding_organizer_at_idx").on(table.founding_organizer_at),
   })
 );
 

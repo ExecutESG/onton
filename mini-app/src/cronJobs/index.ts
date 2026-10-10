@@ -1,10 +1,7 @@
 import { CheckTransactions } from "@/cronJobs/tasks/CheckTransactions";
-import { CreateEventOrders } from "@/cronJobs/tasks/CreateEventOrders";
-import { UpdateEventCapacity } from "@/cronJobs/tasks/UpdateEventCapacity";
 import { MintNFTForPaidOrders } from "@/cronJobs/tasks/MintNFTForPaidOrders";
 import { TsCsbtTicketOrder } from "@/cronJobs/tasks/TsCsbtTicketOrder";
 import { sendPaymentReminder } from "@/cronJobs/tasks/sendPaymentReminder";
-import { OrganizerPromoteProcessing } from "@/cronJobs/tasks/OrganizerPromoteProcessing";
 import { CreateRewards } from "@/cronJobs/tasks/CreateRewards";
 import { notifyUsersForRewards } from "@/cronJobs/tasks/notifyUsersForRewards";
 import { cronJobRunner } from "@/cronJobs/cornJobRunner";
@@ -42,12 +39,9 @@ const cronJobs = {
   freezeCsbtTrees,
   anchorCsbtRoots,
   CheckTransactions,
-  CreateEventOrders,
-  UpdateEventCapacity,
   MintNFTForPaidOrders,
   TsCsbtTicketOrder,
   sendPaymentReminder,
-  OrganizerPromoteProcessing,
   CreateRewards,
   notifyUsersForRewards,
   syncSbtCollectionsForEvents,

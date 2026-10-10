@@ -124,10 +124,11 @@ export async function POST(request: Request) {
   const ticketOrderTypeMap = {
     NFT: "nft_mint",
     TSCSBT: "ts_csbt_ticket",
+    TICKET: "nft_mint", // Treat TICKET as nft_mint for routing to existing workers
   } as const;
 
   // Ensure TypeScript recognizes the valid key
-  const ticketOrderType = ticketOrderTypeMap[eventTicketingType];
+  const ticketOrderType = ticketOrderTypeMap[eventTicketingType as keyof typeof ticketOrderTypeMap] || "nft_mint";
 
   const { isSoldOut } = await ordersDB.checkIfSoldOut(body.data.event_uuid, ticketOrderType, eventData.capacity || 0);
 

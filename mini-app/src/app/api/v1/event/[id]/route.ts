@@ -177,10 +177,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         const ticketOrderTypeMap = {
           NFT: "nft_mint",
           TSCSBT: "ts_csbt_ticket",
+          TICKET: "nft_mint",
         } as const;
 
         // Ensure TypeScript recognizes the valid key
-        const ticketOrderType = ticketOrderTypeMap[eventTicketingType];
+        const ticketOrderType = ticketOrderTypeMap[eventTicketingType as keyof typeof ticketOrderTypeMap] || "nft_mint";
 
         // Use the shared sold-out check function
         const { isSoldOut: iso } = await ordersDB.checkIfSoldOut(
@@ -213,8 +214,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
             first_name: organizer.first_name,
             last_name: organizer.last_name,
             org_channel_name: organizer.org_channel_name,
+            org_image: organizer.org_image,
+            hosted_event_count: organizer.hosted_event_count,
             org_x_link: organizer.org_x_link,
             org_support_telegram_user_name: organizer.org_support_telegram_user_name,
+            founding_organizer_at: organizer.founding_organizer_at,
           }
         : null;
 

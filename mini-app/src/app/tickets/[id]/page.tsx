@@ -146,11 +146,18 @@ export default async function TicketPassPage({ params }: Props) {
                 isMinted={ticket.attendanceSbt?.status === "minted" || Boolean(ticket.userSbtTicket?.data?.reward_link)}
               />
             )}
+            {ticket.ticketData.participationType === "online" && (
+              <p className="mt-4 text-sm font-medium text-center text-gray-500">
+                Online event: no QR needed. Join via the event link.
+              </p>
+            )}
           </div>
         </div>
       </div>
 
-      <TicketTmaSettings ticketId={params.id} orderUuid={ticket.orderUuid ?? ""} eventId={ticket.eventUuid} />
+      {ticket.ticketData.participationType !== "online" && (
+        <TicketTmaSettings ticketId={params.id} orderUuid={ticket.orderUuid ?? ""} eventId={ticket.eventUuid} />
+      )}
     </div>
   );
 }

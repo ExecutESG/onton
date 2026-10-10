@@ -1,0 +1,1 @@
+ALTER TYPE "ticket_types" ADD VALUE IF NOT EXISTS 'TICKET';

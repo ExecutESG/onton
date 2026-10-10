@@ -12,6 +12,7 @@ import Typography from "../../../components/Typography";
 import shareIcon from "./share.svg";
 import telegramIcon from "./telegram.svg";
 import xPlatformIcon from "./xplatform.svg";
+import FoundingOrganizerBadge from "@/app/_components/FoundingOrganizerBadge";
 
 export default function ChannelInfoCard({ data }: { data: Channel }) {
   const WebApp = useWebApp();
@@ -44,13 +45,16 @@ export default function ChannelInfoCard({ data }: { data: Channel }) {
       />
 
       <div className="flex justify-between align-center mb-4">
-        <Typography
-          bold
-          variant="title2"
-          className="self-center"
-        >
-          {data.org_channel_name || "Untitled Organizer"}
-        </Typography>
+        <div className="flex items-center gap-2 flex-wrap self-center">
+          <Typography
+            bold
+            variant="title2"
+            className="self-center"
+          >
+            {data.org_channel_name || "Untitled Organizer"}
+          </Typography>
+          {data.founding_organizer_at && <FoundingOrganizerBadge />}
+        </div>
         <div className="flex gap-3">
           {data.org_x_link && (
             <IconBg

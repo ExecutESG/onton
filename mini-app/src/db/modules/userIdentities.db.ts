@@ -90,11 +90,11 @@ export const userIdentitiesDB = {
         .onConflictDoUpdate({
           target: [user_identities.provider, user_identities.provider_user_id],
           set: {
-            user_id: data.user_id,
             provider_metadata: data.provider_metadata,
             verified: data.verified ?? true,
             updated_at: new Date(),
           },
+          where: eq(user_identities.user_id, data.user_id),
         })
         .returning();
 

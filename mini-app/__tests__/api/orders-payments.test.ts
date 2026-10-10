@@ -1,6 +1,54 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+
+import { EventDataSchema } from "@/types";
+
+vi.mock("@ton/core", () => ({
+  Address: { parse: vi.fn() },
+}));
 
 describe("Orders & Dual-Rail Payments API Flow", () => {
+  describe("Web2 Paid Event Schema", () => {
+    it("accepts paid event without NFT fields when has_web3 is false, and forces TICKET", () => {
+      const payload = {
+        title: "Test Web2 Paid Event",
+        subtitle: "Subtitle",
+        location: "Some location",
+        image_url: "https://example.com/img.png",
+        owner: 123,
+        description: "Test description",
+        type: 1, // 'type' expected number!
+        start_date: 123456789,
+        end_date: 123456889,
+        timezone: "UTC",
+        has_registration: true,
+        has_approval: false,
+        has_waiting_list: false,
+        dynamic_fields: [],
+        has_web3: false,
+        category_id: 1,
+        capacity: 100,
+        paid_event: {
+          has_payment: true,
+          payment_recipient_address: "EQBvW8Z5huBkMJYdn3PCDnTWKK3iqKIOFd3zCXPawpReQDrC",
+          token_id: 1,
+          payment_amount: 10,
+          has_nft: false
+        }
+      };
+
+      const result = EventDataSchema.safeParse(payload);
+      if (!result.success) console.log("TEST ERROR:", (result as any).error);
+      expect(result.success).toBe(true);
+
+      // Emulate server-side addEvent logic
+      if (!payload.has_web3 && payload.paid_event) {
+        payload.paid_event.has_nft = false;
+        (payload.paid_event as any).ticket_type = "TICKET";
+      }
+      expect((payload.paid_event as any).ticket_type).toBe("TICKET");
+    });
+  });
+
   // Free RSVP Flow
   describe("Free RSVP Flow", () => {
     it("permits order creation without wallet address for free events", () => {

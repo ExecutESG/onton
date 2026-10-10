@@ -13,6 +13,9 @@ import { tasksDB } from "@/db/modules/tasks.db";
 import { affiliateLinksDB } from "@/db/modules/affiliateLinks.db";
 import { AffiliationCustomDataForJoinTasks } from "@/db/schema/taskUsers";
 import { userScoreRulesDB } from "@/db/modules/userScoreRules.db";
+import { user_identities } from "@/db/schema/userIdentities";
+import { ensureUserIdentitiesTable } from "@/db/modules/userIdentities.db";
+export const ALLOWED_ORGANIZER_PROVIDERS = ["telegram", "google", "email"];
 // User data from the init data
 
 // Cache key prefix
@@ -228,8 +231,12 @@ export const selectUserById = async (
                 ${users.photo_url},
                 '')
         `.as("org_image"),
+        founding_organizer_at: users.founding_organizer_at,
+        fee_waiver_tickets_remaining: users.fee_waiver_tickets_remaining,
+        limits_override: users.limits_override,
       })
       .from(users)
+
       .where(eq(users.user_id, userId))
       .execute();
 
@@ -570,6 +577,7 @@ export const getOrganizerById = async (
       org_bio: user.org_bio,
       org_image: String(user.org_image).trim() === "" ? user.photo_url : user.org_image,
       role: user.role,
+      founding_organizer_at: user.founding_organizer_at,
     };
 
     // 5) Omit `role` from the returned data
@@ -812,6 +820,68 @@ async function getDistinctUnusedWallets(): Promise<{ userId: number; walletAddre
     .execute();
 }
 
+/**
+ * Ensures a user has the organizer role if they have at least one verified identity
+ * with provider in ('telegram', 'google', 'email') and verified = true.
+ * TON wallet identities do NOT count.
+ * Upgrades user -> organizer. If user is already organizer or admin, returns true.
+ *
+ * @param {number} userId - The user ID to inspect and potentially upgrade.
+ * @returns {Promise<boolean>} - True if the user is (or became) an organizer/admin, false otherwise.
+ */
+export const ensureOrganizerRole = async (userId: number): Promise<boolean> => {
+  try {
+    const user = await selectUserById(userId);
+    if (!user) return false;
+    if (user.role === "ban") return false;
+    if (user.role === "organizer" || user.role === "admin") {
+      return true;
+    }
+
+    await ensureUserIdentitiesTable();
+
+    // If they have a telegram_id but no identity, upsert one
+    if (user.telegram_id) {
+      await db
+        .insert(user_identities)
+        .values({
+          user_id: userId,
+          provider: "telegram",
+          provider_user_id: user.telegram_id.toString(),
+          verified: true,
+          updated_at: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: [user_identities.provider, user_identities.provider_user_id],
+          set: { verified: true, updated_at: new Date() },
+        })
+        .execute();
+    }
+
+    const verifiedIdentity = await db.query.user_identities.findFirst({
+      where: and(
+        eq(user_identities.user_id, userId),
+        inArray(user_identities.provider, ALLOWED_ORGANIZER_PROVIDERS),
+        eq(user_identities.verified, true)
+      ),
+    });
+
+    if (!verifiedIdentity) {
+      return false;
+    }
+
+    if (user.role === "user") {
+      const updateRes = await updateUserRole(userId, "organizer");
+      return updateRes.success;
+    }
+
+    return false; // leave other roles unchanged and do not treat them as organizer
+  } catch (err) {
+    logger.error(`Error in ensureOrganizerRole for user ${userId}:`, err);
+    return false;
+  }
+};
+
 export const usersDB = {
   selectUserById,
   insertUser,
@@ -822,6 +892,7 @@ export const usersDB = {
   searchOrganizers,
   getOrganizerById,
   updateUserRole,
+  ensureOrganizerRole,
   fetchUsersByOffset,
   fetchUsersByCursor,
   getDistinctUnusedWallets,

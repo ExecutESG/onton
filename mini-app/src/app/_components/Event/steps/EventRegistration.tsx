@@ -64,7 +64,10 @@ const RegistrationStep = () => {
 
   useLayoutEffect(() => {
     if (eventData?.eventLocationType === "in_person") {
-      setEventData({ has_registration: true });
+      setEventData({
+        has_registration: true,
+        capacity: eventData.capacity && eventData.capacity >= 1 ? eventData.capacity : 100,
+      });
     }
   }, []);
 
@@ -74,12 +77,23 @@ const RegistrationStep = () => {
       ? "Update Event"
       : "Create Event";
 
-  useMainButton(() => {
-    formRef.current?.requestSubmit();
-  }, buttonText);
+  useMainButton(
+    () => {
+      if (!addEvent.isLoading) {
+        formRef.current?.requestSubmit();
+      }
+    },
+    buttonText,
+    {
+      isLoading: addEvent.isLoading || updateEvent.isLoading,
+      disabled: addEvent.isLoading || updateEvent.isLoading,
+    }
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (addEvent.isLoading || updateEvent.isLoading) return;
 
     if (eventData.has_web3) {
       setSection("event_setup_form_reward_step");
@@ -93,7 +107,18 @@ const RegistrationStep = () => {
       has_web3: false,
       ts_reward_url: undefined,
       video_url: undefined,
-      secret_phrase: eventData?.secret_phrase || "",
+      secret_phrase: eventData?.secret_phrase || undefined,
+      ...(eventData.paid_event?.has_payment && {
+        paid_event: {
+          ...eventData.paid_event,
+          ticket_type: "TICKET",
+          has_nft: false,
+          nft_image_url: undefined,
+          nft_video_url: undefined,
+          nft_title: undefined,
+          nft_description: undefined,
+        },
+      }),
     };
 
     if (isEdit && edit?.eventHash) {
@@ -161,7 +186,7 @@ const RegistrationStep = () => {
         />
       </ListLayout>
 
-      {eventData.has_web3 && <PaidEventCreationInputs />}
+      <PaidEventCreationInputs />
     </form>
   );
 };

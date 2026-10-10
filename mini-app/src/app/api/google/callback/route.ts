@@ -74,11 +74,31 @@ export async function GET(req: NextRequest) {
     }
 
     /* 4️⃣  Upsert mapping in user_identities & users_google ----- */
-    await userIdentitiesDB.linkIdentity(userId, "google", ui.sub, {
+    const linkRes = await userIdentitiesDB.linkIdentity(userId, "google", ui.sub, {
       email: ui.email,
       name: ui.name,
       picture: ui.picture,
     });
+
+    if (!linkRes.success) {
+      let targetUrl = returnUrl;
+      try {
+        const parsed = new URL(targetUrl);
+        parsed.searchParams.set("error", "identity_already_linked");
+        targetUrl = parsed.toString();
+      } catch (e) {
+        logger.error("Failed to parse targetUrl in linkIdentity failure", { err: e });
+      }
+      await redisTools.deleteCache(`goauth:${state}`);
+      
+      const forwardedHost = req.headers.get("x-forwarded-host") || req.headers.get("host") || "";
+      const forwardedProto = req.headers.get("x-forwarded-proto") || (forwardedHost.includes("localhost") ? "http" : "https");
+      const publicBase = forwardedHost
+        ? `${forwardedProto}://${forwardedHost}`
+        : (process.env.NEXT_PUBLIC_APP_BASE_URL || "");
+        
+      return NextResponse.redirect(new URL(targetUrl, publicBase));
+    }
 
     await usersGoogleDB.upsertGoogleAccount({
       userId: userId,
@@ -120,7 +140,7 @@ export async function GET(req: NextRequest) {
         cookieDomain = ".onton.live";
       }
 
-      const response = NextResponse.redirect(new URL(targetUrl, publicBase || "https://app.dev.onton.live"));
+      const response = NextResponse.redirect(new URL(targetUrl, publicBase));
 
       const isProd = process.env.NODE_ENV === "production" || !forwardedHost.includes("localhost");
       const cookieOptions = {

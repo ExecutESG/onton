@@ -373,10 +373,17 @@ jobs:
             #              DOCKER_CMD+=" --target production "
             #            fi
             DOCKER_CMD+=" --target production "
-            # Add build args from file
+            # Add build args from file (filtered to non-sensitive keys only, #1053)
             while IFS='=' read -r key value; do
               if [ -n "$key" ]; then
-                DOCKER_CMD+="--build-arg $key=\"$value\" "
+                case "$key" in
+                  NEXT_PUBLIC_*|COMMIT_SHA|COMMIT_AUTHOR|PACKAGE_MANAGER)
+                    DOCKER_CMD+="--build-arg $key=\"$value\" "
+                    ;;
+                  *)
+                    echo "Skipping non-public build arg: $key"
+                    ;;
+                esac
               fi
             done < "$BUILD_ARGS_FILE"
 

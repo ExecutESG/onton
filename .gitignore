@@ -102,3 +102,6 @@ devops/verify_connections.py
 devops/check_prod_env.py
 devops/migrate_phase2_backup*.py
 
+# Audit evidence logs
+audit-evidence/
+

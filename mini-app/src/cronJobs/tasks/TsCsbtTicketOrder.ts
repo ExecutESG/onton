@@ -16,6 +16,7 @@ import { couponItemsDB } from "@/db/modules/couponItems.db";
 import { is_mainnet } from "@/services/tonCenter";
 import eventDB from "@/db/modules/events.db";
 import eventTokensDB from "@/db/modules/eventTokens.db";
+import { eventTicketTiersDB } from "@/db/modules/eventTicketTiers.db";
 
 export const TsCsbtTicketOrder = async (pushLockTTl: () => any) => {
   // Get Orders to be Minted
@@ -119,6 +120,10 @@ export const TsCsbtTicketOrder = async (pushLockTTl: () => any) => {
         // Increment Affiliate Purchase
         if (updateResult && updateResult.utm_source)
           await affiliateLinksDB.incrementAffiliatePurchase(updateResult.utm_source);
+
+        if (ordr.tier_id) {
+          await eventTicketTiersDB.incrementTierSoldCountTrx(trx, ordr.tier_id, 1);
+        }
 
         logger.log(`tscsbt_order_completed_${ordr.uuid}`);
       });

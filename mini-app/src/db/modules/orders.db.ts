@@ -4,6 +4,7 @@ import eventTokensDB from "@/db/modules/eventTokens.db";
 import { and, count, eq, isNull, not, or, sql } from "drizzle-orm";
 import { is_dev_env, is_stage_env } from "../../server/utils/evnutils";
 import { OrderTypeValues } from "@/db/schema/orders";
+import eventTicketTiersDB from "@/db/modules/eventTicketTiers.db";
 
 const getEventOrders = async (event_uuid: string) => {
   return db
@@ -24,7 +25,7 @@ const updateOrderState = async (orderUuid: string, userId: number, newState: "ca
   const baseWhere = and(
     eq(orders.uuid, orderUuid),
     eq(orders.user_id, userId),
-    or(eq(orders.state, "new"), eq(orders.state, "confirming"), eq(orders.state, "cancelled"))
+    or(eq(orders.state, "new"), eq(orders.state, "confirming"), eq(orders.state, "cancelled"), eq(orders.state, "completed"))
   );
 
   const finalWhere =
@@ -32,12 +33,24 @@ const updateOrderState = async (orderUuid: string, userId: number, newState: "ca
       ? sql`${baseWhere} AND "order_type" NOT IN ('event_creation', 'event_capacity_increment')`
       : baseWhere;
 
-  return db
+  const [existingOrder] = await db
+    .select({ state: orders.state, tier_id: orders.tier_id })
+    .from(orders)
+    .where(finalWhere!)
+    .execute();
+
+  const updatedRows = await db
     .update(orders)
     .set({ state: newState })
     .where(finalWhere!)
     .returning({ uuid: orders.uuid })
     .execute();
+
+  if (newState === "cancelled" && existingOrder?.state === "completed" && existingOrder?.tier_id) {
+    await eventTicketTiersDB.decrementTierSoldCount(existingOrder.tier_id, 1);
+  }
+
+  return updatedRows;
 };
 
 async function checkIfSoldOut(event_uuid: string, ticketOrderType: OrderTypeValues, capacity: number) {
@@ -53,7 +66,10 @@ async function checkIfSoldOut(event_uuid: string, ticketOrderType: OrderTypeValu
     )
     .execute();
 
-  return { isSoldOut: TicketsCount[0].ticket_count >= capacity, soldCount: TicketsCount[0].ticket_count };
+  return {
+    isSoldOut: capacity > 0 && TicketsCount[0].ticket_count >= capacity,
+    soldCount: TicketsCount[0].ticket_count,
+  };
 }
 
 /**

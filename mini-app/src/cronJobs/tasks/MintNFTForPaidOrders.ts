@@ -15,6 +15,7 @@ import { eventRegistrants } from "@/db/schema/eventRegistrants";
 import { tickets } from "@/db/schema/tickets";
 import { affiliateLinksDB } from "@/db/modules/affiliateLinks.db";
 import { couponItemsDB } from "@/db/modules/couponItems.db";
+import { eventTicketTiersDB } from "@/db/modules/eventTicketTiers.db";
 import { config } from "@/server/config";
 import { isAxiosError } from "axios";
 import { redisTools } from "@/lib/redisTools";
@@ -174,6 +175,10 @@ export const processSinglePaidOrder = async (orderUuid: string): Promise<boolean
 
         if (updateResult && updateResult.utm_source) {
           await affiliateLinksDB.incrementAffiliatePurchase(updateResult.utm_source);
+        }
+
+        if (ordr.tier_id) {
+          await eventTicketTiersDB.incrementTierSoldCountTrx(trx, ordr.tier_id, 1);
         }
 
         // For TICKET, we insert into tickets table instead of nftItems
@@ -368,6 +373,10 @@ export const processSinglePaidOrder = async (orderUuid: string): Promise<boolean
       if (ordr.coupon_id !== null) await couponItemsDB.makeCouponItemUsedTrx(trx, ordr.coupon_id, event_uuid);
       if (updateResult && updateResult.utm_source)
         await affiliateLinksDB.incrementAffiliatePurchase(updateResult.utm_source);
+
+      if (ordr.tier_id) {
+        await eventTicketTiersDB.incrementTierSoldCountTrx(trx, ordr.tier_id, 1);
+      }
 
       logger.log(`nft_mint_order_completed_${ordr.uuid}`);
       await trx

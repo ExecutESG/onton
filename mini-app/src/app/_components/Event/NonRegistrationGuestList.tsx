@@ -2,6 +2,7 @@ import Tables from "@/app/_components/molecules/tables";
 import { trpc } from "@/app/_trpc/client";
 import useWebApp from "@/hooks/useWebApp";
 import { RouterOutput } from "@/server";
+import { toast } from "sonner";
 import { useState } from "react";
 import QrCodeButton from "@/app/_components/atoms/buttons/QrCodeButton";
 import CheckInGuest from "@/app/_components/checkInGuest/CheckInGuest";
@@ -20,12 +21,15 @@ const NonRegistrationGuestList = (props: Props) => {
   const hapticFeedback = webApp?.HapticFeedback;
   const requestExportFileMutation = trpc.telegramInteractions.requestExportFile.useMutation();
   const handleVisitorsExport = async () => {
-    await requestExportFileMutation.mutateAsync({
-      event_uuid: props.params.hash,
-    });
-    hapticFeedback?.impactOccurred("medium");
-
-    webApp?.close();
+    try {
+      await requestExportFileMutation.mutateAsync({
+        event_uuid: props.params.hash,
+      });
+      hapticFeedback?.impactOccurred?.("medium");
+      toast.success("Guest list sent to your chat with the bot!");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to export guest list");
+    }
   };
   const guestCheckInParams = {
     hash: props.params.hash,

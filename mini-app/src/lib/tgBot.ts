@@ -198,12 +198,11 @@ export const sendLogNotification = async (
   let LOGS_GROUP_ID =
     props.group_id?.toString() ||
     process.env.LOGS_GROUP_ID ||
-    configProtected?.logs_group_id ||
-    DEFAULT_LOGS_GROUP_ID;
+    configProtected?.logs_group_id;
 
   if (!BOT_TOKEN_LOGS || !LOGS_GROUP_ID) {
-    logger.error("Bot token or logs group ID not found in configProtected or env for this environment");
-    throw new Error("Bot token or logs group ID not found in configProtected or env for this environment");
+    logger.warn("mini-app sendLogNotification skipped: Bot token or LOGS_GROUP_ID is unset (non-prod safety)");
+    return { message_id: 0 } as any;
   }
 
   // 2) Determine pinned topic message if any, falling back to no_topic

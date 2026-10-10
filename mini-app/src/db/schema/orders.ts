@@ -47,6 +47,7 @@ export const orders = pgTable(
     platform_fee_raw: bigint("platform_fee_raw", { mode: "bigint" }),
     organizer_amount_raw: bigint("organizer_amount_raw", { mode: "bigint" }),
     fee_bps: integer("fee_bps"),
+    notified_at: timestamp("notified_at", { withTimezone: true, mode: "date" }),
   },
   (table) => ({
     eventUuidIdx: index("orders_event_uuid_idx").on(table.event_uuid),

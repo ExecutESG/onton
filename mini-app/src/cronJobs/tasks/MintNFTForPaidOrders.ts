@@ -19,6 +19,8 @@ import { eventTicketTiersDB } from "@/db/modules/eventTicketTiers.db";
 import { config } from "@/server/config";
 import { isAxiosError } from "axios";
 import { redisTools } from "@/lib/redisTools";
+import { claimOrderNotification } from "@/db/modules/orders.db";
+import { notifyOrganizerAndAdminOnTicketPayment } from "@/services/orderNotificationService";
 
 export const MAX_MINT_RETRIES = 5;
 
@@ -224,6 +226,28 @@ export const processSinglePaidOrder = async (orderUuid: string): Promise<boolean
             .execute();
         }
       });
+
+      // Once-only notification guard using atomic claimOrderNotification
+      try {
+        const claimed = await claimOrderNotification(ordr.uuid);
+        if (claimed) {
+          const isJetton = paymentInfo?.token_id === 2 || ordr.token_id === 2;
+          const currency = isJetton ? "USDT" : "TON";
+          await notifyOrganizerAndAdminOnTicketPayment({
+            orderUuid: ordr.uuid,
+            eventUuid: event_uuid,
+            buyerUserId: ordr.user_id || 0,
+            amount: ordr.total_price,
+            currency,
+            tierId: ordr.tier_id || null,
+            platformFeeRaw: ordr.platform_fee_raw,
+            feeBps: ordr.fee_bps,
+          });
+        }
+      } catch (notifErr) {
+        logger.error(`[MintNFTForPaidOrders] Failed to dispatch notifications for order ${ordr.uuid}:`, notifErr);
+      }
+
       return true;
     }
 
@@ -421,6 +445,27 @@ export const processSinglePaidOrder = async (orderUuid: string): Promise<boolean
         logger.log(`nft_mint_user_approved_${ordr.user_id}`);
       }
     });
+
+    // Once-only notification guard using atomic claimOrderNotification
+    try {
+      const claimed = await claimOrderNotification(ordr.uuid);
+      if (claimed) {
+        const isJetton = paymentInfo?.token_id === 2 || ordr.token_id === 2;
+        const currency = isJetton ? "USDT" : "TON";
+        await notifyOrganizerAndAdminOnTicketPayment({
+          orderUuid: ordr.uuid,
+          eventUuid: event_uuid,
+          buyerUserId: ordr.user_id || 0,
+          amount: ordr.total_price,
+          currency,
+          tierId: ordr.tier_id || null,
+          platformFeeRaw: ordr.platform_fee_raw,
+          feeBps: ordr.fee_bps,
+        });
+      }
+    } catch (notifErr) {
+      logger.error(`[MintNFTForPaidOrders] Failed to dispatch notifications for order ${ordr.uuid}:`, notifErr);
+    }
 
     return true;
   } catch (error: any) {

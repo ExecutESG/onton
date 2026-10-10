@@ -30,6 +30,18 @@ export interface EventTicketNotification {
   ticket?: EventTicketDetails;
 }
 
+export interface OrganizerTicketSaleNotification {
+  eventUuid: string;
+  eventTitle: string;
+  buyerName: string;
+  amount: string | number;
+  currency: string;
+  ticketTierName?: string | null;
+  registeredCount: number;
+  capacity?: number | null;
+  recipient: NotificationRecipient;
+}
+
 export interface NotificationResult {
   success: boolean;
   channel: NotificationChannel;
@@ -38,3 +50,4 @@ export interface NotificationResult {
   fallbackUsed?: boolean;
   error?: string;
 }
+

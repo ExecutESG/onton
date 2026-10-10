@@ -1,5 +1,5 @@
 import { LinkService } from "../links/linkService";
-import { EventTicketNotification, NotificationResult } from "./types";
+import { EventTicketNotification, OrganizerTicketSaleNotification, NotificationResult } from "./types";
 import { logger } from "@/server/utils/logger";
 import { sendTelegramMessage } from "@/lib/tgBot";
 
@@ -69,4 +69,71 @@ ${payload.ticket?.ticketCode ? `🔑 <b>Ticket Code:</b> <code>${payload.ticket.
       };
     }
   }
+
+  /**
+   * Builds Telegram HTML message for organizer ticket sale alert.
+   */
+  static renderOrganizerTicketSaleMessage(payload: OrganizerTicketSaleNotification): string {
+    const eventUrl = LinkService.getEventUrl(payload.eventUuid, { utm_source: "organizer_ticket_alert" });
+    const capacityText = payload.capacity && payload.capacity > 0
+      ? `${payload.registeredCount} / ${payload.capacity} registered`
+      : `${payload.registeredCount} registered`;
+
+    const tierPart = payload.ticketTierName ? `\n🎟️ <b>Tier:</b> ${payload.ticketTierName}` : "";
+
+    return `
+🎉 <b>New Ticket Purchased!</b>
+
+📌 <b>Event:</b> ${payload.eventTitle}
+👤 <b>Buyer:</b> ${payload.buyerName}
+💰 <b>Amount:</b> ${payload.amount} ${payload.currency}${tierPart}
+📊 <b>Attendees:</b> ${capacityText}
+
+🔗 <a href="${eventUrl}">Manage Event</a>
+`.trim();
+  }
+
+  /**
+   * Dispatches Telegram notification to organizer.
+   */
+  static async sendOrganizerTicketSaleMessage(payload: OrganizerTicketSaleNotification): Promise<NotificationResult> {
+    const telegramId = payload.recipient.telegramId;
+    if (!telegramId) {
+      return {
+        success: false,
+        channel: "telegram",
+        recipientId: payload.recipient.userId,
+        error: "Organizer telegramId is missing",
+      };
+    }
+
+    try {
+      const message = this.renderOrganizerTicketSaleMessage(payload);
+      const eventUrl = LinkService.getEventUrl(payload.eventUuid, { utm_source: "organizer_ticket_alert" });
+      const res = await sendTelegramMessage({
+        chat_id: Number(telegramId),
+        message,
+        link: eventUrl,
+        linkText: "Manage Event",
+      });
+
+      logger.info(`[Notification Engine] Dispatched Telegram organizer ticket sale message to ${telegramId} for ${payload.eventUuid}`);
+
+      return {
+        success: Boolean(res?.success),
+        channel: "telegram",
+        recipientId: telegramId,
+        messageId: res?.success ? "tg-sent" : undefined,
+      };
+    } catch (error) {
+      logger.error(`[Notification Engine] Failed to dispatch Telegram message to organizer ${telegramId}:`, error);
+      return {
+        success: false,
+        channel: "telegram",
+        recipientId: telegramId,
+        error: (error as Error).message,
+      };
+    }
+  }
 }
+

@@ -129,3 +129,32 @@ export async function recordOrganizerPayout(input: {
     return { success: false, error: errorMessage, status };
   }
 }
+
+/**
+ * Notifies the event organizer and admin channel of a completed ticket purchase via Mini App.
+ */
+export async function notifyOrganizerTicketSale(input: {
+  orderUuid: string;
+  eventUuid: string;
+  buyerUserId: number;
+  buyerName?: string | null;
+  amount: number | string;
+  currency: string;
+  ticketTierName?: string | null;
+  tierId?: number | null;
+  feeBps?: number | null;
+}): Promise<{ success: boolean; organizerNotified?: boolean; error?: string }> {
+  const pathname = "/api/v1/order/notify-organizer";
+  try {
+    const res = await signedRequest<{ success: boolean; organizerNotified: boolean }>("POST", pathname, input);
+    return res.data;
+  } catch (err: unknown) {
+    logger.error(`notifyOrganizerTicketSale failed for order ${input.orderUuid}:`, err);
+    let errorMessage = "Failed to dispatch ticket sale notification";
+    if (axios.isAxiosError(err)) {
+      errorMessage = err.response?.data?.message || err.message;
+    }
+    return { success: false, error: errorMessage };
+  }
+}
+

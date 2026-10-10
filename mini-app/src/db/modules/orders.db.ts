@@ -124,6 +124,22 @@ export const getDistinctCompletedOwnerWallets = async (): Promise<
     .execute();
 };
 
+/**
+ * Atomically claim order notification rights (once-only guard).
+ * Uses UPDATE ... WHERE notified_at IS NULL RETURNING to guarantee exactly-once notification across concurrent workers.
+ */
+export const claimOrderNotification = async (orderUuid: string, trx?: any): Promise<boolean> => {
+  const executor = trx || db;
+  const result = await executor
+    .update(orders)
+    .set({ notified_at: new Date() })
+    .where(and(eq(orders.uuid, orderUuid), isNull(orders.notified_at)))
+    .returning({ uuid: orders.uuid })
+    .execute();
+
+  return result.length > 0;
+};
+
 const ordersDB = {
   getEventOrders,
   updateOrderState,
@@ -132,6 +148,8 @@ const ordersDB = {
   findOrderByEventUser,
   findOrderByEventUserByType,
   getDistinctCompletedOwnerWallets,
+  claimOrderNotification,
 };
 
 export default ordersDB;
+

@@ -3,6 +3,8 @@ import { MyContext } from "../types/MyContext";
 import { pool } from "../db/pool";
 import { logger } from "../utils/logger";
 import { parseInvoicePayload, calculateExpectedStars } from "../helpers/starsUtils";
+import { sendTopicMessage } from "../utils/logs-bot";
+import { notifyOrganizerTicketSale } from "../utils/miniAppClient";
 
 export { parseInvoicePayload, calculateExpectedStars };
 
@@ -229,6 +231,8 @@ export async function handleStarsSuccessfulPayment(ctx: MyContext) {
       [orderId]
     );
 
+    const isFirstTicketFulfillment = ticketCheck.rowCount === 0;
+
     if (ticketCheck.rowCount === 0) {
       const payInfoRes = await client.query(
         `SELECT id FROM event_payment_info WHERE event_uuid = $1 LIMIT 1`,
@@ -261,6 +265,60 @@ export async function handleStarsSuccessfulPayment(ctx: MyContext) {
     const event = eventRes.rows[0];
 
     await client.query("COMMIT");
+
+    // 4b) Once-only notification to organizer and internal tickets_topic (deduplicated by ticket row insertion)
+    if (isFirstTicketFulfillment) {
+      let ticketTierName: string | null = null;
+      if (order.tier_id) {
+        try {
+          const tierRes = await pool.query(
+            `SELECT name FROM event_ticket_tiers WHERE id = $1`,
+            [order.tier_id]
+          );
+          ticketTierName = tierRes.rows[0]?.name || null;
+        } catch (tierErr) {
+          logger.warn(`Could not fetch tier name for tier ${order.tier_id}:`, tierErr);
+        }
+      }
+
+      const buyerName = registerInfo.full_name || ctx.from?.first_name || "An attendee";
+
+      // 1) Dispatch organizer notification via Mini-App HMAC client
+      try {
+        await notifyOrganizerTicketSale({
+          orderUuid: orderId,
+          eventUuid,
+          buyerUserId,
+          buyerName,
+          amount: starsPaid,
+          currency: "Stars",
+          ticketTierName,
+          tierId: order.tier_id || null,
+          feeBps: order.fee_bps ?? 500,
+        });
+      } catch (notifErr) {
+        logger.error(`Error notifying organizer for Stars order ${orderId}:`, notifErr);
+      }
+
+      // 2) Send admin channel alert to tickets_topic
+      try {
+        const estStarsFee = Math.round(starsPaid * 0.05);
+        const adminTopicMsg = `
+🎟️ <b>Stars Ticket Payment Received</b>
+
+📌 <b>Event:</b> ${event?.title || eventUuid}
+🆔 <b>Event UUID:</b> <code>${eventUuid}</code>
+🧾 <b>Order UUID:</b> <code>${orderId}</code>
+👤 <b>Buyer:</b> <code>${buyerUserId}</code> (${buyerName})
+⭐ <b>Stars Paid:</b> ${starsPaid} Stars
+💎 <b>Platform Fee (5%):</b> ~${estStarsFee} Stars
+`.trim();
+
+        await sendTopicMessage("tickets_topic", adminTopicMsg);
+      } catch (logErr) {
+        logger.error(`Error sending admin topic message for Stars order ${orderId}:`, logErr);
+      }
+    }
 
     let inviteLink: string | null = null;
     if (event?.event_telegram_group && registrantId) {

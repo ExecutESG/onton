@@ -49,11 +49,16 @@ export const sendTopicMessage = async (
       return;
     }
 
-    const groupId = Number(
+    const configuredGroupId =
       configProtected?.["logs_group_id"] ||
-      process.env.LOGS_GROUP_ID ||
-      DEFAULT_LOGS_GROUP_ID
-    );
+      process.env.LOGS_GROUP_ID;
+
+    if (!configuredGroupId) {
+      logger.warn("telegram bot sendTopicMessage skipped: LOGS_GROUP_ID is unset in environment (non-prod safety)");
+      return;
+    }
+
+    const groupId = Number(configuredGroupId);
 
     const replyTopicId = Number(
       configProtected?.[topic] || TOPIC_DEFAULTS[topic]

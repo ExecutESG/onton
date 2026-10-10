@@ -4,6 +4,8 @@ import React, { useEffect, useRef } from "react";
 import OntonDialog from "@/components/OntonDialog";
 import { useLoginStore } from "@/context/store/login.store";
 import { TonConnectButton, useTonConnectModal, useTonWallet } from "@tonconnect/ui-react";
+import { Mail } from "lucide-react";
+import { WebAuthModal } from "./WebAuthModal";
 
 export default function WebLoginSheet() {
   const { isOpen, closeLogin } = useLoginStore();
@@ -11,6 +13,8 @@ export default function WebLoginSheet() {
   const { state: tonModalState } = useTonConnectModal();
   const isTonModalOpen = tonModalState?.status === "opened";
   const prevWalletRef = useRef(wallet);
+  const [isEmailModalOpen, setIsEmailModalOpen] = React.useState(false);
+  const isEmailOtpEnabled = process.env.NEXT_PUBLIC_AUTH_EMAIL_OTP_ENABLED === "true";
 
   useEffect(() => {
     // If the wallet was just connected while the login sheet is open, close the login sheet
@@ -81,8 +85,27 @@ export default function WebLoginSheet() {
             </svg>
             Continue with Google
           </button>
+          {isEmailOtpEnabled && (
+            <button
+              onClick={() => setIsEmailModalOpen(true)}
+              className="flex items-center justify-center gap-3 w-full bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 font-medium py-2.5 px-4 rounded-xl shadow-sm transition-all text-sm mt-2"
+            >
+              <Mail className="w-4 h-4 text-gray-600" />
+              Continue with Email
+            </button>
+          )}
         </div>
       </div>
+      {isEmailOtpEnabled && (
+        <WebAuthModal
+          open={isEmailModalOpen}
+          onClose={() => setIsEmailModalOpen(false)}
+          onSuccess={() => {
+            setIsEmailModalOpen(false);
+            closeLogin();
+          }}
+        />
+      )}
     </OntonDialog>
   );
 }

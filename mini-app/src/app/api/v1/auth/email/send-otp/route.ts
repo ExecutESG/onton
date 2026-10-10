@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authEngine } from "@/lib/auth/authEngine";
+import { authEngine, isEmailOtpEnabled } from "@/lib/auth/authEngine";
 import "@/lib/gracefullyShutdown";
 
 export async function POST(req: NextRequest) {
+  if (!isEmailOtpEnabled()) {
+    return NextResponse.json(
+      { success: false, error: "Email OTP authentication is disabled" },
+      { status: 404 }
+    );
+  }
+
   try {
     const body = await req.json().catch(() => ({}));
     const email = body.email;

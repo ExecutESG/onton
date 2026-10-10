@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authEngine } from "@/lib/auth/authEngine";
+import { authEngine, isEmailOtpEnabled } from "@/lib/auth/authEngine";
 import { cookies } from "next/headers";
 import "@/lib/gracefullyShutdown";
 
 const COOKIE_MAX_AGE_SECONDS = 7 * 24 * 60 * 60; // 7 days
 
 export async function POST(req: NextRequest) {
+  if (!isEmailOtpEnabled()) {
+    return NextResponse.json(
+      { ok: false, error: "Email OTP authentication is disabled" },
+      { status: 404 }
+    );
+  }
+
   try {
     const body = await req.json().catch(() => ({}));
     const { email, code, name } = body;
@@ -21,7 +28,7 @@ export async function POST(req: NextRequest) {
     if (!verification.valid || !verification.email) {
       return NextResponse.json(
         { ok: false, error: verification.error || "Invalid or expired code" },
-        { status: 401 }
+        { status: verification.locked ? 429 : 401 }
       );
     }
 

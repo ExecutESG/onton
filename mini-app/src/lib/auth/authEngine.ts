@@ -18,6 +18,13 @@ export interface ResolvedUserAuth {
   provider: AuthProviderType;
 }
 
+export function isEmailOtpEnabled(): boolean {
+  return (
+    process.env.AUTH_EMAIL_OTP_ENABLED === "true" ||
+    process.env.NEXT_PUBLIC_AUTH_EMAIL_OTP_ENABLED === "true"
+  );
+}
+
 export const authEngine = {
   /**
    * 1. Validate Telegram Web App initData and extract Telegram user payload.
@@ -69,10 +76,21 @@ export const authEngine = {
   /**
    * 2. Generate and store a 6-digit Email OTP in Redis (with rate limiting).
    */
-  async generateEmailOtp(rawEmail: string): Promise<{ success: boolean; message: string }> {
+  async generateEmailOtp(rawEmail: string): Promise<{ success: boolean; message: string; locked?: boolean }> {
     const email = rawEmail.trim().toLowerCase();
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return { success: false, message: "Invalid email address format." };
+    }
+
+    // Check if account is locked due to too many failed verify attempts
+    const lockKey = `otp:lock:${email}`;
+    const isLocked = await redisTools.getCache(lockKey);
+    if (isLocked) {
+      return {
+        success: false,
+        locked: true,
+        message: "Too many failed attempts. Account locked for 15 minutes.",
+      };
     }
 
     // Rate limit: max 3 requests per 5 minutes per email
@@ -96,9 +114,8 @@ export const authEngine = {
     const currentAttempts = attempts ? Number(attempts) + 1 : 1;
     await redisTools.setCache(rlKey, String(currentAttempts), 300);
 
-    // Log OTP code (in staging/dev or until email transport is configured)
-    logger.info(`[AUTH] Email verification code generated for ${email}: ${code}`);
-    console.log(`\n========================================\n[ONTON OTP] Code for ${email}: ${code}\n========================================\n`);
+    // Never log the OTP code (#1054)
+    logger.info(`[AUTH] OTP issued for ${email}`);
 
     return {
       success: true,
@@ -108,10 +125,17 @@ export const authEngine = {
 
   /**
    * 3. Verify an Email OTP code using constant-time comparison.
+   * After 5 wrong codes, deletes the code and locks that email for 15 minutes (#1054).
    */
-  async verifyEmailOtp(rawEmail: string, code: string): Promise<{ valid: boolean; email?: string; error?: string }> {
+  async verifyEmailOtp(rawEmail: string, code: string): Promise<{ valid: boolean; email?: string; error?: string; locked?: boolean }> {
     const email = rawEmail.trim().toLowerCase();
     const cleanCode = code.trim();
+
+    const lockKey = `otp:lock:${email}`;
+    const isLocked = await redisTools.getCache(lockKey);
+    if (isLocked) {
+      return { valid: false, locked: true, error: "Too many failed attempts. Account locked for 15 minutes." };
+    }
 
     const codeKey = `otp:code:${email}`;
     const cachedCode = await redisTools.getCache(codeKey);
@@ -121,11 +145,24 @@ export const authEngine = {
     }
 
     if (!safeTimingEqual(cleanCode, cachedCode)) {
-      return { valid: false, error: "Invalid verification code. Please check and try again." };
+      const failKey = `otp:fail:${email}`;
+      const failCount = Number((await redisTools.getCache(failKey)) || 0) + 1;
+
+      if (failCount >= 5) {
+        // After 5 wrong codes: delete the code and lock that email for 15 minutes (900 seconds)
+        await redisTools.deleteCache(codeKey);
+        await redisTools.deleteCache(failKey);
+        await redisTools.setCache(lockKey, "1", 900);
+        return { valid: false, locked: true, error: "Too many failed attempts. Account locked for 15 minutes." };
+      } else {
+        await redisTools.setCache(failKey, String(failCount), 900);
+        return { valid: false, error: "Invalid verification code. Please check and try again." };
+      }
     }
 
-    // Single-use: delete code on successful verification
+    // Single-use: delete code and fail count on successful verification
     await redisTools.deleteCache(codeKey);
+    await redisTools.deleteCache(`otp:fail:${email}`);
 
     return { valid: true, email };
   },

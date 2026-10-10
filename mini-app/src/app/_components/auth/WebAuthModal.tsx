@@ -27,6 +27,11 @@ export const WebAuthModal: React.FC<WebAuthModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const { setUser } = useUserStore();
 
+  const isEmailOtpEnabled = process.env.NEXT_PUBLIC_AUTH_EMAIL_OTP_ENABLED === "true";
+  if (!open || !isEmailOtpEnabled) {
+    return null;
+  }
+
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !email.includes("@")) {

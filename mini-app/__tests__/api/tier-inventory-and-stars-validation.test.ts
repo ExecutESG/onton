@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   parseInvoicePayload,
   calculateExpectedStars,
-} from "../../../telegram-bot/src/handlers/starsPaymentHandler";
+} from "../../../telegram-bot/src/helpers/starsUtils";
 
 describe("Issue #1046: Atomic Tier Inventory & Row-Level Locking (F-34)", () => {
   describe("Capacity & Sold-Out Logic", () => {

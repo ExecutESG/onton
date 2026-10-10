@@ -77,7 +77,7 @@ const getTicketByUuid = async (ticketUuid: string) => {
   return null;
 };
 
-type CheckInTicketResult = { status: TicketStatus | null } | { alreadyCheckedIn: boolean };
+type CheckInTicketResult = { status: TicketStatus | null } | { alreadyCheckedIn: boolean } | { error: true, code: string, message: string };
 
 // Function to check in a ticket (update its status to "USED" and registrant to "checkedin")
 export const checkInTicket = async (ticketUuid: string): Promise<CheckInTicketResult | null> => {
@@ -101,28 +101,30 @@ export const checkInTicket = async (ticketUuid: string): Promise<CheckInTicketRe
       return { alreadyCheckedIn: true };
     }
 
-    await db
-      .update(tickets)
-      .set({
-        status: "USED" as TicketStatus,
-        updatedAt: new Date(),
-        updatedBy: "system_check-in",
-      })
-      .where(eq(tickets.order_uuid, ticketUuid))
-      .execute();
-
-    if (ticket[0].user_id && ticket[0].event_uuid) {
-      await db
-        .update(eventRegistrants)
-        .set({ status: "checkedin", updatedAt: new Date() })
-        .where(
-          and(
-            eq(eventRegistrants.event_uuid, ticket[0].event_uuid),
-            eq(eventRegistrants.user_id, ticket[0].user_id)
-          )
-        )
+    await db.transaction(async (tx) => {
+      await tx
+        .update(tickets)
+        .set({
+          status: "USED" as TicketStatus,
+          updatedAt: new Date(),
+          updatedBy: "system_check-in",
+        })
+        .where(eq(tickets.order_uuid, ticketUuid))
         .execute();
-    }
+
+      if (ticket[0].user_id && ticket[0].event_uuid) {
+        await tx
+          .update(eventRegistrants)
+          .set({ status: "checkedin", updatedAt: new Date() })
+          .where(
+            and(
+              eq(eventRegistrants.event_uuid, ticket[0].event_uuid),
+              eq(eventRegistrants.user_id, ticket[0].user_id)
+            )
+          )
+          .execute();
+      }
+    });
 
     return ticket[0];
   }
@@ -140,19 +142,25 @@ export const checkInTicket = async (ticketUuid: string): Promise<CheckInTicketRe
     if (r.status === "checkedin") {
       return { alreadyCheckedIn: true };
     }
+    
+    if (r.status !== "approved") {
+      return { error: true, code: "NOT_APPROVED", message: `Registrant is ${r.status}` };
+    }
 
-    await db
-      .update(eventRegistrants)
-      .set({ status: "checkedin", updatedAt: new Date(), updatedBy: "system_check-in" })
-      .where(eq(eventRegistrants.registrant_uuid, ticketUuid))
-      .execute();
+    await db.transaction(async (tx) => {
+      await tx
+        .update(eventRegistrants)
+        .set({ status: "checkedin", updatedAt: new Date(), updatedBy: "system_check-in" })
+        .where(eq(eventRegistrants.registrant_uuid, ticketUuid))
+        .execute();
 
-    // Also update tickets table if present
-    await db
-      .update(tickets)
-      .set({ status: "USED" as TicketStatus, updatedAt: new Date(), updatedBy: "system_check-in" })
-      .where(and(eq(tickets.event_uuid, r.event_uuid), eq(tickets.user_id, r.user_id)))
-      .execute();
+      // Also update tickets table if present
+      await tx
+        .update(tickets)
+        .set({ status: "USED" as TicketStatus, updatedAt: new Date(), updatedBy: "system_check-in" })
+        .where(and(eq(tickets.event_uuid, r.event_uuid), eq(tickets.user_id, r.user_id)))
+        .execute();
+    });
 
     const info = (typeof r.register_info === "object" ? r.register_info : JSON.parse(String(r.register_info || "{}"))) as Record<string, string | null>;
     return {
@@ -181,17 +189,23 @@ export const checkInTicket = async (ticketUuid: string): Promise<CheckInTicketRe
         return { alreadyCheckedIn: true };
       }
 
-      await db
-        .update(eventRegistrants)
-        .set({ status: "checkedin", updatedAt: new Date(), updatedBy: "system_check-in" })
-        .where(eq(eventRegistrants.id, r.id))
-        .execute();
+      if (r.status !== "approved") {
+        return { error: true, code: "NOT_APPROVED", message: `Registrant is ${r.status}` };
+      }
 
-      await db
-        .update(tickets)
-        .set({ status: "USED" as TicketStatus, updatedAt: new Date(), updatedBy: "system_check-in" })
-        .where(eq(tickets.order_uuid, o.uuid))
-        .execute();
+      await db.transaction(async (tx) => {
+        await tx
+          .update(eventRegistrants)
+          .set({ status: "checkedin", updatedAt: new Date(), updatedBy: "system_check-in" })
+          .where(eq(eventRegistrants.id, r.id))
+          .execute();
+
+        await tx
+          .update(tickets)
+          .set({ status: "USED" as TicketStatus, updatedAt: new Date(), updatedBy: "system_check-in" })
+          .where(eq(tickets.order_uuid, o.uuid))
+          .execute();
+      });
 
       const info = (typeof r.register_info === "object" ? r.register_info : JSON.parse(String(r.register_info || "{}"))) as Record<string, string | null>;
       return {
@@ -372,6 +386,7 @@ export const fetchTicketPassByEventUuid = async (eventUuid: string, userId: numb
       eventSubtitle: event[0]?.subtitle ?? null,
       eventDescription: event[0]?.description ?? "",
       collectionAddress: payment?.collectionAddress ?? event[0]?.sbt_collection_address ?? null,
+      participationType: event[0]?.participationType ?? "in_person",
     },
     userSbtTicket,
     hasWeb3: Boolean(event[0]?.has_web3),

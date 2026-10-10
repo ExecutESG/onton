@@ -1,6 +1,6 @@
 # ONTON Platform — TO-BE Technical Blueprint
 
-> Last verified against dev: 2026-10-03
+> Last verified against dev: 2026-10-10 (commit `6413f8c3`)
 
 > **Target Architecture Specification (2026–2027)**
 > **Vision:** "The Event Engagement Platform — Verifiable Credentials, Gamified Participation, Omnichannel Reach"
@@ -8,7 +8,7 @@
 > **Status:** Plan. Sections 1–9 describe the **target** architecture. Unless a line is explicitly marked "exists today", treat it as **not implemented**.
 
 > [!IMPORTANT]
-> This is a plan, not a description of the running system. The verified current state is in [as_is_technical_blueprint.md](as_is_technical_blueprint.md). Delivery status per issue is in §10, checked against `dev` on 2026-10-03.
+> This is a plan, not a description of the running system. The verified current state is in [as_is_technical_blueprint.md](as_is_technical_blueprint.md) (active `dev`) and [legacy_technical_blueprint.md](legacy_technical_blueprint.md) (`main` / production baseline). Delivery status per issue is in §10, checked against `dev` on 2026-10-10.
 
 ---
 
@@ -708,7 +708,7 @@ flowchart TD
     W5 --> W6
 ```
 
-### Wave Details & Delivery Status (checked against `dev`, 2026-10-03)
+### Wave Details & Delivery Status (checked against `dev`, 2026-10-10)
 
 Status key: **Done** = verified in code; **Partial** = exists with gaps listed; **Not verified** = no evidence found in the fact sheets, status unknown; **Next / Backlog** = not implemented.
 
@@ -723,6 +723,7 @@ Status key: **Done** = verified in code; **Partial** = exists with gaps listed; 
 | #958 | Add auth to event metadata export | Not verified | — |
 | #955 | Hash API keys + constant-time comparison | Done | bcrypt user API keys; constant-time `x-api-key` check |
 | #940 | Add HMAC auth to bot Express API | Done | `telegram-bot/src/middleware/hmacAuth.ts`, 60s replay window |
+| #1044 | Remove universal PoA backdoor (F-30) | Done | Hardcoded override password removed (`da2a2ef1`) |
 | #945 | BigInt for TON payment reconciliation | Partial | Compare is BigInt, but the expected amount is derived from a `real` (float) price |
 | #947 | Row-level locking for NFT minting & RSVP | Partial | No inventory row lock; order creation is check-then-insert. Mint uses a Redis lock; registration uses a Redis lock per event. |
 | #950 | Telegram broadcast FloodWait backoff | Partial | `retry_after` handling found in bot poll/broadcast crons; behaviour not verified |
@@ -733,6 +734,7 @@ Status key: **Done** = verified in code; **Partial** = exists with gaps listed; 
 |---|---|---|---|
 | #1015 | Multi-provider identity | Partial | Telegram, Telegram widget, Google web OAuth, email OTP (logged, not emailed — F-27). Wallet login not implemented. No `@repo/auth` package; code is in `mini-app/src/lib/auth/authEngine.ts`. |
 | #1016 | `user_identities` table & UUID column | Done | Migration 0123. PK is still `users.user_id bigint`; `uuid` and `telegram_id` are extra columns. |
+| #1031 | Open organizer onboarding | Done | 1 TON gate removed; auto-promotion via `ensureOrganizerRole`; founding organizer backfill (migration 0128); tiered abuse limits (`organizerLimits.ts`, migration 0129) + `/limits` bot command. |
 | #1019 | `HostPlatformBridge` TMA abstraction | Partial | `mini-app/src/lib/platform/` exists; coverage not verified |
 | #1020 | `LinkService` universal URL generator | Done | `mini-app/src/lib/links/linkService.ts`: web `/events/<uuid>` + TMA link |
 | #973 | Extract backend into standalone API server | Next | — |
@@ -740,12 +742,15 @@ Status key: **Done** = verified in code; **Partial** = exists with gaps listed; 
 | #975 | Merge NFT DB into primary database | Next | — |
 | #978 | Decompose monolithic tRPC routers | Next | — |
 
-#### Wave 3: Web-First Experience — Partial
+#### Wave 3: Web-First Experience — In progress
 
 | Issue | Title | Status | Verified details |
 |---|---|---|---|
 | #1011 | Decouple legacy TON Society activity_id | Done | TS registration is optional and non-fatal; hub defaults applied |
-| #1012 | Auto-publish events by default | Done | Free events public immediately; paid events hidden until creation order is paid |
+| #1012 | Auto-publish events by default | Done | Free and paid events public immediately; upfront creation & capacity fees removed (#1033) |
+| #1033 | Zero upfront paid event fees & payouts | Done | Upfront orders removed; `organizer_payouts` table (migration 0131); bot `/payout` command via HMAC; Treasury view |
+| #1032 | Wallet-optional attendees | Done | Online PoA and check-in without wallet; plain `'TICKET'` payment rail (migration 0134); decoupled paid tickets from web3 |
+| 145ac32b | Unified door check-in scanner | Done | Unified mobile scanner for event organizers and check-in officers |
 | #1009 | Progressive Web3 disclosure | Done | `has_web3` toggle gates paid-event inputs |
 | #966 | Multi-tier ticketing schema | Partial | `event_ticket_tiers` (migration 0125), seeded one tier per event. No tier-creation API; paid sales do not increment `sold_count` (F-34). Token is per event. |
 | #970 | Native Telegram Stars checkout | Partial | Invoice + `successful_payment` work; pre-checkout does not validate (F-33); no mint or affiliate count |
@@ -767,6 +772,7 @@ Status key: **Done** = verified in code; **Partial** = exists with gaps listed; 
 
 | Issue | Title | Status | Notes |
 |---|---|---|---|
+| 6413f8c3 | Close public Swarm Redis port | Done | Removed public port 6379 exposure in Swarm compose files |
 | #986 | Remove hardcoded Docker static IPs | Done | Services use Docker DNS names |
 | #985 | Edge rate limiting & WAF | Partial | Caddy image includes `caddy-ratelimit`; mini-app middleware has edge rate limits. WAF not verified. |
 | #980 | Automated CI test gates | Partial | Lint + Vitest before build; Playwright smoke runs **after** deploy, not as a gate. No `type:check`. |

@@ -8,7 +8,7 @@ import ordersDB from "@/db/modules/orders.db";
 import eventTokensDB from "@/db/modules/eventTokens.db";
 import eventTicketTiersDB from "@/db/modules/eventTicketTiers.db";
 import { Address } from "@ton/core";
-import { and, eq } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { logger } from "@/server/utils/logger";
 import { applyCouponDiscount } from "@/lib/applyCouponDiscount";
@@ -124,10 +124,11 @@ export async function POST(request: Request) {
   const ticketOrderTypeMap = {
     NFT: "nft_mint",
     TSCSBT: "ts_csbt_ticket",
+    TICKET: "nft_mint", // Treat TICKET as nft_mint for routing to existing workers
   } as const;
 
   // Ensure TypeScript recognizes the valid key
-  const ticketOrderType = ticketOrderTypeMap[eventTicketingType];
+  const ticketOrderType = ticketOrderTypeMap[eventTicketingType as keyof typeof ticketOrderTypeMap] || "nft_mint";
 
   const { isSoldOut } = await ordersDB.checkIfSoldOut(body.data.event_uuid, ticketOrderType, eventData.capacity || 0);
 
@@ -237,67 +238,100 @@ export async function POST(request: Request) {
       const isFree = discountedPrice === 0;
       const targetState = isFree ? "completed" : "confirming";
 
-      await db.transaction(async (trx) => {
-        await trx
-          .update(orders)
-          .set({
-            state: targetState,
-            updatedAt: new Date(),
-            total_price: discountedPrice,
-            owner_address: body.data.owner_address || userOrder.owner_address,
-            tier_id: selectedTier ? selectedTier.id : userOrder.tier_id,
-          })
-          .where(eq(orders.uuid, userOrder.uuid))
-          .execute();
+      try {
+        await db.transaction(async (trx) => {
+          if (selectedTier) {
+            const { isSoldOut } = await eventTicketTiersDB.lockAndCheckTierCapacityTrx(trx, selectedTier.id);
+            if (isSoldOut) {
+              throw new Error("TIER_SOLD_OUT");
+            }
+          }
+          if (eventData.capacity && eventData.capacity > 0) {
+            const [{ count: activeTicketsCount }] = await trx
+              .select({ count: sql`count(*)`.mapWith(Number) })
+              .from(orders)
+              .where(
+                and(
+                  eq(orders.event_uuid, body.data.event_uuid),
+                  or(eq(orders.state, "completed"), eq(orders.state, "processing")),
+                  eq(orders.order_type, ticketOrderType)
+                )
+              )
+              .execute();
+            if (activeTicketsCount >= eventData.capacity) {
+              throw new Error("EVENT_SOLD_OUT");
+            }
+          }
 
-        const { event_uuid: _eu, tier_id: _ti, ...restData } = body.data;
-        const register_info: Record<string, string | null> = {
-          full_name: restData.full_name,
-          telegram: restData.telegram,
-          company: restData.company || null,
-          position: restData.position || null,
-          owner_address: restData.owner_address || null,
-          affiliate_id: restData.affiliate_id || null,
-          payment_method: restData.payment_method || null,
-          coupon_code: restData.coupon_code || null,
-        };
-        await trx
-          .insert(eventRegistrants)
-          .values({
-            event_uuid: body.data.event_uuid,
-            status: isFree ? "approved" : "pending",
-            register_info: register_info,
-            user_id: userId,
-          })
-          .onConflictDoUpdate({
-            target: [eventRegistrants.event_uuid, eventRegistrants.user_id],
-            set: {
+          await trx
+            .update(orders)
+            .set({
+              state: targetState,
+              updatedAt: new Date(),
+              total_price: discountedPrice,
+              owner_address: body.data.owner_address || userOrder.owner_address,
+              tier_id: selectedTier ? selectedTier.id : userOrder.tier_id,
+            })
+            .where(eq(orders.uuid, userOrder.uuid))
+            .execute();
+
+          const { event_uuid: _eu, tier_id: _ti, ...restData } = body.data;
+          const register_info: Record<string, string | null> = {
+            full_name: restData.full_name,
+            telegram: restData.telegram,
+            company: restData.company || null,
+            position: restData.position || null,
+            owner_address: restData.owner_address || null,
+            affiliate_id: restData.affiliate_id || null,
+            payment_method: restData.payment_method || null,
+            coupon_code: restData.coupon_code || null,
+          };
+          await trx
+            .insert(eventRegistrants)
+            .values({
+              event_uuid: body.data.event_uuid,
               status: isFree ? "approved" : "pending",
               register_info: register_info,
-            },
-          })
-          .execute();
-
-        if (isFree) {
-          await trx
-            .insert(tickets)
-            .values({
-              name: body.data.full_name,
-              telegram: body.data.telegram,
-              company: body.data.company,
-              position: body.data.position,
-              order_uuid: userOrder.uuid,
-              status: "UNUSED",
-              event_uuid: body.data.event_uuid,
-              ticket_id: eventPaymentInfo.id,
               user_id: userId,
             })
+            .onConflictDoUpdate({
+              target: [eventRegistrants.event_uuid, eventRegistrants.user_id],
+              set: {
+                status: isFree ? "approved" : "pending",
+                register_info: register_info,
+              },
+            })
             .execute();
-        }
-      });
 
-      if (isFree && selectedTier) {
-        await eventTicketTiersDB.incrementTierSoldCount(selectedTier.id, 1);
+          if (isFree) {
+            await trx
+              .insert(tickets)
+              .values({
+                name: body.data.full_name,
+                telegram: body.data.telegram,
+                company: body.data.company,
+                position: body.data.position,
+                order_uuid: userOrder.uuid,
+                status: "UNUSED",
+                event_uuid: body.data.event_uuid,
+                ticket_id: eventPaymentInfo.id,
+                user_id: userId,
+              })
+              .execute();
+
+            if (selectedTier) {
+              await eventTicketTiersDB.incrementTierSoldCountTrx(trx, selectedTier.id, 1);
+            }
+          }
+        });
+      } catch (txError: any) {
+        if (txError.message === "TIER_SOLD_OUT") {
+          return Response.json({ message: "Selected ticket tier is sold out" }, { status: 410 });
+        }
+        if (txError.message === "EVENT_SOLD_OUT") {
+          return Response.json({ message: "Event tickets are sold out" }, { status: 410 });
+        }
+        throw txError;
       }
 
       let inviteLink: string | null = null;
@@ -344,88 +378,121 @@ export async function POST(request: Request) {
   /*                              Create New Order                              */
   /* -------------------------------------------------------------------------- */
 
-  await db.transaction(async (trx) => {
-    logger.info("Coupon Code: ", body.data.coupon_code);
+  try {
+    await db.transaction(async (trx) => {
+      logger.info("Coupon Code: ", body.data.coupon_code);
 
-    new_order = (
-      await trx
-        .insert(orders)
+      if (selectedTier) {
+        const { isSoldOut } = await eventTicketTiersDB.lockAndCheckTierCapacityTrx(trx, selectedTier.id);
+        if (isSoldOut) {
+          throw new Error("TIER_SOLD_OUT");
+        }
+      }
+      if (eventData.capacity && eventData.capacity > 0) {
+        const [{ count: activeTicketsCount }] = await trx
+          .select({ count: sql`count(*)`.mapWith(Number) })
+          .from(orders)
+          .where(
+            and(
+              eq(orders.event_uuid, body.data.event_uuid),
+              or(eq(orders.state, "completed"), eq(orders.state, "processing")),
+              eq(orders.order_type, ticketOrderType)
+            )
+          )
+          .execute();
+        if (activeTicketsCount >= eventData.capacity) {
+          throw new Error("EVENT_SOLD_OUT");
+        }
+      }
+
+      new_order = (
+        await trx
+          .insert(orders)
+          .values({
+            event_uuid: body.data.event_uuid,
+            user_id: userId,
+
+            default_price: effectivePrice,
+            total_price: discountedPrice,
+            token_id: eventPaymentInfo.token_id,
+
+            state: initialOrderState,
+            order_type: ticketOrderType,
+            owner_address: body.data.owner_address || null,
+
+            utm_source: body.data.affiliate_id,
+            updatedBy: "system",
+            coupon_id: couponId,
+            tier_id: selectedTier ? selectedTier.id : null,
+          })
+          .returning()
+          .execute()
+      ).pop();
+
+      new_order_price = new_order?.total_price || -1;
+      new_order_uuid = new_order?.uuid;
+
+      // insert event registrants
+      const { event_uuid: _newEu, tier_id: _newTi, ...restNewData } = body.data;
+      const register_info: Record<string, string | null> = {
+        full_name: restNewData.full_name,
+        telegram: restNewData.telegram,
+        company: restNewData.company || null,
+        position: restNewData.position || null,
+        owner_address: restNewData.owner_address || null,
+        affiliate_id: restNewData.affiliate_id || null,
+        payment_method: restNewData.payment_method || null,
+        coupon_code: restNewData.coupon_code || null,
+      };
+      const [regRow] = await trx
+        .insert(eventRegistrants)
         .values({
           event_uuid: body.data.event_uuid,
-          user_id: userId,
-
-          default_price: effectivePrice,
-          total_price: discountedPrice,
-          token_id: eventPaymentInfo.token_id,
-
-          state: initialOrderState,
-          order_type: ticketOrderType,
-          owner_address: body.data.owner_address || null,
-
-          utm_source: body.data.affiliate_id,
-          updatedBy: "system",
-          coupon_id: couponId,
-          tier_id: selectedTier ? selectedTier.id : null,
-        })
-        .returning()
-        .execute()
-    ).pop();
-
-    new_order_price = new_order?.total_price || -1;
-    new_order_uuid = new_order?.uuid;
-
-    // insert event registrants
-    const { event_uuid: _newEu, tier_id: _newTi, ...restNewData } = body.data;
-    const register_info: Record<string, string | null> = {
-      full_name: restNewData.full_name,
-      telegram: restNewData.telegram,
-      company: restNewData.company || null,
-      position: restNewData.position || null,
-      owner_address: restNewData.owner_address || null,
-      affiliate_id: restNewData.affiliate_id || null,
-      payment_method: restNewData.payment_method || null,
-      coupon_code: restNewData.coupon_code || null,
-    };
-    const [regRow] = await trx
-      .insert(eventRegistrants)
-      .values({
-        event_uuid: body.data.event_uuid,
-        status: initialRegistrantStatus,
-        register_info: register_info,
-        user_id: userId,
-      })
-      .onConflictDoUpdate({
-        target: [eventRegistrants.event_uuid, eventRegistrants.user_id],
-        set: {
           status: initialRegistrantStatus,
           register_info: register_info,
-        },
-      })
-      .returning({ id: eventRegistrants.id })
-      .execute();
-
-    insertedRegistrantId = regRow?.id || null;
-
-    if (isFree && new_order_uuid) {
-      await trx
-        .insert(tickets)
-        .values({
-          name: body.data.full_name,
-          telegram: body.data.telegram,
-          company: body.data.company,
-          position: body.data.position,
-          order_uuid: new_order_uuid,
-          status: "UNUSED",
-          event_uuid: body.data.event_uuid,
-          ticket_id: eventPaymentInfo.id,
           user_id: userId,
         })
+        .onConflictDoUpdate({
+          target: [eventRegistrants.event_uuid, eventRegistrants.user_id],
+          set: {
+            status: initialRegistrantStatus,
+            register_info: register_info,
+          },
+        })
+        .returning({ id: eventRegistrants.id })
         .execute();
-    }
-  });
 
-  if (isFree && selectedTier) {
-    await eventTicketTiersDB.incrementTierSoldCount(selectedTier.id, 1);
+      insertedRegistrantId = regRow?.id || null;
+
+      if (isFree && new_order_uuid) {
+        await trx
+          .insert(tickets)
+          .values({
+            name: body.data.full_name,
+            telegram: body.data.telegram,
+            company: body.data.company,
+            position: body.data.position,
+            order_uuid: new_order_uuid,
+            status: "UNUSED",
+            event_uuid: body.data.event_uuid,
+            ticket_id: eventPaymentInfo.id,
+            user_id: userId,
+          })
+          .execute();
+
+        if (selectedTier) {
+          await eventTicketTiersDB.incrementTierSoldCountTrx(trx, selectedTier.id, 1);
+        }
+      }
+    });
+  } catch (txError: any) {
+    if (txError.message === "TIER_SOLD_OUT") {
+      return Response.json({ message: "Selected ticket tier is sold out" }, { status: 410 });
+    }
+    if (txError.message === "EVENT_SOLD_OUT") {
+      return Response.json({ message: "Event tickets are sold out" }, { status: 410 });
+    }
+    throw txError;
   }
 
   let inviteLink: string | null = null;

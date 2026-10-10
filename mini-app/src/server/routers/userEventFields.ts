@@ -8,6 +8,11 @@ import { getEventById } from "@/db/modules/events.db";
 import eventFieldsDB from "@/db/modules/eventFields.db";
 import { checkRateLimit } from "@/lib/checkRateLimit";
 import { EVENT_PASSWORD_RATE_LIMIT } from "@/constants";
+import { db } from "@/db/db";
+import { eventRegistrants, visitors } from "@/db/schema";
+import { and, eq } from "drizzle-orm";
+import { redisTools } from "@/lib/redisTools";
+import { getUserCacheKey } from "@/db/modules/users.db";
 
 export const userEventFieldsRouter = router({
   // protect
@@ -80,8 +85,54 @@ export const userEventFieldsRouter = router({
         });
       }
 
-      // Hash the entered password and store it
+      // Hash the entered password
       const hashPassword = await bcryptLib.hashPassword(enteredPassword);
+
+      // Wrap visitor + registrant writes in a single db.transaction first
+      await db.transaction(async (tx) => {
+        // Record visitor attendance
+        const existingVisitor = (
+          await tx
+            .select()
+            .from(visitors)
+            .where(and(eq(visitors.user_id, opts.ctx.user.user_id), eq(visitors.event_uuid, eventData.event_uuid)))
+            .limit(1)
+            .execute()
+        )[0];
+
+        if (!existingVisitor) {
+          await tx
+            .insert(visitors)
+            .values({
+              user_id: opts.ctx.user.user_id,
+              event_uuid: eventData.event_uuid,
+              updatedBy: String(opts.ctx.user.user_id),
+            })
+            .execute();
+        }
+
+        // Record attendee in eventRegistrants as checkedin for off-chain cSBT credentials and attendance tracking
+        await tx
+          .insert(eventRegistrants)
+          .values({
+            event_uuid: eventData.event_uuid,
+            user_id: opts.ctx.user.user_id,
+            status: "checkedin",
+            updatedBy: String(opts.ctx.user.user_id),
+          })
+          .onConflictDoUpdate({
+            target: [eventRegistrants.event_uuid, eventRegistrants.user_id],
+            set: {
+              status: "checkedin",
+              updatedAt: new Date(),
+              updatedBy: String(opts.ctx.user.user_id),
+            },
+          })
+          .execute();
+      });
+
+      // Clear the user cache so participated events will be reloaded
+      await redisTools.deleteCache(getUserCacheKey(opts.ctx.user.user_id));
 
       await userEventFieldsDB.upsertUserEventFields(
         opts.ctx.user.user_id,
@@ -89,6 +140,8 @@ export const userEventFieldsRouter = router({
         opts.input.field_id,
         hashPassword
       );
+
+      return { success: true };
     }),
 
   // protect

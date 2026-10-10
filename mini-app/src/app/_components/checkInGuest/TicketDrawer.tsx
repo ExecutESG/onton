@@ -69,10 +69,12 @@ const TicketDrawer: FC<TicketDrawerProps> = ({
                   <span>Owner:</span>
                   <span>{ticketData.telegram}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Contract Address:</span>
-                  <span>{formatAddress(eventTicketData.collectionAddress)}</span>
-                </div>
+                {eventTicketData.collectionAddress && (
+                  <div className="flex justify-between">
+                    <span>Contract Address:</span>
+                    <span>{formatAddress(eventTicketData.collectionAddress)}</span>
+                  </div>
+                )}
               </div>
             </div>
           </DrawerDescription>

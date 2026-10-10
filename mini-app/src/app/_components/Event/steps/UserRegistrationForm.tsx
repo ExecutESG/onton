@@ -57,26 +57,28 @@ export function UserRegistrationForm() {
               />
             }
           />
-          <ListItem
-            label
-            title={
-              <p className="space-x-4">
-                <span>Capacity</span>
-                <small className={"dark:text-zinc-400"}>{eventData.capacity ? eventData.capacity : "unlimited"}</small>
-              </p>
-            }
-            media={<ArrowUpToLine />}
-            after={
-              <Toggle
-                onChange={() => {
-                  setEventData({ capacity: eventData?.capacity ? null : 100 });
-                }}
-                component="div"
-                checked={eventData?.capacity !== null}
-              />
-            }
-          />
-          {eventData?.capacity !== null && (
+          {eventData?.eventLocationType !== "in_person" && (
+            <ListItem
+              label
+              title={
+                <p className="space-x-4">
+                  <span>Capacity</span>
+                  <small className={"dark:text-zinc-400"}>{eventData.capacity ? eventData.capacity : "unlimited"}</small>
+                </p>
+              }
+              media={<ArrowUpToLine />}
+              after={
+                <Toggle
+                  onChange={() => {
+                    setEventData({ capacity: eventData?.capacity ? null : 100 });
+                  }}
+                  component="div"
+                  checked={eventData?.capacity !== null}
+                />
+              }
+            />
+          )}
+          {(eventData?.eventLocationType === "in_person" || eventData?.capacity !== null) && (
             <>
               <ListInput
                 title="Max Capacity"
@@ -88,12 +90,15 @@ export function UserRegistrationForm() {
                   const numValue = Number(value);
                   setEventData({ capacity: value === "" ? undefined : numValue >= 1 ? numValue : 1 });
                 }}
-                value={eventData.capacity}
-                defaultValue={eventData.capacity}
+                value={eventData.capacity ?? 100}
                 inputClassName={cn("placeholder:tracking-[.2rem] tracking-widest")}
                 placeholder={"100"}
                 outline
-                info="Automatically close registration once capacity is reached, counting only approved guests."
+                info={
+                  eventData?.eventLocationType === "in_person"
+                    ? "Mandatory venue capacity. Automatically closes registration once capacity is reached."
+                    : "Automatically close registration once capacity is reached, counting only approved guests."
+                }
               />
               <ListItem
                 label

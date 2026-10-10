@@ -1,6 +1,7 @@
 import { db } from "@/db/db";
+import { events } from "@/db/schema/events";
 import { orders } from "@/db/schema/orders";
-import { and, asc, eq, isNotNull, or, sql } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { logger } from "@/server/utils/logger";
 import { Address } from "@ton/core";
 import { eventPayment } from "@/db/schema/eventPayment";
@@ -11,8 +12,10 @@ import { is_mainnet } from "@/services/tonCenter";
 import { selectUserById } from "@/db/modules/users.db";
 import { sendLogNotification } from "@/lib/tgBot";
 import { eventRegistrants } from "@/db/schema/eventRegistrants";
+import { tickets } from "@/db/schema/tickets";
 import { affiliateLinksDB } from "@/db/modules/affiliateLinks.db";
 import { couponItemsDB } from "@/db/modules/couponItems.db";
+import { eventTicketTiersDB } from "@/db/modules/eventTicketTiers.db";
 import { config } from "@/server/config";
 import { isAxiosError } from "axios";
 import { redisTools } from "@/lib/redisTools";
@@ -129,12 +132,6 @@ export const processSinglePaidOrder = async (orderUuid: string): Promise<boolean
     return false;
   }
 
-  if (!paymentInfo.collectionAddress) {
-    logger.error("processSinglePaidOrder: no collection address for event", event_uuid);
-    await recordOrderMintFailure(ordr.uuid, ordr.retry_count, "No collection address found for event payment");
-    return false;
-  }
-
   const mintLockKey = `lock:mint_nft:${event_uuid}`;
   const lockAcquired = await redisTools.acquireLock(mintLockKey, 120);
   if (!lockAcquired) {
@@ -143,6 +140,137 @@ export const processSinglePaidOrder = async (orderUuid: string): Promise<boolean
   }
 
   try {
+    // Bypass minting for TICKET
+    if (paymentInfo.ticket_type === "TICKET") {
+      const orderClaimed = await db.transaction(async (trx) => {
+        const [locked] = await trx
+          .select({ uuid: orders.uuid })
+          .from(orders)
+          .where(and(eq(orders.uuid, ordr.uuid), eq(orders.state, "processing")))
+          .for("update")
+          .execute();
+
+        if (!locked) return false;
+
+        await trx
+          .update(orders)
+          .set({ updatedBy: `mint_lock_${Date.now()}` })
+          .where(eq(orders.uuid, ordr.uuid))
+          .execute();
+
+        return true;
+      });
+
+      if (!orderClaimed) {
+        logger.warn(`processSinglePaidOrder: order ${ordr.uuid} already processed or claimed`);
+        return false;
+      }
+
+      await db.transaction(async (trx) => {
+        const updateResult = (
+          await trx.update(orders).set({ state: "completed" }).where(eq(orders.uuid, ordr.uuid)).returning().execute()
+        ).pop();
+
+        if (ordr.coupon_id !== null) await couponItemsDB.makeCouponItemUsedTrx(trx, ordr.coupon_id, event_uuid);
+
+        if (updateResult && updateResult.utm_source) {
+          await affiliateLinksDB.incrementAffiliatePurchase(updateResult.utm_source);
+        }
+
+        if (ordr.tier_id) {
+          await eventTicketTiersDB.incrementTierSoldCountTrx(trx, ordr.tier_id, 1);
+        }
+
+        // For TICKET, we insert into tickets table instead of nftItems
+        // Actually, we need to fetch user details or registration info.
+        // Let's get them from eventRegistrants
+        const regInfo = await trx.select().from(eventRegistrants).where(and(eq(eventRegistrants.event_uuid, event_uuid), eq(eventRegistrants.user_id, ordr.user_id || 0))).execute();
+        
+        let registerData: any = {};
+        if (regInfo.length > 0) {
+          registerData = regInfo[0].register_info || {};
+        }
+
+        await trx.insert(tickets).values({
+          name: registerData.full_name || "Attendee",
+          telegram: registerData.telegram || "",
+          company: registerData.company || "",
+          position: registerData.position || "",
+          order_uuid: ordr.uuid,
+          status: "UNUSED",
+          event_uuid: event_uuid,
+          ticket_id: paymentInfo.id,
+          user_id: ordr.user_id,
+        }).onConflictDoNothing();
+
+        if (ordr.user_id) {
+          await trx
+            .update(eventRegistrants)
+            .set({ status: "approved" })
+            .where(
+              and(
+                eq(eventRegistrants.event_uuid, event_uuid),
+                eq(eventRegistrants.user_id, ordr.user_id),
+                or(eq(eventRegistrants.status, "pending"), eq(eventRegistrants.status, "rejected"))
+              )
+            )
+            .execute();
+        }
+      });
+      return true;
+    }
+
+    let collectionAddress = paymentInfo.collectionAddress;
+    
+    // Lazy Deploy Collection
+    if (paymentInfo.ticket_type === "NFT" && !collectionAddress) {
+      logger.log(`Lazy deploying collection for event ${event_uuid}`);
+      
+      const eventData = (
+        await db.select().from(events).where(eq(events.event_uuid, event_uuid)).execute()
+      ).pop();
+      
+      if (!eventData) {
+        throw new Error(`Event not found: ${event_uuid}`);
+      }
+
+      try {
+        const { deployNftCollection } = await import("../helper/deployNftCollection");
+        const deployedAddress = await deployNftCollection(eventData as any, paymentInfo);
+        
+        if (!deployedAddress) {
+          throw new Error("deployedAddress is null");
+        }
+
+        const updateRes = await db
+          .update(eventPayment)
+          .set({ collectionAddress: deployedAddress.toString() })
+          .where(and(eq(eventPayment.id, paymentInfo.id), isNull(eventPayment.collectionAddress)))
+          .returning();
+          
+        if (updateRes.length > 0) {
+          collectionAddress = updateRes[0].collectionAddress;
+        } else {
+          // If another worker beat us to it, load the address
+          const freshPaymentInfo = (
+            await db.select().from(eventPayment).where(eq(eventPayment.id, paymentInfo.id)).execute()
+          ).pop();
+          collectionAddress = freshPaymentInfo?.collectionAddress || null;
+        }
+      } catch (deployErr) {
+        logger.error(`Collection deploy failed for event ${event_uuid}`, deployErr);
+        // Don't fail the order, it will retry
+        await recordOrderMintFailure(ordr.uuid, ordr.retry_count, "Collection deploy failed");
+        return false;
+      }
+    }
+
+    if (!collectionAddress) {
+      logger.error("processSinglePaidOrder: no collection address for event", event_uuid);
+      await recordOrderMintFailure(ordr.uuid, ordr.retry_count, "No collection address found for event payment");
+      return false;
+    }
+
     // Concurrency protection: Verify and lock order row with FOR UPDATE
     const orderClaimed = await db.transaction(async (trx) => {
       const [locked] = await trx
@@ -197,10 +325,10 @@ export const processSinglePaidOrder = async (orderUuid: string): Promise<boolean
 
     const nft_index = nft_count_result[0].count || 0;
 
-    logger.log(`minting_nft_${ordr.event_uuid}_${nft_index}_${paymentInfo?.collectionAddress}_${meta_data_url}`);
+    logger.log(`minting_nft_${ordr.event_uuid}_${nft_index}_${collectionAddress}_${meta_data_url}`);
     const nft_address = await mintNFT(
       ordr.owner_address,
-      paymentInfo?.collectionAddress,
+      collectionAddress as string,
       nft_index,
       meta_data_url,
       {
@@ -245,6 +373,10 @@ export const processSinglePaidOrder = async (orderUuid: string): Promise<boolean
       if (ordr.coupon_id !== null) await couponItemsDB.makeCouponItemUsedTrx(trx, ordr.coupon_id, event_uuid);
       if (updateResult && updateResult.utm_source)
         await affiliateLinksDB.incrementAffiliatePurchase(updateResult.utm_source);
+
+      if (ordr.tier_id) {
+        await eventTicketTiersDB.incrementTierSoldCountTrx(trx, ordr.tier_id, 1);
+      }
 
       logger.log(`nft_mint_order_completed_${ordr.uuid}`);
       await trx

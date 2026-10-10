@@ -197,8 +197,6 @@ services:
       - redis_data:/data
     depends_on:
       - fluentd
-    ports:
-      - "127.0.0.1:${REDIS_PORT}:${REDIS_PORT}"
     command: redis-server  --port ${REDIS_PORT} --requirepass ${REDIS_PASSWORD}
     deploy:
       resources:

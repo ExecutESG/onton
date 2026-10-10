@@ -2,12 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db/db";
 import { eventRegistrants } from "@/db/schema/eventRegistrants";
 import { sbtCollections } from "@/db/schema/sbtCollections";
-import { sbtItems } from "@/db/schema/sbtItems";
 import { users } from "@/db/schema/users";
 import eventDB from "@/db/modules/events.db";
-import { usersDB } from "@/db/modules/users.db";
 import { and, asc, eq } from "drizzle-orm";
-import { CsbtMerkleTree, CsbtLeafData, serializeProofToCell, hashMetadata } from "@/lib/csbt";
+import { CsbtMerkleTree, CsbtLeafData, serializeProofToCell } from "@/lib/csbt";
+import { csbtTreeService } from "@/services/csbtTreeService";
 import { logger } from "@/server/utils/logger";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +16,7 @@ export const dynamic = "force-dynamic";
  * /api/v1/csbt/proof:
  *   get:
  *     summary: Sovereign Compressed SBT (cSBT) Merkle Proof API
- *     description: Retrieves the cryptographic Merkle proof and serialized TON Cell BoC for an attendee's soulbound badge.
+ *     description: Retrieves the cryptographic Merkle proof and serialized TON Cell BoC for an attendee's soulbound badge. Serves from frozen persisted trees when available.
  *     parameters:
  *       - in: query
  *         name: eventUuid
@@ -82,17 +81,83 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // 3. Resolve attendee target
     const userId = userIdStr ? parseInt(userIdStr, 10) : undefined;
 
-    // Fetch checked-in attendees
+    // 3. Check for frozen persisted tree (MinIO)
+    const frozen = await csbtTreeService.getFrozenTree(eventUuid);
+
+    if (frozen) {
+      const { record, tree, payload } = frozen;
+      const leaves = payload.leaves;
+
+      let targetIndex = 0;
+      if (leafIndexParam !== null) {
+        targetIndex = parseInt(leafIndexParam, 10);
+        if (isNaN(targetIndex) || targetIndex < 0 || targetIndex >= leaves.length) {
+          targetIndex = 0;
+        }
+      } else if (userId) {
+        const matchIdx = leaves.findIndex(
+          (l) => l.userId === userId || l.ownerAddress === String(userId)
+        );
+        if (matchIdx !== -1) targetIndex = matchIdx;
+      } else if (walletAddress) {
+        const matchIdx = leaves.findIndex((l) => l.ownerAddress === walletAddress);
+        if (matchIdx !== -1) targetIndex = matchIdx;
+      }
+
+      const targetLeaf = leaves[targetIndex] || {
+        index: 0,
+        ownerAddress: walletAddress || String(userId || 0),
+        eventUuid,
+      };
+
+      const proof = tree.getProof(targetIndex);
+      const proofCell = serializeProofToCell(proof.steps);
+      const proofCellBoc = proofCell.toBoc().toString("base64");
+      const isVerified = CsbtMerkleTree.verifyProof(proof.leafHash, proof, proof.root);
+
+      return NextResponse.json(
+        {
+          success: true,
+          eventUuid,
+          kind: record.kind,
+          isFrozen: true,
+          anchored: Boolean(record.anchoredAt),
+          anchorTxHash: record.anchorTxHash || null,
+          anchoredAt: record.anchoredAt || null,
+          frozenAt: record.frozenAt,
+          collectionAddress: collectionAddress || event.sbt_collection_address || null,
+          merkleRootHex: record.root,
+          totalLeaves: payload.leafCount,
+          leafIndex: targetIndex,
+          leafHashHex: proof.leafHashHex,
+          proofCellBoc,
+          proofStepsCount: proof.steps.length,
+          verified: isVerified,
+          metadata: {
+            title: event.title,
+            description: event.description || `Soulbound Proof of Attendance for ${event.title}`,
+            image: event.tsRewardImage || event.image_url || "https://onton.app/assets/sbt-badge.png",
+            ownerIdentifier: targetLeaf.ownerAddress,
+            eventStartDate: event.start_date,
+            eventEndDate: event.end_date,
+          },
+        },
+        { headers: corsHeaders() }
+      );
+    }
+
+    // 4. Live events: build dynamic per-request tree with anchored: false
     const checkedIn = await db
       .select({
         id: eventRegistrants.id,
         registrantUuid: eventRegistrants.registrant_uuid,
         userId: eventRegistrants.user_id,
+        walletAddress: users.wallet_address,
       })
       .from(eventRegistrants)
+      .leftJoin(users, eq(users.user_id, eventRegistrants.user_id))
       .where(
         and(
           eq(eventRegistrants.event_uuid, eventUuid),
@@ -101,14 +166,13 @@ export async function GET(req: NextRequest) {
       )
       .orderBy(asc(eventRegistrants.id));
 
-    // Build leaves
     const leaves: CsbtLeafData[] = checkedIn.map((reg, idx) => ({
       index: idx,
-      ownerAddress: String(reg.userId || 0),
+      ownerAddress: reg.walletAddress || String(reg.userId || 0),
+      userId: reg.userId || undefined,
       eventUuid: eventUuid!,
     }));
 
-    // Fallback single-leaf demo if event has no checked-in DB rows yet
     if (leaves.length === 0) {
       leaves.push({
         index: 0,
@@ -117,7 +181,6 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Find target leaf index
     let targetIndex = 0;
     if (leafIndexParam !== null) {
       targetIndex = parseInt(leafIndexParam, 10);
@@ -128,35 +191,27 @@ export async function GET(req: NextRequest) {
       const matchIdx = checkedIn.findIndex((r) => r.userId === userId);
       if (matchIdx !== -1) targetIndex = matchIdx;
     } else if (walletAddress) {
-      // Attempt lookup by wallet
-      const userRows = await db
-        .select({ userId: users.user_id })
-        .from(users)
-        .where(eq(users.wallet_address, walletAddress))
-        .limit(1);
-      if (userRows.length > 0) {
-        const matchIdx = checkedIn.findIndex((r) => r.userId === userRows[0].userId);
-        if (matchIdx !== -1) targetIndex = matchIdx;
-      }
+      const matchIdx = checkedIn.findIndex((r) => r.walletAddress === walletAddress);
+      if (matchIdx !== -1) targetIndex = matchIdx;
     }
 
     const targetLeaf = leaves[targetIndex];
-
-    // 4. Construct Merkle tree & extract proof
     const tree = await CsbtMerkleTree.fromLeaves(leaves);
     const proof = tree.getProof(targetIndex);
-
-    // 5. Serialize proof steps into TON Cell BoC
     const proofCell = serializeProofToCell(proof.steps);
     const proofCellBoc = proofCell.toBoc().toString("base64");
-
-    // 6. Offline verify check
     const isVerified = CsbtMerkleTree.verifyProof(proof.leafHash, proof, proof.root);
 
     return NextResponse.json(
       {
         success: true,
         eventUuid,
+        kind: "native",
+        isFrozen: false,
+        anchored: false,
+        anchorTxHash: null,
+        anchoredAt: null,
+        frozenAt: null,
         collectionAddress: collectionAddress || event.sbt_collection_address || null,
         merkleRootHex: tree.getRootHex(),
         totalLeaves: leaves.length,

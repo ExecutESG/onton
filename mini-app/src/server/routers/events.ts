@@ -1,3 +1,4 @@
+import { eventRegistrants } from "@/db/schema/eventRegistrants";
 import { NonVerifiedHubsIds } from "@/constants";
 import { db } from "@/db/db";
 import eventCategoriesDB from "@/db/modules/eventCategories.db";
@@ -10,7 +11,7 @@ import { EventTicketTierRow } from "@/db/schema/eventTicketTiers";
 import { userHasModerationAccess } from "@/db/modules/userFlags.db";
 import { userRolesDB } from "@/db/modules/userRoles.db";
 import { getUserCacheKey, usersDB } from "@/db/modules/users.db";
-import { EventCategoryRow, eventFields, eventPayment, events, orders } from "@/db/schema";
+import { EventCategoryRow, eventFields, eventPayment, events } from "@/db/schema";
 import { EventPaymentSelectType } from "@/db/schema/eventPayment";
 import { EventTokenRow } from "@/db/schema/eventTokens";
 import { hashPassword } from "@/lib/bcrypt";
@@ -28,18 +29,18 @@ import {
   sendLogNotification,
   sendToEventsTgChannel,
 } from "@/lib/tgBot";
-import { registerActivity, tonSocietyClient, updateActivity } from "@/lib/ton-society-api";
+import { updateActivity } from "@/lib/ton-society-api";
 import { getObjectDifference, removeKey } from "@/lib/utils";
 import { tgBotModerationMenu, tgBotPostPublishModerationMenu, tgBotReportedEventMenu } from "@/moderationBot/menu";
 import eventReportsDB from "@/db/modules/eventReports.db";
 import { logger } from "@/server/utils/logger";
-import { CreateTonSocietyDraft } from "@/services/tonSocietyService";
+import { organizerLimitsService } from "@/services/organizerLimits";
 import { EventDataSchema, UpdateEventDataSchema } from "@/types";
 import { TonSocietyRegisterActivityT } from "@/types/event.types";
 import searchEventsInputZod from "@/zodSchema/searchEventsInputZod";
 import { TRPCError } from "@trpc/server";
 import dotenv from "dotenv";
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import { Bot } from "grammy";
 import { Message } from "grammy/types";
 import { v4 as uuidv4 } from "uuid";
@@ -123,8 +124,10 @@ const getEvent = publicProcedure.input(z.object({ event_uuid: z.string() })).que
         first_name: ownerUser.first_name,
         hosted_event_count: ownerUser.hosted_event_count,
         is_ts_verified,
+        founding_organizer_at: ownerUser.founding_organizer_at,
       }
     : null;
+
 
   const accessData = await userRolesDB.listActiveUserRolesForEvent("event", Number(eventData.event_id));
   const accessRoles = accessData.map(({ userId, role }) => ({
@@ -133,18 +136,53 @@ const getEvent = publicProcedure.input(z.object({ event_uuid: z.string() })).que
   }));
 
   const registrationFromSchema = {
-    // isCustom: await userFlagsDB.checkUserCustomFlagBoolean(eventData.owner!, "custom_registration_1"),
-    isCustom: true,
+    isCustom: false,
   };
 
   // If the event does NOT require registration, just return data
+  
+  // Compute manage counts if authorized
+  let manage_counts = { approved: 0, pending: 0, waitlisted: 0 };
+  const hasAdminOrOrganizerAccess = userRole === "admin" || userId === eventData.owner;
+  const guestListAccess = accessRoles.some(r => r.user_id === userId && (r.role === "checkin_officer" || r.role === "admin"));
+  
+  if (hasAdminOrOrganizerAccess || guestListAccess) {
+    const counts = await db.select({ status: eventRegistrants.status, count: sql`count(*)` })
+      .from(eventRegistrants)
+      .where(eq(eventRegistrants.event_uuid, event_uuid))
+      .groupBy(eventRegistrants.status)
+      .execute();
+      
+    for (const row of counts) {
+      const c = Number(row.count);
+      if (row.status === 'approved' || row.status === 'checkedin') manage_counts.approved += c;
+      if (row.status === 'pending') manage_counts.pending += c;
+    }
+    if (!eventData.has_approval) {
+      manage_counts.waitlisted = manage_counts.pending;
+      manage_counts.pending = 0;
+    }
+  }
+
   if (!eventData.has_registration) {
+    // Check if user has an attendance/registrant record (e.g. from online secret phrase)
+    if (userId) {
+      const existingRequest = await eventRegistrantsDB.getRegistrantRequest(event_uuid, userId);
+      if (existingRequest) {
+        registrant_status = existingRequest.status;
+        if (registrant_status === "approved" || registrant_status === "checkedin") {
+          registrant_uuid = existingRequest.registrant_uuid;
+        }
+      }
+    }
+
     return {
       capacity_filled,
       registrant_status,
       organizer,
       registrationFromSchema,
-      accessRoles,
+      manage_counts,
+accessRoles,
       ...eventData,
       registrant_uuid,
     };
@@ -206,11 +244,12 @@ const getEvent = publicProcedure.input(z.object({ event_uuid: z.string() })).que
       registrant_status,
       organizer,
       registrationFromSchema,
-      accessRoles,
+      manage_counts,
+accessRoles,
       ...eventData,
       registrant_uuid,
-      capacity: mask_event_capacity ? 99 : eventData.capacity,
-    };
+      capacity: mask_event_capacity ? 99 : eventData.capacity
+};
   }
 
   // no status for registrant
@@ -224,11 +263,12 @@ const getEvent = publicProcedure.input(z.object({ event_uuid: z.string() })).que
         registrant_status,
         organizer,
         registrationFromSchema,
-        accessRoles,
+      manage_counts,
+accessRoles,
         ...eventData,
         registrant_uuid,
-        capacity: mask_event_capacity ? 99 : eventData.capacity,
-      };
+        capacity: mask_event_capacity ? 99 : eventData.capacity
+};
     }
   }
 
@@ -238,11 +278,12 @@ const getEvent = publicProcedure.input(z.object({ event_uuid: z.string() })).que
     registrant_status,
     organizer,
     registrationFromSchema,
-    accessRoles,
+      manage_counts,
+accessRoles,
     ...eventData,
     registrant_uuid,
-    capacity: mask_event_capacity ? 99 : eventData.capacity,
-  };
+    capacity: mask_event_capacity ? 99 : eventData.capacity
+};
 });
 
 const listPaymentTokens = adminOrganizerProtectedProcedure.query(async () => {
@@ -268,14 +309,17 @@ const addEvent = initDataProtectedProcedure.input(z.object({ eventData: EventDat
   const user_id = opts.ctx.user.user_id;
   const userCacheKey = getUserCacheKey(user_id);
 
-  // Auto-promote user to organizer role upon creating their first event
-  if (opts.ctx.user.role === "user") {
-    try {
-      await usersDB.updateUserRole(user_id, "organizer");
-    } catch (err) {
-      logger.error("Failed to auto-promote user to organizer:", err);
-    }
+  // Ensure user has verified identity and promote to organizer role
+  const isOrganizer = await usersDB.ensureOrganizerRole(user_id);
+  if (!isOrganizer) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Please link a verified identity (Telegram, Google, or email) to create events",
+    });
   }
+
+  // Enforce tiered abuse limits on event creation
+  await organizerLimitsService.assertCanCreateEvent(user_id, input_event_data);
 
   const category = await eventCategoriesDB.fetchCategoryById(input_event_data.category_id);
   if (!category || !category.enabled) {
@@ -283,6 +327,11 @@ const addEvent = initDataProtectedProcedure.input(z.object({ eventData: EventDat
   }
   try {
     const result = await db.transaction(async (trx) => {
+      // Advisory lock inside transaction (keyed by 64-bit user_id)
+      await trx.execute(sql`SELECT pg_advisory_xact_lock(${user_id}::bigint)`);
+      // Recount after lock to avoid race conditions
+      await organizerLimitsService.assertCanCreateEvent(user_id, input_event_data);
+
       const event_has_payment = input_event_data.paid_event && input_event_data.paid_event.has_payment;
       const event_in_person = input_event_data.eventLocationType === "in_person";
       let hashedSecretPhrase = undefined;
@@ -299,6 +348,16 @@ const addEvent = initDataProtectedProcedure.input(z.object({ eventData: EventDat
 
       /* ------------------- paid events must have registration ------------------- */
       input_event_data.has_registration = event_has_payment ? true : input_event_data.has_registration;
+
+      if (event_in_person && input_event_data.has_registration) {
+        if (!input_event_data.capacity || input_event_data.capacity < 1) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Capacity is mandatory for in-person events and must be at least 1.",
+          });
+        }
+      }
+
       const is_paid = !!input_event_data.paid_event?.has_payment;
       if (is_paid && !config?.ONTON_WALLET_ADDRESS) {
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "ONTON_WALLET_ADDRESS NOT SET error" });
@@ -355,10 +414,15 @@ const addEvent = initDataProtectedProcedure.input(z.object({ eventData: EventDat
       /* -------------------------------------------------------------------------- */
 
       if (input_event_data.paid_event && event_has_payment) {
+        if (!input_event_data.has_web3) {
+          input_event_data.paid_event.ticket_type = "TICKET";
+          input_event_data.paid_event.has_nft = false;
+        }
+
         if (!input_event_data.capacity)
           throw new TRPCError({ code: "BAD_REQUEST", message: "Capacity Required for paid events" });
 
-        if (opts.input.eventData?.paid_event?.ticket_type === undefined)
+        if (input_event_data.paid_event.ticket_type === undefined)
           throw new TRPCError({ code: "BAD_REQUEST", message: "Ticket Type Required for paid events" });
 
         const tokenId = input_event_data.paid_event.token_id;
@@ -369,21 +433,10 @@ const addEvent = initDataProtectedProcedure.input(z.object({ eventData: EventDat
         if (!paymentToken)
           throw new TRPCError({ code: "BAD_REQUEST", message: "Unknown payment token selected" });
 
-        const ticketType = opts.input.eventData?.paid_event?.ticket_type;
-        const order_price = eventDB.getPaidEventPrice(input_event_data.capacity, ticketType);
-
-        const tonToken = await eventTokensDB.getTokenBySymbol("TON");
-        if (!tonToken) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "TON token not configured" });
-
-        await trx.insert(orders).values({
-          event_uuid: eventData.event_uuid,
-          user_id: user_id,
-          total_price: order_price,
-          token_id: tonToken.token_id,
-          state: "new",
-          order_type: "event_creation",
-          owner_address: "",
-        });
+        const ticketType = input_event_data.paid_event.ticket_type;
+        if (ticketType === "TSCSBT") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "TSCSBT tickets are no longer available" });
+        }
 
         let event_ticket_price = Math.max(input_event_data.paid_event.payment_amount || 0, 0.001); // Price > 0.001
         event_ticket_price = Math.round(event_ticket_price * 1000) / 1000; // Round to 3 Decimals
@@ -394,7 +447,7 @@ const addEvent = initDataProtectedProcedure.input(z.object({ eventData: EventDat
           /* -------------------------------------------------------------------------- */
           token_id: paymentToken.token_id,
           price: event_ticket_price,
-          recipient_address: input_event_data.paid_event.payment_recipient_address,
+          recipient_address: input_event_data.has_web3 ? input_event_data.paid_event.payment_recipient_address : (config?.ONTON_WALLET_ADDRESS || ""),
           bought_capacity: input_event_data.capacity,
           /* -------------------------------------------------------------------------- */
           ticket_type: ticketType,
@@ -435,121 +488,42 @@ const addEvent = initDataProtectedProcedure.input(z.object({ eventData: EventDat
         });
       }
 
-      const eventDraft = await CreateTonSocietyDraft(input_event_data, eventData.event_uuid);
-
-      logger.log("eventDraft", JSON.stringify(eventDraft));
-      logger.log("eventData", eventData);
-
       // Clear the organizer user cache so it will be reloaded next time
       await redisTools.deleteCache(userCacheKey);
 
-      // Skip Register to ts if :
-      //  local development  || paid event registers organizer pays initial payment || org must be verified
-      const register_to_ts = !event_should_hidden;
-
-      // IN CASE OF ERROR ROLLBACK
-      // WE WILL USE THESE IDS TO DELETE THEM
-      let tsActivityId: number | undefined = undefined;
-      const sentTelegramMsgs: Message[] = [];
-
-      /**
-       * THIRD PARTY REQUESTS
-       * in case of failures we will rollback the requests by deleting the
-       * created activity and msgs
-       */
-      try {
-        if (register_to_ts) {
-          try {
-            const res = await registerActivity(eventDraft);
-            if (res?.status === "success" && res?.data?.activity_id) {
-              tsActivityId = res.data.activity_id;
-
-              await trx
-                .update(events)
-                .set({
-                  activity_id: res.data.activity_id,
-                  updatedBy: user_id.toString(),
-                  updatedAt: new Date(),
-                })
-                .where(eq(events.event_uuid, newEvent[0].event_uuid as string))
-                .execute();
-            }
-          } catch (tsError) {
-            logger.warn(
-              `Failed to register activity with Ton Society for event ${newEvent[0].event_uuid}. Proceeding without Ton Society.`,
-              tsError
-            );
-          }
-        }
-
-        /* ------------- Generate the message using the render function ------------- */
-        if (!is_paid) {
-          /* -------------------------- Just Send The Message ------------------------- */
-          const logMessage = await renderPostPublishModerationMessage(opts.ctx.user.username || user_id, eventData);
-          const moderation_group_id = process.env.MODERATION_GROUP_ID || configProtected?.moderation_group_id;
-
-          const notificationMsg = await sendLogNotification({
-            group_id: moderation_group_id,
-            message: logMessage,
-            topic: "no_topic",
-            inline_keyboard: tgBotPostPublishModerationMenu(eventData.event_uuid, user_id),
-          });
-          sentTelegramMsgs.push(notificationMsg);
-
-          const eventsMsg = await sendToEventsTgChannel({
-            image: eventData.image_url,
-            title: eventData.title,
-            subtitle: eventData.subtitle,
-            s_date: eventData.start_date,
-            e_date: eventData.end_date,
-            timezone: eventData.timezone,
-            event_uuid: eventData.event_uuid,
-            participationType: eventData.participationType,
-          });
-
-          eventsMsg && sentTelegramMsgs.push(eventsMsg);
-        }
-      } catch (error) {
-        // ❄ THIRD PARTY CLEANUP ❄
-        // rollback thirdparty requests
-
-        // remove activity
-        if (tsActivityId) {
-          try {
-            await tonSocietyClient.delete("/activities/" + tsActivityId);
-          } catch (error) {
-            // if failed do nothing
-            logger.error(`error_while_deleting_activity`, error);
-          }
-        }
-
-        try {
-          let { bot_token_logs: BOT_TOKEN_LOGS } = configProtected;
-          const tgEventsBot = await getEventsChannelBotInstance();
-          const tgLogsBot = BOT_TOKEN_LOGS && new Bot(BOT_TOKEN_LOGS);
-          // remove messages
-          for (const msg of sentTelegramMsgs) {
-            try {
-              if (msg.chat.id === Number(configProtected.events_channel)) {
-                await tgEventsBot.api.deleteMessage(msg.chat.id, msg.message_id);
-              } else {
-                if (tgLogsBot) {
-                  await tgLogsBot.api.deleteMessage(msg.chat.id, msg.message_id);
-                }
-              }
-            } catch (error) {
-              logger.error(`error_while_deleting_message`, error);
-            }
-          }
-        } catch (error) {
-          logger.error(`error_while_creating_bot_instances_for_delete`, error);
-        }
-
-        throw error;
-      }
-
       return newEvent;
     });
+
+    const is_paid = !!input_event_data.paid_event?.has_payment;
+    if (!is_paid) {
+      void (async () => {
+        try {
+          const logMessage = await renderPostPublishModerationMessage(opts.ctx.user.username || user_id, result[0]);
+          const moderation_group_id = process.env.MODERATION_GROUP_ID || configProtected?.moderation_group_id;
+
+          await Promise.allSettled([
+            sendLogNotification({
+              group_id: moderation_group_id,
+              message: logMessage,
+              topic: "no_topic",
+              inline_keyboard: tgBotPostPublishModerationMenu(result[0].event_uuid, user_id),
+            }),
+            sendToEventsTgChannel({
+              image: result[0].image_url,
+              title: result[0].title,
+              subtitle: result[0].subtitle,
+              s_date: result[0].start_date,
+              e_date: result[0].end_date,
+              timezone: result[0].timezone,
+              event_uuid: result[0].event_uuid,
+              participationType: result[0].participationType,
+            }),
+          ]);
+        } catch (err) {
+          logger.error("Background Telegram task failed", err);
+        }
+      })();
+    }
 
     return {
       success: true,
@@ -580,13 +554,17 @@ const updateEvent = eventManagerPP
     const eventUuid = opts.ctx.event.event_uuid;
     const eventId = opts.ctx.event.event_id;
     const user_id = opts.ctx.user.user_id;
+
+    // Enforce tiered abuse limits on event update (including capacity changes)
+    await organizerLimitsService.assertCanUpdateEvent(user_id, opts.ctx.event.owner, { capacity: opts.ctx.event.capacity }, eventData);
+
     const category = await eventCategoriesDB.fetchCategoryById(eventData.category_id);
     if (!category || !category.enabled) {
       throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid or disabled category" });
     }
 
     try {
-      return await db.transaction(async (trx) => {
+      const txResult = await db.transaction(async (trx) => {
         const inputSecretPhrase = eventData.secret_phrase ? eventData.secret_phrase.trim().toLowerCase() : undefined;
         const hashedSecretPhrase = inputSecretPhrase ? await hashPassword(inputSecretPhrase) : undefined;
         const oldEvent = (await trx.select().from(events).where(eq(events.event_uuid, eventUuid!)).execute()).pop();
@@ -599,6 +577,20 @@ const updateEvent = eventManagerPP
         }
 
         const canUpdateRegistrationSetting = oldEvent.has_registration;
+        const event_in_person =
+          eventData.eventLocationType === "in_person" ||
+          (!eventData.eventLocationType && oldEvent.participationType === "in_person");
+
+        if (event_in_person && canUpdateRegistrationSetting) {
+          const effectiveCapacity = eventData.capacity ?? oldEvent.capacity;
+          if (!effectiveCapacity || effectiveCapacity < 1) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Capacity is mandatory for in-person events and must be at least 1.",
+            });
+          }
+        }
+
         const is_paid = oldEvent.has_payment;
         const is_ts_verified = false;
         const canSendModerationMessage = Boolean(
@@ -608,18 +600,15 @@ const updateEvent = eventManagerPP
         /* -------------------------------------------------------------------------- */
         /*                                 Paid Event                                 */
         /* -------------------------------------------------------------------------- */
-        //can't have capacity null if it's paid event
-        //should create order for increasing capacity
+        // Paid events require capacity, but capacity is now immediately editable without upfront fees.
+        // Keep bought_capacity in sync with capacity.
         if (oldEvent.has_payment) {
-          /* -------------------------------------------------------------------------- */
-          //can't have capacity null if it's paid event
           if (!eventData.capacity)
             throw new TRPCError({
               code: "BAD_REQUEST",
               message: "Paid Events Must have capacity",
             });
 
-          /* -------------------------------------------------------------------------- */
           const paymentInfo = (
             await trx.select().from(eventPayment).where(eq(eventPayment.event_uuid, eventUuid)).execute()
           ).pop();
@@ -629,67 +618,13 @@ const updateEvent = eventManagerPP
           if (paymentInfo.ticket_type === undefined) {
             throw new TRPCError({ code: "BAD_REQUEST", message: "Ticket Type Required for paid events" });
           }
-          // Update Create Order If Event is not published yet
-          if (!oldEvent.enabled && eventData.capacity < paymentInfo!.bought_capacity) {
-            const where_condition = and(
-              eq(orders.event_uuid, eventUuid),
-              eq(orders.order_type, "event_creation"),
-              ne(orders.state, "processing"),
-              ne(orders.state, "completed")
-            );
-            const createEventOrder = await trx.query.orders.findFirst({ where: where_condition });
-            const ticketType = paymentInfo.ticket_type;
-            if (createEventOrder) {
-              await trx
-                .update(orders)
-                .set({ total_price: eventDB.getPaidEventPrice(eventData.capacity, ticketType) })
-                .where(where_condition)
-                .execute();
-              await trx
-                .update(eventPayment)
-                .set({ bought_capacity: eventData.capacity })
-                .where(eq(eventPayment.event_uuid, eventUuid))
-                .execute();
-            }
-          }
 
-          /* ------------------- Create Order For Increase Capacity ------------------- */
-          if (eventData.capacity > paymentInfo!.bought_capacity) {
-            const tonToken = await eventTokensDB.getTokenBySymbol("TON");
-            if (!tonToken) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "TON token not configured" });
-            // Increase in event capacity
-            // create an update_capacity_order if not exists otherwise just update it
-            const update_order = (
-              await trx
-                .select()
-                .from(orders)
-                .where(and(eq(orders.event_uuid, eventUuid), eq(orders.order_type, "event_capacity_increment")))
-                .execute()
-            ).pop();
-            /* -------------------- update order exists and its paid -------------------- */
-            if (update_order && update_order.state == "processing") {
-              throw new TRPCError({
-                code: "BAD_REQUEST",
-                message: "You Already have a Paid Capacity Update pending ... please try again in few minutes ",
-              });
-            }
-            /* -------------------------------------------------------------------------- */
-            /* ---------------------------- Update OR Insert ---------------------------- */
-            const upsert_data = {
-              event_uuid: eventUuid,
-              order_type: "event_capacity_increment" as const,
-              state: "new" as const,
-              token_id: tonToken.token_id,
-              total_price: 0.06 * (eventData.capacity - paymentInfo!.bought_capacity),
-              user_id: user_id,
-            };
-            if (update_order && (update_order.state === "new" || update_order.state === "confirming")) {
-              await trx.update(orders).set(upsert_data).where(eq(orders.uuid, update_order.uuid));
-            } else {
-              await trx.insert(orders).values(upsert_data);
-            }
-            //can't update capacity unless organizer pays
-            eventData.capacity = oldEvent.capacity!;
+          if (eventData.capacity !== undefined && eventData.capacity !== paymentInfo.bought_capacity) {
+            await trx
+              .update(eventPayment)
+              .set({ bought_capacity: eventData.capacity })
+              .where(eq(eventPayment.event_uuid, eventUuid))
+              .execute();
           }
         }
 
@@ -722,7 +657,11 @@ const updateEvent = eventManagerPP
             /* ------------------------ Event Registration Update ----------------------- */
             // Updating has_registration is not allowed
             has_approval: canUpdateRegistrationSetting ? eventData.has_approval : false,
-            capacity: canUpdateRegistrationSetting ? eventData.capacity : null,
+            capacity: canUpdateRegistrationSetting
+              ? event_in_person
+                ? (eventData.capacity ?? oldEvent.capacity)
+                : eventData.capacity
+              : null,
             has_waiting_list: canUpdateRegistrationSetting ? eventData.has_waiting_list : false,
             /* ------------------------ Event Registration Update ----------------------- */
           })
@@ -782,7 +721,7 @@ const updateEvent = eventManagerPP
           await trx
             .update(eventPayment)
             .set({
-              recipient_address: eventData.paid_event.payment_recipient_address,
+              recipient_address: eventData.has_web3 ? eventData.paid_event.payment_recipient_address : (config?.ONTON_WALLET_ADDRESS || ""),
               price: price,
             })
             .where(eq(eventPayment.event_uuid, oldEvent.event_uuid));
@@ -923,18 +862,29 @@ const updateEvent = eventManagerPP
             });
           }
         }
+        return {
+          success: true,
+          eventId: opts.ctx.event.event_uuid,
+          oldChanges,
+          updateChanges,
+        } as const;
+      });
+
+      try {
         const logMessage = renderUpdateEventMessage(
           opts.ctx.user.username || opts.ctx.user.user_id,
           eventUuid,
           eventData.title,
-          oldChanges,
-          updateChanges
+          txResult.oldChanges,
+          txResult.updateChanges
         );
         logger.log("update event telegram notification sent", logMessage);
         await sendLogNotification({ message: logMessage, topic: "event" });
+      } catch (logErr) {
+        logger.error(`[eventRouter] Failed to send update event notification for ${eventUuid}:`, logErr);
+      }
 
-        return { success: true, eventId: opts.ctx.event.event_uuid } as const;
-      });
+      return { success: true, eventId: txResult.eventId } as const;
     } catch (err) {
       logger.error(`[eventRouter]_update_event failed id: ${opts.ctx.event.event_uuid}, error: ${err}`, {
         input: opts.input,

@@ -16,6 +16,7 @@ import { Block, BlockFooter, BlockHeader, BlockTitle, Checkbox, List, ListItem, 
 import { Check, FileUser, Filter, Pencil, X } from "lucide-react";
 import { useParams } from "next/navigation";
 import React, { useCallback, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import QrCodeButton from "../atoms/buttons/QrCodeButton";
 import CustomButton from "../Button/CustomButton";
 import DataStatus from "../molecules/alerts/DataStatus";
@@ -382,8 +383,11 @@ const RegistrationGuestList = () => {
 
   const exportVisitorList = trpc.telegramInteractions.requestExportFile.useMutation({
     onSuccess: () => {
-      webApp?.HapticFeedback.impactOccurred("soft");
-      webApp?.close();
+      webApp?.HapticFeedback?.impactOccurred?.("soft");
+      toast.success("Guest list sent to your chat with the bot!");
+    },
+    onError: (err) => {
+      toast.error(err.message || "Failed to export guest list");
     },
   });
 

@@ -1,0 +1,153 @@
+#pragma version >=0.4.0;
+#include "stdlib.fc";
+
+;; Standard helper for slice equality
+int equal_slices(slice a, slice b) asm "SDEQ";
+
+;; ============================================================================
+;; ONTON cSBT Merkle Registry Contract (F-35 / Decision: Option 2)
+;;
+;; Central authoritative registry anchoring cSBT Merkle roots for all ONTON
+;; events (both native and legacy).
+;;
+;; Storage Schema:
+;;   admin_address: MsgAddressInt
+;;   roots:         cell (Dictionary: uint256 event_hash -> uint256 root)
+;;
+;; Event Hash:
+;;   event_hash = SHA256(kind ‖ event_uuid_bytes)
+;;   where kind is "native" or "legacy", and event_uuid_bytes is 16 bytes.
+;;
+;; Gas & Storage Capacity Note:
+;; - TonTVM dictionaries are binary Patricia Merkle trees. Key lookup / insert
+;;   for a 256-bit key has fixed O(256) depth. Gas cost is ~2,000-5,000 gas per
+;;   set_root, well below the standard 1,000,000 gas limit per transaction.
+;; - Storage capacity: An account on TON can store up to 65,535 cells.
+;;   At ~2-3 cells per 256-bit dict entry, this registry comfortably supports
+;;   ~20,000+ anchored events. 1,699 legacy events + hundreds of yearly events
+;;   use <5,000 cells (~7% capacity).
+;; - Inbound messages without op accept Toncoin to replenish storage rent.
+;; ============================================================================
+
+;; Opcodes
+const int op::set_root     = 0x73657472; ;; 'setr'
+const int op::change_admin = 0x63686761; ;; 'chga'
+const int op::excesses     = 0xd53276db;
+
+;; Storage & Reserve Constants
+const int min_storage_reserve = 50000000; ;; 0.05 TON for contract storage
+
+;; Error Codes
+const int error::unauthorized   = 401;
+const int error::already_exists = 409; ;; Overwrite policy: reject overwrite once set
+const int error::invalid_op     = 403;
+
+;; ----------------------------------------------------------------------------
+;; Storage Operations
+;; ----------------------------------------------------------------------------
+
+(slice, cell) load_data() inline {
+    slice ds = get_data().begin_parse();
+    slice admin_address = ds~load_msg_addr();
+    cell roots = ds~load_dict();
+    ds.end_parse();
+    return (admin_address, roots);
+}
+
+() save_data(slice admin_address, cell roots) impure inline {
+    set_data(begin_cell()
+        .store_slice(admin_address)
+        .store_dict(roots)
+        .end_cell());
+}
+
+;; ----------------------------------------------------------------------------
+;; Message Handler (Bounce-Safe)
+;; ----------------------------------------------------------------------------
+
+() recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+    if (in_msg_body.slice_empty?()) {
+        return (); ;; Accept pure Toncoin transfers for contract storage rent
+    }
+
+    slice cs = in_msg_full.begin_parse();
+    int flags = cs~load_uint(4);
+    if (flags & 1) {
+        return (); ;; Ignore bounced messages (bounce-safe)
+    }
+    slice sender_address = cs~load_msg_addr();
+
+    int op = in_msg_body~load_uint(32);
+    int query_id = in_msg_body~load_uint(64);
+
+    (slice admin_address, cell roots) = load_data();
+
+    ;; Op 1: set_root(event_hash, root) - Admin only, overwrite rejected
+    if (op == op::set_root) {
+        throw_unless(error::unauthorized, equal_slices(sender_address, admin_address));
+        int event_hash = in_msg_body~load_uint(256);
+        int root = in_msg_body~load_uint(256);
+
+        ;; Overwrite policy: reject overwrite once set
+        (_, int found) = roots.udict_get?(256, event_hash);
+        throw_if(error::already_exists, found);
+
+        ;; Store root in dictionary (256-bit key -> 256-bit value)
+        roots = roots.udict_set_builder(256, event_hash, begin_cell().store_uint(root, 256));
+
+        save_data(admin_address, roots);
+
+        raw_reserve(min_storage_reserve, 0);
+
+        var msg = begin_cell()
+            .store_uint(0x10, 6) ;; nobounce - int_msg_info$0 ihr_disabled:1 bounce:0 bounced:0 src:addr_none$00
+            .store_slice(sender_address)
+            .store_coins(0)
+            .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+            .store_uint(op::excesses, 32)
+            .store_uint(query_id, 64);
+        send_raw_message(msg.end_cell(), 128);
+
+        return ();
+    }
+
+    ;; Op 2: change_admin(new_admin) - Admin only
+    if (op == op::change_admin) {
+        throw_unless(error::unauthorized, equal_slices(sender_address, admin_address));
+        slice new_admin = in_msg_body~load_msg_addr();
+        save_data(new_admin, roots);
+        return ();
+    }
+
+    throw(error::invalid_op);
+}
+
+;; ----------------------------------------------------------------------------
+;; Getters
+;; ----------------------------------------------------------------------------
+
+;; Returns uint256 root, or 0 if not found
+(int) get_root(int event_hash) method_id {
+    (_, cell roots) = load_data();
+    (slice val, int found) = roots.udict_get?(256, event_hash);
+    if (found) {
+        return val~load_uint(256);
+    }
+    return 0;
+}
+
+;; Returns (root, found) tuple for unambiguous status check
+(int, int) get_root_opt(int event_hash) method_id {
+    (_, cell roots) = load_data();
+    (slice val, int found) = roots.udict_get?(256, event_hash);
+    if (found) {
+        return (val~load_uint(256), -1);
+    }
+    return (0, 0);
+}
+
+;; Returns the current contract admin address
+slice get_admin() method_id {
+    (slice admin_address, _) = load_data();
+    return admin_address;
+}

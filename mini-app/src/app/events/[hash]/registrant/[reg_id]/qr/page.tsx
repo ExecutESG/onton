@@ -18,6 +18,9 @@ export default function RegistrantQrCodePage() {
   const router = useRouter();
   const { data: eventData } = useGetEvent(params.hash);
 
+  const isStarted = eventData?.start_date ? new Date() >= new Date(eventData.start_date) : true;
+  const showNotStartedNote = !isStarted;
+
   return (
     <div className="p-4 max-w-md mx-auto min-h-screen flex flex-col justify-between">
       <div>
@@ -34,15 +37,28 @@ export default function RegistrantQrCodePage() {
           Please show this QR pass to the event organizers to check-in at the venue.
         </BlockHeader>
 
-        <Block
-          className="bg-white dark:bg-neutral-800 rounded-2xl p-6 shadow-md border border-gray-100 dark:border-gray-700 flex flex-col items-center mt-4"
-          style={{
-            paddingBlock: webApp?.viewportHeight ? webApp.viewportHeight / 15 : 24,
-          }}
-        >
-          <RegistrantCheckInQrCode registrant_uuid={params.reg_id} />
-          <span className="text-[11px] font-mono text-gray-400 mt-4">Pass ID: {params.reg_id.slice(0, 8)}...</span>
-        </Block>
+        {eventData?.participationType === "online" ? (
+          <Block className="bg-white dark:bg-neutral-800 rounded-2xl p-6 shadow-md border border-gray-100 dark:border-gray-700 flex flex-col items-center mt-4">
+            <p className="text-sm font-medium text-center text-gray-700 dark:text-gray-300">
+              Online event: no QR needed. Join via the event link.
+            </p>
+          </Block>
+        ) : (
+          <Block
+            className="bg-white dark:bg-neutral-800 rounded-2xl p-6 shadow-md border border-gray-100 dark:border-gray-700 flex flex-col items-center mt-4"
+            style={{
+              paddingBlock: webApp?.viewportHeight ? webApp.viewportHeight / 15 : 24,
+            }}
+          >
+            <RegistrantCheckInQrCode registrant_uuid={params.reg_id} />
+            <span className="text-[11px] font-mono text-gray-400 mt-4">Pass ID: {params.reg_id.slice(0, 8)}...</span>
+            {showNotStartedNote && (
+              <p className="text-xs font-medium text-center text-gray-500 mt-4">
+                Check-in opens when the event starts.
+              </p>
+            )}
+          </Block>
+        )}
       </div>
 
       <div className="mt-8">

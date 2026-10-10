@@ -138,6 +138,9 @@ export const createTier = async (
 /**
  * Check if a ticket tier has reached its capacity.
  */
+/**
+ * Check if a ticket tier has reached its capacity.
+ */
 export const checkTierCapacity = async (
   tierId: number
 ): Promise<{ isSoldOut: boolean; soldCount: number; capacity: number }> => {
@@ -161,6 +164,37 @@ export const checkTierCapacity = async (
 };
 
 /**
+ * Transactional row-level lock (SELECT ... FOR UPDATE) and capacity check on a ticket tier.
+ * Prevents concurrent flash sales from overselling the remaining tier inventory.
+ */
+export const lockAndCheckTierCapacityTrx = async (
+  trx: any,
+  tierId: number
+): Promise<{ tier: EventTicketTierRow | undefined; isSoldOut: boolean }> => {
+  if (tierId <= 0) return { tier: undefined, isSoldOut: false };
+  await ensureTicketTiersTable();
+
+  try {
+    const [tier] = await trx
+      .select()
+      .from(eventTicketTiers)
+      .where(eq(eventTicketTiers.id, tierId))
+      .for("update")
+      .execute();
+
+    if (!tier) {
+      return { tier: undefined, isSoldOut: false };
+    }
+
+    const isSoldOut = tier.capacity > 0 && tier.sold_count >= tier.capacity;
+    return { tier, isSoldOut };
+  } catch (error) {
+    logger.error(`eventTicketTiersDB.lockAndCheckTierCapacityTrx error for ${tierId}:`, error);
+    throw error;
+  }
+};
+
+/**
  * Atomically increment or decrement the sold_count for a tier.
  */
 export const incrementTierSoldCount = async (
@@ -174,7 +208,7 @@ export const incrementTierSoldCount = async (
     await db
       .update(eventTicketTiers)
       .set({
-        sold_count: sql`${eventTicketTiers.sold_count} + ${delta}`,
+        sold_count: sql`GREATEST(0, ${eventTicketTiers.sold_count} + ${delta})`,
         updatedAt: new Date(),
         updatedBy: "system_order",
       })
@@ -185,12 +219,92 @@ export const incrementTierSoldCount = async (
   }
 };
 
+/**
+ * Atomically increment the sold_count for a tier within an existing transaction.
+ */
+export const incrementTierSoldCountTrx = async (
+  trx: any,
+  tierId: number,
+  delta: number = 1
+): Promise<void> => {
+  if (tierId <= 0) return; // Ignore synthesized fallback tiers
+  try {
+    await trx
+      .update(eventTicketTiers)
+      .set({
+        sold_count: sql`GREATEST(0, ${eventTicketTiers.sold_count} + ${delta})`,
+        updatedAt: new Date(),
+        updatedBy: "system_order_trx",
+      })
+      .where(eq(eventTicketTiers.id, tierId))
+      .execute();
+  } catch (error) {
+    logger.error(`eventTicketTiersDB.incrementTierSoldCountTrx error for ${tierId}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Atomically decrement the sold_count for a tier (e.g. on order cancellation).
+ */
+export const decrementTierSoldCount = async (
+  tierId: number,
+  delta: number = 1
+): Promise<void> => {
+  if (tierId <= 0) return;
+  await ensureTicketTiersTable();
+
+  try {
+    await db
+      .update(eventTicketTiers)
+      .set({
+        sold_count: sql`GREATEST(0, ${eventTicketTiers.sold_count} - ${delta})`,
+        updatedAt: new Date(),
+        updatedBy: "system_order_rollback",
+      })
+      .where(eq(eventTicketTiers.id, tierId))
+      .execute();
+  } catch (error) {
+    logger.error(`eventTicketTiersDB.decrementTierSoldCount error for ${tierId}:`, error);
+  }
+};
+
+/**
+ * Atomically decrement the sold_count for a tier within an existing transaction.
+ */
+export const decrementTierSoldCountTrx = async (
+  trx: any,
+  tierId: number,
+  delta: number = 1
+): Promise<void> => {
+  if (tierId <= 0) return;
+  try {
+    await trx
+      .update(eventTicketTiers)
+      .set({
+        sold_count: sql`GREATEST(0, ${eventTicketTiers.sold_count} - ${delta})`,
+        updatedAt: new Date(),
+        updatedBy: "system_order_rollback_trx",
+      })
+      .where(eq(eventTicketTiers.id, tierId))
+      .execute();
+  } catch (error) {
+    logger.error(`eventTicketTiersDB.decrementTierSoldCountTrx error for ${tierId}:`, error);
+    throw error;
+  }
+};
+
 export const eventTicketTiersDB = {
   getTiersByEventUuid,
   getTierById,
   createTier,
   checkTierCapacity,
+  lockAndCheckTierCapacityTrx,
   incrementTierSoldCount,
+  incrementTierSoldCountTrx,
+  decrementTierSoldCount,
+  decrementTierSoldCountTrx,
 };
 
 export default eventTicketTiersDB;
+

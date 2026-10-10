@@ -15,8 +15,6 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import { toast } from "sonner";
 import CustomCard from "../atoms/cards/CustomCard";
-import { NFT_EVENT_PRICE } from "@/constants";
-
 export function ConnectWalletCard() {
   const [isOpen, setOpen] = useState(false);
 
@@ -162,8 +160,6 @@ function ConfirmConnectDialog({ open, onClose }: { open: boolean; onClose: () =>
         className="text-center mb-6 font-normal"
       >
         <b>You are becoming an ONTON organizer.</b>
-        <br />
-        To create a channel and use special event publishing features, you need to pay {NFT_EVENT_PRICE} TON
       </Typography>
       <Button
         className="py-6 rounded-[10px] mb-3"

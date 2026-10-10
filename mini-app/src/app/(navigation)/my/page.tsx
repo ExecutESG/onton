@@ -10,10 +10,9 @@ import solarCupOutline from "@/components/icons/solar-cup-outline.svg";
 import questLogo from "@/components/icons/quest-flag.svg";
 import { useUserStore } from "@/context/store/user.store";
 import { Channel } from "@/types";
-import { cn } from "@/utils";
 import { useSectionStore } from "@/zustand/useSectionStore";
 import { Card } from "konsta/react";
-import { ArrowRight, Plus } from "lucide-react";
+import { ArrowRight, Plus, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import CustomButton from "@/app/_components/Button/CustomButton";
 import { useEffect } from "react";
@@ -23,16 +22,22 @@ import calendarStarIcon from "./calendar-star.svg";
 import badgeAwardIcon from "./badge-award.svg";
 import LoginRequired from "@/app/_components/auth/LoginRequired";
 import LinkedAccountsCard from "@/app/_components/auth/LinkedAccountsCard";
-import PaymentCard from "./PaymentCard";
 import ConsentCard from "@/components/consent/ConsentCard";
+import FoundingOrganizerBadge from "@/app/_components/FoundingOrganizerBadge";
 
 export default function ProfilePage() {
   const { user } = useUserStore();
   const { setSection } = useSectionStore();
   const router = useRouter();
   const tonWalletAddress = useTonAddress();
-  const hasWallet = Boolean(tonWalletAddress || user?.wallet_address);
   const isOrganizer = user?.role === "organizer" || user?.role === "admin";
+
+  const { data: identities } = trpc.users.getLinkedIdentities.useQuery(undefined, {
+    enabled: !!user,
+  });
+
+  const { data: canCreateEvents } = trpc.users.canCreateEvents.useQuery(undefined, { enabled: !!user });
+  const hasVerifiedIdentity = canCreateEvents === true;
 
   const { data: totalPoints, isLoading: loadingTotalPoints } = trpc.usersScore.getTotalScoreByUserId.useQuery(undefined, {
     enabled: !!user,
@@ -56,31 +61,52 @@ export default function ProfilePage() {
 
   if (loadingTotalPoints) return null;
 
+  const handleCreateEventClick = () => {
+    if (!hasVerifiedIdentity) {
+      toast.error("Please link Telegram, Google, or email to create events");
+      return;
+    }
+    setSection("event_setup_form_general_step");
+    router.push("/events/create");
+  };
+
   return (
     <div className="relative isolate space-y-3">
-      {isOrganizer ? (
-        <>
-          <InlineChannelCard data={user} />
-          <div className="pt-1 pb-1 w-full">
-            <CustomButton
-              variant="primary"
-              onClick={(e) => {
-                setSection("event_setup_form_general_step");
-                router.push("/events/create");
-              }}
-              icon={<Plus size={20} />}
-              className="justify-center font-semibold"
-            >
-              Create New Event
-            </CustomButton>
+      {/* Organizer Channel Card */}
+      {(isOrganizer || user?.org_channel_name) && <InlineChannelCard data={user} />}
+
+      {/* Identity Verification Prompt for users without Telegram / Google / Email */}
+      {!hasVerifiedIdentity && (
+        <Card className="!m-0 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 rounded-xl">
+          <div className="flex items-start gap-2.5">
+            <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <Typography variant="subheadline1" bold className="text-amber-800 dark:text-amber-200">
+                Link an identity to create events
+              </Typography>
+              <Typography variant="caption1" className="text-amber-700 dark:text-amber-300">
+                Connect your Telegram, Google, or email account below to start hosting events on ONTON.
+              </Typography>
+
+            </div>
           </div>
-        </>
-      ) : (
-        <OrganizerProgress step={hasWallet ? 2 : 1} />
+        </Card>
       )}
 
+      {/* Create Event Button (Open to everyone) */}
+      <div className="pt-1 pb-1 w-full">
+        <CustomButton
+          variant="primary"
+          onClick={handleCreateEventClick}
+          icon={<Plus size={20} />}
+          className="justify-center font-semibold"
+        >
+          Create New Event
+        </CustomButton>
+      </div>
+
       <ActionCard
-        onClick={(e) => {
+        onClick={() => {
           router.push("/my/participated");
         }}
         iconSrc={ticketIcon}
@@ -94,24 +120,21 @@ export default function ProfilePage() {
         ]}
       />
       <ActionCard
-        onClick={(e) => {
-          if (!isOrganizer) {
-            toast.error("Only organizers can host events");
-            return;
-          }
+        onClick={() => {
           router.push("/my/hosted/");
         }}
         iconSrc={calendarStarIcon}
         title="Hosted"
-        subtitle={isOrganizer ? "You Created" : "Become an organizer first"}
+        subtitle={user?.hosted_event_count ? "You Created" : "Events you create"}
         footerTexts={[
-          isOrganizer
-            ? { items: "Events", count: user?.hosted_event_count || 0 }
-            : { items: "Activation required" },
+          {
+            items: "Events",
+            count: user?.hosted_event_count || 0,
+          },
         ]}
       />
       <ActionCard
-        onClick={(e) => {
+        onClick={() => {
           router.push("/my/badges");
         }}
         iconSrc={badgeAwardIcon}
@@ -122,7 +145,7 @@ export default function ProfilePage() {
         ]}
       />
       <ActionCard
-        onClick={(e) => {
+        onClick={() => {
           router.push("/my/quest");
         }}
         iconSrc={questLogo}
@@ -131,7 +154,7 @@ export default function ProfilePage() {
         footerTexts={[]}
       />
       <ActionCard
-        onClick={(e) => {
+        onClick={() => {
           router.push("/my/points/");
         }}
         iconSrc={solarCupOutline}
@@ -141,37 +164,9 @@ export default function ProfilePage() {
       />
 
       <ConnectWalletCard />
-      {!isOrganizer && <PaymentCard visible={hasWallet} />}
       <LinkedAccountsCard />
       <ConsentCard />
     </div>
-  );
-}
-
-function OrganizerProgress({ step }: { step: 1 | 2 }) {
-  return (
-    <Card className="border border-[#007AFF] w-full !m-0">
-      <Typography
-        bold
-        variant="headline"
-        className="mb-1"
-      >
-        Early Organizer Access
-      </Typography>
-      <Typography
-        variant="subheadline1"
-        className="text-[#575757] font-medium mb-3"
-      >
-        Step forward as an organizer, Create your Organizer Channel, Conduct wonderful events and distribute SBT badges to
-        your participants.
-        <br />
-        <b>{step === 1 ? "1. Connect your wallet." : "2. Pay one-time fee to become an organizer"}</b>
-      </Typography>
-      <div className="flex h-[2px] align-stretch gap-3">
-        <div className="flex-1 bg-[#007AFF]" />
-        <div className={cn("flex-1", step === 1 ? "bg-[#EEEEF0]" : "bg-[#007AFF]")} />
-      </div>
-    </Card>
   );
 }
 
@@ -182,7 +177,7 @@ function InlineChannelCard({ data }: { data: Channel | undefined }) {
   return (
     <Card
       className="!m-0 w-full cursor-pointer"
-      onClick={(e) => {
+      onClick={() => {
         router.push(`/my/edit`);
       }}
     >
@@ -193,13 +188,16 @@ function InlineChannelCard({ data }: { data: Channel | undefined }) {
           src={data.org_image || data.photo_url || channelAvatar.src}
         />
         <div className="flex flex-col flex-1 gap-1 overflow-hidden">
-          <Typography
-            variant="title3"
-            bold
-            className="text-ellipsis whitespace-nowrap overflow-hidden"
-          >
-            {data.org_channel_name ?? "No Title"}
-          </Typography>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Typography
+              variant="title3"
+              bold
+              className="text-ellipsis whitespace-nowrap overflow-hidden"
+            >
+              {data.org_channel_name ?? "No Title"}
+            </Typography>
+            {data.founding_organizer_at && <FoundingOrganizerBadge />}
+          </div>
           <Typography variant="subheadline2">Edit your information</Typography>
         </div>
         <div className="self-center">

@@ -33,6 +33,7 @@ export interface MinimalOrganizerData {
   org_bio: string | null;
   org_image: string | null;
   role: string;
+  founding_organizer_at?: Date | null;
 }
 
 /**

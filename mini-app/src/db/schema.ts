@@ -49,6 +49,7 @@ import { rewards, RewardsSelectType, RewardTonSocietyStatusType, tonSocietyStatu
 import { sbtRewardCollections } from "./schema/sbtRewardCollections";
 import { sbtCollections, SbtCollectionRow, SbtCollectionInsert, SbtCollectionUpdate } from "./schema/sbtCollections";
 import { sbtItems, SbtItemRow, SbtItemInsert, SbtItemUpdate } from "./schema/sbtItems";
+import { csbtTrees, CsbtTreeRow, CsbtTreeInsert } from "./schema/csbtTrees";
 import { sideEvents } from "./schema/sideEvents";
 import { tickets, ticketsRelations } from "./schema/tickets";
 import { user_custom_flags, user_flags, userFlagsType } from "./schema/user_custom_flags";
@@ -65,6 +66,7 @@ import {
   CURRENT_PRIVACY_POLICY_VERSION,
 } from "./schema/userConsents";
 import { eventReports, eventReportsRelations, EventReportRow, EventReportInsert } from "./schema/eventReports";
+import { organizerPayouts, organizerPayoutsRelations, OrganizerPayoutRow, NewOrganizerPayout } from "./schema/organizerPayouts";
 import { visitors } from "./schema/visitors";
 import { walletChecks } from "./schema/walletChecks";
 import { affiliateLinks, AffiliateLinksRow, AffiliateItemTypeEnum, affiliateItemType } from "./schema/affiliateLinks";
@@ -361,6 +363,8 @@ export {
   ontoSetting,
   orders,
   organizerPaymentStatus,
+  organizerPayouts,
+  organizerPayoutsRelations,
   rewards,
   sbtRewardCollections,
   sideEvents,
@@ -416,6 +420,7 @@ export {
   usersOutlook,
   sbtCollections,
   sbtItems,
+  csbtTrees,
   user_identities,
   userIdentitiesRelations,
   eventReports,
@@ -566,4 +571,8 @@ export type {
   UserConsentRow,
   UserConsentInsert,
   ConsentPurpose,
+  CsbtTreeRow,
+  CsbtTreeInsert,
+  OrganizerPayoutRow,
+  NewOrganizerPayout,
 };

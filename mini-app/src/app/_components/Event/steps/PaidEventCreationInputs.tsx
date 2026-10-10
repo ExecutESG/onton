@@ -316,7 +316,6 @@ function NFTInfo() {
         disabled={isEdit}
         error={paid_info_errors.nft_description?.[0]}
       />
-      <Capacity />
       <TicketMedia />
     </>
   );
@@ -349,16 +348,8 @@ function Capacity() {
         }}
         label="Capacity"
         required
-        info={`Number of users who can buy your Ticket${eventData?.paid_event?.ticket_type === "NFT" ? ` 0.06 TON for each ${ticketLabel} (minting fee)` : ""}.`}
+        info="Number of users who can buy your Ticket."
       />
-
-      {isEdit && (
-        <ListItem
-          title="Bought Capacity"
-          footer="The maximum capacity you can change without extra payment is the bought capacity. If the input capacity exceeds this, you'll need to pay for the extra."
-          after={<b className="font-extrabold">{bought_capacity}</b>}
-        />
-      )}
     </>
   );
 }
@@ -400,8 +391,15 @@ const PaidEventCreationInputs = () => {
         <>
           <NFTPayment />
           <PaymentAmount />
-          <PaymentsRecipient />
-          <NFTInfo />
+          <Capacity />
+          {eventData.has_web3 ? (
+            <>
+              <PaymentsRecipient />
+              <NFTInfo />
+            </>
+          ) : (
+            <p className="px-4 pb-4 text-sm text-gray-500">Plain ticket with QR check-in. Turn on Web3 to issue NFT tickets.</p>
+          )}
         </>
       )}
     </ListLayout>

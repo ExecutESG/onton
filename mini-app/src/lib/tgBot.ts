@@ -259,12 +259,22 @@ export const sendLogNotification = async (
       });
       logger.log("Sent media group message", Number(LOGS_GROUP_ID), mediaGroupMessageId);
     } catch (err: any) {
-      if (replyToMessageId && err?.message?.includes("message to be replied not found")) {
-        logger.warn("sendMediaGroup reply failed; retrying without reply_to_message_id", err?.message);
+      const errorMsg = String(err?.message || "");
+      const replyNotFound = Boolean(replyToMessageId && errorMsg.includes("message to be replied not found"));
+      const threadNotFound = Boolean(messageThreadId && errorMsg.includes("message thread not found"));
+
+      if (replyNotFound || threadNotFound) {
+        if (threadNotFound) {
+          logger.error(`sendMediaGroup topic ${messageThreadId} not found in group ${LOGS_GROUP_ID}; retrying without message_thread_id:`, errorMsg);
+        }
+        if (replyNotFound) {
+          logger.warn("sendMediaGroup reply failed; retrying without reply_to_message_id", errorMsg);
+        }
         const mediaGroupMessageId = await logBot.api.sendMediaGroup(Number(LOGS_GROUP_ID), mediaArray, {
-          message_thread_id: messageThreadId,
+          message_thread_id: threadNotFound ? undefined : messageThreadId,
+          reply_to_message_id: replyNotFound ? undefined : replyToMessageId,
         });
-        logger.log("Sent media group message without reply", Number(LOGS_GROUP_ID), mediaGroupMessageId);
+        logger.log("Sent media group message fallback", Number(LOGS_GROUP_ID), mediaGroupMessageId);
       } else {
         throw err;
       }
@@ -292,11 +302,21 @@ export const sendLogNotification = async (
         parse_mode: "HTML",
       });
     } catch (err: any) {
-      if (replyToMessageId && err?.message?.includes("message to be replied not found")) {
-        logger.warn("sendPhoto reply failed; retrying without reply_to_message_id", err?.message);
+      const errorMsg = String(err?.message || "");
+      const replyNotFound = Boolean(replyToMessageId && errorMsg.includes("message to be replied not found"));
+      const threadNotFound = Boolean(messageThreadId && errorMsg.includes("message thread not found"));
+
+      if (replyNotFound || threadNotFound) {
+        if (threadNotFound) {
+          logger.error(`sendPhoto topic ${messageThreadId} not found in group ${LOGS_GROUP_ID}; retrying without message_thread_id:`, errorMsg);
+        }
+        if (replyNotFound) {
+          logger.warn("sendPhoto reply failed; retrying without reply_to_message_id", errorMsg);
+        }
         return await logBot.api.sendPhoto(Number(LOGS_GROUP_ID), new InputFile(buffer), {
           caption: props.message,
-          message_thread_id: messageThreadId,
+          message_thread_id: threadNotFound ? undefined : messageThreadId,
+          reply_to_message_id: replyNotFound ? undefined : replyToMessageId,
           reply_markup: props.inline_keyboard,
           parse_mode: "HTML",
         });
@@ -315,11 +335,21 @@ export const sendLogNotification = async (
       link_preview_options: { is_disabled: true },
     });
   } catch (err: any) {
-    if (replyToMessageId && err?.message?.includes("message to be replied not found")) {
-      logger.warn("sendMessage reply failed; retrying without reply_to_message_id", err?.message);
+    const errorMsg = String(err?.message || "");
+    const replyNotFound = Boolean(replyToMessageId && errorMsg.includes("message to be replied not found"));
+    const threadNotFound = Boolean(messageThreadId && errorMsg.includes("message thread not found"));
+
+    if (replyNotFound || threadNotFound) {
+      if (threadNotFound) {
+        logger.error(`sendMessage topic ${messageThreadId} not found in group ${LOGS_GROUP_ID}; retrying without message_thread_id:`, errorMsg);
+      }
+      if (replyNotFound) {
+        logger.warn("sendMessage reply failed; retrying without reply_to_message_id", errorMsg);
+      }
       return await logBot.api.sendMessage(Number(LOGS_GROUP_ID), props.message, {
         parse_mode: "HTML",
-        message_thread_id: messageThreadId,
+        message_thread_id: threadNotFound ? undefined : messageThreadId,
+        reply_to_message_id: replyNotFound ? undefined : replyToMessageId,
         reply_markup: props.inline_keyboard,
         link_preview_options: { is_disabled: true },
       });

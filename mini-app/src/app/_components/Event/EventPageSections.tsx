@@ -1,6 +1,6 @@
 import { Banner as OnionBanner } from "@/app/(landing-pages)/genesis-onions/_components/Banner";
 import Images from "@/app/_components/atoms/images";
-import UserCustomRegisterForm from "@/app/_components/Event/UserCustomRegisterForm";
+import CustomButton from "@/app/_components/Button/CustomButton";
 import EventDates from "@/app/_components/EventDates";
 import Divider from "@/components/Divider";
 import channelAvatar from "@/components/icons/channel-avatar.svg";
@@ -28,6 +28,8 @@ import { EventActions } from "./EventActions";
 import { useEventData } from "./eventPageContext";
 import { EventPasswordAndWalletInput } from "./EventPasswordInput";
 import { ManageEventButton } from "./ManageEventButton";
+import { getAttendeeMainButtonState } from "./getAttendeeMainButtonState";
+import FoundingOrganizerBadge from "@/app/_components/FoundingOrganizerBadge";
 import UserRegisterForm from "./UserRegisterForm";
 import BadgeDetailModal, { BadgeItemData } from "@/components/sbt/BadgeDetailModal";
 import { ShieldCheck, Award } from "lucide-react";
@@ -252,7 +254,6 @@ const EventRegistrationStatus = () => {
     return null;
   }
 
-  const isCustom = Boolean(eventData.data?.registrationFromSchema?.isCustom);
   console.log(
     "EventRegistrationStatus: hasWaitingList or !capacityFilled and registrantStatus === ''",
     registrantStatus,
@@ -262,27 +263,18 @@ const EventRegistrationStatus = () => {
   if ((hasWaitingList || !capacityFilled) && registrantStatus === "") {
     if (!user) {
       return (
-        <CustomCard title="Registration Form">
+        <CustomCard title="Registration">
           <div className="flex flex-col items-center justify-center p-6 text-center">
-            <Typography variant="body" className="text-gray-500 mb-4">
+            <Typography variant="body" className="text-gray-500">
               Please sign in to register for this event.
             </Typography>
-            <MainButton
-              text="Sign In to Register"
-              onClick={openLogin}
-              color="primary"
-            />
           </div>
         </CustomCard>
       );
     }
 
-    return isCustom ? (
-      <CustomCard title={"Registration Form"}>
-        <UserCustomRegisterForm />
-      </CustomCard>
-    ) : (
-      <CustomCard title={"Registration Form"}>
+    return (
+      <CustomCard title={eventData.data?.has_approval ? "Request to Join" : "Registration Form"}>
         <UserRegisterForm />
       </CustomCard>
     );
@@ -291,19 +283,12 @@ const EventRegistrationStatus = () => {
   return (
     <CustomCard defaultPadding>
       {capacityFilled && !hasWaitingList && (
-        <>
-          <DataStatus
-            status="rejected"
-            title="Capacity Filled"
-            description="Event capacity is filled and no longer accepts registrations."
-            size="md"
-          />
-          <MainButton
-            text="Event Capacity Filled"
-            disabled
-            color="secondary"
-          />
-        </>
+        <DataStatus
+          status="rejected"
+          title="Capacity Filled"
+          description="Event capacity is filled and no longer accepts registrations."
+          size="md"
+        />
       )}
 
       {!capacityFilled && (
@@ -319,8 +304,8 @@ const EventRegistrationStatus = () => {
           {registrantStatus === "approved" && (
             <DataStatus
               status="approved"
-              title="Request Approved"
-              description="Your request to join this event has been approved."
+              title="Registration Confirmed"
+              description="Your registration has been approved. Use the button below to view your check-in pass."
               size="md"
             />
           )}
@@ -360,14 +345,17 @@ const OrganizerCard = React.memo(() => {
             router.push(`/channels/${eventData.data?.owner}/`);
           }}
           title={
-            <Typography
-              variant="headline"
-              weight="medium"
-              className="text-primary w-52"
-              truncate
-            >
-              {organizer.org_channel_name || "Untitled organizer"}
-            </Typography>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Typography
+                variant="headline"
+                weight="medium"
+                className="text-primary max-w-[200px]"
+                truncate
+              >
+                {organizer.org_channel_name || "Untitled organizer"}
+              </Typography>
+              {organizer.founding_organizer_at && <FoundingOrganizerBadge />}
+            </div>
           }
           subtitle={
             <Typography
@@ -540,7 +528,19 @@ SbtCollectionLink.displayName = "SbtCollectionLink";
 const MainButtonHandler = React.memo(() => {
   const { eventData, hasEnteredPassword, isStarted, isNotEnded, initData } = useEventData();
   const { user } = useUserStore();
+  const { openLogin } = useLoginStore();
   const router = useRouter();
+
+  const [isRegisterLoading, setIsRegisterLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    const handleLoading = (e: Event) => {
+      const customEvent = e as CustomEvent<boolean>;
+      setIsRegisterLoading(Boolean(customEvent.detail));
+    };
+    window.addEventListener("onton:registration_loading", handleLoading);
+    return () => window.removeEventListener("onton:registration_loading", handleLoading);
+  }, []);
 
   const registrantStatus = eventData.data?.registrant_status ?? "";
   const isRegistered = ["approved", "checkedin"].includes(registrantStatus);
@@ -553,8 +553,7 @@ const MainButtonHandler = React.memo(() => {
   );
 
   const userCompletedTasks =
-    (isRegistered || !eventData.data?.has_registration) &&
-    user?.wallet_address;
+    isRegistered || !eventData.data?.has_registration;
 
   const isOnlineEvent = eventData.data?.participationType === "online";
   const isCheckedIn = eventData.data?.registrant_status === "checkedin" || isOnlineEvent;
@@ -564,6 +563,7 @@ const MainButtonHandler = React.memo(() => {
   const badgeStatus = trpc.sbt.getAttendeeBadgeStatus.useQuery(
     {
       eventUuid: eventData.data?.event_uuid ?? "",
+      userId: user?.user_id,
       registrantUuid: eventData.data?.registrant_uuid || undefined,
     },
     {
@@ -571,49 +571,78 @@ const MainButtonHandler = React.memo(() => {
     }
   );
 
-  // Paid event: user has ticket → view ticket pass
-  if (isPaid && isRegistered && isNotEnded) {
-    return (
-      <MainButton
-        text="View Ticket Pass"
-        onClick={() => router.push(`/tickets/${eventData.data?.event_uuid}`)}
-      />
-    );
-  }
+  const buttonState = getAttendeeMainButtonState({
+    isPaid,
+    isRegistered,
+    isNotEnded,
+    isStarted,
+    isOnlineEvent,
+    isCheckedIn,
+    hasEnteredPassword,
+    hasSbt,
+    userCompletedTasks,
+    registrantUuid: eventData.data?.registrant_uuid,
+    tiers: tiers as any,
+    paymentDetails: eventData.data?.payment_details,
+    hasRegistration: Boolean(eventData.data?.has_registration),
+    hasApproval: Boolean(eventData.data?.has_approval),
+    capacityFilled: Boolean(eventData.data?.capacity_filled),
+    hasWaitingList: Boolean(eventData.data?.has_waiting_list),
+    registrantStatus: eventData.data?.registrant_status ?? "",
+    user,
+  });
 
-  // Paid or tiered event: user hasn't bought ticket yet → checkout
-  if (isPaid && !isRegistered && isNotEnded) {
-    let label = "Get Tickets";
-    if (tiers.length > 0) {
-      const prices = tiers.map((t) => Number(t.price || 0));
-      const minPrice = Math.min(...prices);
-      const maxPrice = Math.max(...prices);
-      if (maxPrice === 0) {
-        label = "Get Free Ticket";
-      } else if (minPrice === 0) {
-        label = "Get Tickets";
-      } else if (minPrice === maxPrice) {
-        label = `Buy Ticket — ⭐ ${minPrice}`;
-      } else {
-        label = `Get Tickets — From ⭐ ${minPrice}`;
-      }
-    } else {
-      const price = Number(eventData.data?.payment_details?.price ?? 0);
-      const symbol = eventData.data?.payment_details?.token?.symbol ?? "TON";
-      label = price > 0 ? `Buy Ticket — ${price} ${symbol}` : "Get Free Ticket";
-    }
-
-    return (
-      <MainButton
-        text={label}
-        onClick={() => router.push(`/events/${eventData.data?.event_uuid}/checkout`)}
-      />
-    );
-  }
-
-  // Checked in attendee: directly claim or view attendance SBT badge
-  if (isCheckedIn && hasEnteredPassword) {
-    if (hasSbt) {
+  switch (buttonState.type) {
+    case "view_ticket_pass":
+      return (
+        <MainButton
+          text="View Ticket Pass"
+          onClick={() => router.push(`/tickets/${eventData.data?.event_uuid}`)}
+        />
+      );
+    case "checkout":
+      return (
+        <MainButton
+          text={buttonState.label}
+          onClick={() => router.push(`/events/${eventData.data?.event_uuid}/checkout`)}
+        />
+      );
+    case "register":
+      return (
+        <MainButton
+          text={buttonState.label}
+          progress={isRegisterLoading}
+          disabled={isRegisterLoading}
+          onClick={() => {
+            if (isRegisterLoading) return;
+            const form = document.getElementById("event-registration-form") as HTMLFormElement | null;
+            if (form) {
+              form.requestSubmit();
+            }
+          }}
+        />
+      );
+    case "login_required":
+      return (
+        <MainButton
+          text="Sign In to Register"
+          onClick={openLogin}
+          color="primary"
+        />
+      );
+    case "pending":
+      return (
+        <MainButton text="Request Pending" disabled color="secondary" />
+      );
+    case "rejected":
+      return (
+        <MainButton text="Request Rejected" disabled color="secondary" />
+      );
+    case "capacity_filled":
+      return (
+        <MainButton text="Event Capacity Filled" disabled color="secondary" />
+      );
+    case "claim_sbt":
       return (
         <ClaimSbtButton
           ticketUuid={eventData.data?.registrant_uuid}
@@ -621,46 +650,27 @@ const MainButtonHandler = React.memo(() => {
           isMinted={badgeStatus.data?.status === "minted"}
         />
       );
-    }
-    return (
-      <MainButton
-        text="Checked In ✅"
-        disabled
-        color="secondary"
-      />
-    );
-  }
-
-  // Approved attendee before check-in: show QR pass to check in
-  if (userCompletedTasks && hasEnteredPassword) {
-    if (isEventActive && eventData.data?.registrant_uuid) {
+    case "checked_in":
+      return (
+        <MainButton text="Checked In ✅" disabled color="secondary" />
+      );
+    case "show_qr":
       return (
         <MainButton
-          text="Check In"
+          text="View Ticket Pass"
           onClick={() => {
             router.push(`/events/${eventData.data?.event_uuid}/registrant/${eventData.data?.registrant_uuid}/qr`);
           }}
         />
       );
-    }
-  }
-
-  if (!isStarted && isNotEnded) {
-    return (
-      <MainButton
-        text="Event Not Started Yet"
-        disabled
-        color="secondary"
-      />
-    );
-  } else if (!isNotEnded) {
-    return (
-      <MainButton
-        text="Event Has Ended"
-        disabled
-        color="secondary"
-      />
-    );
+    case "not_started":
+      return (
+        <MainButton text="Event Not Started Yet" disabled color="secondary" />
+      );
+    case "ended":
+      return (
+        <MainButton text="Event Has Ended" disabled color="secondary" />
+      );
   }
 
   return null;
@@ -674,15 +684,14 @@ const EventPassword = React.memo(() => {
   const isOnlineEvent = eventData.data?.participationType === "online";
   const isEventActive = isStarted && isNotEnded;
   const userCompletedTasks =
-    (["approved", "checkedin"].includes(eventData.data?.registrant_status as string) || !eventData.data?.has_registration) &&
-    user?.wallet_address;
+    ["approved", "checkedin"].includes(eventData.data?.registrant_status as string) || !eventData.data?.has_registration;
 
   if (!user) {
     if (eventData.data?.has_registration) return null;
     return (
       <CustomCard
         title="Claim Your Reward"
-        description="Please sign in and connect your wallet to verify participation and claim rewards."
+        description="Please sign in to verify participation and claim rewards."
       >
         <div className="p-4 pt-0">
           <MainButton
@@ -695,7 +704,7 @@ const EventPassword = React.memo(() => {
     );
   }
 
-  if (!((userCompletedTasks && !hasEnteredPassword && isEventActive && isOnlineEvent) || !user?.wallet_address)) return null;
+  if (!(userCompletedTasks && !hasEnteredPassword && isEventActive && isOnlineEvent)) return null;
 
   if (eventData.data?.has_registration) return null;
 
@@ -713,16 +722,6 @@ const EventPassword = React.memo(() => {
 EventPassword.displayName = "EventPassword";
 
 const EventHeader = React.memo(() => {
-  const { eventData, hasEnteredPassword, isStarted, isNotEnded } = useEventData();
-  const { user } = useUserStore();
-
-  const userCompletedTasks =
-    (["approved", "checkedin"].includes(eventData.data?.registrant_status!) || !eventData.data?.has_registration) &&
-    user?.wallet_address;
-
-  const isOnlineEvent = eventData.data?.participationType === "online";
-  const isEventActive = isStarted && isNotEnded;
-
   return (
     <>
       <CustomCard defaultPadding>

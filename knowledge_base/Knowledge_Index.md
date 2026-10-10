@@ -1,14 +1,15 @@
 # ONTON Knowledge Base Index
 
-Last verified against dev: 2026-10-03
+Last verified against dev: 2026-10-10
 
-Docs for understanding, running and extending ONTON 2.0 (branch `dev`, repo `ExecutESG/onton`). The agent context file is [`AGENTS.md`](../AGENTS.md).
+Docs for understanding, running and extending ONTON 2.0 & 2.1 (branch `dev`, repo `ExecutESG/onton`). The agent context file is [`AGENTS.md`](../AGENTS.md).
 
 ## 01. Architecture & Infrastructure
 | Doc | Scope |
 |---|---|
-| [AS-IS Technical Blueprint](./as_is_technical_blueprint.md) | Current architecture and topology |
-| [TO-BE Technical Blueprint](./to_be_technical_blueprint.md) | Target architecture (plan, mostly not implemented) |
+| [Legacy Technical Blueprint](./legacy_technical_blueprint.md) | Production server baseline (`main` branch commit `25c897c7`, host `65.109.212.86`) |
+| [AS-IS Technical Blueprint](./as_is_technical_blueprint.md) | Active development & Staging baseline (`dev` branch commit `6413f8c3`, stack `onton-dev`) |
+| [TO-BE Technical Blueprint](./to_be_technical_blueprint.md) | Target architecture specification (2026–2027 plan & delivery status) |
 | [Architecture Blueprint & Evaluation](./architecture_blueprint.md) | Architecture audit and evaluation |
 | [Core Interactions](./onton_core_interactions.md) | Map of main user flows |
 | [System Overview](./overview.md) | Services and core patterns |

@@ -14,6 +14,7 @@ import { db } from "@/db/db";
 import { eventRegistrants } from "@/db/schema/eventRegistrants";
 import { and, asc, eq } from "drizzle-orm";
 import { CsbtMerkleTree, CsbtLeafData } from "@/lib/csbt";
+import { csbtTreeService } from "@/services/csbtTreeService";
 import { config } from "@/server/config";
 import { is_local_env } from "@/server/utils/evnutils";
 import { SBT_ONCHAIN_UPGRADE_PRICE } from "@/constants";
@@ -364,7 +365,43 @@ export const sbtRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Event not found" });
       }
 
-      // Fetch all checked-in registrants for this event to construct Merkle tree
+      // 1. Check for frozen persisted tree (MinIO)
+      const frozen = await csbtTreeService.getFrozenTree(ticket.event_uuid);
+      if (frozen) {
+        const { record, tree, payload } = frozen;
+        const leaves = payload.leaves;
+
+        const targetIndex = Math.max(
+          0,
+          leaves.findIndex(
+            (l) =>
+              (ticket.user_id && l.userId === ticket.user_id) ||
+              l.ownerAddress === String(ticket.user_id) ||
+              (ticket.telegram && l.ownerAddress === ticket.telegram)
+          )
+        );
+
+        const proof = tree.getProof(targetIndex);
+        const isVerified = CsbtMerkleTree.verifyProof(proof.leafHash, proof, proof.root);
+
+        return {
+          merkleRootHex: record.root,
+          leafIndex: targetIndex,
+          leafHashHex: proof.leafHashHex,
+          proofStepsCount: proof.steps.length,
+          isVerified,
+          isFrozen: true,
+          anchored: Boolean(record.anchoredAt),
+          anchorTxHash: record.anchorTxHash || null,
+          badgeName: `${eventData.title} Credential`,
+          badgeImageUrl: eventData.tsRewardImage || eventData.image_url || "https://onton.app/assets/sbt-badge.png",
+          eventTitle: eventData.title,
+          eventUuid: ticket.event_uuid,
+          ownerIdentifier: ticket.telegram ? `@${ticket.telegram}` : String(ticket.user_id || "attendee"),
+        };
+      }
+
+      // 2. Live event: build dynamic tree from checked-in attendees
       const checkedInRegistrants = await db
         .select({
           id: eventRegistrants.id,
@@ -383,6 +420,7 @@ export const sbtRouter = router({
       const leaves: CsbtLeafData[] = checkedInRegistrants.map((reg, idx) => ({
         index: idx,
         ownerAddress: String(reg.userId || 0),
+        userId: reg.userId || undefined,
         eventUuid: ticket.event_uuid!,
       }));
 
@@ -390,6 +428,7 @@ export const sbtRouter = router({
         leaves.push({
           index: 0,
           ownerAddress: String(ticket.user_id || 0),
+          userId: ticket.user_id || undefined,
           eventUuid: ticket.event_uuid!,
         });
       }
@@ -409,6 +448,9 @@ export const sbtRouter = router({
         leafHashHex: proof.leafHashHex,
         proofStepsCount: proof.steps.length,
         isVerified,
+        isFrozen: false,
+        anchored: false,
+        anchorTxHash: null,
         badgeName: `${eventData.title} Credential`,
         badgeImageUrl: eventData.tsRewardImage || eventData.image_url || "https://onton.app/assets/sbt-badge.png",
         eventTitle: eventData.title,

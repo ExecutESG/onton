@@ -115,10 +115,12 @@ PoA prompts: `EventPOA.Create` / `EventPOA.Info` (`mini-app/src/server/routers/P
 
 | Part | File | Behavior |
 |---|---|---|
-| Leaf | `mini-app/src/lib/csbt/leaf.ts` | SHA256(uint64 index ‖ 33-byte owner ‖ 16-byte eventUuid ‖ 32-byte metaHash). No timestamp |
+| Part | File | Behavior |
+|---|---|---|
+| Leaf | `mini-app/src/lib/csbt/leaf.ts` | SHA256(uint64 index ‖ 33-byte owner ‖ 16-byte eventUuid ‖ 32-byte metaHash). Owner: wallet users = `int8 workchain ‖ 32-byte hash`; wallet-less users = marker byte `0x7F ‖ SHA256("onton:user:" + userId)`. Cell: stores `uint64 index ‖ 1-bit owner_kind (0=wallet, 1=wallet-less) ‖ owner (MsgAddressInt or 256-bit hash) ‖ 16-byte eventUuid ‖ 32-byte metaHash`. |
 | Tree | `mini-app/src/lib/csbt/merkleTree.ts` | Plain binary Merkle tree (not sparse); odd node duplicated; node hash = TON cell hash |
 | Proof API | `mini-app/src/app/api/v1/csbt/proof/route.ts` | `GET /api/v1/csbt/proof?eventUuid=…&userId=…` (also `collectionAddress`, `walletAddress`, `leafIndex`). No auth, CORS `*` |
-| Anchor contract | `contracts/csbt_anchor.fc` | Stores `merkle_root`, op `update_merkle_root`, inclusion check, getter |
+| Anchor contract | `contracts/csbt_anchor.fc` / `contracts/csbt_registry.fc` | Registry stores `roots` dict (`event_hash -> root`), op `set_root`, getter `get_root` |
 
 How it works today:
 - The tree is built in memory **on every request** from all `checkedin` registrants of the event (ordered by id). Nothing is stored in MinIO or the DB at check-in.

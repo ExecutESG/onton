@@ -29,14 +29,14 @@ interface TicketTierItem {
   id: number;
   tier_name: string;
   price: number;
-  ticket_type: "NFT" | "TSCSBT";
+  ticket_type: "NFT" | "TSCSBT" | "TICKET";
   description?: string;
 }
 
 interface PaymentDetailsProp {
   price: number;
   title: string | null;
-  ticket_type: "NFT" | "TSCSBT";
+  ticket_type: "NFT" | "TSCSBT" | "TICKET";
   token: {
     symbol: string;
     decimals: number;

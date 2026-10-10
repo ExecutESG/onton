@@ -104,6 +104,13 @@ export const ticketRouter = router({
         });
       }
 
+      if ("error" in result && result.error) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: ("message" in result ? result.message : undefined) || "Failed to check in",
+        });
+      }
+
       const ticketData = await ticketDB.getTicketByUuid(resolvedTicketUuid);
 
       if (ticketData && ticketData?.user_id && ticketData?.event_uuid) {

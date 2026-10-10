@@ -172,9 +172,10 @@ export class RabbitMQ {
   ): Promise<string> {
     try {
       const channel = await this.getChannel(queue);
-      // Ensure the queue exists with the correct arguments
-      logger.log(`Asserting queue '${queue}' before consuming with options:`, notificationQueueOptions);
-      await channel.assertQueue(queue, notificationQueueOptions);
+      // Use consistent queue options
+      const queueOptions = queue === QueueNames.NOTIFICATIONS ? notificationQueueOptions : { durable: true };
+      logger.log(`Asserting queue '${queue}' before consuming with options:`, queueOptions);
+      await channel.assertQueue(queue, queueOptions);
       await channel.prefetch(prefetchCount);
 
       const consumeResult = await channel.consume(

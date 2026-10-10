@@ -29,8 +29,11 @@ Last verified against dev: 2026-10-03
 - MinIO init (first run): `cd mini-app && yarn run init:minio:local`.
 
 ## Database Migrations (STRICT)
-- **Never run `yarn db:migrate`.** The Drizzle journal is stale (130 SQL files, 125 journal entries, snapshots end at `0117`).
-- Apply new SQL files by hand: `psql -v ON_ERROR_STOP=1 -f mini-app/drizzle/<file>.sql`.
+- **Never run `yarn db:migrate`.** The Drizzle journal is stale (snapshots end at `0117`).
+- Use the tracked migration runner in `mini-app`:
+  - Check status: `cd mini-app && yarn db:migrate:status` (or `yarn db:migrate:check`)
+  - Apply pending SQL files: `cd mini-app && yarn db:migrate:apply` (runs pending migrations sequentially in transactions and records them in `_schema_migrations`).
+  - Or apply by hand: `psql -v ON_ERROR_STOP=1 -f mini-app/drizzle/<file>.sql`
 - `yarn db:up` is `drizzle-kit up` (snapshot upgrade). It is not a migration.
 
 ## Coding Style & Naming Conventions

@@ -3,7 +3,11 @@
 /* ------------------------------------------------------------------ */
 
 import { z } from "zod";
-import { initDataProtectedProcedure, router } from "../trpc";
+import {
+  initDataProtectedProcedure,
+  initDataProtectedProcedureAllowBanned,
+  router,
+} from "../trpc";
 import {
   CONSENT_PURPOSES,
   ConsentPurpose,
@@ -31,7 +35,9 @@ export const consentsRouter = router({
     const userId = ctx.user.user_id;
     const records = await getUserConsents(userId);
 
-    const activeRecords = records.filter((r) => r.revoked_at === null);
+    const activeRecords = records.filter(
+      (r) => r.revoked_at === null && r.policy_version === CURRENT_PRIVACY_POLICY_VERSION
+    );
     const activePurposes = activeRecords.map((r) => r.purpose as ConsentPurpose);
 
     const consents: Record<ConsentPurpose, boolean> = {
@@ -70,8 +76,9 @@ export const consentsRouter = router({
 
   /**
    * Revokes consent immediately for a specific purpose for the authenticated user.
+   * In compliance with GDPR Article 7(3), even banned accounts can withdraw consent.
    */
-  revoke: initDataProtectedProcedure
+  revoke: initDataProtectedProcedureAllowBanned
     .input(revokeInputSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.user_id;

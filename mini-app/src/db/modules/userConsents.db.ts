@@ -27,28 +27,27 @@ export {
  *
  * @param userId - Target user ID (number or bigint)
  * @param purpose - Purpose to check
- * @param policyVersion - Optional policy version filter
+ * @param policyVersion - Policy version filter (defaults to CURRENT_PRIVACY_POLICY_VERSION)
  * @returns boolean indicating if valid consent is active
  */
 export async function hasConsent(
   userId: number | bigint,
   purpose: ConsentPurpose,
-  policyVersion?: string
+  policyVersion: string = CURRENT_PRIVACY_POLICY_VERSION
 ): Promise<boolean> {
   const numericUserId = Number(userId);
   if (!numericUserId || isNaN(numericUserId)) {
     return false;
   }
 
+  const effectivePolicyVersion = policyVersion || CURRENT_PRIVACY_POLICY_VERSION;
+
   const conditions = [
     eq(user_consents.user_id, numericUserId),
     eq(user_consents.purpose, purpose),
     isNull(user_consents.revoked_at),
+    eq(user_consents.policy_version, effectivePolicyVersion),
   ];
-
-  if (policyVersion) {
-    conditions.push(eq(user_consents.policy_version, policyVersion));
-  }
 
   const record = await db.query.user_consents.findFirst({
     where: and(...conditions),
@@ -101,7 +100,7 @@ export async function grantConsents(
   const valuesToInsert: UserConsentInsert[] = uniquePurposes.map((purpose) => ({
     user_id: numericUserId,
     purpose,
-    policy_version: policyVersion,
+    policy_version: policyVersion || CURRENT_PRIVACY_POLICY_VERSION,
     granted_at: now,
     revoked_at: null,
   }));

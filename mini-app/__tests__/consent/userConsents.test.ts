@@ -28,6 +28,20 @@ function extractPurposeFromSql(sqlObj: any): string | null {
   return null;
 }
 
+function extractVersionFromSql(sqlObj: any): string | null {
+  if (!sqlObj) return null;
+  if (typeof sqlObj.value === "string" && sqlObj.value === CURRENT_PRIVACY_POLICY_VERSION) {
+    return sqlObj.value;
+  }
+  if (Array.isArray(sqlObj.queryChunks)) {
+    for (const chunk of sqlObj.queryChunks) {
+      const found = extractVersionFromSql(chunk);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 vi.mock("@/db/db", () => ({
   db: {
     query: {
@@ -176,6 +190,44 @@ describe("GDPR User Consents Foundation", () => {
       expect(result).toBe(true);
     });
 
+    it("defaults policyVersion to CURRENT_PRIVACY_POLICY_VERSION when not provided", async () => {
+      let queriedWhere: any = null;
+      (db.query.user_consents.findFirst as any).mockImplementationOnce(({ where }: any) => {
+        queriedWhere = where;
+        return Promise.resolve({
+          id: 1,
+          user_id: 12345,
+          purpose: "audience_reach",
+          policy_version: CURRENT_PRIVACY_POLICY_VERSION,
+          granted_at: new Date(),
+          revoked_at: null,
+        } as any);
+      });
+
+      const result = await hasConsent(12345, "audience_reach");
+      expect(result).toBe(true);
+      expect(extractVersionFromSql(queriedWhere)).toBe(CURRENT_PRIVACY_POLICY_VERSION);
+    });
+
+    it("defaults policyVersion to CURRENT_PRIVACY_POLICY_VERSION when empty string is provided", async () => {
+      let queriedWhere: any = null;
+      (db.query.user_consents.findFirst as any).mockImplementationOnce(({ where }: any) => {
+        queriedWhere = where;
+        return Promise.resolve({
+          id: 1,
+          user_id: 12345,
+          purpose: "audience_reach",
+          policy_version: CURRENT_PRIVACY_POLICY_VERSION,
+          granted_at: new Date(),
+          revoked_at: null,
+        } as any);
+      });
+
+      const result = await hasConsent(12345, "audience_reach", "");
+      expect(result).toBe(true);
+      expect(extractVersionFromSql(queriedWhere)).toBe(CURRENT_PRIVACY_POLICY_VERSION);
+    });
+
     it("returns false if consent is revoked (revoked_at is not null)", async () => {
       // Drizzle where condition includes isNull(revoked_at), so db returns undefined
       vi.mocked(db.query.user_consents.findFirst).mockResolvedValueOnce(undefined as any);
@@ -267,6 +319,14 @@ describe("GDPR User Consents Foundation", () => {
           policy_version: CURRENT_PRIVACY_POLICY_VERSION,
           granted_at: new Date(),
           revoked_at: new Date(), // revoked!
+        },
+        {
+          id: 3,
+          user_id: 8888,
+          purpose: "attendance_verification_api",
+          policy_version: "2023-01-01", // older policy version!
+          granted_at: new Date(),
+          revoked_at: null,
         }
       );
 
@@ -278,7 +338,7 @@ describe("GDPR User Consents Foundation", () => {
       expect(res.consents.audience_reach).toBe(true);
       expect(res.consents.sponsor_stats).toBe(false);
       expect(res.consents.attendance_verification_api).toBe(false);
-      expect(res.records.length).toBe(2);
+      expect(res.records.length).toBe(3);
     });
 
     it("grant validates purpose enum and accepts valid list", async () => {
@@ -335,11 +395,35 @@ describe("GDPR User Consents Foundation", () => {
       );
     });
 
-    it("rejects banned user with FORBIDDEN", async () => {
+    it("rejects banned user with FORBIDDEN on getMine and grant", async () => {
       const bannedCaller = createCaller({ ...callerMockUser, role: "ban" });
       await expect(bannedCaller.getMine()).rejects.toThrowError(
         new TRPCError({ code: "FORBIDDEN", message: "user is banned" })
       );
+      await expect(
+        bannedCaller.grant({ purposes: ["audience_reach"] })
+      ).rejects.toThrowError(
+        new TRPCError({ code: "FORBIDDEN", message: "user is banned" })
+      );
+    });
+
+    it("allows banned user to revoke consent without throwing FORBIDDEN (GDPR Article 7(3))", async () => {
+      mockConsentsTable.push({
+        id: 1,
+        user_id: 8888,
+        purpose: "audience_reach",
+        policy_version: CURRENT_PRIVACY_POLICY_VERSION,
+        granted_at: new Date(),
+        revoked_at: null,
+      });
+
+      const bannedCaller = createCaller({ ...callerMockUser, role: "ban" });
+      const res = await bannedCaller.revoke({
+        purpose: "audience_reach",
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.revoked).toBe("audience_reach");
     });
   });
 });

@@ -21,9 +21,6 @@ export async function createContext({ req }: { req: Request }) {
         if (payload?.userId) {
           const user = await selectUserById(payload.userId);
           if (user) {
-            if (user.role === "ban") {
-              throw new TRPCError({ code: "FORBIDDEN", message: "user is banned" });
-            }
             return user;
           }
         }
@@ -52,13 +49,6 @@ export async function createContext({ req }: { req: Request }) {
     if (!user) {
       logger.info("User not found", { initDataJson });
       return null;
-    }
-
-    if (user.role === "ban") {
-      throw new TRPCError({
-        code: "FORBIDDEN",
-        message: "user is banned",
-      });
     }
 
     return user;
@@ -100,12 +90,6 @@ export async function createContext({ req }: { req: Request }) {
         if (payload && typeof payload.userId === "number") {
           const user = await selectUserById(payload.userId);
           if (user) {
-            if (user.role === "ban") {
-              throw new TRPCError({
-                code: "FORBIDDEN",
-                message: "user is banned",
-              });
-            }
             return user;
           }
         }
@@ -124,13 +108,6 @@ export async function createContext({ req }: { req: Request }) {
     if (userId) {
       const user = await selectUserById(userId);
       if (user) {
-        // Ensure user is not banned
-        if (user.role === "ban") {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "user is banned",
-          });
-        }
         return user;
       }
     }

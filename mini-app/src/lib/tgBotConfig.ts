@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { readRequiredSecret } from "@/server/utils/requiredSecrets";
 
 export const getTelegramBotBaseUrl = (): string => {
   const host = process.env.IP_TELEGRAM_BOT || "telegram-bot";
@@ -7,16 +8,11 @@ export const getTelegramBotBaseUrl = (): string => {
 };
 
 export const getTelegramBotHeaders = (body?: any): Record<string, string> => {
-  const secret =
-    process.env.BOT_API_HMAC_SECRET ||
-    process.env.ONTON_API_SECRET ||
-    process.env.BOT_TOKEN ||
-    "";
+  // BOT_API_HMAC_SECRET only (#1052). Throws instead of sending unsigned requests.
+  const secret = readRequiredSecret("BOT_API_HMAC_SECRET");
   const timestamp = Date.now().toString();
   const payload = `${timestamp}.${typeof body === "object" ? JSON.stringify(body) : body || ""}`;
-  const signature = secret
-    ? crypto.createHmac("sha256", secret).update(payload).digest("hex")
-    : "";
+  const signature = crypto.createHmac("sha256", secret).update(payload).digest("hex");
 
   return {
     "x-api-key": secret,

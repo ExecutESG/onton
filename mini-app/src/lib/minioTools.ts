@@ -2,13 +2,13 @@ import axios from "axios";
 import FormData from "form-data";
 import { logger } from "@/server/utils/logger";
 import jwt from "jsonwebtoken";
+import { readRequiredSecret } from "@/server/utils/requiredSecrets";
 
 // We'll read our base URL from NEXT_PUBLIC_APP_BASE_URL (fallback: localhost)
 // and ensure we point to /api/files/upload-json
 const API_BASE_URL = (process.env.NEXT_PUBLIC_APP_BASE_URL || "http://localhost:3000") + "/api/";
 
-// JWT secret from env
-const JWT_SECRET = process.env.ONTON_API_SECRET ?? "fallback-secret";
+// Upload JWTs are signed with ONTON_API_SECRET only (no "fallback-secret", #1052).
 
 /**
  * Uploads JSON data to the new Next.js "upload-json" endpoint.
@@ -39,7 +39,10 @@ export const uploadJsonToMinio = async (
   const url = `${API_BASE_URL}files/upload-json`;
 
   // 4. (Optional) Generate a JWT if your new endpoint requires auth
-  const token = jwt.sign({ scope: "uploadJson" }, JWT_SECRET, { expiresIn: "1h" });
+  const token = jwt.sign({ scope: "uploadJson" }, readRequiredSecret("ONTON_API_SECRET"), {
+    expiresIn: "1h",
+    algorithm: "HS256",
+  });
 
   try {
     // 5. Post to the new "upload-json" route

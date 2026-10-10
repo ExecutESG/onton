@@ -5,11 +5,11 @@ import { verify } from 'jsonwebtoken';
 import { toNodeJsRequest } from '../helpers/toNodeJsRequest';
 import { minioClient } from '@/lib/minioClient';
 import { filePrefix } from '@/lib/fileUtils';
+import { readRequiredSecret } from '@/server/utils/requiredSecrets';
 
 export const dynamic = 'force-dynamic'; // ensures Next.js does not statically optimize this route
 
-// Adjust to your environment variable key, e.g., process.env.ONTON_API_SECRET
-const JWT_SECRET = process.env.ONTON_API_SECRET || 'fallback-secret';
+// Upload JWTs are verified with ONTON_API_SECRET only (no 'fallback-secret', #1052).
 
 /**
  * Converts the NextRequest into a Node.js-like req (IncomingMessage)
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
 
   // 2. Verify the token using JWT_SECRET
   try {
-    verify(token, JWT_SECRET);
+    verify(token, readRequiredSecret('ONTON_API_SECRET'), { algorithms: ['HS256'] });
     // If it fails, an error is thrown, caught below
   } catch (err) {
     console.error('Invalid JWT:', err);

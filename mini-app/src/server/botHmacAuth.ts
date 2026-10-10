@@ -1,12 +1,13 @@
 import { createHmac, timingSafeEqual } from "crypto";
+import { describeSecretProblem } from "@/server/utils/requiredSecrets";
 
+/**
+ * Verifies bot -> mini-app requests. BOT_API_HMAC_SECRET only (#1052): no ONTON_API_SECRET / BOT_TOKEN fallback.
+ */
 export async function verifyBotHmac(req: Request): Promise<Response | null> {
-  const secret =
-    process.env.BOT_API_HMAC_SECRET ||
-    process.env.ONTON_API_SECRET ||
-    process.env.BOT_TOKEN;
-  if (!secret) {
-    return Response.json({ error: "Configuration error", message: "BOT_API_HMAC_SECRET is not set" }, { status: 500 });
+  const secret = process.env.BOT_API_HMAC_SECRET;
+  if (!secret || describeSecretProblem("BOT_API_HMAC_SECRET", secret)) {
+    return Response.json({ error: "Configuration error", message: "BOT_API_HMAC_SECRET is not configured" }, { status: 500 });
   }
 
   const signature = req.headers.get("x-signature");

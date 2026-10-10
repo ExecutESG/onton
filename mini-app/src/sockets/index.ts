@@ -1,3 +1,4 @@
+import "@/server/utils/assertSecretsOnBoot";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import { createClient } from "redis";

@@ -6,6 +6,10 @@ const nextConfig = {
   distDir: ".next", // Specify the output directory for builds
   // productionBrowserSourceMaps: true,
   compress: true,
+  experimental: {
+    // Runs src/instrumentation.ts at server start (fail-fast secret check, #1052).
+    instrumentationHook: true,
+  },
   images: {
     unoptimized: true,
     remotePatterns: [

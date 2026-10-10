@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { Request, Response, NextFunction } from "express";
+import { describeSecretProblem } from "../utils/requiredSecrets";
 
 /**
  * Constant-time comparison to prevent timing attacks
@@ -28,20 +29,15 @@ export function hmacAuthMiddleware(
     return next();
   }
 
-  const secret =
-    process.env.BOT_API_HMAC_SECRET ||
-    process.env.ONTON_API_SECRET ||
-    process.env.BOT_TOKEN;
+  // BOT_API_HMAC_SECRET only (#1052). No ONTON_API_SECRET / BOT_TOKEN fallback and no
+  // unauthenticated pass-through when it is unset: fail closed in every environment.
+  const secret = process.env.BOT_API_HMAC_SECRET;
 
-  if (!secret) {
-    // In production, refuse to process unauthenticated requests if no secret is configured
-    if (process.env.NODE_ENV === "production") {
-      return res.status(500).json({
-        status: "error",
-        message: "Bot API secret is not configured on the server",
-      });
-    }
-    return next();
+  if (!secret || describeSecretProblem("BOT_API_HMAC_SECRET", secret)) {
+    return res.status(500).json({
+      status: "error",
+      message: "Bot API secret is not configured on the server",
+    });
   }
 
   // 1. Check for HMAC signature & timestamp headers
@@ -81,8 +77,9 @@ export function hmacAuthMiddleware(
     : apiKey?.trim();
 
   if (keyToTest) {
-    const expectedKey = process.env.ONTON_API_SECRET || secret;
-    if (safeEqual(keyToTest, expectedKey)) {
+    // The mini-app sends BOT_API_HMAC_SECRET as x-api-key for multipart uploads it cannot sign
+    // (see mini-app/src/lib/tgBotConfig.ts). ONTON_API_SECRET is no longer accepted here.
+    if (safeEqual(keyToTest, secret)) {
       return next();
     }
   }

@@ -7,6 +7,7 @@ vi.mock("axios");
 
 describe("share-event", () => {
   it("web_app url has no /ptma", async () => {
+    process.env.BOT_API_HMAC_SECRET = "test-share-event-hmac-secret-0123456789abcdef";
     const req = new NextRequest("http://localhost/api/v1/share-event?user_id=123&event_uuid=abc");
     
     (axios.post as any).mockResolvedValue({ data: {} });

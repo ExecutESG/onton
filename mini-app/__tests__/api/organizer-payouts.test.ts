@@ -86,7 +86,7 @@ vi.mock("@/db/db", () => {
 });
 
 describe("Issue #1033: Organizer Payouts & Upfront Fee Removal", () => {
-  const TEST_SECRET = "test_bot_secret_hmac_key_123";
+  const TEST_SECRET = "test_bot_secret_hmac_key_123_0123456789abcdef";
   const TEST_EVENT_UUID = "4b287361-a06f-43dd-87c1-2d3a68f99fa7";
 
   beforeEach(() => {

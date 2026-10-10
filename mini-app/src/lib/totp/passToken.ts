@@ -1,11 +1,11 @@
 import crypto from "crypto";
+import { readRequiredSecret } from "@/server/utils/requiredSecrets";
 
 export const DEFAULT_STEP_SECONDS = 20;
 export const DEFAULT_WINDOW_TOLERANCE = 1; // ±1 step (20s before, current 20s, 20s after) = up to 60s window
 
-const getSecret = (): string => {
-  return process.env.TOTP_SECRET || process.env.JWT_SECRET || "onton_dynamic_pass_secret_salt_2026";
-};
+/** TOTP_SECRET only. No JWT_SECRET or hardcoded salt fallback (#1052): a known salt lets anyone forge passes. */
+const getSecret = (): string => readRequiredSecret("TOTP_SECRET");
 
 export interface GeneratePassTokenResult {
   token: string;

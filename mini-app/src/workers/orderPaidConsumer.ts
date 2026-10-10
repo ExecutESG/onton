@@ -1,3 +1,4 @@
+import "@/server/utils/assertSecretsOnBoot";
 import { RabbitMQ } from "@/lib/rabbitMQ";
 import { QueueNames } from "@/sockets/constants";
 import { logger } from "@/server/utils/logger";

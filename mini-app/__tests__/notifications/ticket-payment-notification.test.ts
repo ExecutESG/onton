@@ -287,7 +287,7 @@ describe("Ticket Payment Notifications & Deduplication (Issue #1050)", () => {
     const originalSecret = process.env.BOT_API_HMAC_SECRET;
 
     beforeEach(() => {
-      process.env.BOT_API_HMAC_SECRET = "test-secret-key-1050";
+      process.env.BOT_API_HMAC_SECRET = "test-secret-key-1050-hmac-0123456789abcdef";
     });
 
     it("rejects unauthenticated requests missing HMAC signature with 401", async () => {
@@ -321,7 +321,7 @@ describe("Ticket Payment Notifications & Deduplication (Issue #1050)", () => {
     });
 
     it("accepts valid HMAC signature and processes payload", async () => {
-      const secret = "test-secret-key-1050";
+      const secret = "test-secret-key-1050-hmac-0123456789abcdef";
       const timestamp = Date.now().toString();
       const payload = {
         orderUuid: "ord-valid-123",

@@ -1,3 +1,4 @@
+import "@/server/utils/assertSecretsOnBoot";
 import { eventPoaTriggersDB } from "@/db/modules/eventPoaTriggers.db";
 import { notificationsDB } from "@/db/modules/notifications.db";
 import { EventTriggerStatus, NotificationItemType, NotificationStatus, NotificationType } from "@/db/schema";

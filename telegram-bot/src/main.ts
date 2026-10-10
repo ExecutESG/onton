@@ -35,6 +35,16 @@ import { createStarsInvoiceHandler } from "./controllers/starsInvoiceHandler";
 import { handleStarsPreCheckout, handleStarsSuccessfulPayment } from "./handlers/starsPaymentHandler";
 
 import { startPollSenderCron } from "./cronJobs/initializer";
+import { assertRequiredSecrets } from "./utils/requiredSecrets";
+
+// Fail fast (#1052): refuse to start with missing, short or default secrets. Message names keys only.
+try {
+  assertRequiredSecrets();
+} catch (err) {
+  console.error(`[startup] ${err instanceof Error ? err.message : String(err)}`);
+  process.exit(1);
+}
+
 export const bot = new Bot<MyContext>(BOT_TOKEN);
 
 (async function bootstrap() {

@@ -11,6 +11,7 @@ import axios from "axios";
 import FormData from "form-data";
 import { File as FormidableFile } from "formidable";
 import jwt from "jsonwebtoken";
+import { readRequiredSecret } from "@/server/utils/requiredSecrets";
 import fs from "fs";
 import { parseMultipartForm } from "@/lib/parseMultipartForm";
 import { z } from "zod";
@@ -20,7 +21,6 @@ import { fetchSBTRewardCollectionById, SBTRewardCollectionDB } from "@/db/module
 /** Env config / constants **/
 
 const UPLOAD_FILE_ENDPOINT = (process.env.NEXT_PUBLIC_APP_BASE_URL || "http://localhost:3000") + "/api/files/upload";
-const UPLOAD_TOKEN = process.env.ONTON_API_SECRET || "fallback-secret";
 
 export const runtime = "nodejs";
 
@@ -170,7 +170,10 @@ export async function POST(
       });
       formData.append("subfolder", "event");
 
-      const token = jwt.sign({ scope: "uploadImage" }, UPLOAD_TOKEN, { expiresIn: "1h" });
+      const token = jwt.sign({ scope: "uploadImage" }, readRequiredSecret("ONTON_API_SECRET"), {
+        expiresIn: "1h",
+        algorithm: "HS256",
+      });
       const res = await axios.post(UPLOAD_FILE_ENDPOINT, formData, {
         headers: {
           ...formData.getHeaders(),

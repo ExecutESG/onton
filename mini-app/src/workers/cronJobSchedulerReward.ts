@@ -1,6 +1,7 @@
 import { getErrorMessages } from "@/lib/error";
 import { CronJob } from "cron";
 import "dotenv/config";
+import "@/server/utils/assertSecretsOnBoot";
 import { logger } from "@/server/utils/logger";
 import "@/lib/gracefullyShutdown";
 import cronJobs, { cronJobRunner } from "@/cronJobs";

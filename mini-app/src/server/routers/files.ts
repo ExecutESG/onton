@@ -7,6 +7,7 @@ import axios from "axios";
 import FormData from "form-data";
 import sizeOf from "image-size";
 import jwt from "jsonwebtoken";
+import { readRequiredSecret } from "@/server/utils/requiredSecrets";
 import { z } from "zod";
 import { adminOrganizerCoOrganizerProtectedProcedure, eventManagementProtectedProcedure, router } from "../trpc";
 import { logger } from "../utils/logger";
@@ -21,8 +22,7 @@ import { parse as csvParse } from "csv-parse/sync";
 const appBaseUrl = (process.env.NEXT_PUBLIC_APP_BASE_URL || "http://localhost:3000").replace(/\/+$/, "");
 const API_BASE_URL = `${appBaseUrl}/api`;
 
-// JWT secret from env
-const JWT_SECRET = process.env.ONTON_API_SECRET ?? "fallback-secret";
+// Upload JWTs are signed with ONTON_API_SECRET only (no "fallback-secret", #1052).
 const genCode = () => randomBytes(10).toString("hex").toUpperCase();
 export const fieldsRouter = router({
   uploadImage: adminOrganizerCoOrganizerProtectedProcedure
@@ -137,7 +137,10 @@ export const fieldsRouter = router({
       formData.append("subfolder", subfolder);
 
       // 3. Generate JWT
-      const token = jwt.sign({ scope: "uploadImage" }, JWT_SECRET, { expiresIn: "1h" });
+      const token = jwt.sign({ scope: "uploadImage" }, readRequiredSecret("ONTON_API_SECRET"), {
+        expiresIn: "1h",
+        algorithm: "HS256",
+      });
 
       // 4. Make the request
       try {

@@ -15,10 +15,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import { toast } from "sonner";
 import CustomCard from "../atoms/cards/CustomCard";
-<<<<<<< HEAD
-=======
 
->>>>>>> 83d4f8b8 (docs(mini-app): update onboarding, empty states, and wallet-optional copy)
 export function ConnectWalletCard() {
   const [isOpen, setOpen] = useState(false);
 

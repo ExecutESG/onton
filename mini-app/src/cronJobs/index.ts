@@ -31,8 +31,10 @@ import { distributeRafflesTon } from "@/cronJobs/tasks/distributeRaffleTon";
 import { sendAllPendingPrizeNotifications } from "@/cronJobs/tasks/sendAllPendingPrizeNotifications";
 import { freezeCsbtTrees } from "@/cronJobs/tasks/freezeCsbtTrees";
 import { anchorCsbtRoots } from "@/cronJobs/tasks/anchorCsbtRoots";
+import { expireUnpaidOrders } from "@/cronJobs/tasks/expireUnpaidOrders";
 
 const cronJobs = {
+  expireUnpaidOrders,
   freezeCsbtTrees,
   anchorCsbtRoots,
   CheckTransactions,

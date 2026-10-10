@@ -1,5 +1,5 @@
 import { db } from "@/db/db";
-import { eventRegistrants, orders, tickets, users } from "@/db/schema";
+import { eventRegistrants, orders, tickets, users, events, eventTicketTiers } from "@/db/schema";
 import "@/lib/gracefullyShutdown";
 import { removeKey } from "@/lib/utils";
 import { getAuthenticatedUser } from "@/server/auth";
@@ -111,6 +111,19 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+  } else {
+    // Auto-select tier if exactly one explicit tier exists for this event (#1055)
+    const tiers = await db
+      .select()
+      .from(eventTicketTiers)
+      .where(eq(eventTicketTiers.event_uuid, body.data.event_uuid))
+      .execute();
+    if (tiers.length === 1) {
+      selectedTier = tiers[0];
+    }
+  }
+
+  if (selectedTier) {
     const tierCapacity = await eventTicketTiersDB.checkTierCapacity(selectedTier.id);
     if (tierCapacity.isSoldOut) {
       return Response.json(
@@ -252,20 +265,72 @@ export async function POST(request: Request) {
       if (errorResponse) {
         return errorResponse;
       }
-      // Reactivate Order
-      await db
-        .update(orders)
-        .set({
-          state: "new",
-          updatedAt: new Date(),
-          total_price: effectivePrice,
-          tier_id: selectedTier ? selectedTier.id : userOrder.tier_id,
-          platform_fee_raw: platformFeeRaw,
-          organizer_amount_raw: organizerAmountRaw,
-          fee_bps: feeBps,
-        })
-        .where(eq(orders.uuid, userOrder.uuid))
-        .execute();
+      try {
+        await db.transaction(async (trx) => {
+          if (selectedTier) {
+            const { isSoldOut } = await eventTicketTiersDB.lockAndCheckTierCapacityTrx(trx, selectedTier.id);
+            if (isSoldOut) {
+              throw new Error("TIER_SOLD_OUT");
+            }
+            await eventTicketTiersDB.incrementTierSoldCountTrx(trx, selectedTier.id, 1);
+          } else if (eventData.capacity && eventData.capacity > 0) {
+            const [lockedEv] = await trx
+              .select({ capacity: events.capacity })
+              .from(events)
+              .where(eq(events.event_uuid, body.data.event_uuid))
+              .for("update")
+              .execute();
+
+            const curCap = lockedEv?.capacity ?? eventData.capacity;
+            if (curCap && curCap > 0) {
+              const [{ count: activeTicketsCount }] = await trx
+                .select({ count: sql`count(*)`.mapWith(Number) })
+                .from(orders)
+                .where(
+                  and(
+                    eq(orders.event_uuid, body.data.event_uuid),
+                    or(
+                      eq(orders.state, "completed"),
+                      eq(orders.state, "processing"),
+                      eq(orders.state, "confirming"),
+                      eq(orders.state, "new")
+                    ),
+                    eq(orders.order_type, ticketOrderType)
+                  )
+                )
+                .execute();
+              if (activeTicketsCount >= curCap) {
+                throw new Error("EVENT_SOLD_OUT");
+              }
+            }
+          }
+
+          // Reactivate Order with inventory reserved
+          await trx
+            .update(orders)
+            .set({
+              state: "new",
+              updatedAt: new Date(),
+              total_price: effectivePrice,
+              tier_id: selectedTier ? selectedTier.id : userOrder.tier_id,
+              platform_fee_raw: platformFeeRaw,
+              organizer_amount_raw: organizerAmountRaw,
+              fee_bps: feeBps,
+              inventory_reserved: true,
+              reserved_at: new Date(),
+            })
+            .where(eq(orders.uuid, userOrder.uuid))
+            .execute();
+        });
+      } catch (txError: any) {
+        if (txError.message === "TIER_SOLD_OUT") {
+          return Response.json({ message: "Selected ticket tier is sold out" }, { status: 410 });
+        }
+        if (txError.message === "EVENT_SOLD_OUT") {
+          return Response.json({ message: "Event tickets are sold out" }, { status: 410 });
+        }
+        throw txError;
+      }
       return Response.json({
         order_id: userOrder.uuid,
         message: "order reactivated successfully",
@@ -294,26 +359,52 @@ export async function POST(request: Request) {
 
       try {
         await db.transaction(async (trx) => {
-          if (selectedTier) {
+          const needsReservation = !userOrder.inventory_reserved;
+          if (selectedTier && needsReservation) {
             const { isSoldOut } = await eventTicketTiersDB.lockAndCheckTierCapacityTrx(trx, selectedTier.id);
             if (isSoldOut) {
               throw new Error("TIER_SOLD_OUT");
             }
+            await eventTicketTiersDB.incrementTierSoldCountTrx(trx, selectedTier.id, 1);
+          } else if (selectedTier && userOrder.tier_id && userOrder.tier_id !== selectedTier.id && userOrder.inventory_reserved) {
+            // Tier changed: release old tier and reserve new tier
+            const { isSoldOut } = await eventTicketTiersDB.lockAndCheckTierCapacityTrx(trx, selectedTier.id);
+            if (isSoldOut) {
+              throw new Error("TIER_SOLD_OUT");
+            }
+            await eventTicketTiersDB.decrementTierSoldCountTrx(trx, userOrder.tier_id, 1);
+            await eventTicketTiersDB.incrementTierSoldCountTrx(trx, selectedTier.id, 1);
           }
-          if (eventData.capacity && eventData.capacity > 0) {
-            const [{ count: activeTicketsCount }] = await trx
-              .select({ count: sql`count(*)`.mapWith(Number) })
-              .from(orders)
-              .where(
-                and(
-                  eq(orders.event_uuid, body.data.event_uuid),
-                  or(eq(orders.state, "completed"), eq(orders.state, "processing")),
-                  eq(orders.order_type, ticketOrderType)
-                )
-              )
+
+          if (!selectedTier && eventData.capacity && eventData.capacity > 0) {
+            const [lockedEv] = await trx
+              .select({ capacity: events.capacity })
+              .from(events)
+              .where(eq(events.event_uuid, body.data.event_uuid))
+              .for("update")
               .execute();
-            if (activeTicketsCount >= eventData.capacity) {
-              throw new Error("EVENT_SOLD_OUT");
+
+            const curCap = lockedEv?.capacity ?? eventData.capacity;
+            if (curCap && curCap > 0) {
+              const [{ count: activeTicketsCount }] = await trx
+                .select({ count: sql`count(*)`.mapWith(Number) })
+                .from(orders)
+                .where(
+                  and(
+                    eq(orders.event_uuid, body.data.event_uuid),
+                    or(
+                      eq(orders.state, "completed"),
+                      eq(orders.state, "processing"),
+                      eq(orders.state, "confirming"),
+                      eq(orders.state, "new")
+                    ),
+                    eq(orders.order_type, ticketOrderType)
+                  )
+                )
+                .execute();
+              if (activeTicketsCount >= curCap && needsReservation) {
+                throw new Error("EVENT_SOLD_OUT");
+              }
             }
           }
 
@@ -328,6 +419,8 @@ export async function POST(request: Request) {
               platform_fee_raw: platformFeeRaw,
               organizer_amount_raw: organizerAmountRaw,
               fee_bps: feeBps,
+              inventory_reserved: true,
+              reserved_at: new Date(),
             })
             .where(eq(orders.uuid, userOrder.uuid))
             .execute();
@@ -375,10 +468,6 @@ export async function POST(request: Request) {
                 user_id: userId,
               })
               .execute();
-
-            if (selectedTier) {
-              await eventTicketTiersDB.incrementTierSoldCountTrx(trx, selectedTier.id, 1);
-            }
           }
         });
       } catch (txError: any) {
@@ -447,21 +536,36 @@ export async function POST(request: Request) {
         if (isSoldOut) {
           throw new Error("TIER_SOLD_OUT");
         }
-      }
-      if (eventData.capacity && eventData.capacity > 0) {
-        const [{ count: activeTicketsCount }] = await trx
-          .select({ count: sql`count(*)`.mapWith(Number) })
-          .from(orders)
-          .where(
-            and(
-              eq(orders.event_uuid, body.data.event_uuid),
-              or(eq(orders.state, "completed"), eq(orders.state, "processing")),
-              eq(orders.order_type, ticketOrderType)
-            )
-          )
+        await eventTicketTiersDB.incrementTierSoldCountTrx(trx, selectedTier.id, 1);
+      } else if (eventData.capacity && eventData.capacity > 0) {
+        const [lockedEv] = await trx
+          .select({ capacity: events.capacity })
+          .from(events)
+          .where(eq(events.event_uuid, body.data.event_uuid))
+          .for("update")
           .execute();
-        if (activeTicketsCount >= eventData.capacity) {
-          throw new Error("EVENT_SOLD_OUT");
+
+        const curCap = lockedEv?.capacity ?? eventData.capacity;
+        if (curCap && curCap > 0) {
+          const [{ count: activeTicketsCount }] = await trx
+            .select({ count: sql`count(*)`.mapWith(Number) })
+            .from(orders)
+            .where(
+              and(
+                eq(orders.event_uuid, body.data.event_uuid),
+                or(
+                  eq(orders.state, "completed"),
+                  eq(orders.state, "processing"),
+                  eq(orders.state, "confirming"),
+                  eq(orders.state, "new")
+                ),
+                eq(orders.order_type, ticketOrderType)
+              )
+            )
+            .execute();
+          if (activeTicketsCount >= curCap) {
+            throw new Error("EVENT_SOLD_OUT");
+          }
         }
       }
 
@@ -487,6 +591,8 @@ export async function POST(request: Request) {
             platform_fee_raw: platformFeeRaw,
             organizer_amount_raw: organizerAmountRaw,
             fee_bps: feeBps,
+            inventory_reserved: true,
+            reserved_at: new Date(),
           })
           .returning()
           .execute()
@@ -542,10 +648,6 @@ export async function POST(request: Request) {
             user_id: userId,
           })
           .execute();
-
-        if (selectedTier) {
-          await eventTicketTiersDB.incrementTierSoldCountTrx(trx, selectedTier.id, 1);
-        }
       }
     });
   } catch (txError: any) {

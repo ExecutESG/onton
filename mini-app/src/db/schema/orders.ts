@@ -1,4 +1,4 @@
-import { bigint, index, integer, pgTable, text, timestamp, uuid, real, pgEnum } from "drizzle-orm/pg-core";
+import { bigint, boolean, index, integer, pgTable, text, timestamp, uuid, real, pgEnum } from "drizzle-orm/pg-core";
 import { coupon_items, eventTokens, orderState } from "@/db/schema";
 import { events } from "@/db/schema/events";
 import { users } from "@/db/schema/users";
@@ -48,6 +48,8 @@ export const orders = pgTable(
     organizer_amount_raw: bigint("organizer_amount_raw", { mode: "bigint" }),
     fee_bps: integer("fee_bps"),
     notified_at: timestamp("notified_at", { withTimezone: true, mode: "date" }),
+    inventory_reserved: boolean("inventory_reserved").default(false).notNull(),
+    reserved_at: timestamp("reserved_at", { mode: "date" }),
   },
   (table) => ({
     eventUuidIdx: index("orders_event_uuid_idx").on(table.event_uuid),
@@ -58,6 +60,7 @@ export const orders = pgTable(
     walletAddressIdx: index("orders_wallet_address_idx").on(table.owner_address),
     retryCountIdx: index("orders_retry_count_idx").on(table.retry_count),
     tierIdIdx: index("orders_tier_id_idx").on(table.tier_id),
+    inventoryReservedIdx: index("orders_inventory_reserved_idx").on(table.inventory_reserved),
     //One event_creation per event_uuid
     // uniqueEventCreation: uniqueIndex("unique_event_creation").on(table.event_uuid, table.order_type).where(eq(table.order_type, "event_creation")),
   })

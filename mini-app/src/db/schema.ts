@@ -45,6 +45,7 @@ import { nftItems } from "./schema/nft_items";
 import { notifications } from "./schema/notifications";
 import { ontoSetting } from "./schema/ontoSetting";
 import { orders, orderTypes } from "./schema/orders";
+import { orderDlq, OrderDlqRow, OrderDlqInsert } from "./schema/orderDlq";
 import { rewards, RewardsSelectType, RewardTonSocietyStatusType, tonSocietyStatusEnum } from "./schema/rewards";
 import { sbtRewardCollections } from "./schema/sbtRewardCollections";
 import { sbtCollections, SbtCollectionRow, SbtCollectionInsert, SbtCollectionUpdate } from "./schema/sbtCollections";
@@ -362,6 +363,7 @@ export {
   notifications,
   ontoSetting,
   orders,
+  orderDlq,
   organizerPaymentStatus,
   organizerPayouts,
   organizerPayoutsRelations,
@@ -575,4 +577,6 @@ export type {
   CsbtTreeInsert,
   OrganizerPayoutRow,
   NewOrganizerPayout,
+  OrderDlqRow,
+  OrderDlqInsert,
 };

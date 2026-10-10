@@ -2,14 +2,138 @@ import { config } from "@/server/config";
 import { logger } from "@/server/utils/logger";
 import { db } from "@/db/db";
 import { walletChecks } from "@/db/schema/walletChecks";
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import tonCenter from "@/services/tonCenter";
 import { Address } from "@ton/core";
 import { orders } from "@/db/schema/orders";
-import { tokenCampaignOrders, TokenCampaignOrdersStatus, eventPayment } from "@/db/schema";
+import { tokenCampaignOrders, TokenCampaignOrdersStatus, eventPayment, events } from "@/db/schema";
 import { eventTokens } from "@/db/schema/eventTokens";
 import { publishOrderPaidEvent } from "@/lib/orderEvents";
 import { verifyFeeSplitTrace } from "@/lib/platformFee";
+import eventTicketTiersDB from "@/db/modules/eventTicketTiers.db";
+import { sendOversellAdminAlert } from "@/lib/notifications/adminAlert";
+
+/**
+ * Handles late payments for orders expired by cron.
+ * Under row lock: re-reserves inventory if capacity exists, or marks failed with
+ * capacity_exceeded_refund_required and sends an idempotent admin alert.
+ */
+async function handleLatePaymentOnCancelledOrder(params: {
+  orderUuid: string;
+  orderRow: any;
+  ownerAddress: string;
+  trxHash: string;
+  tokenSymbol: string;
+}): Promise<boolean> {
+  const { orderUuid, orderRow, ownerAddress, trxHash, tokenSymbol } = params;
+
+  let oversold = false;
+  let fulfilled = false;
+
+  await db.transaction(async (trx) => {
+    const [locked] = await trx
+      .select()
+      .from(orders)
+      .where(and(eq(orders.uuid, orderUuid), eq(orders.state, "cancelled")))
+      .for("update")
+      .execute();
+
+    if (!locked) return;
+
+    if (locked.tier_id) {
+      const { isSoldOut } = await eventTicketTiersDB.lockAndCheckTierCapacityTrx(trx, locked.tier_id);
+      if (isSoldOut) {
+        oversold = true;
+      } else {
+        await eventTicketTiersDB.incrementTierSoldCountTrx(trx, locked.tier_id, 1);
+      }
+    } else if (locked.event_uuid) {
+      const [lockedEvent] = await trx
+        .select({ capacity: events.capacity })
+        .from(events)
+        .where(eq(events.event_uuid, locked.event_uuid))
+        .for("update")
+        .execute();
+
+      if (lockedEvent?.capacity && lockedEvent.capacity > 0) {
+        const [{ count: activeCount }] = await trx
+          .select({ count: sql`count(*)`.mapWith(Number) })
+          .from(orders)
+          .where(
+            and(
+              eq(orders.event_uuid, locked.event_uuid),
+              or(
+                eq(orders.state, "completed"),
+                eq(orders.state, "processing"),
+                eq(orders.state, "confirming"),
+                eq(orders.state, "new")
+              ),
+              eq(orders.order_type, locked.order_type)
+            )
+          )
+          .execute();
+        if (activeCount >= lockedEvent.capacity) {
+          oversold = true;
+        }
+      }
+    }
+
+    if (oversold) {
+      await trx
+        .update(orders)
+        .set({
+          state: "failed",
+          last_error: "capacity_exceeded_refund_required",
+          owner_address: ownerAddress,
+          trx_hash: trxHash,
+          updatedAt: new Date(),
+          updatedBy: "cron_trx_cancelled_oversell",
+        })
+        .where(eq(orders.uuid, orderUuid))
+        .execute();
+    } else {
+      await trx
+        .update(orders)
+        .set({
+          state: "processing",
+          inventory_reserved: true,
+          reserved_at: new Date(),
+          owner_address: ownerAddress,
+          trx_hash: trxHash,
+          updatedAt: new Date(),
+          updatedBy: "cron_trx_late_payment",
+        })
+        .where(eq(orders.uuid, orderUuid))
+        .execute();
+      fulfilled = true;
+    }
+  });
+
+  if (oversold) {
+    logger.error(`[Late Payment Oversell] Cancelled order ${orderUuid} payment confirmed, but inventory is sold out.`);
+    await sendOversellAdminAlert({
+      orderUuid,
+      eventUuid: orderRow.event_uuid || undefined,
+      trxHash,
+      paymentMethod: tokenSymbol,
+      reason: "capacity_exceeded_refund_required",
+    });
+    return false;
+  }
+
+  if (fulfilled) {
+    logger.info(`[Late Payment Fulfilled] Cancelled order ${orderUuid} re-reserved inventory and moved to processing.`);
+    await publishOrderPaidEvent({
+      orderUuid,
+      eventUuid: orderRow.event_uuid || undefined,
+      userId: orderRow.user_id ? Number(orderRow.user_id) : undefined,
+      paymentMethod: tokenSymbol,
+    });
+    return true;
+  }
+
+  return false;
+}
 
 export const CheckTransactions = async () => {
   // Get Orders to be Checked (Sort By Order.TicketDetails.Id)
@@ -170,9 +294,26 @@ export const CheckTransactions = async () => {
       token_id: orderRow.token_id,
       order_created: orderRow.created_at,
     });
+    if (orderRow.state === "cancelled") {
+      await handleLatePaymentOnCancelledOrder({
+        orderUuid: o.order_uuid,
+        orderRow,
+        ownerAddress: o.owner.toString(),
+        trxHash: o.trx_hash,
+        tokenSymbol: token.symbol,
+      });
+      continue;
+    }
+
     const updated = await db
       .update(orders)
-      .set({ state: "processing", owner_address: o.owner.toString(), trx_hash: o.trx_hash, created_at: new Date() })
+      .set({
+        state: "processing",
+        owner_address: o.owner.toString(),
+        trx_hash: o.trx_hash,
+        updatedAt: new Date(),
+        updatedBy: "cron_trx_payment",
+      })
       .where(
         and(
           eq(orders.uuid, o.order_uuid),
@@ -207,7 +348,7 @@ export const CheckTransactions = async () => {
   try {
     const pendingWaivedOrders = await db.query.orders.findMany({
       where: and(
-        or(eq(orders.state, "new"), eq(orders.state, "confirming")),
+        or(eq(orders.state, "new"), eq(orders.state, "confirming"), eq(orders.state, "cancelled")),
         eq(orders.platform_fee_raw, BigInt(0))
       ),
     });
@@ -236,6 +377,17 @@ export const CheckTransactions = async () => {
           : expectedOrganizerAmount - matchingTrx.rawAmount;
 
       if (diff <= maxTolerance) {
+        if (ord.state === "cancelled") {
+          await handleLatePaymentOnCancelledOrder({
+            orderUuid: ord.uuid,
+            orderRow: ord,
+            ownerAddress: matchingTrx.owner.toString(),
+            trxHash: matchingTrx.trx_hash,
+            tokenSymbol: token.symbol,
+          });
+          continue;
+        }
+
         const updated = await db
           .update(orders)
           .set({
@@ -243,6 +395,7 @@ export const CheckTransactions = async () => {
             owner_address: matchingTrx.owner.toString(),
             trx_hash: matchingTrx.trx_hash,
             updatedAt: new Date(),
+            updatedBy: "cron_trx_waived_payment",
           })
           .where(
             and(

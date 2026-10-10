@@ -21,6 +21,7 @@ import { isAxiosError } from "axios";
 import { redisTools } from "@/lib/redisTools";
 import { claimOrderNotification } from "@/db/modules/orders.db";
 import { notifyOrganizerAndAdminOnTicketPayment } from "@/services/orderNotificationService";
+import { sendOversellAdminAlert } from "@/lib/notifications/adminAlert";
 
 export const MAX_MINT_RETRIES = 5;
 
@@ -60,6 +61,68 @@ export const recordOrderMintFailure = async (
  * Process and fulfill a single paid order immediately (used by RabbitMQ consumer and cron runner).
  * Thread-safe with Redis lock per event and PostgreSQL FOR UPDATE row lock.
  */
+async function checkAndReserveCapacityTrx(
+  trx: any,
+  ordr: typeof orders.$inferSelect,
+  event_uuid: string
+): Promise<{ isSoldOut: boolean }> {
+  if (ordr.inventory_reserved) {
+    return { isSoldOut: false };
+  }
+
+  if (ordr.tier_id) {
+    const { isSoldOut } = await eventTicketTiersDB.lockAndCheckTierCapacityTrx(trx, ordr.tier_id);
+    if (isSoldOut) {
+      return { isSoldOut: true };
+    }
+    await eventTicketTiersDB.incrementTierSoldCountTrx(trx, ordr.tier_id, 1);
+    await trx
+      .update(orders)
+      .set({ inventory_reserved: true, reserved_at: new Date() })
+      .where(eq(orders.uuid, ordr.uuid))
+      .execute();
+    return { isSoldOut: false };
+  }
+
+  // Untiered event capacity check under row lock
+  const [lockedEv] = await trx
+    .select({ capacity: events.capacity })
+    .from(events)
+    .where(eq(events.event_uuid, event_uuid))
+    .for("update")
+    .execute();
+
+  if (lockedEv?.capacity && lockedEv.capacity > 0) {
+    const [{ count: activeTicketsCount }] = await trx
+      .select({ count: sql`count(*)`.mapWith(Number) })
+      .from(orders)
+      .where(
+        and(
+          eq(orders.event_uuid, event_uuid),
+          or(
+            eq(orders.state, "completed"),
+            eq(orders.state, "processing"),
+            eq(orders.state, "confirming"),
+            eq(orders.state, "new")
+          ),
+          eq(orders.order_type, ordr.order_type)
+        )
+      )
+      .execute();
+
+    if (activeTicketsCount >= lockedEv.capacity) {
+      return { isSoldOut: true };
+    }
+  }
+
+  await trx
+    .update(orders)
+    .set({ inventory_reserved: true, reserved_at: new Date() })
+    .where(eq(orders.uuid, ordr.uuid))
+    .execute();
+  return { isSoldOut: false };
+}
+
 export const processSinglePaidOrder = async (orderUuid: string): Promise<boolean> => {
   const [ordr] = await db
     .select()
@@ -144,6 +207,7 @@ export const processSinglePaidOrder = async (orderUuid: string): Promise<boolean
   try {
     // Bypass minting for TICKET
     if (paymentInfo.ticket_type === "TICKET") {
+      let isSoldOut = false;
       const orderClaimed = await db.transaction(async (trx) => {
         const [locked] = await trx
           .select({ uuid: orders.uuid })
@@ -154,6 +218,19 @@ export const processSinglePaidOrder = async (orderUuid: string): Promise<boolean
 
         if (!locked) return false;
 
+        // Capacity check strictly BEFORE side effects
+        const capResult = await checkAndReserveCapacityTrx(trx, ordr, event_uuid);
+        if (capResult.isSoldOut) {
+          isSoldOut = true;
+          logger.error(`[Oversell Guard] Capacity exceeded for legacy ticket order ${ordr.uuid}. Marking failed.`);
+          await trx
+            .update(orders)
+            .set({ state: "failed", last_error: "capacity_exceeded_refund_required", updatedAt: new Date() })
+            .where(eq(orders.uuid, ordr.uuid))
+            .execute();
+          return false;
+        }
+
         await trx
           .update(orders)
           .set({ updatedBy: `mint_lock_${Date.now()}` })
@@ -163,6 +240,16 @@ export const processSinglePaidOrder = async (orderUuid: string): Promise<boolean
         return true;
       });
 
+      if (isSoldOut) {
+        await sendOversellAdminAlert({
+          orderUuid: ordr.uuid,
+          eventUuid: event_uuid,
+          trxHash: ordr.trx_hash,
+          reason: "capacity_exceeded_refund_required",
+        });
+        return false;
+      }
+
       if (!orderClaimed) {
         logger.warn(`processSinglePaidOrder: order ${ordr.uuid} already processed or claimed`);
         return false;
@@ -170,17 +257,13 @@ export const processSinglePaidOrder = async (orderUuid: string): Promise<boolean
 
       await db.transaction(async (trx) => {
         const updateResult = (
-          await trx.update(orders).set({ state: "completed" }).where(eq(orders.uuid, ordr.uuid)).returning().execute()
+          await trx.update(orders).set({ state: "completed", updatedAt: new Date() }).where(eq(orders.uuid, ordr.uuid)).returning().execute()
         ).pop();
 
         if (ordr.coupon_id !== null) await couponItemsDB.makeCouponItemUsedTrx(trx, ordr.coupon_id, event_uuid);
 
         if (updateResult && updateResult.utm_source) {
           await affiliateLinksDB.incrementAffiliatePurchase(updateResult.utm_source);
-        }
-
-        if (ordr.tier_id) {
-          await eventTicketTiersDB.incrementTierSoldCountTrx(trx, ordr.tier_id, 1);
         }
 
         if (ordr.fee_bps === 0 && Number(ordr.total_price) > 0) {
@@ -191,8 +274,6 @@ export const processSinglePaidOrder = async (orderUuid: string): Promise<boolean
         }
 
         // For TICKET, we insert into tickets table instead of nftItems
-        // Actually, we need to fetch user details or registration info.
-        // Let's get them from eventRegistrants
         const regInfo = await trx.select().from(eventRegistrants).where(and(eq(eventRegistrants.event_uuid, event_uuid), eq(eventRegistrants.user_id, ordr.user_id || 0))).execute();
         
         let registerData: any = {};
@@ -302,7 +383,8 @@ export const processSinglePaidOrder = async (orderUuid: string): Promise<boolean
       return false;
     }
 
-    // Concurrency protection: Verify and lock order row with FOR UPDATE
+    // Concurrency protection & Capacity check strictly BEFORE on-chain minting
+    let isNftSoldOut = false;
     const orderClaimed = await db.transaction(async (trx) => {
       const [locked] = await trx
         .select({ uuid: orders.uuid })
@@ -313,6 +395,18 @@ export const processSinglePaidOrder = async (orderUuid: string): Promise<boolean
 
       if (!locked) return false;
 
+      const capResult = await checkAndReserveCapacityTrx(trx, ordr, event_uuid);
+      if (capResult.isSoldOut) {
+        isNftSoldOut = true;
+        logger.error(`[Oversell Guard] Capacity exceeded for legacy NFT order ${ordr.uuid}. Marking failed.`);
+        await trx
+          .update(orders)
+          .set({ state: "failed", last_error: "capacity_exceeded_refund_required", updatedAt: new Date() })
+          .where(eq(orders.uuid, ordr.uuid))
+          .execute();
+        return false;
+      }
+
       await trx
         .update(orders)
         .set({ updatedBy: `mint_lock_${Date.now()}` })
@@ -321,6 +415,16 @@ export const processSinglePaidOrder = async (orderUuid: string): Promise<boolean
 
       return true;
     });
+
+    if (isNftSoldOut) {
+      await sendOversellAdminAlert({
+        orderUuid: ordr.uuid,
+        eventUuid: event_uuid,
+        trxHash: ordr.trx_hash,
+        reason: "capacity_exceeded_refund_required",
+      });
+      return false;
+    }
 
     if (!orderClaimed) {
       logger.warn(`processSinglePaidOrder: order ${ordr.uuid} already processed or claimed by another worker`);
@@ -398,16 +502,12 @@ export const processSinglePaidOrder = async (orderUuid: string): Promise<boolean
 
     await db.transaction(async (trx) => {
       const updateResult = (
-        await trx.update(orders).set({ state: "completed" }).where(eq(orders.uuid, ordr.uuid)).returning().execute()
+        await trx.update(orders).set({ state: "completed", updatedAt: new Date() }).where(eq(orders.uuid, ordr.uuid)).returning().execute()
       ).pop();
 
       if (ordr.coupon_id !== null) await couponItemsDB.makeCouponItemUsedTrx(trx, ordr.coupon_id, event_uuid);
       if (updateResult && updateResult.utm_source)
         await affiliateLinksDB.incrementAffiliatePurchase(updateResult.utm_source);
-
-      if (ordr.tier_id) {
-        await eventTicketTiersDB.incrementTierSoldCountTrx(trx, ordr.tier_id, 1);
-      }
 
       if (ordr.fee_bps === 0 && Number(ordr.total_price) > 0) {
         const ev = await trx.select({ owner: events.owner }).from(events).where(eq(events.event_uuid, event_uuid)).execute();

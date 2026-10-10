@@ -34,20 +34,25 @@ const updateOrderState = async (orderUuid: string, userId: number, newState: "ca
       : baseWhere;
 
   const [existingOrder] = await db
-    .select({ state: orders.state, tier_id: orders.tier_id })
+    .select({ state: orders.state, tier_id: orders.tier_id, inventory_reserved: orders.inventory_reserved })
     .from(orders)
     .where(finalWhere!)
     .execute();
 
   const updatedRows = await db
     .update(orders)
-    .set({ state: newState })
+    .set({
+      state: newState,
+      ...(newState === "cancelled" ? { inventory_reserved: false } : {}),
+    })
     .where(finalWhere!)
     .returning({ uuid: orders.uuid })
     .execute();
 
-  if (newState === "cancelled" && existingOrder?.state === "completed" && existingOrder?.tier_id) {
-    await eventTicketTiersDB.decrementTierSoldCount(existingOrder.tier_id, 1);
+  if (newState === "cancelled" && existingOrder?.tier_id) {
+    if (existingOrder.inventory_reserved || existingOrder.state === "completed") {
+      await eventTicketTiersDB.decrementTierSoldCount(existingOrder.tier_id, 1);
+    }
   }
 
   return updatedRows;
@@ -60,7 +65,12 @@ async function checkIfSoldOut(event_uuid: string, ticketOrderType: OrderTypeValu
     .where(
       and(
         eq(orders.event_uuid, event_uuid),
-        or(eq(orders.state, "completed"), eq(orders.state, "processing")),
+        or(
+          eq(orders.state, "completed"),
+          eq(orders.state, "processing"),
+          eq(orders.state, "confirming"),
+          eq(orders.state, "new")
+        ),
         eq(orders.order_type, ticketOrderType)
       )
     )

@@ -157,16 +157,10 @@ export async function handleStarsSuccessfulPayment(ctx: MyContext) {
   try {
     await client.query("BEGIN");
 
-    // 1) Update order state to completed
+    // 1) Lock order row with FOR UPDATE
     const orderRes = await client.query(
-      `UPDATE orders
-       SET state = 'completed',
-           trx_hash = $1,
-           updated_at = NOW(),
-           updated_by = 'stars_payment'
-       WHERE uuid = $2
-       RETURNING *`,
-      [chargeId, orderId]
+      `SELECT * FROM orders WHERE uuid = $1 FOR UPDATE`,
+      [orderId]
     );
 
     if (orderRes.rowCount === 0) {
@@ -179,8 +173,74 @@ export async function handleStarsSuccessfulPayment(ctx: MyContext) {
     const eventUuid = order.event_uuid;
     const buyerUserId = order.user_id || userId;
 
-    // 1b) Increment sold_count on event_ticket_tiers atomically
-    if (order.tier_id) {
+    // Check capacity strictly under row lock BEFORE completing order (#1055)
+    let isSoldOut = false;
+    if (order.tier_id && !order.inventory_reserved) {
+      const tierRes = await client.query(
+        `SELECT capacity, sold_count FROM event_ticket_tiers WHERE id = $1 FOR UPDATE`,
+        [order.tier_id]
+      );
+      const tier = tierRes.rows[0];
+      if (tier && tier.capacity > 0 && tier.sold_count >= tier.capacity) {
+        isSoldOut = true;
+      }
+    } else if (!order.tier_id && !order.inventory_reserved && eventUuid) {
+      const evRes = await client.query(
+        `SELECT capacity FROM events WHERE event_uuid = $1 FOR UPDATE`,
+        [eventUuid]
+      );
+      const evCapacity = evRes.rows[0]?.capacity;
+      if (evCapacity && evCapacity > 0) {
+        const soldRes = await client.query(
+          `SELECT COUNT(*)::int AS cnt FROM orders 
+           WHERE event_uuid = $1 AND state IN ('completed', 'processing', 'confirming', 'new')`,
+          [eventUuid]
+        );
+        if ((soldRes.rows[0]?.cnt || 0) >= evCapacity) {
+          isSoldOut = true;
+        }
+      }
+    }
+
+    if (isSoldOut) {
+      logger.error(`[Stars Oversell Guard] Capacity exceeded for order ${order.uuid}. Aborting fulfillment and issuing refund.`);
+      await client.query(
+        `UPDATE orders
+         SET state = 'failed',
+             last_error = 'capacity_exceeded_refund_required',
+             trx_hash = $1,
+             updated_at = NOW(),
+             updated_by = 'stars_oversell'
+         WHERE uuid = $2`,
+        [chargeId, orderId]
+      );
+      await client.query("COMMIT");
+
+      // Stars refund & user notification (#1055)
+      try {
+        if (userId && chargeId) {
+          await ctx.api.refundStarPayment(userId, chargeId);
+          logger.info(`[Stars Refund] Successfully refunded charge ${chargeId} for user ${userId}`);
+          await ctx.reply(
+            "⚠️ We are sorry, but this ticket tier sold out just before your payment could be fulfilled.\n\nYour Telegram Stars have been automatically refunded to your account."
+          );
+        }
+      } catch (refundError) {
+        logger.error(`[Stars Refund] Failed to refund charge ${chargeId} for order ${orderId}:`, refundError);
+        try {
+          await pool.query(
+            `UPDATE orders SET last_error = 'refund_failed_retry_queued', retry_count = retry_count + 1, updated_at = NOW() WHERE uuid = $1`,
+            [orderId]
+          );
+        } catch (dbErr) {
+          logger.error(`Failed to update retry_count for order ${orderId}:`, dbErr);
+        }
+      }
+      return;
+    }
+
+    // Capacity allows: Increment sold_count on event_ticket_tiers if not reserved at creation (#1055)
+    if (order.tier_id && !order.inventory_reserved) {
       await client.query(
         `UPDATE event_ticket_tiers
          SET sold_count = sold_count + 1,
@@ -190,6 +250,18 @@ export async function handleStarsSuccessfulPayment(ctx: MyContext) {
         [order.tier_id]
       );
     }
+
+    // Update order state to completed
+    await client.query(
+      `UPDATE orders
+       SET state = 'completed',
+           inventory_reserved = true,
+           trx_hash = $1,
+           updated_at = NOW(),
+           updated_by = 'stars_payment'
+       WHERE uuid = $2`,
+      [chargeId, orderId]
+    );
 
     // 1c) Decrement organizer's fee_waiver_tickets_remaining if order completed with waiver
     if (order.fee_bps === 0 && Number(order.total_price) > 0) {

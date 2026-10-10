@@ -314,6 +314,7 @@ describe("sbtRouter.getUserBadges: Integration, Overrides & Multi-Page Paginatio
           metadataUrl: "https://meta.url/1",
           status: "minted",
           transactionHash: "tx1",
+          paymentTxHash: null,
           revokedAt: null,
           metadata: { name: "Native Badge" },
           createdAt: new Date("2026-03-01"),
@@ -691,6 +692,7 @@ describe("sbtRouter.materializeLegacyRecord", () => {
       metadataUrl: "meta",
       status: "minted",
       transactionHash: null,
+      paymentTxHash: null,
       revokedAt: null,
       metadata: {},
       createdAt: new Date(),
@@ -765,6 +767,7 @@ describe("sbtRouter.materializeLegacyRecord", () => {
         rawAmount: BigInt(100_000_000), // 0.1 TON
         kind: "ton",
         verfied: true,
+        trx_hash: "0x_legacy_payment_tx_hash_123456",
       } as any,
     ]);
 
@@ -781,6 +784,7 @@ describe("sbtRouter.materializeLegacyRecord", () => {
   });
 
   it("successfully mints native TEP-85 SBT and updates rewards.data in local environment", async () => {
+    vi.mocked(is_local_env).mockReturnValue(true);
     mockDbExecute
       .mockResolvedValueOnce([
         {

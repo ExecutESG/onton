@@ -2,7 +2,7 @@ import rewardDB from "@/db/modules/rewards.db";
 import { getAndValidateVisitor } from "@/services/visitorService";
 
 import { db } from "@/db/db";
-import { eventRegistrants, rewards } from "@/db/schema";
+import { eventRegistrants, rewards, orders } from "@/db/schema";
 import eventPaymentDB from "@/db/modules/eventPayment.db";
 import eventDB, { selectEventByUuid } from "@/db/modules/events.db";
 import rewardsDb from "@/db/modules/rewards.db";
@@ -11,7 +11,7 @@ import { validateEventData, validateEventDates } from "@/services/eventService";
 import { logger } from "@/server/utils/logger";
 import { sleep } from "@/utils";
 import { TRPCError } from "@trpc/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import { RewardDataTyepe } from "@/db/schema/rewards";
 import { usersDB } from "@/db/modules/users.db";
 import { rewardLinkZod } from "@/types/user.types";
@@ -186,67 +186,63 @@ export const CsbtTicketForApi = async (event_uuid: string, user_id: number) => {
   const society_hub_value =
     typeof eventData.society_hub === "string" ? eventData.society_hub : eventData.society_hub?.name || "Onton";
 
-  // Check if user has wallet address for direct native SBT mint
-  const user = await usersDB.selectUserById(user_id);
-  if (user?.wallet_address) {
-    try {
-      const sbtBadge = await sbtService.mintSbtBadge({
-        eventUuid: event_uuid,
-        userId: user_id,
-        walletAddress: user.wallet_address,
-        badgeTitle: `${paymentInfo.title} (Ticket)`,
-        badgeDescription: paymentInfo.description || `Soulbound Ticket for ${eventData.title}`,
-        badgeImage: paymentInfo.ticketImage || undefined,
-        attributes: [
-          { trait_type: "Ticket Type", value: "Soulbound Ticket (cSBT)" },
-          { trait_type: "Organizer", value: society_hub_value },
-        ],
+  // Capacity check before on-chain minting (#1055, #1060)
+  const cap = eventData.capacity || paymentInfo.bought_capacity;
+  if (cap && cap > 0) {
+    const [{ count: activeTicketsCount }] = await db
+      .select({ count: sql`count(*)`.mapWith(Number) })
+      .from(orders)
+      .where(
+        and(
+          eq(orders.event_uuid, event_uuid),
+          or(
+            eq(orders.state, "completed"),
+            eq(orders.state, "processing"),
+            eq(orders.state, "confirming"),
+            eq(orders.state, "new")
+          )
+        )
+      )
+      .execute();
+    if (activeTicketsCount >= cap) {
+      logger.error(`CsbtTicketForApi: capacity exceeded for event ${event_uuid}`);
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "Event tickets are sold out",
       });
-
-      const rewardData = {
-        reward_link: `https://tonviewer.com/${sbtBadge.itemAddress}`,
-        sbt_address: sbtBadge.itemAddress,
-      };
-
-      await db
-        .insert(rewards)
-        .values({
-          visitor_id: visitor.id,
-          type: "ton_society_csbt_ticket",
-          data: rewardData as any,
-          event_end_date: eventData?.end_date!,
-          event_start_date: eventData?.start_date!,
-          status: "created",
-          updatedBy: user_id.toString(),
-          tonSocietyStatus: "CLAIMED",
-        })
-        .returning()
-        .execute();
-
-      logger.info(`Native SBT Ticket minted successfully for user ${user_id} at ${sbtBadge.itemAddress}.`);
-      return rewardData;
-    } catch (mintErr) {
-      logger.error("CsbtTicket: Direct native SBT mint failed, recording pending reward", mintErr);
     }
   }
 
-  // Fallback if wallet not yet bound: insert pending reward
+  // Option A (#1060): External partner tickets issue off-chain cSBT record.
+  // On-chain TEP-85 tokens require explicit paid upgrade via materializeOnChainSbt.
+  const botUsername = process.env.NEXT_PUBLIC_BOT_USERNAME || "theontonbot";
+  const rewardData = {
+    kind: "offchain_csbt",
+    reward_link: `https://t.me/${botUsername}/event?startapp=${event_uuid}`,
+    title: `${paymentInfo.title} (Ticket)`,
+    event_uuid,
+    user_id,
+    organizer: society_hub_value,
+    status: "created",
+  };
+
   await db
     .insert(rewards)
     .values({
       visitor_id: visitor.id,
       type: "ton_society_csbt_ticket",
-      data: null,
+      data: rewardData as any,
       event_end_date: eventData?.end_date!,
       event_start_date: eventData?.start_date!,
-      status: "pending_creation",
+      status: "created",
       updatedBy: user_id.toString(),
-      tonSocietyStatus: "NOT_CLAIMED",
+      tonSocietyStatus: "CLAIMED",
     })
     .returning()
     .execute();
 
-  return null;
+  logger.info(`[Option A] Off-chain cSBT ticket record created for user ${user_id} on event ${event_uuid}`);
+  return rewardData;
 };
 const createTonSocietySBTReward = async (event_uuid: string, user_id: number) => {
   try {

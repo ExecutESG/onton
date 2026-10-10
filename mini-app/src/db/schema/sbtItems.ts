@@ -1,4 +1,4 @@
-import { pgTable, serial, varchar, text, bigint, timestamp, json, index } from "drizzle-orm/pg-core";
+import { pgTable, serial, varchar, text, bigint, timestamp, json, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { InferSelectModel } from "drizzle-orm";
 
 export const sbtItems = pgTable(
@@ -13,6 +13,7 @@ export const sbtItems = pgTable(
     metadataUrl: varchar("metadata_url", { length: 500 }).notNull(),
     status: varchar("status", { length: 50 }).notNull().default("minted"), // "pending" | "minting" | "minted" | "revoked" | "destroyed"
     transactionHash: varchar("transaction_hash", { length: 255 }),
+    paymentTxHash: varchar("payment_tx_hash", { length: 255 }),
     revokedAt: timestamp("revoked_at", { mode: "date" }),
     metadata: json("metadata"), // cached JSON metadata { name, description, image, attributes }
     createdAt: timestamp("created_at").defaultNow(),
@@ -25,6 +26,7 @@ export const sbtItems = pgTable(
     itemAddressIdx: index("sbt_items_address_idx").on(table.itemAddress),
     recipientWalletIdx: index("sbt_items_recipient_wallet_idx").on(table.recipientWalletAddress),
     recipientUserIdx: index("sbt_items_recipient_user_idx").on(table.recipientUserId),
+    paymentTxHashIdx: uniqueIndex("sbt_items_payment_tx_hash_uq").on(table.paymentTxHash),
   })
 );
 

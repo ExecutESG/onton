@@ -335,7 +335,7 @@ type InMsg = {
     };
   };
 };
-type OrderTransaction = {
+export type OrderTransaction = {
   rawAmount: bigint;
   order_uuid: string;
   kind: "ton" | "jetton";

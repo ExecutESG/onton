@@ -197,7 +197,7 @@ flowchart TD
 | **F-30 Universal PoA Backdoor** | **RESOLVED** | Hardcoded universal override password removed in commit `da2a2ef1` (#1044). |
 | **Swarm Public Redis Port** | **RESOLVED** | Public port 6379 exposure removed in commit `6413f8c3`. Redis is strictly internal. |
 | **F-27 Email OTP UI** | **MITIGATED** | Email OTP UI hidden/streamlined on staging pending dedicated email SMTP transport integration. |
-| **F-36 SBT Auto-Mint Overlap** | **MITIGATED** | Auto-minting SBT on check-in disabled; free claim vs paid on-chain upgrade path clarified. |
+| **F-36 SBT Auto-Mint Overlap** | **RESOLVED** | Option A (#1060) strictly enforced: Free check-in and external seller tickets yield off-chain Merkle cSBT only. On-chain TEP-85 tokens require paid `materializeOnChainSbt` (0.1 TON) or admin `mintBadge`. |
 | **F-04 CI Target Discrepancy** | **OPEN** | CI workflow deploys `main` to the staging server. Production deployment remains manual. |
 | **F-33 Stars Pre-Checkout Validation** | **OPEN** | Stars pre-checkout webhook approves without verifying order state, price peg, or ticket tier capacity. |
 | **F-34 Ticket Tier `sold_count`** | **OPEN** | Paid ticket purchases do not atomically increment `event_ticket_tiers.sold_count`. |

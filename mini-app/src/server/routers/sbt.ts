@@ -11,9 +11,10 @@ import rewardDB from "@/db/modules/rewards.db";
 import { legacyAttendanceDB } from "@/db/modules/legacyAttendance.db";
 import { logger } from "../utils/logger";
 import { TRPCError } from "@trpc/server";
-import tonCenter, { is_mainnet } from "@/services/tonCenter";
+import tonCenter, { is_mainnet, OrderTransaction } from "@/services/tonCenter";
 import { db } from "@/db/db";
 import { eventRegistrants } from "@/db/schema/eventRegistrants";
+import { sbtItems } from "@/db/schema/sbtItems";
 import { and, asc, eq } from "drizzle-orm";
 import { CsbtMerkleTree, CsbtLeafData } from "@/lib/csbt";
 import { csbtTreeService } from "@/services/csbtTreeService";
@@ -340,12 +341,12 @@ export const sbtRouter = router({
       }
     }),
 
-  /** Ticket owner only: this also updates the owner's wallet address. */
+  /** Ticket owner only: claims off-chain Merkle cSBT attendance credential (#1060 Option A) */
   claimAttendanceSbt: initDataProtectedProcedure
     .input(
       z.object({
         ticketUuid: z.string(),
-        walletAddress: z.string(),
+        walletAddress: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -360,11 +361,13 @@ export const sbtRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Ticket must be checked in before claiming SBT badge" });
       }
 
-      // 3. Update user wallet address
-      try {
-        await usersDB.updateWallet(ticket.user_id, input.walletAddress, "system_sbt_claim");
-      } catch (err) {
-        logger.error(`claimAttendanceSbt: Failed to update wallet for user ${ticket.user_id}`, err);
+      // 3. Update user wallet address if provided
+      if (input.walletAddress) {
+        try {
+          await usersDB.updateWallet(ticket.user_id, input.walletAddress, "system_sbt_claim");
+        } catch (err) {
+          logger.error(`claimAttendanceSbt: Failed to update wallet for user ${ticket.user_id}`, err);
+        }
       }
 
       // 4. Fetch event details for metadata
@@ -373,33 +376,18 @@ export const sbtRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Event not found" });
       }
 
-      // 5. Mint SBT badge
-      try {
-        const item = await sbtService.mintSbtBadge({
-          eventUuid: ticket.event_uuid,
-          userId: ticket.user_id,
-          walletAddress: input.walletAddress,
-          badgeTitle: `${eventData.title} Attendance Badge`,
-          badgeDescription: `Official Soulbound Proof of Attendance for ${eventData.title}`,
-          badgeImage: eventData.tsRewardImage || eventData.image_url || undefined,
-        });
+      // 5. Option A: Free path yields off-chain Merkle cSBT only (no on-chain TEP-85 minting)
+      await visitorsDB.addVisitor(ticket.user_id, ticket.event_uuid);
 
-        // 6. Record visitor check-in
-        await visitorsDB.addVisitor(ticket.user_id, ticket.event_uuid);
-
-        return {
-          success: true,
-          itemAddress: item.itemAddress,
-          rewardLink: getExplorerLink(item.itemAddress),
-        };
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Failed to mint SBT badge";
-        logger.error(`claimAttendanceSbt: Error minting SBT badge: ${message}`, error);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message,
-        });
-      }
+      return {
+        success: true,
+        kind: "offchain_csbt" as const,
+        badgeTitle: `${eventData.title} Attendance Credential`,
+        badgeDescription: `Official Soulbound Proof of Attendance for ${eventData.title}`,
+        badgeImage: eventData.tsRewardImage || eventData.image_url || "https://onton.app/assets/sbt-badge.png",
+        eventUuid: ticket.event_uuid,
+        rewardLink: null,
+      };
     }),
 
   getTicketCsbt: publicProcedure
@@ -428,15 +416,19 @@ export const sbtRouter = router({
         const { record, tree, payload } = frozen;
         const leaves = payload.leaves;
 
-        const targetIndex = Math.max(
-          0,
-          leaves.findIndex(
-            (l) =>
-              (ticket.user_id && l.userId === ticket.user_id) ||
-              l.ownerAddress === String(ticket.user_id) ||
-              (ticket.telegram && l.ownerAddress === ticket.telegram)
-          )
+        const targetIndex = leaves.findIndex(
+          (l) =>
+            (ticket.user_id && l.userId === ticket.user_id) ||
+            l.ownerAddress === String(ticket.user_id) ||
+            (ticket.telegram && l.ownerAddress === ticket.telegram)
         );
+
+        if (targetIndex === -1) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Attendee credential not found in frozen tree",
+          });
+        }
 
         const proof = tree.getProof(targetIndex);
         const isVerified = CsbtMerkleTree.verifyProof(proof.leafHash, proof, proof.root);
@@ -474,26 +466,32 @@ export const sbtRouter = router({
         )
         .orderBy(asc(eventRegistrants.id));
 
+      if (checkedInRegistrants.length === 0) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "No checked-in attendees found for this event",
+        });
+      }
+
+      const targetIndex = checkedInRegistrants.findIndex(
+        (r) =>
+          r.registrantUuid === ticket.order_uuid ||
+          (ticket.user_id && r.userId === ticket.user_id)
+      );
+
+      if (targetIndex === -1) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Attendee credential not found in live event",
+        });
+      }
+
       const leaves: CsbtLeafData[] = checkedInRegistrants.map((reg, idx) => ({
         index: idx,
         ownerAddress: String(reg.userId || 0),
         userId: reg.userId || undefined,
         eventUuid: ticket.event_uuid!,
       }));
-
-      if (leaves.length === 0) {
-        leaves.push({
-          index: 0,
-          ownerAddress: String(ticket.user_id || 0),
-          userId: ticket.user_id || undefined,
-          eventUuid: ticket.event_uuid!,
-        });
-      }
-
-      const targetIndex = Math.max(
-        0,
-        checkedInRegistrants.findIndex((r) => r.registrantUuid === ticket.order_uuid)
-      );
 
       const tree = await CsbtMerkleTree.fromLeaves(leaves);
       const proof = tree.getProof(targetIndex);
@@ -559,7 +557,7 @@ export const sbtRouter = router({
         });
       }
 
-      let verifiedTx: any = null;
+      let verifiedTx: OrderTransaction | null = null;
       if (treasuryAddress && !is_local_env()) {
         const maxAttempts = 6;
         const delayMs = process.env.NODE_ENV === "test" ? 10 : 2500;
@@ -592,6 +590,27 @@ export const sbtRouter = router({
         });
       }
 
+      const paymentTxHash: string | undefined =
+        verifiedTx?.trx_hash?.trim() || (is_local_env() ? `local_tx_${ticket.id}` : undefined);
+      if (!paymentTxHash) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Valid payment transaction hash is required to materialize on-chain SBT badge",
+        });
+      }
+
+      const existingByPayment = await db
+        .select({ id: sbtItems.id })
+        .from(sbtItems)
+        .where(eq(sbtItems.paymentTxHash, paymentTxHash))
+        .limit(1);
+      if (existingByPayment.length > 0) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "This payment transaction has already been used to materialize an SBT badge",
+        });
+      }
+
       // 5. Update user wallet address
       try {
         await usersDB.updateWallet(ticket.user_id, input.walletAddress, "system_sbt_upgrade");
@@ -614,6 +633,7 @@ export const sbtRouter = router({
           badgeTitle: `${eventData.title} Attendance Badge`,
           badgeDescription: `Official Soulbound Proof of Attendance for ${eventData.title}`,
           badgeImage: eventData.tsRewardImage || eventData.image_url || undefined,
+          paymentTxHash,
         });
 
         // 8. Record visitor check-in
@@ -626,6 +646,16 @@ export const sbtRouter = router({
           isExisting: false,
         };
       } catch (error) {
+        const isConflict =
+          (error as { code?: string })?.code === "23505" ||
+          (error as Error)?.message?.includes("sbt_items_payment_tx_hash_uq") ||
+          (error as Error)?.message?.includes("duplicate key value");
+        if (isConflict) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "This payment transaction has already been used to materialize an SBT badge",
+          });
+        }
         const message = error instanceof Error ? error.message : "Failed to mint SBT badge";
         logger.error(`materializeOnChainSbt: Error minting SBT badge: ${message}`, error);
         throw new TRPCError({
@@ -719,7 +749,7 @@ export const sbtRouter = router({
         });
       }
 
-      let verifiedTx: any = null;
+      let verifiedTx: OrderTransaction | null = null;
       if (treasuryAddress && !is_local_env()) {
         const maxAttempts = 6;
         const delayMs = process.env.NODE_ENV === "test" ? 10 : 2500;
@@ -752,6 +782,27 @@ export const sbtRouter = router({
         });
       }
 
+      const paymentTxHash: string | undefined =
+        verifiedTx?.trx_hash?.trim() || (is_local_env() ? `local_tx_${input.rewardId}` : undefined);
+      if (!paymentTxHash) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Valid payment transaction hash is required to materialize on-chain SBT badge",
+        });
+      }
+
+      const existingByPayment = await db
+        .select({ id: sbtItems.id })
+        .from(sbtItems)
+        .where(eq(sbtItems.paymentTxHash, paymentTxHash))
+        .limit(1);
+      if (existingByPayment.length > 0) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "This payment transaction has already been used to materialize an SBT badge",
+        });
+      }
+
       // 6. Update user wallet address if walletAddress provided
       if (input.walletAddress) {
         try {
@@ -776,6 +827,7 @@ export const sbtRouter = router({
           badgeTitle: `${eventData.title} Attendance Badge`,
           badgeDescription: `Official Soulbound Proof of Attendance for ${eventData.title}`,
           badgeImage: eventData.tsRewardImage || eventData.image_url || undefined,
+          paymentTxHash,
         });
 
         // 9. Store the link in rewards.data
@@ -793,6 +845,16 @@ export const sbtRouter = router({
           isExisting: false,
         };
       } catch (error) {
+        const isConflict =
+          (error as { code?: string })?.code === "23505" ||
+          (error as Error)?.message?.includes("sbt_items_payment_tx_hash_uq") ||
+          (error as Error)?.message?.includes("duplicate key value");
+        if (isConflict) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "This payment transaction has already been used to materialize an SBT badge",
+          });
+        }
         const message = error instanceof Error ? error.message : "Failed to mint SBT badge";
         logger.error(`materializeLegacyRecord: Error minting SBT badge: ${message}`, error);
         throw new TRPCError({

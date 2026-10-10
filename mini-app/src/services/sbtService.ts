@@ -17,6 +17,7 @@ export type MintSbtBadgeParams = {
   badgeDescription?: string;
   badgeImage?: string;
   attributes?: Array<{ trait_type: string; value: string }>;
+  paymentTxHash?: string | null;
 };
 
 export class SbtService {
@@ -189,6 +190,7 @@ export class SbtService {
       metadataUrl: itemMetadataUrl,
       status: "minted",
       transactionHash: mintResult.transactionHash ?? null,
+      paymentTxHash: params.paymentTxHash ?? null,
       metadata: metadataPayload,
       revokedAt: null,
     });

@@ -882,6 +882,23 @@ export const ensureOrganizerRole = async (userId: number): Promise<boolean> => {
   }
 };
 
+/**
+ * Decrement organizer's fee_waiver_tickets_remaining when an order completes with waiver.
+ */
+export async function decrementOrganizerFeeWaiver(
+  organizerUserId: number,
+  trx?: any
+): Promise<void> {
+  const executor = trx || db;
+  await executor
+    .update(users)
+    .set({
+      fee_waiver_tickets_remaining: sql`GREATEST(0, ${users.fee_waiver_tickets_remaining} - 1)`,
+    })
+    .where(and(eq(users.user_id, organizerUserId), sql`${users.fee_waiver_tickets_remaining} > 0`))
+    .execute();
+}
+
 export const usersDB = {
   selectUserById,
   insertUser,
@@ -896,4 +913,5 @@ export const usersDB = {
   fetchUsersByOffset,
   fetchUsersByCursor,
   getDistinctUnusedWallets,
+  decrementOrganizerFeeWaiver,
 };

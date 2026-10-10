@@ -1,7 +1,4 @@
 import { Address, Cell } from "@ton/core";
-import { db } from "@/db/db";
-import { users } from "@/db/schema/users";
-import { and, eq, sql } from "drizzle-orm";
 
 export type SupportedFeeCurrency = "TON" | "USDT";
 
@@ -63,23 +60,6 @@ export function computeSplit(
     organizerAmountRaw,
     feeBps: PLATFORM_FEE_BPS,
   };
-}
-
-/**
- * Decrement organizer's fee_waiver_tickets_remaining when an order completes with waiver.
- */
-export async function decrementOrganizerFeeWaiver(
-  organizerUserId: number,
-  trx?: any
-): Promise<void> {
-  const executor = trx || db;
-  await executor
-    .update(users)
-    .set({
-      fee_waiver_tickets_remaining: sql`GREATEST(0, ${users.fee_waiver_tickets_remaining} - 1)`,
-    })
-    .where(and(eq(users.user_id, organizerUserId), sql`${users.fee_waiver_tickets_remaining} > 0`))
-    .execute();
 }
 
 export interface VerifyTraceParams {

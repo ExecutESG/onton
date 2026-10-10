@@ -9,7 +9,7 @@ import { uploadJsonToMinio } from "@/lib/minioTools";
 import { nftItems } from "@/db/schema/nft_items";
 import { mintNFT } from "@/lib/nft";
 import { is_mainnet } from "@/services/tonCenter";
-import { selectUserById } from "@/db/modules/users.db";
+import { selectUserById, decrementOrganizerFeeWaiver } from "@/db/modules/users.db";
 import { sendLogNotification } from "@/lib/tgBot";
 import { eventRegistrants } from "@/db/schema/eventRegistrants";
 import { tickets } from "@/db/schema/tickets";
@@ -19,7 +19,6 @@ import { eventTicketTiersDB } from "@/db/modules/eventTicketTiers.db";
 import { config } from "@/server/config";
 import { isAxiosError } from "axios";
 import { redisTools } from "@/lib/redisTools";
-import { decrementOrganizerFeeWaiver } from "@/lib/platformFee";
 
 export const MAX_MINT_RETRIES = 5;
 

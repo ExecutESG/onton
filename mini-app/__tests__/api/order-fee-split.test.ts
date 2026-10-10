@@ -2,12 +2,12 @@ import { describe, it, expect, vi } from "vitest";
 import {
   computeSplit,
   verifyFeeSplitTrace,
-  decrementOrganizerFeeWaiver,
   MIN_FEE_TON_NANOTONS,
   MIN_FEE_USDT_MICROS,
   PLATFORM_FEE_BPS,
   normaliseAddress,
 } from "@/lib/platformFee";
+import { decrementOrganizerFeeWaiver } from "@/db/modules/users.db";
 import { EventDataSchema } from "@/types";
 
 describe("Non-custodial 3% Ticket Fee Split (Issue #1034)", () => {

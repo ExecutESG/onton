@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   createPlatformToken,
   verifyPlatformToken,
-  AUTH_JWT_SECRET,
 } from "../../src/server/utils/jwt";
 import { getAuthenticatedUser } from "../../src/server/auth";
 import { safeTimingEqual } from "../../src/server/apiKeyAuth";
@@ -16,7 +15,7 @@ describe("Wave 2: Multi-Provider Platform Authentication (#1015, #1016)", () => 
     process.env = { ...originalEnv };
     process.env.AUTH_JWT_SECRET = "test-platform-auth-secret-key-32chars";
     process.env.BOT_TOKEN = "test-bot-token-12345";
-    process.env.ONTON_API_SECRET = "test-onton-api-secret-key";
+    process.env.ONTON_API_SECRET = "test-onton-api-secret-key-32-chars-min";
   });
 
   afterEach(() => {
@@ -46,16 +45,14 @@ describe("Wave 2: Multi-Provider Platform Authentication (#1015, #1016)", () => 
       expect(verified?.role).toBe("organizer");
     });
 
-    it("should verify legacy tokens signed with BOT_TOKEN", async () => {
+    it("should reject legacy tokens signed with BOT_TOKEN (#1051)", async () => {
       const legacyToken = jwt.sign(
         { id: 987654, name: "Legacy User", role: "user" },
         process.env.BOT_TOKEN as string
       );
 
       const verified = await verifyPlatformToken(legacyToken);
-      expect(verified).not.toBeNull();
-      expect(verified?.userId).toBe(987654);
-      expect(verified?.provider).toBe("telegram");
+      expect(verified).toBeNull();
     });
 
     it("should reject tampered tokens", async () => {
@@ -90,7 +87,7 @@ describe("Wave 2: Multi-Provider Platform Authentication (#1015, #1016)", () => 
       expect(userId).toBe(445566);
     });
 
-    it("should authenticate legacy token signed with BOT_TOKEN via Bearer header", () => {
+    it("should reject legacy token signed with BOT_TOKEN via Bearer header (#1051)", () => {
       const legacyToken = jwt.sign(
         { id: 778899, role: "user" },
         process.env.BOT_TOKEN as string
@@ -103,8 +100,8 @@ describe("Wave 2: Multi-Provider Platform Authentication (#1015, #1016)", () => 
       });
 
       const [userId, authError] = getAuthenticatedUser(req);
-      expect(authError).toBeNull();
-      expect(userId).toBe(778899);
+      expect(userId).toBeNull();
+      expect(authError?.status).toBe(401);
     });
 
     it("should reject request with invalid Bearer token", () => {

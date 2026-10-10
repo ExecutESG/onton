@@ -1,7 +1,7 @@
 import { verify } from "jsonwebtoken";
 import { cookies } from "next/headers";
 import { TRPCError } from "@trpc/server";
-import { AuthToken, verifyToken, AUTH_JWT_SECRET } from "@/server/utils/jwt";
+import { AuthToken, verifyToken, getAuthJwtSecret, PLATFORM_JWT_ALGORITHM } from "@/server/utils/jwt";
 import { validateMiniAppData } from "@/utils";
 
 export { apiKeyAuthentication, safeTimingEqual } from "@/server/apiKeyAuth";
@@ -51,29 +51,30 @@ export function getAuthenticatedUser(req?: Request): [number, null] | [null, Res
     return [null, Response.json({ error: "Unauthorized: No token provided" }, { status: 401 })];
   }
 
-  // 3. Multi-secret validation fallback
-  const secretsToTry = [
-    process.env.AUTH_JWT_SECRET,
-    AUTH_JWT_SECRET,
-    process.env.ONTON_API_SECRET,
-    process.env.BOT_TOKEN,
-  ].filter(Boolean) as string[];
-
-  for (const secret of secretsToTry) {
-    try {
-      const validation = verify(tokenStr, secret);
-      if (typeof validation === "object" && validation) {
-        const userId = (validation as any).userId || (validation as any).id;
-        if (typeof userId === "number") {
-          return [userId, null];
-        }
-      }
-    } catch {
-      // Continue to next secret
-    }
+  // 3. AUTH_JWT_SECRET only, HS256 only (#1051). No ONTON_API_SECRET / BOT_TOKEN fallback.
+  const userId = verifyPlatformJwtSync(tokenStr);
+  if (userId !== null) {
+    return [userId, null];
   }
 
   return [null, Response.json({ error: "Unauthorized: invalid token" }, { status: 401 })];
+}
+
+type LegacyJwtClaims = { userId?: unknown; id?: unknown };
+
+/**
+ * Synchronous platform JWT check for callers that cannot await. Returns the user id or null.
+ */
+function verifyPlatformJwtSync(token: string): number | null {
+  try {
+    const claims: unknown = verify(token, getAuthJwtSecret(), { algorithms: [PLATFORM_JWT_ALGORITHM] });
+    if (typeof claims !== "object" || claims === null) return null;
+    const { userId, id } = claims as LegacyJwtClaims;
+    const resolved = userId ?? id;
+    return typeof resolved === "number" && resolved > 0 ? resolved : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function walletFromHeader(headers: Headers): Promise<AuthToken> {

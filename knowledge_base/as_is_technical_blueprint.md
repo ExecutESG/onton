@@ -72,7 +72,7 @@ flowchart TD
 | Scheduler | Main Cron Jobs & Consumers |
 |---|---|
 | **Payment** (`cronJobSchedulerPayment.ts`) | `order.paid` consumer; `CheckTransactions` (every 7s, TonCenter v3); `MintNFTForPaidOrders` (every 9s); `UpdateEventCapacity` (24s); `TsCsbtTicketOrder` (11s); payment reminders (4h); wallet balances. *Note: `CreateEventOrders` and `OrganizerPromoteProcessing` were removed in ONTON 2.1.* |
-| **Reward** (`cronJobSchedulerReward.ts`) | `CreateRewards` (1m, no-op unless `ENABLE_TON_SOCIETY=true`); reward notifications; tournaments. |
+| **Reward** (`cronJobSchedulerReward.ts`) | Reward notifications (`notifyUsersForRewards`, 3m); tournaments. *Note: `CreateRewards`, `syncSbtCollectionsForEvents`, and `CheckSbtStatus` removed following TON Society shutdown.* |
 | **Ordinary** (`cronJobSchedulerOrdinary.ts`) | User block check, single-use invite links, click batches, tournaments, promo codes, wallet balance monitoring. |
 | **NFT-API** (`cronJobSchedulerNFTApi.ts`) | `deployNFTApiCollections`, `mintNFTApiCollections` (5s). |
 | **POA Worker** (`poaWorker.ts`) | Database polling every 4s for attendance verification; no RabbitMQ dependency. |

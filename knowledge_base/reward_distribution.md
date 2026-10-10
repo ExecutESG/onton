@@ -16,15 +16,15 @@ Minted with `mintSbtBadge` in `mini-app/src/services/sbtService.ts` (TEP-85, met
 | On-chain upgrade | `sbt.materializeOnChainSbt` (payment ≥ 0.095 TON with memo `sbt_upgrade:<ticketUuid>`) | Paid |
 | Admin | `sbt.mintBadge` (global admin only) | — |
 
-### 1.2 TON Society rewards (legacy, off by default)
-- Registrant check-in inserts a `rewards` row: `type: ton_society_sbt`, `status: pending_creation`.
-- `CreateRewards` (`mini-app/src/cronJobs/tasks/CreateRewards.ts`) runs every minute but **returns immediately unless `ENABLE_TON_SOCIETY === "true"`**. When enabled it sends CSV batches (up to 350000) to the TON Society API and temporarily extends/reverts the event end date.
-- With TON Society disabled, these rows stay `pending_creation` unless the user claims a native SBT.
-- `processSingleReward` in `mini-app/src/cronJobs/helper/createRewards.helpers.ts` is never called.
+### 1.2 TON Society rewards (legacy / decommissioned)
+- TON Society API integration has been fully removed due to entity shutdown.
+- Legacy `rewards` rows and `reward_types` enum values (`ton_society_sbt`, `ton_society_csbt_ticket`) are retained in the database for historical and "My Badges" display (`findUserClaimedTonSocietyBadges`).
+- Defunct crons (`CreateRewards`, `syncSbtCollectionsForEvents`, `CheckSbtStatus`) have been removed from `cronJobSchedulerReward.ts`.
+- All badge distribution now uses native TEP-85 and cSBT engines directly on TON.
 
 Reward status enum (`mini-app/src/db/enum.ts`): `pending_creation`, `created`, `created_by_ui`, `received`, `notified`, `notified_by_ui`, `notification_failed`, `failed`, `fixed_failed`.
 
-Related reward-worker jobs (`mini-app/src/workers/cronJobSchedulerReward.ts`): `notifyUsersForRewards` (3 min), `CheckSbtStatus` (prod only), tournament reward jobs.
+Related reward-worker jobs (`mini-app/src/workers/cronJobSchedulerReward.ts`): `notifyUsersForRewards` (3 min), tournament reward jobs.
 
 ## 2. Paid-ticket NFTs
 

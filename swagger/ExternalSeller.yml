@@ -99,7 +99,7 @@ paths:
                     example: true
                   sbtClaimLink:
                     type: string
-                    example: "https://t.me/ton_society_bot/start?startapp=csbt-test-for-ton-fest&mode=compact"
+                    example: "https://t.me/theontonbot/start?startapp=event-pass"
         "400":
           description: Bad Request (validation failure or other client error).
           content:

@@ -135,14 +135,14 @@ export default function CsbtPage() {
             The TON Community approved the TEP-85 standard (&quot;Soulbound NFT Standard&quot;). TEP-85 extended the basic TEP-62 NFT standard by removing transfer operations and adding interfaces for proving ownership (<code>proveOwnership</code>, opcode <code>0x04ded148</code>), requesting owner info (<code>requestOwner</code>, opcode <code>0xd0c3bfea</code>), and handling revocation by designated authorities (<code>revoke</code>, opcode <code>0x6f89f5e3</code>). Attempted transfers return exit code 413.
           </p>
           <p>
-            <strong>2023 – 2024: TON Society Credentialing and the API Bottleneck</strong><br />
-            TON Society emerged as the primary community credentialing body on TON, issuing badges for hackathons, regional hubs, and ecosystem activities. They introduced early cSBT campaigns for event organizers.
+            <strong>2023 – 2024: Legacy Web3 Credentialing and the API Bottleneck</strong><br />
+            Early community credentialing bodies on TON issued badges for hackathons, regional hubs, and ecosystem activities, introducing early cSBT campaigns for event organizers.
           </p>
           <p>
-            However, TON Society operated their system through a centralized, hosted backend API at <code>society.ton.org</code>. Event organizers and platforms could not interact directly with an on-chain protocol; they had to authenticate through API keys, submit payloads to TON Society&apos;s servers, and rely on TON Society to sign and batch transactions.
+            However, legacy systems operated through centralized, hosted backend APIs. Event organizers and platforms could not interact directly with an on-chain protocol; they had to authenticate through API keys, submit payloads to centralized servers, and rely on external providers to sign and batch transactions.
           </p>
           <p>
-            When the TON Society team changed priorities and shut down <code>society.ton.org</code>, the domain stopped resolving (<code>NXDOMAIN</code>). External applications that depended on their API experienced immediate outages: event creation transactions rolled back, ticket check-in workflows stalled, and attendee reward queues jammed.
+            When external API providers shut down, the endpoints stopped resolving (<code>NXDOMAIN</code>). External applications that depended on their API experienced immediate outages: event creation transactions rolled back, ticket check-in workflows stalled, and attendee reward queues jammed.
           </p>
 
           <hr />
@@ -151,7 +151,7 @@ export default function CsbtPage() {
 
           <h3>1. The Problem We Addressed</h3>
           <p>
-            ONTON originally integrated with TON Society&apos;s hosted API for event activity registration, badge creation, and attendee rewards. When <code>society.ton.org</code> went offline, ONTON&apos;s background workers threw uncaught connection exceptions during ticket order completion and post-event reward processing.
+            ONTON originally integrated with external hosted APIs for event activity registration, badge creation, and attendee rewards. When those legacy endpoints went offline, background workers threw uncaught connection exceptions during ticket order completion and post-event reward processing.
           </p>
           <p>
             This operational failure confirmed that core event operations cannot depend on third-party SaaS backends. We resolved to eliminate external dependencies and implement our own credential system directly on the TON blockchain.
@@ -159,7 +159,7 @@ export default function CsbtPage() {
 
           <h3>2. Phase 1: Native In-House TEP-85 Engine (Shipped &amp; Live)</h3>
           <p>
-            We developed and deployed a native TEP-85 Soulbound Token engine directly within ONTON. This system is fully independent of TON Society or any external service:
+            We developed and deployed a native TEP-85 Soulbound Token engine directly within ONTON. This system is fully independent of any external service:
           </p>
           <ul>
             <li>
@@ -172,7 +172,7 @@ export default function CsbtPage() {
               <strong>Self-Healing Database Architecture:</strong> The PostgreSQL module (<code>sbt.db.ts</code>) manages <code>sbt_collections</code> and <code>sbt_items</code> tables with automatic, idempotent schema creation (<code>ensureSbtTables()</code>). If migrations are missing during container startup, the database creates the necessary schemas and indexes on the first query without throwing 500 errors.
             </li>
             <li>
-              <strong>Worker Pipeline Decoupling:</strong> We replaced all defunct TON Society calls inside ONTON&apos;s ticket processing and reward workers (<code>TsCsbtTicketOrder.ts</code>, <code>createRewards.helpers.ts</code>, <code>rewardsService.ts</code>). Badges are minted directly through ONTON&apos;s dedicated minter wallet to the recipient&apos;s TON address.
+              <strong>Worker Pipeline Decoupling:</strong> We removed all defunct external API calls inside ONTON&apos;s ticket processing and reward workers (<code>TsCsbtTicketOrder.ts</code>, <code>createRewards.helpers.ts</code>, <code>rewardsService.ts</code>). Badges are minted directly through ONTON&apos;s dedicated minter wallet to the recipient&apos;s TON address.
             </li>
             <li>
               <strong>tRPC API Integration:</strong> We exposed <code>sbt.getEventCollection</code>, <code>sbt.getWalletBadges</code>, and <code>sbt.verifyOwnership</code> endpoints directly in the API router for use by the Telegram Mini App and third-party verifiers.
@@ -207,7 +207,7 @@ export default function CsbtPage() {
 
           <h3>Summary</h3>
           <p>
-            By moving from TON Society&apos;s closed API to our own native TEP-85 and cSBT engines, ONTON has replaced a fragile external dependency with a deterministic, mathematically verifiable credential system built directly on the TON blockchain.
+            By moving from third-party closed APIs to our own native TEP-85 and cSBT engines, ONTON has replaced a fragile external dependency with a deterministic, mathematically verifiable credential system built directly on the TON blockchain.
           </p>
         </article>
 

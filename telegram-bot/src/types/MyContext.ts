@@ -1,5 +1,5 @@
 import { Context, SessionFlavor } from "grammy"
-import { SocietyHub } from "../helpers/getHubs"
+import { Hub } from "../helpers/getHubs"
 import { SbtRewardCollection } from "./SbtRewardCollection"
 
 export interface SessionData {
@@ -123,7 +123,7 @@ export interface SessionData {
     videoBuffer?: Buffer;
     navigationMessageId?: number;
     imageLink?: string;
-    hubs?: SocietyHub[];
+    hubs?: Hub[];
   };
   toIdStep?:
     | "askMethod"

@@ -5,7 +5,6 @@ import { logger } from "@/server/utils/logger";
 import { Address } from "@ton/core";
 import { eventPayment } from "@/db/schema/eventPayment";
 import { eventRegistrants } from "@/db/schema/eventRegistrants";
-import { CsbtTicket } from "@/services/rewardsService";
 import { sbtService } from "@/services/sbtService";
 import { selectUserById } from "@/db/modules/users.db";
 import { sendLogNotification } from "@/lib/tgBot";

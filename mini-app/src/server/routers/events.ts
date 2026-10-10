@@ -29,14 +29,12 @@ import {
   sendLogNotification,
   sendToEventsTgChannel,
 } from "@/lib/tgBot";
-import { updateActivity } from "@/lib/ton-society-api";
 import { getObjectDifference, removeKey } from "@/lib/utils";
 import { tgBotModerationMenu, tgBotPostPublishModerationMenu, tgBotReportedEventMenu } from "@/moderationBot/menu";
 import eventReportsDB from "@/db/modules/eventReports.db";
 import { logger } from "@/server/utils/logger";
 import { organizerLimitsService } from "@/services/organizerLimits";
 import { EventDataSchema, UpdateEventDataSchema } from "@/types";
-import { TonSocietyRegisterActivityT } from "@/types/event.types";
 import searchEventsInputZod from "@/zodSchema/searchEventsInputZod";
 import { TRPCError } from "@trpc/server";
 import dotenv from "dotenv";
@@ -375,8 +373,8 @@ const addEvent = initDataProtectedProcedure.input(z.object({ eventData: EventDat
           subtitle: input_event_data.subtitle,
           description: input_event_data.description,
           image_url: input_event_data.image_url,
-          society_hub: input_event_data.society_hub?.name || "Onton",
-          society_hub_id: input_event_data.society_hub?.id || "33",
+          society_hub: "Onton",
+          society_hub_id: "33",
           secret_phrase: hashedSecretPhrase,
           start_date: input_event_data.start_date,
           end_date: input_event_data.end_date,
@@ -637,8 +635,8 @@ const updateEvent = eventManagerPP
             subtitle: eventData.subtitle,
             description: eventData.description,
             image_url: eventData.image_url,
-            society_hub: eventData.society_hub?.name || "Onton",
-            society_hub_id: eventData.society_hub?.id || "33",
+            society_hub: oldEvent.society_hub || "Onton",
+            society_hub_id: oldEvent.society_hub_id || "33",
             secret_phrase: hashedSecretPhrase,
             start_date: eventData.start_date,
             end_date: eventData.end_date,
@@ -770,22 +768,6 @@ const updateEvent = eventManagerPP
           await eventFieldsDB.upsertEventField(trx, field, index, opts.ctx.user.user_id.toString(), eventId);
         }
 
-        const additional_info = z.string().url().safeParse(eventData).success ? "Online" : opts.input.eventData.location;
-
-        const eventDraft: TonSocietyRegisterActivityT = {
-          title: eventData.title,
-          subtitle: eventData.subtitle,
-          description: eventData.description,
-          hub_id: parseInt(eventData.society_hub?.id || "33"),
-          start_date: timestampToIsoString(eventData.start_date),
-          end_date: timestampToIsoString(eventData.end_date!),
-          additional_info,
-          cta_button: {
-            link: LinkService.getEventUrl(eventUuid),
-            label: "Enter Event",
-          },
-        };
-
         // Remove the description key from updated Event
         const updatedEventWithoutDescription = removeKey(updatedEvent[0], "description");
         // Remove the description key from old Event
@@ -795,73 +777,6 @@ const updateEvent = eventManagerPP
 
         const updateChanges = getObjectDifference(updatedEventWithoutDescription, oldEventWithoutDescription);
 
-        // if it was a fully local setup we don't want to update the activity_id
-        if (process.env.ENV !== "local" && oldEvent.activity_id) {
-          try {
-            await updateActivity(eventDraft, opts.ctx.event.activity_id as number);
-          } catch (error) {
-            logger.log("update_event_ton_society_failed", JSON.stringify(eventDraft));
-
-            throw new TRPCError({
-              code: "INTERNAL_SERVER_ERROR",
-              message: `Failed to update ton Society activity_id : ${opts.ctx.event.activity_id}`,
-            });
-          }
-        }
-
-        /* -------------------------------------------------------------------------- */
-        /*   If this is a paid event with TSCSBT ticket, also update the ticket's    */
-        /*   separate activity. (We assume there's a ticket_activity_id to update.)  */
-        /* -------------------------------------------------------------------------- */
-        if (oldEvent.has_payment) {
-          // fetch the updated payment info
-          const [updatedPaymentInfo] = await trx
-            .select()
-            .from(eventPayment)
-            .where(eq(eventPayment.event_uuid, eventUuid))
-            .execute();
-
-          if (updatedPaymentInfo && updatedPaymentInfo.ticket_type === "TSCSBT" && updatedPaymentInfo.ticketActivityId) {
-            // Build a separate ticketDraft if you need different data for the ticket
-            // For now, reusing the updated event data
-            const nowInSeconds = Math.floor(Date.now() / 1000);
-            const ticketDraft: TonSocietyRegisterActivityT = {
-              ...eventDraft,
-              title: updatedPaymentInfo.title ?? `${eventData.title} - Ticket`,
-              subtitle: updatedPaymentInfo.description ?? eventData.subtitle,
-              start_date: timestampToIsoString(nowInSeconds),
-              end_date: timestampToIsoString(eventData.end_date),
-            };
-
-            try {
-              logger.log(
-                `Updating TSCSBT ticket activity: ID ${updatedPaymentInfo.ticketActivityId} for event ${eventUuid} and ticket ${updatedPaymentInfo.id}`,
-                ticketDraft
-              );
-              if (process.env.ENV !== "local") {
-                await updateActivity(ticketDraft, updatedPaymentInfo.ticketActivityId);
-              }
-
-              logger.log(`TSCSBT ticket activity updated: ID ${updatedPaymentInfo.ticketActivityId}`);
-            } catch (error) {
-              logger.log("update_ts_csbt_activity_failed", JSON.stringify(ticketDraft));
-              throw new TRPCError({
-                code: "INTERNAL_SERVER_ERROR",
-                message: `Failed to update TSCSBT ticket activity_id: ${updatedPaymentInfo.ticketActivityId}`,
-              });
-            }
-          } else if (
-            updatedPaymentInfo &&
-            updatedPaymentInfo.ticket_type === "TSCSBT" &&
-            !updatedPaymentInfo.ticketActivityId
-          ) {
-            logger.log(`No ticketActivityId found for TSCSBT ticket in event ${eventUuid}`);
-            throw new TRPCError({
-              code: "INTERNAL_SERVER_ERROR",
-              message: `No ticketActivityId found for TSCSBT ticket in event ${eventUuid}`,
-            });
-          }
-        }
         return {
           success: true,
           eventId: opts.ctx.event.event_uuid,

@@ -23,7 +23,6 @@ graph TB
     subgraph External["External"]
         TG["Telegram Bot API"]
         TON["TON (TonCenter v3)"]
-        TS["TON Society API (optional)"]
     end
 
     subgraph Edge["Edge"]
@@ -71,7 +70,6 @@ graph TB
     PaymentWorker --> TON
     PaymentWorker --> RabbitMQ
     RewardWorker --> PG
-    RewardWorker --> TS
     POAWorker --> PG
     TelegramBot --> PG
     TelegramBot --> Redis

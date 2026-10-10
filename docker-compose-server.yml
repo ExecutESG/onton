@@ -309,8 +309,6 @@ services:
     stop_signal: SIGTERM
     environment:
       <<: *common-env
-      TON_SOCIETY_API_KEY: ${TON_SOCIETY_API_KEY}
-      TON_SOCIETY_BASE_URL: ${TON_SOCIETY_BASE_URL}
       TWITTER_CLIENT_ID: ${TWITTER_CLIENT_ID}
       TWITTER_CLIENT_SECRET: ${TWITTER_CLIENT_SECRET}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
@@ -368,8 +366,6 @@ services:
     environment:
       <<: *common-env
       MNEMONIC: ${MNEMONIC}
-      TON_SOCIETY_API_KEY: ${TON_SOCIETY_API_KEY}
-      TON_SOCIETY_BASE_URL: ${TON_SOCIETY_BASE_URL}
     depends_on:
       - postgres
       - redis
@@ -412,8 +408,6 @@ services:
     environment:
       <<: *common-env
       MNEMONIC: ${MNEMONIC}
-      TON_SOCIETY_API_KEY: ${TON_SOCIETY_API_KEY}
-      TON_SOCIETY_BASE_URL: ${TON_SOCIETY_BASE_URL}
     depends_on:
       - postgres
       - redis
@@ -457,8 +451,6 @@ services:
     environment:
       <<: *common-env
       MNEMONIC: ${MNEMONIC}
-      TON_SOCIETY_API_KEY: ${TON_SOCIETY_API_KEY}
-      TON_SOCIETY_BASE_URL: ${TON_SOCIETY_BASE_URL}
     depends_on:
       - postgres
       - redis
@@ -501,8 +493,6 @@ services:
     environment:
       <<: *common-env
       MNEMONIC: ${MNEMONIC}
-      TON_SOCIETY_API_KEY: ${TON_SOCIETY_API_KEY}
-      TON_SOCIETY_BASE_URL: ${TON_SOCIETY_BASE_URL}
     depends_on:
       - postgres
       - redis
@@ -546,8 +536,6 @@ services:
     stop_signal: SIGTERM
     environment:
       <<: *common-env
-      TON_SOCIETY_API_KEY: ${TON_SOCIETY_API_KEY}
-      TON_SOCIETY_BASE_URL: ${TON_SOCIETY_BASE_URL}
     depends_on:
       - postgres
       - redis
@@ -593,8 +581,6 @@ services:
     stop_signal: SIGTERM
     environment:
       <<: *common-env
-      TON_SOCIETY_API_KEY: ${TON_SOCIETY_API_KEY}
-      TON_SOCIETY_BASE_URL: ${TON_SOCIETY_BASE_URL}
     depends_on:
       - postgres
       - redis

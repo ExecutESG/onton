@@ -76,7 +76,7 @@ A comprehensive quality assurance (QA) and security audit was conducted across t
 ### Module 1: Event Management
 
 #### 1.1 Event Creation
-- **Files:** `mini-app/src/server/routers/events.ts` (`addEvent`), `mini-app/src/db/modules/events.db.ts`, `mini-app/src/services/tonSocietyService.ts`
+- **Files:** `mini-app/src/server/routers/events.ts` (`addEvent`), `mini-app/src/db/modules/events.db.ts`
 - **Production Readiness:** **Ready**
 - **Automated Coverage:** **None**
 - **Risk Rating:** **Medium**
@@ -269,20 +269,10 @@ A comprehensive quality assurance (QA) and security audit was conducted across t
   2. `test_nft_mint_index_incrementation`: Mint sequential NFTs for the same event; verify indices increment monotonically.
   3. `test_minter_insufficient_gas_handling`: Simulate low wallet balance; verify error is trapped and reported to admin monitoring.
 
-#### 3.2 TON Society Legacy Status
-- **Files:** `mini-app/src/cronJobs/tasks/TsCsbtTicketOrder.ts`, `mini-app/src/cronJobs/tasks/checkTSRewardStatus.ts`, `mini-app/src/lib/ton-society-api.ts`
-- **Production Readiness:** **Legacy**
-- **Automated Coverage:** **None**
-- **Risk Rating:** **High**
-- **Architecture & Implementation:**
-  - Issues Compressed Soulbound Tokens (CSBTs) via TON Society API (`CsbtTicket`).
-  - Checks status via `syncTonSocietyStatusLargeScale` in `checkTSRewardStatus.ts`.
-- **Critical Failure Modes & Edge Cases:**
-  - *Explicit Deprecation in Code:* Background collection sync was commented out in `cronJobSchedulerReward.ts` due to high rate limits and API deprecation.
-  - *External Rate Limits:* `syncTonSocietyStatusLargeScale` iterates through all historical events. Concurrency limiter (`pLimit(3)`) with `sleep(300)` is insufficient for large catalogs and triggers HTTP 429 from `society.ton.org`.
-- **Required Test Cases:**
-  1. `test_ton_society_csbt_issuance`: Verify user receives valid claim link on successful check-in.
-  2. `test_ton_society_rate_limit_backoff`: Mock 429 responses from TON Society; verify worker pauses and backs off.
+#### 3.2 TON Society Status (Decommissioned)
+- **Status:** **Decommissioned (Issue #1035)**
+- **Historical Context:** Originally issued Compressed Soulbound Tokens (CSBTs) via TON Society API. Following shutdown of `society.ton.org`, integration, API clients, and sync crons (`CreateRewards`, `checkTSRewardStatus`, `syncSbtCollectionsForEvents`) were removed.
+- **Current Architecture:** Replaced entirely with native TEP-85 and sovereign cSBT Merkle proof infrastructure directly on TON. Historical badge rows and DB enums are preserved for display in "My Badges".
 
 #### 3.3 Tournament Prizes
 - **Files:** `mini-app/src/cronJobs/tasks/tournamentRewards.ts`, `mini-app/src/server/routers/tournaments.ts`

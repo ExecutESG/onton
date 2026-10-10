@@ -17,7 +17,6 @@ import Papa from "papaparse";
 import { selectVisitorsByEventUuid } from "@/db/modules/visitors.db";
 import { VisitorsWithDynamicFields } from "@/db/modules/dynamicType/VisitorsWithDynamicFields";
 import axios from "axios";
-import { getSBTClaimedStatus } from "@/lib/ton-society-api";
 import { usersDB } from "@/db/modules/users.db";
 import couponSchema from "@/zodSchema/couponSchema";
 import { couponDefinitionsDB } from "@/db/modules/couponDefinitions.db";
@@ -125,13 +124,11 @@ const requestExportFile = evntManagerPP.mutation(async (opts) => {
                 ? row.event_registrants.register_info
                 : JSON.parse(String(row.event_registrants.register_info || "{}"));
 
-            const sbtClaimStatus = await getSBTClaimedStatus(eventData.activity_id!, row.users.user_id);
-
             const expandedRow = {
               ...row.event_registrants,
               ...row.users,
               ...registerInfo,
-              sbt_claim_status: sbtClaimStatus.status,
+              sbt_claim_status: "N/A",
             };
 
             delete expandedRow.register_info;
@@ -189,13 +186,11 @@ const requestExportFile = evntManagerPP.mutation(async (opts) => {
               delete visitorData.ticket_id;
             }
 
-            const sbtClaimStatus = await getSBTClaimedStatus(eventData?.activity_id!, visitorData.user_id!);
-
             delete visitorData.dynamicFields;
             return {
               ...visitorData,
               // dynamicFields: JSON.stringify(visitor.dynamicFields),
-              sbt_claim_status: sbtClaimStatus.status,
+              sbt_claim_status: "N/A",
             };
           })
         );

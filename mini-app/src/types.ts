@@ -75,10 +75,6 @@ export type TRequiredEventFields = {
   location: string;
   image_url: string;
   secret_phrase: string;
-  society_hub: {
-    id: string;
-    name: string;
-  };
   start_date: number | null;
   end_date: number | null;
   timezone: string;
@@ -260,15 +256,6 @@ export const EventDataSchema = z
     has_web3: z.boolean().default(false),
 
     /* -------------------------- Organization Info ------------------------- */
-    society_hub: z
-      .object({
-        id: z.string(),
-        name: z.string(),
-      })
-      .default({
-        id: "33",
-        name: "Onton",
-      }),
     owner: z.number({ required_error: "owner is required" }),
     activity_id: z.number({ required_error: "activity ID is required" }).optional(),
 
@@ -300,6 +287,15 @@ export const EventDataSchema = z
         code: "custom",
         path: ["ts_reward_url"],
         message: "Reward badge image is required when Web3 features are enabled.",
+      });
+    }
+
+    // TSCSBT is deprecated and disallowed for new events
+    if (data.paid_event?.has_payment && data.paid_event?.ticket_type === "TSCSBT") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["paid_event", "ticket_type"],
+        message: "TSCSBT ticket type is deprecated and not supported for new events.",
       });
     }
 
@@ -358,16 +354,6 @@ export const UpdateEventDataSchema = z.object({
   has_web3: z.boolean().default(false).optional(),
 
   /* -------------------------- Organization Info ------------------------- */
-  society_hub: z
-    .object({
-      id: z.string(),
-      name: z.string(),
-    })
-    .default({
-      id: "33",
-      name: "Onton",
-    })
-    .optional(),
   owner: z.number({ required_error: "owner is required" }),
   activity_id: z.number().optional(),
 

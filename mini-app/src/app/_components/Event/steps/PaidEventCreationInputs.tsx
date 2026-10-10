@@ -181,8 +181,7 @@ function TicketType() {
       footer={
         <>
           <p>
-            Ticket details cannot be changed after event is created. Tickets will be minted as NFT (Transferable) or SBT
-            (Soulbound, non-transferable attendee credentials).
+            Ticket details cannot be changed after event is created. Tickets will be minted as NFT (Transferable).
           </p>
           <Segmented
             strong
@@ -200,18 +199,19 @@ function TicketType() {
             >
               NFT
             </SegmentedButton>
-            <SegmentedButton
-              strong
-              active={ticketType === "TSCSBT"}
-              onClick={(e) => {
-                e.preventDefault();
-                if (!isEdit) changeTicketType("TSCSBT");
-              }}
-              itemType="button"
-              className={cn(ticketType === "TSCSBT" && "text-black font-extrabold")}
-            >
-              SBT (Soulbound)
-            </SegmentedButton>
+            {isEdit && ticketType === "TSCSBT" && (
+              <SegmentedButton
+                strong
+                active={ticketType === "TSCSBT"}
+                onClick={(e) => {
+                  e.preventDefault();
+                }}
+                itemType="button"
+                className={cn(ticketType === "TSCSBT" && "text-black font-extrabold")}
+              >
+                SBT (Soulbound - Legacy)
+              </SegmentedButton>
+            )}
           </Segmented>
         </>
       }

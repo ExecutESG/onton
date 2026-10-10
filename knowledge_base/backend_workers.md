@@ -58,10 +58,10 @@ Starts the `order_paid` consumer, then schedules:
 | `runCollectionSnapshot` | daily at midnight |
 
 ### 2.2 Reward (`cronJobSchedulerReward.ts`)
-- `CreateRewards` every 1 min. Returns early unless `ENABLE_TON_SOCIETY === "true"`.
-- `notifyUsersForRewards` every 3 min; `CheckSbtStatus` (prod only).
+- `notifyUsersForRewards` every 3 min.
 - `processRecentlyEndedTournaments`, `sendTournamentRewardsNotifications`.
 - `checkAndEnrollUserInPlay2WinCampaign` is still scheduled.
+- *Note: `CreateRewards`, `syncSbtCollectionsForEvents`, and `CheckSbtStatus` have been decommissioned and removed.*
 
 ### 2.3 Ordinary (`cronJobSchedulerOrdinary.ts`)
 - `CheckAllUsersBlock` daily 01:00.

@@ -37,7 +37,7 @@ Index of the main user flows and where each is documented.
 
 ## 6. Rewards
 - Native SBTs are minted at ticket check-in (if a wallet is linked) or claimed by the ticket owner; an on-chain upgrade is paid.
-- TON Society reward batches run only when `ENABLE_TON_SOCIETY=true`.
+- Legacy TON Society reward batches have been decommissioned.
 - `notifyUsersForRewards` sends reward notifications.
 
 ## 7. Affiliate

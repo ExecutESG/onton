@@ -5,14 +5,8 @@ import { eq, and, lt } from "drizzle-orm/expressions";
 import { isNotNull, isNull, sql } from "drizzle-orm";
 import { logger } from "@/server/utils/logger";
 import { games } from "@/db/schema";
-import { postTelegramCsvToTonSociety } from "@/cronJobs/helper/postTelegramCsvToTonSociety";
-import { generateTelegramCsv } from "@/cronJobs/helper/generateTelegramCsv";
 import { fetchAllElympicsParticipants } from "@/cronJobs/helper/fetchAllElympicsParticipants";
 import gameLeaderboardDB from "@/db/modules/gameLeaderboard.db";
-import {
-  extendTournamentEndDateIfNeeded,
-  revertTournamentEndDateIfNeeded,
-} from "@/cronJobs/helper/tournamentRewards.helpers";
 
 /**
  * 1) A helper that returns tournaments whose endDate is
@@ -124,36 +118,6 @@ export async function processRecentlyEndedTournaments() {
 
     logger.info(`Participants for tournament #${t.id} =>`, finalRows);
 
-    // d) generate CSV
-    const csvBuff = generateTelegramCsv(finalRows);
-
-    const nowSec = Math.floor(Date.now() / 1000);
-    const extendedEndDate = nowSec + 86400; // +1 day
-    let didExtend = false;
-    try {
-      didExtend = await extendTournamentEndDateIfNeeded(t, extendedEndDate);
-    } catch (err) {
-      logger.error(`Failed to extend end_date for tournament #${t.id}`, err);
-      continue;
-    }
-
-    try {
-      // e) post to Ton Society => get reward_link
-      const rewardLink = await postTelegramCsvToTonSociety(t.activityId, csvBuff);
-      if (rewardLink) {
-        await db.update(gameLeaderboard).set({ rewardCreated: true }).where(eq(gameLeaderboard.tournamentId, t.id));
-        // save reward_link in tournaments table
-        await db.update(tournaments).set({ rewardLink }).where(eq(tournaments.id, t.id));
-        logger.info(`Tournament #${t.id} => reward_link saved: ${rewardLink}`);
-      }
-    } finally {
-      if (didExtend) {
-        try {
-          await revertTournamentEndDateIfNeeded(t);
-        } catch (err) {
-          logger.error(`Failed to revert end_date for tournament #${t.id}`, err);
-        }
-      }
-    }
+    await db.update(gameLeaderboard).set({ rewardCreated: true }).where(eq(gameLeaderboard.tournamentId, t.id));
   }
 }

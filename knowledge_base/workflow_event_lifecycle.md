@@ -40,5 +40,4 @@ Registrant statuses: `pending → approved | rejected → checkedin`.
 - Moderators can delist, relist, warn, or ban the organizer (role `ban`, all their events delisted) from the moderation group.
 
 ## 5. After the event
-- Native SBTs: minted at ticket check-in if the attendee has a wallet, or claimed by the ticket owner (`sbt.claimAttendanceSbt`).
-- Registrant check-ins create a `rewards` row (`pending_creation`). The `CreateRewards` cron only processes it when `ENABLE_TON_SOCIETY=true`; otherwise it stays pending unless the user claims.
+- Native SBTs: minted at ticket check-in if the attendee has a wallet, or claimed by the ticket owner (`sbt.claimAttendanceSbt`). Legacy TON Society reward crons have been decommissioned.

@@ -23,12 +23,11 @@ Main code: `addEvent` and `updateEvent` in `mini-app/src/server/routers/events.t
    - `event_payment_info`: price (≥ 0.001, 3 decimals), recipient, NFT title/image/video, `collectionAddress: null`.
 3. `event_fields`: custom fields, plus `secret_phrase_onton_input` when a secret phrase is set.
 
-### TON Society
-- `CreateTonSocietyDraft` always builds a draft object.
-- `registerActivity` runs only when the event is not hidden (i.e. not for paid events at creation). Errors are swallowed and creation continues.
+### TON Society (Decommissioned)
+- TON Society draft creation and activity registration have been removed.
 
 ### Publishing
-- **Free events**: published right away. The bot posts to the events channel and sends a post-publish moderation message to `MODERATION_GROUP_ID` with the menu Delist / Warn / Ban / Update. If a third-party call fails, the TON Society activity and the sent messages are rolled back.
+- **Free events**: published right away. The bot posts to the events channel and sends a post-publish moderation message to `MODERATION_GROUP_ID` with the menu Delist / Warn / Ban / Update.
 - **Paid events**: stay hidden until the `event_creation` order is paid. The `CreateEventOrders` cron (`mini-app/src/cronJobs/tasks/CreateEventOrders.ts`, every 19s) then sets `hidden: false, enabled: true`.
 
 The paid inputs in the UI are shown only when the `has_web3` toggle is on (`mini-app/src/app/_components/Event/steps/EventRegistration.tsx`).
@@ -38,7 +37,6 @@ sequenceDiagram
     participant Org as Organizer
     participant API as "events.addEvent"
     participant DB as PostgreSQL
-    participant TS as "TON Society"
     participant Bot as "Bot (channel + moderation group)"
     participant Cron as "CreateEventOrders cron"
 
@@ -46,7 +44,6 @@ sequenceDiagram
     API->>API: Validate, promote user to organizer if needed
     API->>DB: Insert event (+ payment info + creation order if paid)
     alt Free event
-        API->>TS: registerActivity (non-fatal)
         API->>Bot: Channel post + moderation alert
     else Paid event
         Note over API,DB: Event hidden

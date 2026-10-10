@@ -79,16 +79,6 @@ function ManageEvent({ event }: ManageEventProps) {
           end_date: event.end_date || undefined,
           location: event.location || undefined,
           category_id: event.category_id || undefined,
-          // @ts-ignore
-          society_hub: event.society_hub
-            ? {
-                id: event.society_hub.id,
-                name: event.society_hub.name,
-              }
-            : {
-                id: "33",
-                name: "Onton",
-              },
           eventLocationType: event.participationType,
           countryId: event.countryId || undefined,
           cityId: event.cityId || undefined,

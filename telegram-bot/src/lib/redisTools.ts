@@ -300,7 +300,7 @@ export const cacheKeys = {
   eventPoaResult: "eventPoaResult:",
   eventPoaResultsByEvent: "eventPoaResultsByEvent:",
   user_flags: "user_flags:",
-  hubs: "ton-society:hubs",
+  hubs: "onton:hubs",
   event_uuid: "event_uuid:",
   event_id: "event_id:",
 };

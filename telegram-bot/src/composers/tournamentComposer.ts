@@ -403,9 +403,6 @@ tournamentComposer.on("message:photo", async (ctx, next) => {
     // Now pass newLink to the formData
     formData.append("tournament_link", newLink);
 
-    formData.append("society_hub_id", "33");
-
-
     if (selectedCollectionId) {
       formData.append("sbt_collection_id", selectedCollectionId.toString());
     }

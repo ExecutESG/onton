@@ -41,7 +41,6 @@ Names below are env var names (without prefix). Never write values into the repo
 | `MNEMONIC` | Wallet that signs mints |
 | `EVENT_WALLET_ENC_KEY` | Encrypts per-event wallets. Losing it loses access to those wallets. |
 | `TON_CENTER_TOKEN`, `TON_CENTER_ENDPOINT` | TonCenter API |
-| `TON_SOCIETY_API_KEY` | TON Society (used only if `ENABLE_TON_SOCIETY=true`) |
 
 ### Storage & database
 | Secret | Purpose |

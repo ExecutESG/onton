@@ -31,7 +31,7 @@ export const SbtOptionContent: React.FC<SbtOptionContentProps> = ({
     isLoading,
     isSuccess,
   } = trpc.sbtRewardCollection.getRewardCollectionsByHubID.useQuery(
-    { hubID: Number(eventData?.society_hub?.id) || 0 },
+    { hubID: 0 },
     {
       enabled: sbtOption === "default",
       cacheTime: 1000 * 60,
@@ -127,7 +127,7 @@ export const SbtOptionContent: React.FC<SbtOptionContentProps> = ({
           variant="info"
           className="my-4"
         >
-          Events reward badge, visible on TON society. It cannot be changed after event creation.
+          Events reward badge. It cannot be changed after event creation.
         </AlertGeneric>
         <UploadImageFile
           changeText="Change SBT Image"

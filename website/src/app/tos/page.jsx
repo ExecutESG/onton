@@ -24,7 +24,7 @@ const TosPage = () => {
       </p>
       <p>
         1.2 <strong>Independent Entity:</strong> While supported by the TON
-        Foundation and partnered with TON Society, ONton operates as an
+        Foundation, ONton operates as an
         independent entity.
       </p>
       <p>
@@ -32,7 +32,7 @@ const TosPage = () => {
       </p>
       <p>
         2.1 <strong>Free Events:</strong> Organizers can create free events,
-        which will be published on the TON Society website and ONton bot.
+        which will be published on the ONton bot and event directory.
         Participants can check in during events to receive SBT awards as proof
         of attendance.
       </p>

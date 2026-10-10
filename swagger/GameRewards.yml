@@ -52,7 +52,7 @@ paths:
                     properties:
                       reward_link:
                         type: string
-                        example: "https://t.me/ton_society_bot/start?startapp=outmine-tournament-1-day-1&mode=compact"
+                        example: "https://t.me/theontonbot/start?startapp=tournament-reward"
         '400':
           description: Invalid request parameters or event not ongoing
         '401':

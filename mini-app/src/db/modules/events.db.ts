@@ -3,7 +3,6 @@ import { event_details_search_list, eventRegistrants, events, EventTicketType, r
 import { EventRow } from "@/db/schema/events";
 import { redisTools } from "@/lib/redisTools";
 import { roundDateToInterval } from "@/lib/time.utils";
-import { findActivity } from "@/lib/ton-society-api";
 import { removeKey } from "@/lib/utils";
 import eventFieldsDB from "@/db/modules/eventFields.db";
 import { selectUserById } from "@/db/modules/users.db";
@@ -661,38 +660,13 @@ export const fetchEventsWithPendingRewards = async () =>
     .orderBy(desc(events.end_date));
 
 const updateEventSbtCollection = async (
-  start_date: number | null | undefined,
-  end_date: number | null | undefined,
-  activity_id: number | null | undefined,
-  sbt_collection_address: string | null | undefined,
-  event_uuid: string | null | undefined
+  _start_date: number | null | undefined,
+  _end_date: number | null | undefined,
+  _activity_id: number | null | undefined,
+  _sbt_collection_address: string | null | undefined,
+  _event_uuid: string | null | undefined
 ) => {
-  if (!start_date || !end_date || !activity_id) return;
-  /* -------------------------------------------------------------------------- */
-  const now = Date.now();
-  if (now < start_date) return;
-  /* -------------------------------------------------------------------------- */
-  if (sbt_collection_address) return;
-  /* -------------------------------------------------------------------------- */
-  // Keeping Low Load if sbt-collection is not
-  // Check only 10% of time if event is not ended
-  const checkSbtCollection = now > end_date ? now % 3 !== 1 : now % 10 === 1;
-  if (checkSbtCollection) {
-    try {
-      const result = await findActivity(activity_id);
-      const sbt_collection_address = result.data.rewards.collection_address;
-      if (sbt_collection_address) {
-        await db
-          .update(events)
-          .set({ sbt_collection_address: sbt_collection_address })
-          .where(eq(events.activity_id, activity_id))
-          .execute();
-        await eventDB.deleteEventCache(event_uuid!!);
-      }
-    } catch (error) {
-      return;
-    }
-  }
+  return;
 };
 
 /**

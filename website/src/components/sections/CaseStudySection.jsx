@@ -14,7 +14,7 @@ export default function CaseStudySection() {
           </h2>
 
           <p className="text-gray-600 leading-relaxed text-base sm:text-lg mb-8">
-            From regional TON Society hacker houses to global Web3 gatherings, ONTON has eliminated the headache of managing fragmented registration lists, lost ticket emails, and manual Telegram group approvals.
+            From regional community hacker houses to global Web3 gatherings, ONTON has eliminated the headache of managing fragmented registration lists, lost ticket emails, and manual Telegram group approvals.
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">

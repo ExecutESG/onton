@@ -91,7 +91,7 @@ export default function FeaturesSection() {
               check
               label={
                 <span>
-                  <strong>TON Society:</strong> Seamless integration with the broader TON ecosystem
+                  <strong>Native TON Credentials:</strong> On-chain Soulbound Tokens (TEP-85) and cSBTs
                 </span>
               }
             />

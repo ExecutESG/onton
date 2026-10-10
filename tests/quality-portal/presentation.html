@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ONTON 2.0 — Platform Revival & Executive Presentation</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #070a12;
+      color: #f1f5f9;
+      user-select: none;
+    }
+    code, pre {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .glass-card {
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .slide {
+      display: none;
+      opacity: 0;
+      transition: opacity 0.3s ease-in-out;
+    }
+    .slide.active {
+      display: flex;
+      opacity: 1;
+    }
+  </style>
+</head>
+<body class="h-screen w-screen overflow-hidden flex flex-col justify-between selection:bg-cyan-500 selection:text-white">
+
+  <!-- TOP BAR -->
+  <header class="h-16 px-8 flex items-center justify-between border-b border-slate-800/80 bg-slate-950/60 backdrop-blur z-20">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-emerald-400 p-0.5 flex items-center justify-center">
+        <div class="w-full h-full bg-slate-950 rounded-[6px] flex items-center justify-center">
+          <span class="text-xs font-black bg-gradient-to-r from-cyan-400 to-emerald-300 bg-clip-text text-transparent">ON</span>
+        </div>
+      </div>
+      <span class="text-sm font-bold tracking-tight text-white">ONTON 2.0</span>
+      <span class="text-xs text-slate-500">|</span>
+      <span class="text-xs font-medium text-slate-400">Executive Briefing & Strategic Revival</span>
+    </div>
+
+    <div class="flex items-center gap-4">
+      <a href="/index.html" class="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1.5 transition">
+        <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+        <span>Open Quality Portal</span>
+      </a>
+      <div class="text-xs font-mono px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 text-slate-400">
+        <span id="current-slide-num" class="text-white font-bold">1</span> / <span id="total-slides-num">8</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- SLIDES WRAPPER -->
+  <main class="flex-1 relative flex items-center justify-center p-6 md:p-12 overflow-hidden">
+
+    <!-- SLIDE 1: COVER -->
+    <div class="slide active flex-col items-center justify-center text-center max-w-4xl space-y-8" data-index="1">
+      <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-semibold uppercase tracking-wider">
+        <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+        Platform Revival & Strategy Session
+      </div>
+      <h1 class="text-5xl md:text-6xl font-extrabold tracking-tight text-white leading-tight">
+        ONTON 2.0<br>
+        <span class="bg-gradient-to-r from-cyan-400 via-teal-300 to-emerald-400 bg-clip-text text-transparent">
+          The Event OS for Telegram & TON
+        </span>
+      </h1>
+      <p class="text-lg md:text-xl text-slate-300 max-w-2xl font-normal leading-relaxed">
+        From a gamified experimental app to the definitive, permissionless <strong>"Luma of Telegram"</strong>.
+      </p>
+      <div class="pt-4 flex items-center gap-4 text-xs text-slate-400">
+        <span class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800">Presented for: <strong>AliTON (@alihouse)</strong></span>
+        <span>•</span>
+        <span class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800">By: <strong>Mahdi Farimani</strong></span>
+      </div>
+    </div>
+
+    <!-- SLIDE 2: THE 1-YEAR RETROSPECTIVE -->
+    <div class="slide flex-col max-w-5xl w-full space-y-6" data-index="2">
+      <div>
+        <span class="text-xs font-semibold text-red-400 uppercase tracking-wider">Historical Context · 1 Year Ago</span>
+        <h2 class="text-3xl md:text-4xl font-bold text-white mt-1">What Held ONTON Back in 2024/2025</h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div class="glass-card p-6 rounded-2xl border-red-500/20 bg-red-950/10 space-y-3">
+          <div class="w-10 h-10 rounded-xl bg-red-500/20 text-red-400 flex items-center justify-center">
+            <i data-lucide="wallet" class="w-5 h-5"></i>
+          </div>
+          <h3 class="text-lg font-bold text-white">100% Crypto-Only Friction</h3>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Every attendee was forced to connect TonConnect and pay gas fees in TON/USDT. No Telegram Stars existed. Non-crypto users dropped off immediately.
+          </p>
+        </div>
+
+        <div class="glass-card p-6 rounded-2xl border-amber-500/20 bg-amber-950/10 space-y-3">
+          <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+            <i data-lucide="lock" class="w-5 h-5"></i>
+          </div>
+          <h3 class="text-lg font-bold text-white">Permission-Gated Launching</h3>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Event creation required manual whitelisting, hardcoded UUIDs, or admin approvals. Normal community leaders couldn't self-serve launch.
+          </p>
+        </div>
+
+        <div class="glass-card p-6 rounded-2xl border-slate-700/60 bg-slate-900/40 space-y-3">
+          <div class="w-10 h-10 rounded-xl bg-slate-800 text-slate-400 flex items-center justify-center">
+            <i data-lucide="sparkles" class="w-5 h-5"></i>
+          </div>
+          <h3 class="text-lg font-bold text-white">Gamification Noise</h3>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            The product was cluttered with Play2Win tournaments, Genesis Onion campaigns, and task farming. It confused serious event hosts.
+          </p>
+        </div>
+      </div>
+
+      <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between text-xs text-slate-300">
+        <span class="font-medium text-white">The Takeaway:</span>
+        <span class="text-slate-400">Onton had real tech, but the user experience was fighting against its own adoption.</span>
+      </div>
+    </div>
+
+    <!-- SLIDE 3: THE STRATEGIC PIVOT -->
+    <div class="slide flex-col max-w-5xl w-full space-y-6" data-index="3">
+      <div>
+        <span class="text-xs font-semibold text-cyan-400 uppercase tracking-wider">The Strategic Pivot</span>
+        <h2 class="text-3xl md:text-4xl font-bold text-white mt-1">Positioning as "The Luma of Telegram"</h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="glass-card p-6 rounded-2xl border-slate-800 space-y-4">
+          <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">The Market Opportunity</span>
+          <ul class="space-y-3 text-xs text-slate-300">
+            <li class="flex items-start gap-2.5">
+              <i data-lucide="check" class="w-4 h-4 text-cyan-400 shrink-0 mt-0.5"></i>
+              <span><strong>950M Telegram Users:</strong> Events are discussed on Telegram, but organizers currently send attendees to external Web2 links (Luma, Eventbrite).</span>
+            </li>
+            <li class="flex items-start gap-2.5">
+              <i data-lucide="check" class="w-4 h-4 text-cyan-400 shrink-0 mt-0.5"></i>
+              <span><strong>Luma Lacks Telegram Native Power:</strong> Luma cannot check Telegram IDs, auto-add to private event chats, or accept native Telegram Stars.</span>
+            </li>
+            <li class="flex items-start gap-2.5">
+              <i data-lucide="check" class="w-4 h-4 text-cyan-400 shrink-0 mt-0.5"></i>
+              <span><strong>Web3 Ownership Without Web3 Friction:</strong> Anyone can RSVP in 1 tap; Web3 badges are minted automatically in the background.</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="glass-card p-6 rounded-2xl border-emerald-500/20 bg-emerald-950/10 space-y-4">
+          <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider">What We Did</span>
+          <ul class="space-y-3 text-xs text-slate-200">
+            <li class="flex items-start gap-2.5">
+              <i data-lucide="trash-2" class="w-4 h-4 text-red-400 shrink-0 mt-0.5"></i>
+              <span><strong>Killed the noise:</strong> Officially retired Play2Win, task-farming, and lottery gimmicks.</span>
+            </li>
+            <li class="flex items-start gap-2.5">
+              <i data-lucide="zap" class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5"></i>
+              <span><strong>100% Permissionless:</strong> Anyone can spin up an event in 60 seconds with custom slugs.</span>
+            </li>
+            <li class="flex items-start gap-2.5">
+              <i data-lucide="credit-card" class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5"></i>
+              <span><strong>Dual-Rail Checkout:</strong> Telegram Stars (in-app micro-payments) + TonConnect crypto.</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 4: THE 5 ARCHITECTURAL PILLARS -->
+    <div class="slide flex-col max-w-5xl w-full space-y-6" data-index="4">
+      <div>
+        <span class="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Product Tour</span>
+        <h2 class="text-3xl md:text-4xl font-bold text-white mt-1">The 5 Pillars of ONTON 2.0</h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
+        <div class="glass-card p-4 rounded-xl space-y-2">
+          <div class="text-cyan-400 font-mono text-xs font-bold">01</div>
+          <h4 class="text-sm font-bold text-white">Dual-Rail Payments</h4>
+          <p class="text-[11px] text-slate-300">Telegram Stars (Apple/Google Pay) or TON/USDT. Zero checkout drop-off.</p>
+        </div>
+
+        <div class="glass-card p-4 rounded-xl space-y-2">
+          <div class="text-emerald-400 font-mono text-xs font-bold">02</div>
+          <h4 class="text-sm font-bold text-white">60-Sec Wizard</h4>
+          <p class="text-[11px] text-slate-300">Self-serve creator dashboard, custom questionnaire builder, and multi-tier pricing.</p>
+        </div>
+
+        <div class="glass-card p-4 rounded-xl space-y-2">
+          <div class="text-indigo-400 font-mono text-xs font-bold">03</div>
+          <h4 class="text-sm font-bold text-white">Offline QR Pass</h4>
+          <p class="text-[11px] text-slate-300">High-contrast digital pass cached locally; scans instantly even in low-signal venues.</p>
+        </div>
+
+        <div class="glass-card p-4 rounded-xl space-y-2">
+          <div class="text-amber-400 font-mono text-xs font-bold">04</div>
+          <h4 class="text-sm font-bold text-white">Door Scanner</h4>
+          <p class="text-[11px] text-slate-300">Built-in organizer scanner with duplicate scan fraud prevention and guest check-in.</p>
+        </div>
+
+        <div class="glass-card p-4 rounded-xl space-y-2">
+          <div class="text-purple-400 font-mono text-xs font-bold">05</div>
+          <h4 class="text-sm font-bold text-white">Badges Passport</h4>
+          <p class="text-[11px] text-slate-300">Native TEP-85 SBT Proof-of-Attendance badges minted on TON + legacy TON Society badges.</p>
+        </div>
+      </div>
+
+      <div class="p-4 rounded-xl bg-cyan-950/20 border border-cyan-500/30 flex items-center justify-between text-xs text-cyan-300">
+        <span class="flex items-center gap-2"><i data-lucide="image" class="w-4 h-4"></i> All flows verified with 281 step-by-step visual screenshots in the Quality Portal.</span>
+        <span class="font-mono font-semibold">FLOW-O2 · FLOW-U3 · FLOW-C1</span>
+      </div>
+    </div>
+
+    <!-- SLIDE 5: COMPETITOR COMPARISON -->
+    <div class="slide flex-col max-w-5xl w-full space-y-6" data-index="5">
+      <div>
+        <span class="text-xs font-semibold text-cyan-400 uppercase tracking-wider">Market Positioning</span>
+        <h2 class="text-3xl md:text-4xl font-bold text-white mt-1">Why ONTON Wins Inside Telegram</h2>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="border-b border-slate-800 text-slate-400 uppercase tracking-wider">
+              <th class="py-3 px-4">Feature</th>
+              <th class="py-3 px-4">Luma / Eventbrite</th>
+              <th class="py-3 px-4">Generic Web3 DApps</th>
+              <th class="py-3 px-4 text-emerald-400 font-bold bg-emerald-500/10 rounded-t-lg">ONTON 2.0</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-800/60 text-slate-300">
+            <tr>
+              <td class="py-3 px-4 font-semibold text-white">Registration Flow</td>
+              <td class="py-3 px-4 text-slate-400">Leave app, enter email, verify code</td>
+              <td class="py-3 px-4 text-red-400">Connect wallet, switch RPC, pay gas</td>
+              <td class="py-3 px-4 text-emerald-300 font-semibold bg-emerald-500/5">1-Tap inside Telegram Mini App</td>
+            </tr>
+            <tr>
+              <td class="py-3 px-4 font-semibold text-white">Payment Options</td>
+              <td class="py-3 px-4 text-slate-400">Credit cards only (Stripe)</td>
+              <td class="py-3 px-4 text-slate-400">Crypto only (high gas, wallet required)</td>
+              <td class="py-3 px-4 text-emerald-300 font-semibold bg-emerald-500/5">Telegram Stars (Apple Pay) + TON/USDT</td>
+            </tr>
+            <tr>
+              <td class="py-3 px-4 font-semibold text-white">Telegram Community Gating</td>
+              <td class="py-3 px-4 text-red-400">None (manual link pasting)</td>
+              <td class="py-3 px-4 text-red-400">External bot integrations (Collab.Land)</td>
+              <td class="py-3 px-4 text-emerald-300 font-semibold bg-emerald-500/5">Native one-time Bot invite link DMed</td>
+            </tr>
+            <tr>
+              <td class="py-3 px-4 font-semibold text-white">Proof of Attendance (PoA)</td>
+              <td class="py-3 px-4 text-slate-400">None</td>
+              <td class="py-3 px-4 text-slate-400">Manual POAP claims</td>
+              <td class="py-3 px-4 text-emerald-300 font-semibold bg-emerald-500/5">Instant TEP-85 SBT minted on check-in</td>
+            </tr>
+            <tr>
+              <td class="py-3 px-4 font-semibold text-white">Venue Door Scanner</td>
+              <td class="py-3 px-4 text-slate-400">Separate app download required</td>
+              <td class="py-3 px-4 text-red-400">Non-existent / slow on-chain lookup</td>
+              <td class="py-3 px-4 text-emerald-300 font-semibold bg-emerald-500/5">Built directly into the Mini App</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SLIDE 6: ENGINEERING RIGOR -->
+    <div class="slide flex-col max-w-5xl w-full space-y-6" data-index="6">
+      <div>
+        <span class="text-xs font-semibold text-purple-400 uppercase tracking-wider">Production Maturity</span>
+        <h2 class="text-3xl md:text-4xl font-bold text-white mt-1">Battle-Tested & Audit-Verified</h2>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="glass-card p-5 rounded-2xl text-center space-y-1">
+          <div class="text-3xl font-extrabold text-emerald-400">98%</div>
+          <div class="text-xs font-medium text-slate-300">Readiness Score</div>
+          <div class="text-[10px] text-slate-500">Fully validated flows</div>
+        </div>
+
+        <div class="glass-card p-5 rounded-2xl text-center space-y-1">
+          <div class="text-3xl font-extrabold text-cyan-400">42</div>
+          <div class="text-xs font-medium text-slate-300">E2E User Flows</div>
+          <div class="text-[10px] text-slate-500">Across 6 platform roles</div>
+        </div>
+
+        <div class="glass-card p-5 rounded-2xl text-center space-y-1">
+          <div class="text-3xl font-extrabold text-indigo-400">281</div>
+          <div class="text-xs font-medium text-slate-300">Visual Snapshots</div>
+          <div class="text-[10px] text-slate-500">Documented in Quality Portal</div>
+        </div>
+
+        <div class="glass-card p-5 rounded-2xl text-center space-y-1">
+          <div class="text-3xl font-extrabold text-emerald-400">25 / 26</div>
+          <div class="text-xs font-medium text-slate-300">Flaws Resolved</div>
+          <div class="text-[10px] text-slate-500">Edge cases hardened & fixed</div>
+        </div>
+      </div>
+
+      <div class="glass-card p-5 rounded-2xl space-y-3">
+        <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider">What We Solved Technically:</h4>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-slate-300">
+          <div class="flex items-center gap-2"><i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i> Row-level locking on ticket minting (zero race conditions)</div>
+          <div class="flex items-center gap-2"><i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i> Offline local caching for QR passes (works with 0 reception)</div>
+          <div class="flex items-center gap-2"><i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i> Consolidated bot engine (zero polling collisions or timeouts)</div>
+          <div class="flex items-center gap-2"><i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i> Deterministic test event seeder skill (instant staging verification)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 7: THE COFOUNDER FIT -->
+    <div class="slide flex-col max-w-5xl w-full space-y-6" data-index="7">
+      <div>
+        <span class="text-xs font-semibold text-emerald-400 uppercase tracking-wider">The Strategic Partnership</span>
+        <h2 class="text-3xl md:text-4xl font-bold text-white mt-1">Why AliTON + Mahdi Is the Winning Pair</h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="glass-card p-6 rounded-2xl border-cyan-500/20 space-y-4">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold">M</div>
+            <div>
+              <h3 class="text-base font-bold text-white">Mahdi Farimani</h3>
+              <p class="text-xs text-slate-400">Product, Architecture & Engineering</p>
+            </div>
+          </div>
+          <ul class="space-y-2 text-xs text-slate-300">
+            <li class="flex items-center gap-2"><i data-lucide="code" class="w-3.5 h-3.5 text-cyan-400"></i> Full-stack architecture (Next.js, TMA, Drizzle, Postgres)</li>
+            <li class="flex items-center gap-2"><i data-lucide="cpu" class="w-3.5 h-3.5 text-cyan-400"></i> Smart contract & TEP-85 SBT blockchain relayer</li>
+            <li class="flex items-center gap-2"><i data-lucide="shield" class="w-3.5 h-3.5 text-cyan-400"></i> Production infrastructure, CI/CD, and 99.9% uptime</li>
+          </ul>
+        </div>
+
+        <div class="glass-card p-6 rounded-2xl border-emerald-500/20 space-y-4">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">A</div>
+            <div>
+              <h3 class="text-base font-bold text-white">AliTON (@alihouse)</h3>
+              <p class="text-xs text-slate-400">Co-founder & Head of Ecosystem / Growth</p>
+            </div>
+          </div>
+          <ul class="space-y-2 text-xs text-slate-300">
+            <li class="flex items-center gap-2"><i data-lucide="megaphone" class="w-3.5 h-3.5 text-emerald-400"></i> Direct distribution channel & loyal audience on t.me/alihouse</li>
+            <li class="flex items-center gap-2"><i data-lucide="handshake" class="w-3.5 h-3.5 text-emerald-400"></i> TON ecosystem relationships, hubs, and TON Foundation grants</li>
+            <li class="flex items-center gap-2"><i data-lucide="trending-up" class="w-3.5 h-3.5 text-emerald-400"></i> Event organizer onboarding & business development</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 text-center text-xs text-slate-300">
+        <em>"Tech without distribution stalls. Distribution without reliable tech burns trust. Together, we own both."</em>
+      </div>
+    </div>
+
+    <!-- SLIDE 8: THE ASK / PILOT -->
+    <div class="slide flex-col items-center justify-center text-center max-w-3xl space-y-6" data-index="8">
+      <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold uppercase tracking-wider">
+        <i data-lucide="rocket" class="w-3.5 h-3.5"></i>
+        Immediate Next Step
+      </div>
+
+      <h2 class="text-4xl md:text-5xl font-extrabold text-white leading-tight">
+        The Zero-Risk Pilot
+      </h2>
+
+      <p class="text-base text-slate-300 max-w-xl leading-relaxed">
+        Don’t commit on paper today. Let’s run your next <strong>t.me/alihouse</strong> community AMA, private meetup, or workshop exclusively through ONTON.
+      </p>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 w-full text-left pt-2">
+        <div class="glass-card p-4 rounded-xl space-y-1.5">
+          <div class="text-xs font-bold text-cyan-400">Step 1</div>
+          <h4 class="text-sm font-semibold text-white">We create your event</h4>
+          <p class="text-[11px] text-slate-400">Live in 60s with custom cover art & tiers.</p>
+        </div>
+
+        <div class="glass-card p-4 rounded-xl space-y-1.5">
+          <div class="text-xs font-bold text-emerald-400">Step 2</div>
+          <h4 class="text-sm font-semibold text-white">You share with members</h4>
+          <p class="text-[11px] text-slate-400">Members RSVP in 1 tap or pay with Stars/TON.</p>
+        </div>
+
+        <div class="glass-card p-4 rounded-xl space-y-1.5">
+          <div class="text-xs font-bold text-purple-400">Step 3</div>
+          <h4 class="text-sm font-semibold text-white">Review conversion</h4>
+          <p class="text-[11px] text-slate-400">If your audience loves it, we formalize co-founder terms.</p>
+        </div>
+      </div>
+
+      <div class="pt-4">
+        <button onclick="window.open('/index.html', '_blank')" class="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-400 hover:from-cyan-400 hover:to-emerald-300 text-slate-950 font-bold text-sm shadow-lg shadow-cyan-500/20 transition flex items-center gap-2 mx-auto">
+          <span>Explore Live Quality Portal</span>
+          <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- BOTTOM CONTROLS -->
+  <footer class="h-16 px-8 flex items-center justify-between border-t border-slate-800/80 bg-slate-950/60 backdrop-blur z-20">
+    <div class="text-xs text-slate-500 flex items-center gap-3">
+      <span>Use <kbd class="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-400">←</kbd> <kbd class="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-400">→</kbd> or <kbd class="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-400">Space</kbd> to navigate</span>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <button id="btn-prev" onclick="changeSlide(-1)" class="px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-medium text-slate-300 transition flex items-center gap-1.5">
+        <i data-lucide="chevron-left" class="w-4 h-4"></i>
+        <span>Previous</span>
+      </button>
+      <button id="btn-next" onclick="changeSlide(1)" class="px-3.5 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-xs font-semibold text-white shadow-md shadow-cyan-600/20 transition flex items-center gap-1.5">
+        <span>Next</span>
+        <i data-lucide="chevron-right" class="w-4 h-4"></i>
+      </button>
+    </div>
+  </footer>
+
+  <script>
+    lucide.createIcons();
+
+    let currentSlide = 1;
+    const slides = document.querySelectorAll('.slide');
+    const totalSlides = slides.length;
+    document.getElementById('total-slides-num').textContent = totalSlides;
+
+    function showSlide(index) {
+      if (index < 1) index = 1;
+      if (index > totalSlides) index = totalSlides;
+      currentSlide = index;
+
+      slides.forEach((slide) => {
+        slide.classList.remove('active');
+        if (parseInt(slide.getAttribute('data-index')) === currentSlide) {
+          slide.classList.add('active');
+        }
+      });
+
+      document.getElementById('current-slide-num').textContent = currentSlide;
+      document.getElementById('btn-prev').disabled = currentSlide === 1;
+      document.getElementById('btn-prev').style.opacity = currentSlide === 1 ? '0.5' : '1';
+      document.getElementById('btn-next').textContent = currentSlide === totalSlides ? 'Finish' : 'Next';
+    }
+
+    function changeSlide(direction) {
+      showSlide(currentSlide + direction);
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === 'Space' || e.key === 'PageDown') {
+        e.preventDefault();
+        changeSlide(1);
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        e.preventDefault();
+        changeSlide(-1);
+      }
+    });
+
+    showSlide(1);
+  </script>
+</body>
+</html>

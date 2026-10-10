@@ -343,6 +343,7 @@ type OrderTransaction = {
   owner: Address;
   trx_hash: string;
   jettonMaster?: string;
+  lt?: bigint;
 };
 
 async function parseTransactions(
@@ -377,6 +378,7 @@ async function parseTransactions(
             verfied: true,
             owner: Address.parse(source),
             trx_hash: trx?.hash,
+            lt: trx?.lt ? BigInt(trx.lt) : undefined,
           });
         }
       }
@@ -418,6 +420,7 @@ async function parseTransactions(
               verfied: Boolean(jetton_master),
               owner: Address.parse(jettonSender?.toString()!),
               trx_hash: trx?.hash,
+              lt: trx?.lt ? BigInt(trx.lt) : undefined,
             });
           }
         }
@@ -555,6 +558,30 @@ export async function getWalletInformationBalance(address: string, retries = 3):
 }
 
 /* -------------------------------------------------------------------------- */
+/*                                    Traces                                  */
+/* -------------------------------------------------------------------------- */
+export async function fetchTrace(txHash: string, retries = 3): Promise<any> {
+  const endpoint = `${BASE_URL}/traces`;
+  const params: Record<string, any> = { tx_hash: txHash };
+
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const apiKey = getApiKey();
+      const response = await axios.get(endpoint, {
+        params,
+        headers: { accept: "application/json", "X-Api-Key": apiKey },
+      });
+      return response.data;
+    } catch (error) {
+      await delay(50);
+      if (attempt === retries) {
+        throw error;
+      }
+    }
+  }
+}
+
+/* -------------------------------------------------------------------------- */
 /*                                     END                                    */
 /* -------------------------------------------------------------------------- */
 
@@ -566,6 +593,7 @@ const tonCenter = {
   fetchCollection,
   getAccountBalance,
   getWalletInformationBalance,
+  fetchTrace,
 };
 
 export default tonCenter;

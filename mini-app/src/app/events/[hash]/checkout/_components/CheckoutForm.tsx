@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import MainButton from "@/app/_components/atoms/buttons/web-app/MainButton";
 
+import { computeSplit } from "@/lib/platformFee";
+
 type PaymentRail = "STARS" | "CRYPTO";
 
 interface OrderResponse {
@@ -17,6 +19,10 @@ interface OrderResponse {
   state?: string;
   is_free?: boolean;
   total_price?: number;
+  platform_fee_raw?: string | null;
+  organizer_amount_raw?: string | null;
+  fee_bps?: number | null;
+  recipient_address?: string | null;
   token?: {
     symbol: string;
     decimals: number;
@@ -37,6 +43,7 @@ interface PaymentDetailsProp {
   price: number;
   title: string | null;
   ticket_type: "NFT" | "TSCSBT" | "TICKET";
+  recipient_address?: string | null;
   token: {
     symbol: string;
     decimals: number;
@@ -299,14 +306,38 @@ export default function CheckoutForm({
         throw new Error("Payment wallet not configured");
       }
 
-      const { Address, beginCell } = await import("@ton/core");
-      const destinationAddress = Address.parse(paymentWalletAddress);
-      const tokenAmount = toTokenUnits(Number(order.total_price), order.token.decimals ?? 9);
+      const organizerRecipient = order.recipient_address || paymentDetails?.recipient_address;
+      if (!organizerRecipient) {
+        throw new Error("Organizer recipient address is missing");
+      }
+
+      const { Address, beginCell, toNano } = await import("@ton/core");
+      const organizerAddress = Address.parse(organizerRecipient);
+      const treasuryAddress = Address.parse(paymentWalletAddress);
+
+      const isMainnet =
+        process.env.NEXT_PUBLIC_TON_NETWORK === "mainnet" ||
+        (process.env.NEXT_PUBLIC_ENV || "development") === "production";
+      const isTestnet = !isMainnet;
+
+      const decimals = order.token.decimals ?? (tokenSymbol === "USDT" ? 6 : 9);
+      const totalAmountRaw = toTokenUnits(Number(order.total_price), decimals);
+
+      let platformFeeRaw: bigint;
+      let organizerAmountRaw: bigint;
+      if (order.platform_fee_raw != null && order.organizer_amount_raw != null) {
+        platformFeeRaw = BigInt(order.platform_fee_raw);
+        organizerAmountRaw = BigInt(order.organizer_amount_raw);
+      } else {
+        const split = computeSplit(totalAmountRaw, tokenSymbol === "USDT" ? "USDT" : "TON", 0);
+        platformFeeRaw = split.platformFeeRaw;
+        organizerAmountRaw = split.organizerAmountRaw;
+      }
 
       if (!order.token.is_native && order.token.master_address) {
-        // Jetton (USDT) transfer via assets-sdk
+        // Jetton (USDT) transfer: Send 2 jetton transfer messages in single sendTransaction payload
         const { assetsSdk } = await import("@/app/(navigation)/my/useTransfer");
-        const sdk = await assetsSdk(tonConnectUI);
+        const sdk = await assetsSdk(tonConnectUI, isTestnet);
         if (!sdk.sender?.address) throw new Error("Wallet not connected");
 
         const forwardPayload = beginCell()
@@ -316,26 +347,73 @@ export default function CheckoutForm({
 
         const jetton = sdk.openJetton(Address.parse(order.token.master_address));
         const myJettonWallet = await jetton.getWallet(sdk.sender.address);
-        await myJettonWallet.send(sdk.sender, destinationAddress, tokenAmount, {
-          notify: { payload: forwardPayload },
+        const jettonWalletAddress = myJettonWallet.address;
+
+        const buildJettonTransferPayload = (recipient: any, amount: bigint, queryId: bigint = BigInt(0)) => {
+          return beginCell()
+            .storeUint(0x0f8a7ea5, 32) // JETTON_TRANSFER_OPCODE
+            .storeUint(queryId, 64) // query_id
+            .storeCoins(amount) // jetton amount
+            .storeAddress(recipient) // destination
+            .storeAddress(sdk.sender!.address!) // response_destination (excess)
+            .storeMaybeRef(null) // custom_payload
+            .storeCoins(toNano("0.01")) // forward_ton_amount
+            .storeBit(1)
+            .storeRef(forwardPayload) // forward_payload
+            .endCell()
+            .toBoc()
+            .toString("base64");
+        };
+
+        const messages = [
+          {
+            address: jettonWalletAddress.toString({ testOnly: isTestnet, bounceable: true }),
+            amount: toNano("0.05").toString(),
+            payload: buildJettonTransferPayload(organizerAddress, organizerAmountRaw, BigInt(1)),
+          },
+        ];
+
+        if (platformFeeRaw > BigInt(0)) {
+          messages.push({
+            address: jettonWalletAddress.toString({ testOnly: isTestnet, bounceable: true }),
+            amount: toNano("0.05").toString(),
+            payload: buildJettonTransferPayload(treasuryAddress, platformFeeRaw, BigInt(2)),
+          });
+        }
+
+        await tonConnectUI.sendTransaction({
+          validUntil: Math.floor(Date.now() / 1000) + 360,
+          network: isTestnet ? "-3" : "-239",
+          messages,
         });
       } else {
-        // Native TON transfer
+        // Native TON transfer: Send 2 messages in single sendTransaction payload
         const body = beginCell()
           .storeUint(0, 32)
           .storeStringTail(`onton_order=${order.order_id}`)
           .endCell()
           .toBoc();
 
+        const messages = [
+          {
+            address: organizerAddress.toString({ testOnly: isTestnet, bounceable: false }),
+            amount: organizerAmountRaw.toString(),
+            payload: body.toString("base64"),
+          },
+        ];
+
+        if (platformFeeRaw > BigInt(0)) {
+          messages.push({
+            address: treasuryAddress.toString({ testOnly: isTestnet, bounceable: false }),
+            amount: platformFeeRaw.toString(),
+            payload: body.toString("base64"),
+          });
+        }
+
         await tonConnectUI.sendTransaction({
           validUntil: Math.floor(Date.now() / 1000) + 360,
-          messages: [
-            {
-              address: destinationAddress.toString(),
-              amount: tokenAmount.toString(),
-              payload: body.toString("base64"),
-            },
-          ],
+          network: isTestnet ? "-3" : "-239",
+          messages,
         });
       }
 
@@ -419,6 +497,12 @@ export default function CheckoutForm({
   const formattedPrice = isFree ? "Free" : isStars ? `⭐ ${effectivePrice}` : `${effectivePrice} ${tokenSymbol}`;
   const tierDisplayName = selectedTier?.tier_name || paymentDetails?.title || "Standard Ticket";
 
+  const feeDecimals = paymentDetails?.token?.decimals ?? (tokenSymbol === "USDT" ? 6 : 9);
+  const totalRawForPreview = toTokenUnits(effectivePrice, feeDecimals);
+  const previewSplit = computeSplit(totalRawForPreview, tokenSymbol === "USDT" ? "USDT" : "TON", 0);
+  const previewFee = Number(previewSplit.platformFeeRaw) / 10 ** feeDecimals;
+  const previewOrganizer = Number(previewSplit.organizerAmountRaw) / 10 ** feeDecimals;
+
   const buttonText = isSubmitting
     ? "Processing..."
     : isFree
@@ -452,6 +536,29 @@ export default function CheckoutForm({
               {isFree ? "Free RSVP" : isStars ? "⭐ Telegram Stars" : `💎 ${tokenSymbol} Crypto`}
             </span>
           </div>
+
+          {!isFree && paymentRail === "CRYPTO" && (
+            <div className="mt-3 space-y-1.5 border-t border-gray-100 pt-3 text-xs text-gray-500">
+              <div className="flex items-center justify-between">
+                <span>Organizer Receives</span>
+                <span className="font-medium text-gray-800">
+                  {previewOrganizer.toFixed(feeDecimals === 6 ? 2 : 4)} {tokenSymbol}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Platform Fee (3%)</span>
+                <span className="font-medium text-gray-800">
+                  {previewFee.toFixed(feeDecimals === 6 ? 2 : 4)} {tokenSymbol}
+                </span>
+              </div>
+              <div className="flex items-center justify-between border-t border-dashed border-gray-200 pt-1.5 font-semibold text-gray-900">
+                <span>Total Due</span>
+                <span>
+                  {effectivePrice} {tokenSymbol}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Ticket Tier Selector (shown if event has multiple tiers) */}

@@ -447,7 +447,7 @@ const addEvent = initDataProtectedProcedure.input(z.object({ eventData: EventDat
           /* -------------------------------------------------------------------------- */
           token_id: paymentToken.token_id,
           price: event_ticket_price,
-          recipient_address: input_event_data.has_web3 ? input_event_data.paid_event.payment_recipient_address : (config?.ONTON_WALLET_ADDRESS || ""),
+          recipient_address: input_event_data.paid_event.payment_recipient_address || (config?.ONTON_WALLET_ADDRESS || ""),
           bought_capacity: input_event_data.capacity,
           /* -------------------------------------------------------------------------- */
           ticket_type: ticketType,
@@ -721,7 +721,7 @@ const updateEvent = eventManagerPP
           await trx
             .update(eventPayment)
             .set({
-              recipient_address: eventData.has_web3 ? eventData.paid_event.payment_recipient_address : (config?.ONTON_WALLET_ADDRESS || ""),
+              recipient_address: eventData.paid_event.payment_recipient_address || (config?.ONTON_WALLET_ADDRESS || ""),
               price: price,
             })
             .where(eq(eventPayment.event_uuid, oldEvent.event_uuid));

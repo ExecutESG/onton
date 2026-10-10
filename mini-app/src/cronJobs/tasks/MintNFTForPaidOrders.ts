@@ -19,6 +19,7 @@ import { eventTicketTiersDB } from "@/db/modules/eventTicketTiers.db";
 import { config } from "@/server/config";
 import { isAxiosError } from "axios";
 import { redisTools } from "@/lib/redisTools";
+import { decrementOrganizerFeeWaiver } from "@/lib/platformFee";
 
 export const MAX_MINT_RETRIES = 5;
 
@@ -179,6 +180,13 @@ export const processSinglePaidOrder = async (orderUuid: string): Promise<boolean
 
         if (ordr.tier_id) {
           await eventTicketTiersDB.incrementTierSoldCountTrx(trx, ordr.tier_id, 1);
+        }
+
+        if (ordr.fee_bps === 0 && Number(ordr.total_price) > 0) {
+          const ev = await trx.select({ owner: events.owner }).from(events).where(eq(events.event_uuid, event_uuid)).execute();
+          if (ev[0]?.owner) {
+            await decrementOrganizerFeeWaiver(ev[0].owner, trx);
+          }
         }
 
         // For TICKET, we insert into tickets table instead of nftItems
@@ -376,6 +384,13 @@ export const processSinglePaidOrder = async (orderUuid: string): Promise<boolean
 
       if (ordr.tier_id) {
         await eventTicketTiersDB.incrementTierSoldCountTrx(trx, ordr.tier_id, 1);
+      }
+
+      if (ordr.fee_bps === 0 && Number(ordr.total_price) > 0) {
+        const ev = await trx.select({ owner: events.owner }).from(events).where(eq(events.event_uuid, event_uuid)).execute();
+        if (ev[0]?.owner) {
+          await decrementOrganizerFeeWaiver(ev[0].owner, trx);
+        }
       }
 
       logger.log(`nft_mint_order_completed_${ordr.uuid}`);

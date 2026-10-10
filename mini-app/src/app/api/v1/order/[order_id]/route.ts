@@ -2,6 +2,7 @@ import { db } from "@/db/db";
 import { apiKeyAuthentication, getAuthenticatedUser } from "@/server/auth";
 import { NextRequest } from "next/server";
 import "@/lib/gracefullyShutdown";
+import { config } from "@/server/config";
 
 type OptionsProps = {
   params: {
@@ -55,7 +56,10 @@ export async function GET(req: NextRequest, { params }: OptionsProps) {
 
   return Response.json({
     ...order,
+    platform_fee_raw: order.platform_fee_raw != null ? order.platform_fee_raw.toString() : null,
+    organizer_amount_raw: order.organizer_amount_raw != null ? order.organizer_amount_raw.toString() : null,
     total_price: order.total_price,
+    recipient_address: eventPaymentInfo.recipient_address || config?.ONTON_WALLET_ADDRESS || null,
     nft_collection_address: eventPaymentInfo.collectionAddress,
     tier,
     tickets,

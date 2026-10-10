@@ -46,6 +46,7 @@ export default async function CheckoutPage({ params }: Props) {
               price: Number(paymentDetails.price || 0),
               title: paymentDetails.title || null,
               ticket_type: paymentDetails.ticket_type,
+              recipient_address: paymentDetails.recipient_address || null,
               token: paymentToken
                 ? {
                     symbol: paymentToken.symbol,

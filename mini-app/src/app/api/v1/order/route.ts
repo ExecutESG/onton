@@ -1,5 +1,5 @@
 import { db } from "@/db/db";
-import { eventRegistrants, orders, tickets } from "@/db/schema";
+import { eventRegistrants, orders, tickets, users } from "@/db/schema";
 import "@/lib/gracefullyShutdown";
 import { removeKey } from "@/lib/utils";
 import { getAuthenticatedUser } from "@/server/auth";
@@ -14,6 +14,8 @@ import { logger } from "@/server/utils/logger";
 import { applyCouponDiscount } from "@/lib/applyCouponDiscount";
 import { issueAndSendEventInviteLink } from "@/lib/eventInviteService";
 import { checkRateLimit } from "@/lib/checkRateLimit";
+import { computeSplit, STARS_FEE_BPS } from "@/lib/platformFee";
+import { config } from "@/server/config";
 
 const addOrderSchema = z.object({
   event_uuid: z.string().uuid(),
@@ -170,6 +172,48 @@ export async function POST(request: Request) {
   if (errorResponse) {
     return errorResponse;
   }
+
+  /* -------------------------------------------------------------------------- */
+  /*                            Fee Split Calculation                           */
+  /* -------------------------------------------------------------------------- */
+  const organizerUser = await db.query.users.findFirst({
+    where: eq(users.user_id, eventData.owner),
+  });
+  const feeWaiverTicketsRemaining = organizerUser?.fee_waiver_tickets_remaining ?? 0;
+
+  const isFree = discountedPrice === 0;
+  let platformFeeRaw: bigint = BigInt(0);
+  let organizerAmountRaw: bigint = BigInt(0);
+  let feeBps: number = 0;
+
+  if (!isFree) {
+    const isStarsPayment = body.data.payment_method === "STAR" || paymentToken.symbol === "STAR";
+    if (isStarsPayment) {
+      const decimals = paymentToken.decimals ?? 9;
+      const totalAmountRaw = BigInt(Math.round(discountedPrice * 10 ** decimals));
+      if (feeWaiverTicketsRemaining > 0) {
+        feeBps = 0;
+        platformFeeRaw = BigInt(0);
+        organizerAmountRaw = totalAmountRaw;
+      } else {
+        feeBps = STARS_FEE_BPS; // 500 bps (5%)
+        platformFeeRaw = (totalAmountRaw * BigInt(STARS_FEE_BPS)) / BigInt(10000);
+        organizerAmountRaw = totalAmountRaw - platformFeeRaw;
+      }
+    } else {
+      const currency: "TON" | "USDT" =
+        body.data.payment_method === "USDT" || paymentToken.symbol === "USDT" ? "USDT" : "TON";
+      const decimals = paymentToken.decimals ?? (currency === "USDT" ? 6 : 9);
+      const totalAmountRaw = BigInt(Math.round(discountedPrice * 10 ** decimals));
+      const split = computeSplit(totalAmountRaw, currency, feeWaiverTicketsRemaining);
+      platformFeeRaw = split.platformFeeRaw;
+      organizerAmountRaw = split.organizerAmountRaw;
+      feeBps = split.feeBps;
+    }
+  }
+
+  const effectiveRecipientAddress = eventPaymentInfo.recipient_address || config?.ONTON_WALLET_ADDRESS || null;
+
   /* -------------------------------------------------------------------------- */
   /*                            Already Have an Order                           */
   /* -------------------------------------------------------------------------- */
@@ -197,6 +241,10 @@ export async function POST(request: Request) {
         default_price: effectivePrice,
         tier_id: selectedTier ? selectedTier.id : userOrder.tier_id,
         tier_name: selectedTier?.tier_name || null,
+        platform_fee_raw: userOrder.platform_fee_raw?.toString() ?? "0",
+        organizer_amount_raw: userOrder.organizer_amount_raw?.toString() ?? "0",
+        fee_bps: userOrder.fee_bps ?? 0,
+        recipient_address: effectiveRecipientAddress,
       });
     }
 
@@ -212,6 +260,9 @@ export async function POST(request: Request) {
           updatedAt: new Date(),
           total_price: effectivePrice,
           tier_id: selectedTier ? selectedTier.id : userOrder.tier_id,
+          platform_fee_raw: platformFeeRaw,
+          organizer_amount_raw: organizerAmountRaw,
+          fee_bps: feeBps,
         })
         .where(eq(orders.uuid, userOrder.uuid))
         .execute();
@@ -231,11 +282,14 @@ export async function POST(request: Request) {
         default_price: effectivePrice,
         tier_id: selectedTier ? selectedTier.id : userOrder.tier_id,
         tier_name: selectedTier?.tier_name || null,
+        platform_fee_raw: platformFeeRaw.toString(),
+        organizer_amount_raw: organizerAmountRaw.toString(),
+        fee_bps: feeBps,
+        recipient_address: effectiveRecipientAddress,
       });
     }
 
     if (userOrder.state === "new" || userOrder.state === "confirming") {
-      const isFree = discountedPrice === 0;
       const targetState = isFree ? "completed" : "confirming";
 
       try {
@@ -271,6 +325,9 @@ export async function POST(request: Request) {
               total_price: discountedPrice,
               owner_address: body.data.owner_address || userOrder.owner_address,
               tier_id: selectedTier ? selectedTier.id : userOrder.tier_id,
+              platform_fee_raw: platformFeeRaw,
+              organizer_amount_raw: organizerAmountRaw,
+              fee_bps: feeBps,
             })
             .where(eq(orders.uuid, userOrder.uuid))
             .execute();
@@ -362,6 +419,10 @@ export async function POST(request: Request) {
         default_price: effectivePrice,
         tier_id: selectedTier ? selectedTier.id : userOrder.tier_id,
         tier_name: selectedTier?.tier_name || null,
+        platform_fee_raw: platformFeeRaw.toString(),
+        organizer_amount_raw: organizerAmountRaw.toString(),
+        fee_bps: feeBps,
+        recipient_address: effectiveRecipientAddress,
       });
     }
   }
@@ -369,7 +430,6 @@ export async function POST(request: Request) {
   let new_order = null;
   let new_order_uuid = null;
   let new_order_price = -1;
-  const isFree = discountedPrice === 0;
   const initialOrderState = isFree ? "completed" : "confirming";
   const initialRegistrantStatus = isFree ? "approved" : "pending";
   let insertedRegistrantId: number | null = null;
@@ -424,6 +484,9 @@ export async function POST(request: Request) {
             updatedBy: "system",
             coupon_id: couponId,
             tier_id: selectedTier ? selectedTier.id : null,
+            platform_fee_raw: platformFeeRaw,
+            organizer_amount_raw: organizerAmountRaw,
+            fee_bps: feeBps,
           })
           .returning()
           .execute()
@@ -520,6 +583,10 @@ export async function POST(request: Request) {
       default_price: effectivePrice,
       tier_id: selectedTier ? selectedTier.id : null,
       tier_name: selectedTier?.tier_name || null,
+      platform_fee_raw: platformFeeRaw.toString(),
+      organizer_amount_raw: organizerAmountRaw.toString(),
+      fee_bps: feeBps,
+      recipient_address: effectiveRecipientAddress,
     });
   } else {
     return Response.json({

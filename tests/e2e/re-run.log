@@ -1,0 +1,178 @@
+
+Running 38 tests using 2 workers
+
+  ✓   1 [chromium] › guest-flows.spec.ts:7:7 › Role: Guest - Ecosystem Discovery & Navigation › Flow G-1: Homepage Feed & Promoted Content (5.9s)
+  ✓   2 [chromium] › guest-flows.spec.ts:36:7 › Role: Guest - Ecosystem Discovery & Navigation › Flow G-2: Global Search & Filtering (7.4s)
+  ✓   4 [chromium] › guest-flows.spec.ts:100:7 › Role: Guest - Ecosystem Discovery & Navigation › Flow G-4: Organizer Channels Discovery (3.5s)
+  ✓   5 [chromium] › guest-flows.spec.ts:114:7 › Role: Guest - Ecosystem Discovery & Navigation › Flow G-5: Retired Play2Win Route Graceful Redirection (2.6s)
+  ✘   3 [chromium] › guest-flows.spec.ts:71:7 › Role: Guest - Ecosystem Discovery & Navigation › Flow G-3: Event Details & Ticketing Options (12.4s)
+  ✓   7 [chromium] › guest-flows.spec.ts:144:7 › Role: Guest - Ecosystem Discovery & Navigation › Flow G-7: Gated Actions Trigger WebLoginSheet (3.6s)
+  ✓   8 [chromium] › sbt-lifecycle.spec.ts:15:7 › SBT Engine End-to-End Lifecycle Suite › Step 1: Query sbt.getEventCollection returns valid on-chain SBT collection (637ms)
+  ✓   9 [chromium] › sbt-lifecycle.spec.ts:30:7 › SBT Engine End-to-End Lifecycle Suite › Step 2: Dispatch sbt.mintBadge successfully issues soulbound credential to attendee (3.5s)
+  ✓  10 [chromium] › sbt-lifecycle.spec.ts:68:7 › SBT Engine End-to-End Lifecycle Suite › Step 3: Query sbt.getWalletBadges returns newly minted badge in attendee credentials (881ms)
+  ✓  11 [chromium] › sbt-lifecycle.spec.ts:85:7 › SBT Engine End-to-End Lifecycle Suite › Step 4: Query sbt.verifyOwnership cryptographically validates attendee credential ownership (352ms)
+  ✓  12 [chromium] › telegram-bot-loop.spec.ts:33:7 › MTProto Telegram Bot Interaction Suite (@ontonadmin) › TG-1: Verify tgadmin MTProto session is authenticated as @ontonadmin (1.0s)
+  ✓  13 [chromium] › telegram-bot-loop.spec.ts:42:7 › MTProto Telegram Bot Interaction Suite (@ontonadmin) › TG-2: Verify dialog listing includes ONTON bot entity (916ms)
+  ✓  14 [chromium] › telegram-bot-loop.spec.ts:53:7 › MTProto Telegram Bot Interaction Suite (@ontonadmin) › TG-3: Send /start to bot and receive structured welcome payload (3.8s)
+  ✓  15 [chromium] › telegram-bot-loop.spec.ts:71:7 › MTProto Telegram Bot Interaction Suite (@ontonadmin) › TG-4: Send /start with valid event deep link parameter (4.0s)
+  ✓  16 [chromium] › telegram-bot-loop.spec.ts:85:7 › MTProto Telegram Bot Interaction Suite (@ontonadmin) › TG-5: Verify /start with campaign affiliate parameter (Issue #968) (4.7s)
+✅ Live TonProof verified successfully by backend. Issued JWT Token: eyJhbGciOiJIUzI1NiJ9.eyJhZGRyZXNzIj...
+  ✓  17 [chromium] › web3-tonconnect-live.spec.ts:12:7 › Web3 TonConnect & Cryptographic Verification Suite › Test 1: Live Cryptographic TonProof Verification with Backend (136ms)
+  ✘   6 [chromium] › guest-flows.spec.ts:124:7 › Role: Guest - Ecosystem Discovery & Navigation › Flow G-6: Growth & Campaign Landing Pages (31.7s)
+✅ Headless Tonkeeper successfully detected by @tonconnect/ui in browser DOM
+  ✓  18 [chromium] › web3-tonconnect-live.spec.ts:57:7 › Web3 TonConnect & Cryptographic Verification Suite › Test 2: Headless Tonkeeper Injected Wallet Discovery in Browser (3.2s)
+✅ Direct Connect Execution Succeeded for: 0:a5735534b997006d6fd001eb4e1a950327e7636436752a290dbd770545d61a35
+  ✓  19 [chromium] › web3-tonconnect-live.spec.ts:105:7 › Web3 TonConnect & Cryptographic Verification Suite › Test 3: Headless Tonkeeper Direct Connect Execution (3.1s)
+  ✓  20 [mobile] › guest-flows.spec.ts:7:7 › Role: Guest - Ecosystem Discovery & Navigation › Flow G-1: Homepage Feed & Promoted Content (4.2s)
+  ✓  21 [mobile] › guest-flows.spec.ts:36:7 › Role: Guest - Ecosystem Discovery & Navigation › Flow G-2: Global Search & Filtering (4.7s)
+  ✓  23 [mobile] › guest-flows.spec.ts:100:7 › Role: Guest - Ecosystem Discovery & Navigation › Flow G-4: Organizer Channels Discovery (4.8s)
+  ✓  24 [mobile] › guest-flows.spec.ts:114:7 › Role: Guest - Ecosystem Discovery & Navigation › Flow G-5: Retired Play2Win Route Graceful Redirection (2.7s)
+  ✘  22 [mobile] › guest-flows.spec.ts:71:7 › Role: Guest - Ecosystem Discovery & Navigation › Flow G-3: Event Details & Ticketing Options (12.7s)
+  ✓  25 [mobile] › guest-flows.spec.ts:124:7 › Role: Guest - Ecosystem Discovery & Navigation › Flow G-6: Growth & Campaign Landing Pages (4.6s)
+  ✓  27 [mobile] › sbt-lifecycle.spec.ts:15:7 › SBT Engine End-to-End Lifecycle Suite › Step 1: Query sbt.getEventCollection returns valid on-chain SBT collection (135ms)
+  ✓  26 [mobile] › guest-flows.spec.ts:144:7 › Role: Guest - Ecosystem Discovery & Navigation › Flow G-7: Gated Actions Trigger WebLoginSheet (3.2s)
+  -  29 [mobile] › telegram-bot-loop.spec.ts:33:7 › MTProto Telegram Bot Interaction Suite (@ontonadmin) › TG-1: Verify tgadmin MTProto session is authenticated as @ontonadmin
+  -  30 [mobile] › telegram-bot-loop.spec.ts:42:7 › MTProto Telegram Bot Interaction Suite (@ontonadmin) › TG-2: Verify dialog listing includes ONTON bot entity
+  -  31 [mobile] › telegram-bot-loop.spec.ts:53:7 › MTProto Telegram Bot Interaction Suite (@ontonadmin) › TG-3: Send /start to bot and receive structured welcome payload
+  -  32 [mobile] › telegram-bot-loop.spec.ts:71:7 › MTProto Telegram Bot Interaction Suite (@ontonadmin) › TG-4: Send /start with valid event deep link parameter
+  -  33 [mobile] › telegram-bot-loop.spec.ts:85:7 › MTProto Telegram Bot Interaction Suite (@ontonadmin) › TG-5: Verify /start with campaign affiliate parameter (Issue #968)
+✅ Live TonProof verified successfully by backend. Issued JWT Token: eyJhbGciOiJIUzI1NiJ9.eyJhZGRyZXNzIj...
+  ✓  34 [mobile] › web3-tonconnect-live.spec.ts:12:7 › Web3 TonConnect & Cryptographic Verification Suite › Test 1: Live Cryptographic TonProof Verification with Backend (148ms)
+  ✓  28 [mobile] › sbt-lifecycle.spec.ts:30:7 › SBT Engine End-to-End Lifecycle Suite › Step 2: Dispatch sbt.mintBadge successfully issues soulbound credential to attendee (3.3s)
+  ✓  36 [mobile] › sbt-lifecycle.spec.ts:68:7 › SBT Engine End-to-End Lifecycle Suite › Step 3: Query sbt.getWalletBadges returns newly minted badge in attendee credentials (96ms)
+  ✓  37 [mobile] › sbt-lifecycle.spec.ts:85:7 › SBT Engine End-to-End Lifecycle Suite › Step 4: Query sbt.verifyOwnership cryptographically validates attendee credential ownership (251ms)
+✅ Headless Tonkeeper successfully detected by @tonconnect/ui in browser DOM
+  ✓  35 [mobile] › web3-tonconnect-live.spec.ts:57:7 › Web3 TonConnect & Cryptographic Verification Suite › Test 2: Headless Tonkeeper Injected Wallet Discovery in Browser (4.1s)
+✅ Direct Connect Execution Succeeded for: 0:16724fcc35576351d78b6be700aca8a3dc2be457fabaaa1e10a8df470e48d28e
+  ✓  38 [mobile] › web3-tonconnect-live.spec.ts:105:7 › Web3 TonConnect & Cryptographic Verification Suite › Test 3: Headless Tonkeeper Direct Connect Execution (2.8s)
+
+
+  1) [chromium] › guest-flows.spec.ts:71:7 › Role: Guest - Ecosystem Discovery & Navigation › Flow G-3: Event Details & Ticketing Options 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('img[alt*=\'Event Image\']').first()
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('img[alt*=\'Event Image\']').first() with timeout 10000ms
+      - waiting for locator('img[alt*=\'Event Image\']').first()
+
+
+      74 |     // Step 1: Hero Banner & Title
+      75 |     const heroImage = page.locator("img[alt*='Event Image']").first();
+    > 76 |     await expect(heroImage).toBeVisible({ timeout: 10000 });
+         |                             ^
+      77 |     await page.screenshot({ path: "test-results/screenshots/guest_g3_step1_hero.png" });
+      78 |
+      79 |     // Step 2: Event Details, Date, Time & Location
+        at /Users/mahdifarimani/Documents/AntiGravity/ONTON2026/ontonbot/tests/e2e/guest-flows.spec.ts:76:29
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/guest-flows-Role-Guest---E-acf63-t-Details-Ticketing-Options-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/guest-flows-Role-Guest---E-acf63-t-Details-Ticketing-Options-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/guest-flows-Role-Guest---E-acf63-t-Details-Ticketing-Options-chromium/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/guest-flows-Role-Guest---E-acf63-t-Details-Ticketing-Options-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/guest-flows-Role-Guest---E-acf63-t-Details-Ticketing-Options-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [chromium] › guest-flows.spec.ts:124:7 › Role: Guest - Ecosystem Discovery & Navigation › Flow G-6: Growth & Campaign Landing Pages 
+
+    Test timeout of 30000ms exceeded.
+
+    Error: page.goto: Test timeout of 30000ms exceeded.
+    Call log:
+      - navigating to "https://app.dev.onton.live/glossary", waiting until "networkidle"
+
+
+      136 |
+      137 |     // Step 3: Glossary
+    > 138 |     await page.goto(`${BASE_URL}/glossary`, { waitUntil: "networkidle" });
+          |                ^
+      139 |     await expect(page.locator("body")).toBeVisible();
+      140 |     await page.screenshot({ path: "test-results/screenshots/guest_g6_step3_glossary.png" });
+      141 |     await page.screenshot({ path: "test-results/screenshots/guest_g6_glossary.png" });
+        at /Users/mahdifarimani/Documents/AntiGravity/ONTON2026/ontonbot/tests/e2e/guest-flows.spec.ts:138:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/guest-flows-Role-Guest---E-4c26c-owth-Campaign-Landing-Pages-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/guest-flows-Role-Guest---E-4c26c-owth-Campaign-Landing-Pages-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/guest-flows-Role-Guest---E-4c26c-owth-Campaign-Landing-Pages-chromium/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/guest-flows-Role-Guest---E-4c26c-owth-Campaign-Landing-Pages-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/guest-flows-Role-Guest---E-4c26c-owth-Campaign-Landing-Pages-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [mobile] › guest-flows.spec.ts:71:7 › Role: Guest - Ecosystem Discovery & Navigation › Flow G-3: Event Details & Ticketing Options 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('img[alt*=\'Event Image\']').first()
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('img[alt*=\'Event Image\']').first() with timeout 10000ms
+      - waiting for locator('img[alt*=\'Event Image\']').first()
+
+
+      74 |     // Step 1: Hero Banner & Title
+      75 |     const heroImage = page.locator("img[alt*='Event Image']").first();
+    > 76 |     await expect(heroImage).toBeVisible({ timeout: 10000 });
+         |                             ^
+      77 |     await page.screenshot({ path: "test-results/screenshots/guest_g3_step1_hero.png" });
+      78 |
+      79 |     // Step 2: Event Details, Date, Time & Location
+        at /Users/mahdifarimani/Documents/AntiGravity/ONTON2026/ontonbot/tests/e2e/guest-flows.spec.ts:76:29
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/guest-flows-Role-Guest---E-acf63-t-Details-Ticketing-Options-mobile/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/guest-flows-Role-Guest---E-acf63-t-Details-Ticketing-Options-mobile/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/guest-flows-Role-Guest---E-acf63-t-Details-Ticketing-Options-mobile/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/guest-flows-Role-Guest---E-acf63-t-Details-Ticketing-Options-mobile/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/guest-flows-Role-Guest---E-acf63-t-Details-Ticketing-Options-mobile/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3 failed
+    [chromium] › guest-flows.spec.ts:71:7 › Role: Guest - Ecosystem Discovery & Navigation › Flow G-3: Event Details & Ticketing Options 
+    [chromium] › guest-flows.spec.ts:124:7 › Role: Guest - Ecosystem Discovery & Navigation › Flow G-6: Growth & Campaign Landing Pages 
+    [mobile] › guest-flows.spec.ts:71:7 › Role: Guest - Ecosystem Discovery & Navigation › Flow G-3: Event Details & Ticketing Options 
+  5 skipped
+  30 passed (1.2m)
+
+To open last HTML report run:
+
+  npx playwright show-report
+

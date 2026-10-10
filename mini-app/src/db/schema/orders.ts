@@ -44,6 +44,9 @@ export const orders = pgTable(
     updatedBy: text("updated_by").default("system").notNull(),
     coupon_id: bigint("coupon_id", { mode: "number" }).references(() => coupon_items.id),
     tier_id: integer("tier_id").references(() => eventTicketTiers.id),
+    platform_fee_raw: bigint("platform_fee_raw", { mode: "bigint" }),
+    organizer_amount_raw: bigint("organizer_amount_raw", { mode: "bigint" }),
+    fee_bps: integer("fee_bps"),
   },
   (table) => ({
     eventUuidIdx: index("orders_event_uuid_idx").on(table.event_uuid),

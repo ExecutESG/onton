@@ -233,6 +233,21 @@ export async function handleStarsSuccessfulPayment(ctx: MyContext) {
       );
     }
 
+    // 1c) Decrement organizer's fee_waiver_tickets_remaining if order completed with waiver
+    if (order.fee_bps === 0 && Number(order.total_price) > 0) {
+      await client.query(
+        `UPDATE users
+         SET fee_waiver_tickets_remaining = GREATEST(0, fee_waiver_tickets_remaining - 1),
+             updated_at = NOW(),
+             updated_by = 'stars_payment'
+         FROM events
+         WHERE events.event_uuid = $1
+           AND users.user_id = events.owner
+           AND users.fee_waiver_tickets_remaining > 0`,
+        [eventUuid]
+      );
+    }
+
     // 2) Update event_registrants to approved
     const regRes = await client.query(
       `UPDATE event_registrants

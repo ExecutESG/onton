@@ -445,7 +445,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: [ determine-services,build-and-push ]
-    if: ${{ needs.determine-services.outputs.services_to_build != '[]' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
+    if: ${{ needs.determine-services.outputs.services_to_build != '[]' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/dev' }}
     permissions:
       contents: read
       packages: read
@@ -594,36 +594,21 @@ jobs:
           echo "Setting up SSH environment variables..."
           branch_name="${{ github.ref_name }}"
 
-          # Use case-insensitive prefix matching for branch name
           if [[ "$branch_name" == "dev" ]]; then
             echo "SSH_IP=${{ secrets.SSH_DEV_IP }}" >> $GITHUB_ENV
             echo "SSH_PORT=${{ secrets.SSH_DEV_PORT }}" >> $GITHUB_ENV
-          elif [[ "$branch_name" == "main" ]]; then
-            echo "SSH_IP=${{ secrets.SSH_DEV_IP }}" >> $GITHUB_ENV
-            echo "SSH_PORT=${{ secrets.SSH_DEV_PORT }}" >> $GITHUB_ENV
-          elif [[ "$branch_name" == "staging" ]]; then
-            echo "SSH_IP=${{ secrets.SSH_STAGING_IP }}" >> $GITHUB_ENV
-            echo "SSH_PORT=${{ secrets.SSH_STAGING_PORT }}" >> $GITHUB_ENV
           else
-            echo "Error: Unknown branch name, unable to set SSH credentials."
+            echo "Error: Automated deploy is only configured for 'dev' branch (staging host 65.109.182.13). Pushing to 'main' must not deploy over staging (Issue #1048)."
             exit 1
           fi
 
       - name: Set up Compose File Variable
         run: |
-          if [[ "${{ github.ref_name }}" == "dev" ]]; then
-            echo "COMPOSE_FILE=docker-compose-server-dev.yml" >> $GITHUB_ENV
-          else
-            echo "COMPOSE_FILE=docker-compose-server.yml" >> $GITHUB_ENV
-          fi
+          echo "COMPOSE_FILE=docker-compose-server-dev.yml" >> $GITHUB_ENV
 
       - name: Set up Stack Name
         run: |
-          if [[ "${{ github.ref_name }}" == "dev" ]]; then
-            echo "STACK_NAME=onton-dev" >> $GITHUB_ENV
-          else
-            echo "STACK_NAME=onton" >> $GITHUB_ENV
-          fi
+          echo "STACK_NAME=onton-dev" >> $GITHUB_ENV
 
       - name: Deploy Changed Services
         env:
@@ -860,13 +845,10 @@ jobs:
           fi
 
       - name: Run Post-Deploy Playwright Smoke Tests Gate (Issue #1008)
-        if: success() && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
+        if: success() && github.ref == 'refs/heads/dev'
         timeout-minutes: 10
         run: |
           TARGET_URL="https://app.dev.onton.live"
-          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            TARGET_URL="https://app.onton.live"
-          fi
           echo "Executing automated Playwright smoke verification gate against $TARGET_URL..."
           cd tests/e2e
           npm install --prefer-offline || npm install

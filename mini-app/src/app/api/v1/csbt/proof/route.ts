@@ -7,16 +7,20 @@ import eventDB from "@/db/modules/events.db";
 import { and, asc, eq } from "drizzle-orm";
 import { CsbtMerkleTree, CsbtLeafData, serializeProofToCell } from "@/lib/csbt";
 import { csbtTreeService } from "@/services/csbtTreeService";
+import { getCache, setCache } from "@/lib/redisTools";
 import { logger } from "@/server/utils/logger";
 
 export const dynamic = "force-dynamic";
+
+/** Short-lived cache TTL for live (unfrozen) Merkle trees (60 seconds). */
+const LIVE_TREE_CACHE_TTL_SEC = 60;
 
 /**
  * @swagger
  * /api/v1/csbt/proof:
  *   get:
  *     summary: Sovereign Compressed SBT (cSBT) Merkle Proof API
- *     description: Retrieves the cryptographic Merkle proof and serialized TON Cell BoC for an attendee's soulbound badge. Serves from frozen persisted trees when available.
+ *     description: Retrieves the cryptographic Merkle proof and serialized TON Cell BoC for an attendee's soulbound badge. Serves from frozen persisted trees or live Redis-cached trees. Requires caller to match a verified attendee leaf.
  *     parameters:
  *       - in: query
  *         name: eventUuid
@@ -42,7 +46,12 @@ export const dynamic = "force-dynamic";
  *         name: leafIndex
  *         schema:
  *           type: integer
- *         description: Optional direct leaf index
+ *         description: Optional direct leaf index (must match requester's own leaf)
+ *     responses:
+ *       200:
+ *         description: Cryptographic proof and BoC cell
+ *       404:
+ *         description: Event not found or requester is not a verified attendee (not_a_member)
  */
 export async function GET(req: NextRequest) {
   try {
@@ -83,6 +92,14 @@ export async function GET(req: NextRequest) {
 
     const userId = userIdStr ? parseInt(userIdStr, 10) : undefined;
 
+    // Requester must provide userId or walletAddress to prove membership
+    if (!userId && !walletAddress) {
+      return NextResponse.json(
+        { success: false, error: "not_a_member" },
+        { status: 404, headers: corsHeaders() }
+      );
+    }
+
     // 3. Check for frozen persisted tree (MinIO)
     const frozen = await csbtTreeService.getFrozenTree(eventUuid);
 
@@ -90,27 +107,45 @@ export async function GET(req: NextRequest) {
       const { record, tree, payload } = frozen;
       const leaves = payload.leaves;
 
-      let targetIndex = 0;
-      if (leafIndexParam !== null) {
-        targetIndex = parseInt(leafIndexParam, 10);
-        if (isNaN(targetIndex) || targetIndex < 0 || targetIndex >= leaves.length) {
-          targetIndex = 0;
-        }
-      } else if (userId) {
-        const matchIdx = leaves.findIndex(
-          (l) => l.userId === userId || l.ownerAddress === String(userId)
+      if (!leaves || leaves.length === 0) {
+        return NextResponse.json(
+          { success: false, error: "not_a_member" },
+          { status: 404, headers: corsHeaders() }
         );
-        if (matchIdx !== -1) targetIndex = matchIdx;
-      } else if (walletAddress) {
-        const matchIdx = leaves.findIndex((l) => l.ownerAddress === walletAddress);
-        if (matchIdx !== -1) targetIndex = matchIdx;
       }
 
-      const targetLeaf = leaves[targetIndex] || {
-        index: 0,
-        ownerAddress: walletAddress || String(userId || 0),
-        eventUuid,
-      };
+      let matchIdx = -1;
+      if (userId) {
+        matchIdx = leaves.findIndex(
+          (l) => l.userId === userId || l.ownerAddress === String(userId)
+        );
+      }
+      if (matchIdx === -1 && walletAddress) {
+        const normWallet = walletAddress.toLowerCase();
+        matchIdx = leaves.findIndex((l) => l.ownerAddress?.toLowerCase() === normWallet);
+      }
+
+      // Requester does not match any leaf in the frozen tree
+      if (matchIdx === -1) {
+        return NextResponse.json(
+          { success: false, error: "not_a_member" },
+          { status: 404, headers: corsHeaders() }
+        );
+      }
+
+      // If leafIndexParam was provided, verify it strictly matches requester's own leaf
+      if (leafIndexParam !== null) {
+        const parsedIdx = parseInt(leafIndexParam, 10);
+        if (isNaN(parsedIdx) || parsedIdx !== matchIdx) {
+          return NextResponse.json(
+            { success: false, error: "not_a_member" },
+            { status: 404, headers: corsHeaders() }
+          );
+        }
+      }
+
+      const targetIndex = matchIdx;
+      const targetLeaf = leaves[targetIndex];
 
       const proof = tree.getProof(targetIndex);
       const proofCell = serializeProofToCell(proof.steps);
@@ -134,7 +169,9 @@ export async function GET(req: NextRequest) {
           leafHashHex: proof.leafHashHex,
           proofCellBoc,
           proofStepsCount: proof.steps.length,
+          proofValid: isVerified,
           verified: isVerified,
+          isMember: true,
           metadata: {
             title: event.title,
             description: event.description || `Soulbound Proof of Attendance for ${event.title}`,
@@ -148,7 +185,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // 4. Live events: build dynamic per-request tree with anchored: false
+    // 4. Live events: build dynamic tree with short-lived Redis caching
     const checkedIn = await db
       .select({
         id: eventRegistrants.id,
@@ -166,37 +203,64 @@ export async function GET(req: NextRequest) {
       )
       .orderBy(asc(eventRegistrants.id));
 
-    const leaves: CsbtLeafData[] = checkedIn.map((reg, idx) => ({
-      index: idx,
-      ownerAddress: reg.walletAddress || String(reg.userId || 0),
-      userId: reg.userId || undefined,
-      eventUuid: eventUuid!,
-    }));
-
-    if (leaves.length === 0) {
-      leaves.push({
-        index: 0,
-        ownerAddress: walletAddress || String(userId || 0),
-        eventUuid: eventUuid!,
-      });
+    if (checkedIn.length === 0) {
+      return NextResponse.json(
+        { success: false, error: "not_a_member" },
+        { status: 404, headers: corsHeaders() }
+      );
     }
 
-    let targetIndex = 0;
+    let matchIdx = -1;
+    if (userId) {
+      matchIdx = checkedIn.findIndex((r) => r.userId === userId);
+    }
+    if (matchIdx === -1 && walletAddress) {
+      const normWallet = walletAddress.toLowerCase();
+      matchIdx = checkedIn.findIndex((r) => r.walletAddress?.toLowerCase() === normWallet);
+    }
+
+    if (matchIdx === -1) {
+      return NextResponse.json(
+        { success: false, error: "not_a_member" },
+        { status: 404, headers: corsHeaders() }
+      );
+    }
+
     if (leafIndexParam !== null) {
-      targetIndex = parseInt(leafIndexParam, 10);
-      if (isNaN(targetIndex) || targetIndex < 0 || targetIndex >= leaves.length) {
-        targetIndex = 0;
+      const parsedIdx = parseInt(leafIndexParam, 10);
+      if (isNaN(parsedIdx) || parsedIdx !== matchIdx) {
+        return NextResponse.json(
+          { success: false, error: "not_a_member" },
+          { status: 404, headers: corsHeaders() }
+        );
       }
-    } else if (userId) {
-      const matchIdx = checkedIn.findIndex((r) => r.userId === userId);
-      if (matchIdx !== -1) targetIndex = matchIdx;
-    } else if (walletAddress) {
-      const matchIdx = checkedIn.findIndex((r) => r.walletAddress === walletAddress);
-      if (matchIdx !== -1) targetIndex = matchIdx;
+    }
+
+    const targetIndex = matchIdx;
+    const cacheKey = `csbt:live_tree:${eventUuid}:${checkedIn.length}`;
+
+    let tree: CsbtMerkleTree;
+    let leaves: CsbtLeafData[];
+
+    const cached = await getCache(cacheKey);
+    if (cached && Array.isArray(cached.leaves) && Array.isArray(cached.leafHashesHex)) {
+      leaves = cached.leaves;
+      const leafHashes = cached.leafHashesHex.map((h: string) => Buffer.from(h, "hex"));
+      tree = new CsbtMerkleTree(leafHashes);
+    } else {
+      leaves = checkedIn.map((reg, idx) => ({
+        index: idx,
+        ownerAddress: reg.walletAddress || String(reg.userId || 0),
+        userId: reg.userId || undefined,
+        eventUuid: eventUuid!,
+      }));
+      tree = await CsbtMerkleTree.fromLeaves(leaves);
+
+      const leafHashesHex = leaves.map((_, i) => tree.getProof(i).leafHashHex);
+      await setCache(cacheKey, { leaves, leafHashesHex }, LIVE_TREE_CACHE_TTL_SEC);
     }
 
     const targetLeaf = leaves[targetIndex];
-    const tree = await CsbtMerkleTree.fromLeaves(leaves);
     const proof = tree.getProof(targetIndex);
     const proofCell = serializeProofToCell(proof.steps);
     const proofCellBoc = proofCell.toBoc().toString("base64");
@@ -219,7 +283,9 @@ export async function GET(req: NextRequest) {
         leafHashHex: proof.leafHashHex,
         proofCellBoc,
         proofStepsCount: proof.steps.length,
+        proofValid: isVerified,
         verified: isVerified,
+        isMember: true,
         metadata: {
           title: event.title,
           description: event.description || `Soulbound Proof of Attendance for ${event.title}`,

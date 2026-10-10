@@ -197,7 +197,8 @@ describe("cSBT Persisted Trees, Anchoring & Proof API (Issue #1037)", () => {
       expect(body.anchorTxHash).toBe("ton:seqno:42");
       expect(body.merkleRootHex).toBe(rootHex);
       expect(body.leafIndex).toBe(1);
-      expect(body.verified).toBe(true);
+      expect(body.proofValid).toBe(true);
+      expect(body.isMember).toBe(true);
       expect(body.proofCellBoc).toBeDefined();
 
       // Fresh cryptographic proof verification against the returned root
@@ -249,7 +250,8 @@ describe("cSBT Persisted Trees, Anchoring & Proof API (Issue #1037)", () => {
       expect(body.anchored).toBe(false);
       expect(body.anchorTxHash).toBeNull();
       expect(body.merkleRootHex).toBeDefined();
-      expect(body.verified).toBe(true);
+      expect(body.proofValid).toBe(true);
+      expect(body.isMember).toBe(true);
     });
   });
 

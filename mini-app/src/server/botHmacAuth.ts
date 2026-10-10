@@ -1,7 +1,10 @@
 import { createHmac, timingSafeEqual } from "crypto";
 
 export async function verifyBotHmac(req: Request): Promise<Response | null> {
-  const secret = process.env.BOT_API_HMAC_SECRET;
+  const secret =
+    process.env.BOT_API_HMAC_SECRET ||
+    process.env.ONTON_API_SECRET ||
+    process.env.BOT_TOKEN;
   if (!secret) {
     return Response.json({ error: "Configuration error", message: "BOT_API_HMAC_SECRET is not set" }, { status: 500 });
   }

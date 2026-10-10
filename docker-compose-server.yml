@@ -91,6 +91,9 @@ x-common-env: &common-env
   SWAGGER_UI_DOMAIN: ${SWAGGER_UI_DOMAIN}
   SWAGGER_UI_PORT: ${SWAGGER_UI_PORT}
   EVENT_WALLET_ENC_KEY: ${EVENT_WALLET_ENC_KEY}
+  BOT_API_HMAC_SECRET: ${BOT_API_HMAC_SECRET:-}
+  AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-}
+  TOTP_SECRET: ${TOTP_SECRET:-}
 services:
   fluentd:
     image: fluent/fluentd:v1.14-1

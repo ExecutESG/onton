@@ -42,7 +42,10 @@ export function getMiniAppBaseUrl(): string {
  * Creates canonical string: `${timestamp}.${method}.${pathname}.${rawBody}`
  */
 export async function signedRequest<T>(method: "GET" | "POST" | "PATCH" | "DELETE", pathname: string, body?: any): Promise<AxiosResponse<T>> {
-  const secret = process.env.BOT_API_HMAC_SECRET;
+  const secret =
+    process.env.BOT_API_HMAC_SECRET ||
+    process.env.ONTON_API_SECRET ||
+    process.env.BOT_TOKEN;
   if (!secret) {
     throw new Error("BOT_API_HMAC_SECRET is not set");
   }

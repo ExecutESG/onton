@@ -10,9 +10,6 @@ import { and, asc, eq } from "drizzle-orm";
 
 const CSBT_BUCKET = process.env.CSBT_MINIO_BUCKET || "csbt-trees";
 
-// In-memory cache for loaded tree payloads: minioKey -> payload
-const payloadMemoryCache = new Map<string, CsbtTreePayload>();
-
 export interface CsbtTreePayload {
   eventUuid: string;
   kind: "native" | "legacy";
@@ -49,9 +46,6 @@ export const csbtTreeService = {
       "Content-Type": "application/json",
     });
 
-    // Populate memory cache
-    payloadMemoryCache.set(minioKey, payload);
-
     return minioKey;
   },
 
@@ -59,10 +53,6 @@ export const csbtTreeService = {
    * Retrieves and parses the leaves payload JSON from MinIO.
    */
   async loadPayloadFromMinio(minioKey: string): Promise<CsbtTreePayload> {
-    if (payloadMemoryCache.has(minioKey)) {
-      return payloadMemoryCache.get(minioKey)!;
-    }
-
     const firstSlash = minioKey.indexOf("/");
     const bucket = firstSlash !== -1 ? minioKey.substring(0, firstSlash) : this.getBucket();
     const objectName = firstSlash !== -1 ? minioKey.substring(firstSlash + 1) : minioKey;
@@ -76,7 +66,6 @@ export const csbtTreeService = {
     const content = Buffer.concat(chunks).toString("utf-8");
     const payload = JSON.parse(content) as CsbtTreePayload;
 
-    payloadMemoryCache.set(minioKey, payload);
     return payload;
   },
 

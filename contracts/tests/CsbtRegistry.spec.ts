@@ -6,6 +6,7 @@ import { compileCsbtRegistry } from "../helpers/compile";
 import {
   CsbtRegistry,
   CSBT_REGISTRY_ERRORS,
+  CSBT_REGISTRY_OPCODES,
 } from "../wrappers/CsbtRegistry";
 
 function computeTestEventHash(kind: "native" | "legacy", uuidStr: string): bigint {
@@ -146,6 +147,98 @@ describe("cSBT Registry Contract Sandbox Suite", () => {
 
       expect(await registry.getRoot(nativeHash)).toBe(nativeRoot);
       expect(await registry.getRoot(legacyHash)).toBe(legacyRoot);
+    });
+
+    it("should refund excess incoming value back to caller with op::excesses and query_id", async () => {
+      const eventHash = computeTestEventHash("native", "99999999-9999-9999-9999-999999999999");
+      const rootHash = 0x12345678abcdefn;
+      const queryId = 12345n;
+
+      const result = await registry.sendSetRoot(admin.getSender(), {
+        eventHash,
+        root: rootHash,
+        queryId,
+        value: toNano("0.2"), // Excess value above min_storage_reserve (0.05 TON)
+      });
+
+      expectTransaction(result.transactions, {
+        from: admin.address,
+        to: registry.address,
+        success: true,
+      });
+
+      // Verify refund message back to admin with op::excesses and query_id
+      const refundTx = expectTransaction(result.transactions, {
+        from: registry.address,
+        to: admin.address,
+        success: true,
+      });
+
+      const inMsgBody = refundTx.inMessage?.body;
+      expect(inMsgBody).toBeDefined();
+      const slice = inMsgBody.beginParse();
+      const op = slice.loadUint(32);
+      const returnedQueryId = slice.loadUintBig(64);
+      expect(op).toBe(CSBT_REGISTRY_OPCODES.excesses);
+      expect(returnedQueryId).toBe(queryId);
+
+      // Verify excess value refunded
+      const refundValue = refundTx.inMessage?.info?.value?.coins;
+      expect(refundValue).toBeDefined();
+      expect(refundValue).toBeGreaterThan(toNano("0.1"));
+
+      // Verify contract balance is reserved at min_storage_reserve (0.05 TON)
+      const registryContract = await blockchain.getContract(registry.address);
+      expect(registryContract.balance).toBe(toNano("0.05"));
+    });
+
+    it("should refund excess with query_id 0 when query_id is not specified", async () => {
+      const eventHash = computeTestEventHash("native", "88888888-8888-8888-8888-888888888888");
+      const rootHash = 0x555566667777n;
+
+      const result = await registry.sendSetRoot(admin.getSender(), {
+        eventHash,
+        root: rootHash,
+        value: toNano("0.15"),
+      });
+
+      const refundTx = expectTransaction(result.transactions, {
+        from: registry.address,
+        to: admin.address,
+        success: true,
+      });
+
+      const slice = refundTx.inMessage?.body.beginParse();
+      expect(slice.loadUint(32)).toBe(CSBT_REGISTRY_OPCODES.excesses);
+      expect(slice.loadUintBig(64)).toBe(0n);
+    });
+
+    it("should fail action phase if total balance is insufficient to satisfy min_storage_reserve (0.05 TON)", async () => {
+      const distinctAdmin = await blockchain.treasury("distinctAdmin");
+      const emptyRegistry = blockchain.openContract(
+        CsbtRegistry.createFromConfig(
+          { adminAddress: distinctAdmin.address },
+          registryCode
+        )
+      );
+      // Deploy with minimal balance (0.005 TON)
+      await emptyRegistry.sendDeploy(deployer.getSender(), toNano("0.005"));
+
+      const eventHash = computeTestEventHash("native", "77777777-7777-7777-7777-777777777777");
+      // Send set_root with only 0.01 TON - total contract balance is ~0.015 TON, well below min_storage_reserve (0.05 TON)
+      const res = await emptyRegistry.sendSetRoot(distinctAdmin.getSender(), {
+        eventHash,
+        root: 0x999n,
+        value: toNano("0.01"),
+      });
+
+      // The compute phase may succeed, but the action phase must fail because raw_reserve(0.05 TON) cannot be satisfied
+      const setRootTx = res.transactions.find(
+        (tx) => tx.inMessage?.info?.dest?.equals(emptyRegistry.address)
+      );
+      expect(setRootTx?.description?.actionPhase?.success).toBe(false);
+      // Because action phase failed, no root was permanently written
+      expect(await emptyRegistry.getRoot(eventHash)).toBe(0n);
     });
 
     it("should enforce overwrite policy: REJECT overwrite once set (exit code 409)", async () => {

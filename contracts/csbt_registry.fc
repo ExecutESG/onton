@@ -32,6 +32,10 @@ int equal_slices(slice a, slice b) asm "SDEQ";
 ;; Opcodes
 const int op::set_root     = 0x73657472; ;; 'setr'
 const int op::change_admin = 0x63686761; ;; 'chga'
+const int op::excesses     = 0xd53276db;
+
+;; Storage & Reserve Constants
+const int min_storage_reserve = 50000000; ;; 0.05 TON for contract storage
 
 ;; Error Codes
 const int error::unauthorized   = 401;
@@ -92,6 +96,18 @@ const int error::invalid_op     = 403;
         roots = roots.udict_set_builder(256, event_hash, begin_cell().store_uint(root, 256));
 
         save_data(admin_address, roots);
+
+        raw_reserve(min_storage_reserve, 0);
+
+        var msg = begin_cell()
+            .store_uint(0x10, 6) ;; nobounce - int_msg_info$0 ihr_disabled:1 bounce:0 bounced:0 src:addr_none$00
+            .store_slice(sender_address)
+            .store_coins(0)
+            .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+            .store_uint(op::excesses, 32)
+            .store_uint(query_id, 64);
+        send_raw_message(msg.end_cell(), 128);
+
         return ();
     }
 

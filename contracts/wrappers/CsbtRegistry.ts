@@ -12,6 +12,7 @@ import {
 export const CSBT_REGISTRY_OPCODES = {
   set_root: 0x73657472,
   change_admin: 0x63686761,
+  excesses: 0xd53276db,
 };
 
 export const CSBT_REGISTRY_ERRORS = {

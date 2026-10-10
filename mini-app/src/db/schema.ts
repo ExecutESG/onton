@@ -554,6 +554,7 @@ export type {
   UserIdentityInsert,
   EventTicketTierRow,
   EventReportRow,
+  EventReportInsert,
   CsbtTreeRow,
   CsbtTreeInsert,
   OrganizerPayoutRow,

@@ -9,12 +9,27 @@ import {
 } from "../../src/lib/csbt";
 import { GET as proofApiGet } from "../../src/app/api/v1/csbt/proof/route";
 import { freezeCsbtTrees } from "../../src/cronJobs/tasks/freezeCsbtTrees";
-import { anchorCsbtRoots } from "../../src/cronJobs/tasks/anchorCsbtRoots";
+import { anchorCsbtRoots, pollForOnChainRoot } from "../../src/cronJobs/tasks/anchorCsbtRoots";
+import * as sbtLib from "../../src/lib/sbt";
 import eventDB from "../../src/db/modules/events.db";
 import { minioClient } from "../../src/lib/minioClient";
 import { db } from "../../src/db/db";
 import { NextRequest } from "next/server";
 import { Readable } from "stream";
+
+vi.mock("@/lib/redisTools", () => ({
+  getCache: vi.fn().mockResolvedValue(null),
+  setCache: vi.fn().mockResolvedValue(true),
+  deleteCache: vi.fn().mockResolvedValue(true),
+  cacheKeys: {
+    ontonSettings: "ontonSettings",
+    ontonSettingsProtected: "ontonSettingsProtected",
+  },
+}));
+
+vi.mock("@/db/modules/ontoSetting", () => ({
+  fetchOntonSettings: vi.fn().mockResolvedValue({ config: {}, configProtected: {} }),
+}));
 
 describe("cSBT Persisted Trees, Anchoring & Proof API (Issue #1037)", () => {
   const testEventUuid = "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d";
@@ -242,6 +257,222 @@ describe("cSBT Persisted Trees, Anchoring & Proof API (Issue #1037)", () => {
     it("anchorCsbtRoots should skip cleanly with warning if CSBT_REGISTRY_ADDRESS is unset", async () => {
       delete process.env.CSBT_REGISTRY_ADDRESS;
       await expect(anchorCsbtRoots()).resolves.toBeUndefined();
+    });
+
+    it("pollForOnChainRoot should return true when contract getter returns expected root", async () => {
+      const mockClient = {
+        runMethod: vi.fn().mockResolvedValue({
+          stack: {
+            readBigNumber: () => BigInt("0xabcdef123456"),
+          },
+        }),
+      };
+
+      const result = await pollForOnChainRoot(
+        mockClient as any,
+        "EQAREREREREREREREREREREREREREREREREREREREREREeYT",
+        BigInt(123),
+        BigInt("0xabcdef123456"),
+        2,
+        10
+      );
+      expect(result).toBe(true);
+    });
+
+    it("pollForOnChainRoot should return false when getter returns mismatch or 0n", async () => {
+      const mockClient = {
+        runMethod: vi.fn().mockResolvedValue({
+          stack: {
+            readBigNumber: () => BigInt(0),
+          },
+        }),
+      };
+
+      const result = await pollForOnChainRoot(
+        mockClient as any,
+        "EQAREREREREREREREREREREREREREREREREREREREREREeYT",
+        BigInt(123),
+        BigInt("0xabcdef123456"),
+        2,
+        10
+      );
+      expect(result).toBe(false);
+    });
+
+    it("anchorCsbtRoots should support CSBT_ANCHOR_MNEMONIC and mark tree anchored when getter verifies root", async () => {
+      process.env.CSBT_REGISTRY_ADDRESS = "EQAREREREREREREREREREREREREREREREREREREREREREeYT";
+      process.env.CSBT_ANCHOR_MNEMONIC = "word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12";
+      delete process.env.MNEMONIC;
+
+      const mockTree = {
+        id: 42,
+        eventUuid: "11111111-1111-1111-1111-111111111111",
+        kind: "native" as const,
+        root: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+      };
+
+      vi.spyOn(csbtTreesDB, "getUnanchoredTrees").mockResolvedValueOnce([mockTree as any]);
+      const markAnchoredSpy = vi.spyOn(csbtTreesDB, "markTreeAnchored").mockResolvedValueOnce(undefined as any);
+
+      const mockWallet = {
+        contract: {
+          getSeqno: vi.fn().mockResolvedValue(10),
+          sendTransfer: vi.fn().mockResolvedValue(undefined),
+        },
+        keyPair: { secretKey: Buffer.alloc(64) },
+      };
+      vi.spyOn(sbtLib, "openWallet").mockResolvedValueOnce(mockWallet as any);
+      vi.spyOn(sbtLib, "waitSeqno").mockResolvedValueOnce(11);
+
+      const expectedRootBigInt = BigInt("0x" + mockTree.root);
+      const tonCenter = await import("../../src/services/tonCenter");
+      vi.spyOn(tonCenter, "v2_client").mockReturnValue({
+        runMethod: vi.fn().mockResolvedValue({
+          stack: {
+            readBigNumber: () => expectedRootBigInt,
+          },
+        }),
+      } as any);
+
+      await anchorCsbtRoots();
+
+      expect(markAnchoredSpy).toHaveBeenCalledWith(42, "ton:seqno:11");
+    });
+
+    it("anchorCsbtRoots should NOT mark tree anchored if root was rejected or bounced despite seqno increment", async () => {
+      process.env.CSBT_REGISTRY_ADDRESS = "EQAREREREREREREREREREREREREREREREREREREREREREeYT";
+      process.env.MNEMONIC = "word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12";
+      process.env.CSBT_ANCHOR_POLL_ATTEMPTS = "2";
+      process.env.CSBT_ANCHOR_POLL_INTERVAL_MS = "10";
+      delete process.env.CSBT_ANCHOR_MNEMONIC;
+
+      const mockTree = {
+        id: 99,
+        eventUuid: "22222222-2222-2222-2222-222222222222",
+        kind: "native" as const,
+        root: "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      };
+
+      vi.spyOn(csbtTreesDB, "getUnanchoredTrees").mockResolvedValueOnce([mockTree as any]);
+      const markAnchoredSpy = vi.spyOn(csbtTreesDB, "markTreeAnchored");
+
+      const mockWallet = {
+        contract: {
+          getSeqno: vi.fn().mockResolvedValue(20),
+          sendTransfer: vi.fn().mockResolvedValue(undefined),
+        },
+        keyPair: { secretKey: Buffer.alloc(64) },
+      };
+      vi.spyOn(sbtLib, "openWallet").mockResolvedValueOnce(mockWallet as any);
+      vi.spyOn(sbtLib, "waitSeqno").mockResolvedValueOnce(21);
+
+      const tonCenter = await import("../../src/services/tonCenter");
+      vi.spyOn(tonCenter, "v2_client").mockReturnValue({
+        runMethod: vi.fn().mockResolvedValue({
+          stack: {
+            readBigNumber: () => BigInt(0), // Rejected / bounced on-chain
+          },
+        }),
+      } as any);
+
+      await anchorCsbtRoots();
+
+      // markTreeAnchored MUST NOT have been called!
+      expect(markAnchoredSpy).not.toHaveBeenCalled();
+    });
+
+    it("pollForOnChainRoot should return false if registry address is malformed", async () => {
+      const mockClient = {
+        runMethod: vi.fn(),
+      };
+      const result = await pollForOnChainRoot(
+        mockClient as any,
+        "invalid-not-an-address",
+        BigInt(123),
+        BigInt(456),
+        1,
+        10
+      );
+      expect(result).toBe(false);
+      expect(mockClient.runMethod).not.toHaveBeenCalled();
+    });
+
+    it("anchorCsbtRoots should handle 0x-prefixed root string seamlessly", async () => {
+      process.env.CSBT_REGISTRY_ADDRESS = "EQAREREREREREREREREREREREREREREREREREREREREREeYT";
+      process.env.CSBT_ANCHOR_MNEMONIC = "word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12";
+      delete process.env.MNEMONIC;
+
+      const mockTree = {
+        id: 77,
+        eventUuid: "33333333-3333-3333-3333-333333333333",
+        kind: "native" as const,
+        root: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890", // Already has 0x
+      };
+
+      vi.spyOn(csbtTreesDB, "getUnanchoredTrees").mockResolvedValueOnce([mockTree as any]);
+      const markAnchoredSpy = vi.spyOn(csbtTreesDB, "markTreeAnchored").mockResolvedValueOnce(undefined as any);
+
+      const mockWallet = {
+        contract: {
+          getSeqno: vi.fn().mockResolvedValue(5),
+          sendTransfer: vi.fn().mockResolvedValue(undefined),
+        },
+        keyPair: { secretKey: Buffer.alloc(64) },
+      };
+      vi.spyOn(sbtLib, "openWallet").mockResolvedValueOnce(mockWallet as any);
+      vi.spyOn(sbtLib, "waitSeqno").mockResolvedValueOnce(6);
+
+      const expectedRootBigInt = BigInt(mockTree.root);
+      const tonCenter = await import("../../src/services/tonCenter");
+      vi.spyOn(tonCenter, "v2_client").mockReturnValue({
+        runMethod: vi.fn().mockResolvedValue({
+          stack: {
+            readBigNumber: () => expectedRootBigInt,
+          },
+        }),
+      } as any);
+
+      await anchorCsbtRoots();
+
+      expect(markAnchoredSpy).toHaveBeenCalledWith(77, "ton:seqno:6");
+    });
+
+    it("anchorCsbtRoots should skip marking tree anchored if waitSeqno times out and seqno does not increment", async () => {
+      process.env.CSBT_REGISTRY_ADDRESS = "EQAREREREREREREREREREREREREREREREREREREREREREeYT";
+      process.env.MNEMONIC = "word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12";
+      delete process.env.CSBT_ANCHOR_MNEMONIC;
+
+      const mockTree = {
+        id: 88,
+        eventUuid: "44444444-4444-4444-4444-444444444444",
+        kind: "native" as const,
+        root: "1111222233334444555566667777888899990000aaaabbbbccccddddeeeeffff",
+      };
+
+      vi.spyOn(csbtTreesDB, "getUnanchoredTrees").mockResolvedValueOnce([mockTree as any]);
+      const markAnchoredSpy = vi.spyOn(csbtTreesDB, "markTreeAnchored");
+
+      const mockWallet = {
+        contract: {
+          getSeqno: vi.fn().mockResolvedValue(10), // before: 10, re-checked: 10
+          sendTransfer: vi.fn().mockResolvedValue(undefined),
+        },
+        keyPair: { secretKey: Buffer.alloc(64) },
+      };
+      vi.spyOn(sbtLib, "openWallet").mockResolvedValueOnce(mockWallet as any);
+      vi.spyOn(sbtLib, "waitSeqno").mockResolvedValueOnce(-1); // timed out
+
+      const tonCenter = await import("../../src/services/tonCenter");
+      const runMethodSpy = vi.fn();
+      vi.spyOn(tonCenter, "v2_client").mockReturnValue({
+        runMethod: runMethodSpy,
+      } as any);
+
+      await anchorCsbtRoots();
+
+      // markTreeAnchored MUST NOT have been called, and pollForOnChainRoot was skipped
+      expect(markAnchoredSpy).not.toHaveBeenCalled();
+      expect(runMethodSpy).not.toHaveBeenCalled();
     });
 
     it("freezeCsbtTrees should complete execution cycle without unhandled errors", async () => {

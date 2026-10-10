@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Award, ExternalLink, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Award, ExternalLink, Loader2, ShieldCheck } from "lucide-react";
 import { useUserStore } from "@/context/store/user.store";
 import LoginRequired from "@/app/_components/auth/LoginRequired";
 import { useWithBackButton } from "@/app/_components/atoms/buttons/web-app/useWithBackButton";
@@ -23,16 +23,30 @@ export default function MyBadgesPage() {
 
   const [selectedBadge, setSelectedBadge] = useState<BadgeItemData | null>(null);
 
-  const { data, isLoading } = trpc.sbt.getUserBadges.useQuery(
-    { userId: user?.user_id ?? 0 },
-    { enabled: Boolean(user?.user_id) }
+  const {
+    data,
+    isLoading,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+    refetch,
+  } = trpc.sbt.getUserBadges.useInfiniteQuery(
+    { userId: user?.user_id ?? 0, limit: 20 },
+    {
+      enabled: Boolean(user?.user_id),
+      getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    }
   );
+
+  const badges = useMemo(
+    () => data?.pages.flatMap((page) => page.badges) ?? [],
+    [data?.pages]
+  );
+  const totalCount = data?.pages[0]?.totalCount ?? badges.length;
 
   if (!user) {
     return <LoginRequired />;
   }
-
-  const badges = data?.badges ?? [];
 
   return (
     <div className="bg-brand-bg min-h-screen p-4 flex flex-col gap-4 max-w-xl mx-auto pb-24">
@@ -51,7 +65,7 @@ export default function MyBadgesPage() {
               My Badges
             </Typography>
             <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-              {isLoading ? "..." : badges.length}
+              {isLoading ? "..." : totalCount}
             </span>
           </div>
           <Typography variant="subheadline2" className="text-gray-500 dark:text-gray-400 text-xs">
@@ -135,10 +149,15 @@ export default function MyBadgesPage() {
                     />
                   )}
                   {/* Provenance Pill on top of artwork */}
-                  {badge.isTonSociety ? (
+                  {badge.kind === "legacy_onchain" ? (
                     <div className="absolute top-2 left-2 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-[10px] text-purple-400 font-medium border border-purple-500/30">
                       <Award className="w-3 h-3" />
-                      <span>TON Society</span>
+                      <span>On-chain (legacy)</span>
+                    </div>
+                  ) : badge.kind === "legacy_record" || (badge.isTonSociety && !badge.itemAddress) ? (
+                    <div className="absolute top-2 left-2 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-[10px] text-amber-400 font-medium border border-amber-500/30">
+                      <Award className="w-3 h-3" />
+                      <span>Attendance record (legacy)</span>
                     </div>
                   ) : (
                     <div className="absolute top-2 left-2 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-[10px] text-emerald-400 font-medium border border-emerald-500/30">
@@ -170,11 +189,26 @@ export default function MyBadgesPage() {
         </div>
       )}
 
+      {/* Load More Button */}
+      {hasNextPage && (
+        <div className="flex justify-center pt-2">
+          <button
+            onClick={() => fetchNextPage()}
+            disabled={isFetchingNextPage}
+            className="px-4 py-2 text-xs font-medium rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-gray-700 dark:text-gray-300 transition disabled:opacity-50 flex items-center gap-1.5"
+          >
+            {isFetchingNextPage && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            <span>{isFetchingNextPage ? "Loading more..." : "Load More"}</span>
+          </button>
+        </div>
+      )}
+
       {/* Badge Detail Modal */}
       <BadgeDetailModal
         badge={selectedBadge}
         open={Boolean(selectedBadge)}
         onClose={() => setSelectedBadge(null)}
+        onUpgradeSuccess={() => refetch()}
       />
     </div>
   );

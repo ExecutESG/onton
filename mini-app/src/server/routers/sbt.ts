@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Address } from "@ton/core";
 import { adminOrganizerProtectedProcedure, initDataProtectedProcedure, publicProcedure, router } from "../trpc";
 import { sbtService } from "@/services/sbtService";
 import { sbtDB } from "@/db/modules/sbt.db";
@@ -7,6 +8,7 @@ import { usersDB } from "@/db/modules/users.db";
 import eventDB from "@/db/modules/events.db";
 import visitorsDB from "@/db/modules/visitors.db";
 import rewardDB from "@/db/modules/rewards.db";
+import { legacyAttendanceDB } from "@/db/modules/legacyAttendance.db";
 import { logger } from "../utils/logger";
 import { TRPCError } from "@trpc/server";
 import tonCenter, { is_mainnet } from "@/services/tonCenter";
@@ -49,6 +51,9 @@ export interface UnifiedBadge {
   issuer: string;
   network: string;
   rewardLink: string | null;
+  kind?: "native_sbt" | "legacy_onchain" | "legacy_record";
+  canUpgrade?: boolean;
+  rewardId?: string | null;
 }
 
 export const sbtRouter = router({
@@ -69,7 +74,13 @@ export const sbtRouter = router({
   }),
 
   getUserBadges: publicProcedure
-    .input(z.object({ userId: z.number() }))
+    .input(
+      z.object({
+        userId: z.number(),
+        cursor: z.string().nullish(),
+        limit: z.number().min(1).max(100).default(20),
+      })
+    )
     .query(async ({ input }) => {
       const nativeRows = await sbtDB.findUserSbtItemsWithEvent(input.userId);
       const nativeBadges: UnifiedBadge[] = nativeRows.map((r) => ({
@@ -97,6 +108,9 @@ export const sbtRouter = router({
         issuer: "ONTON Native",
         network: is_mainnet ? "TON Mainnet" : "TON Testnet",
         rewardLink: null,
+        kind: "native_sbt",
+        canUpgrade: false,
+        rewardId: null,
       }));
 
       // Collect native event UUIDs to deduplicate against legacy rows
@@ -104,16 +118,16 @@ export const sbtRouter = router({
         nativeRows.map((r) => r.collection.eventUuid).filter(Boolean)
       );
 
-      // Fetch historical TON Society badges
+      // Fetch all legacy attendance records (all types & statuses, deduplicated per event)
       let legacyBadges: UnifiedBadge[] = [];
       try {
-        const legacyRows = await rewardDB.findUserClaimedTonSocietyBadges(input.userId);
-        legacyBadges = legacyRows
+        const legacyResult = await legacyAttendanceDB.findUserLegacyAttendance(input.userId, { limit: 0 });
+        legacyBadges = legacyResult.items
           .filter((r) => !nativeEventUuids.has(r.eventUuid))
           .map((r) => {
-            const data = (r.rewardData as { reward_link?: string; sbt_address?: string } | null) || {};
-            const sbtAddress = data.sbt_address || null;
-            const explorerUrl = sbtAddress ? `https://tonviewer.com/${sbtAddress}` : null;
+            const data = (r.rewardData as any) || {};
+            const sbtAddress = data.materialized_sbt_address || data.sbt_address || null;
+            const explorerUrl = sbtAddress ? `https://tonviewer.com/${sbtAddress}` : (data.reward_link || "");
 
             const badgeTitle = r.eventTitle ? `${r.eventTitle} Badge` : "Attendance Badge";
             const badgeDesc = r.eventDescription || "Official Soulbound Proof of Attendance for this event.";
@@ -129,10 +143,10 @@ export const sbtRouter = router({
                 image: badgeImg,
               },
               metadataUrl: null,
-              status: "minted",
+              status: r.kind === "legacy_onchain" ? "minted" : "recorded",
               transactionHash: null,
               createdAt: r.createdAt,
-              explorerUrl: explorerUrl || "",
+              explorerUrl: explorerUrl,
               collectionName: r.eventTitle || "Attendance Badges",
               collectionAddress: r.sbtCollectionAddress || null,
               eventUuid: r.eventUuid,
@@ -147,22 +161,65 @@ export const sbtRouter = router({
               isTonSociety: true,
               issuer: "ONTON",
               network: "TON Mainnet",
-              rewardLink: null,
+              rewardLink: data.reward_link || null,
+              kind: r.kind,
+              canUpgrade: r.kind === "legacy_record",
+              rewardId: r.rewardId,
             };
           });
       } catch (err) {
-        logger.error(`getUserBadges: Failed to fetch legacy TON Society badges for user ${input.userId}`, err);
+        logger.error(`getUserBadges: Failed to fetch legacy attendance for user ${input.userId}`, err);
       }
 
-      // Merge and sort badges descending by date
+      // Merge and sort badges descending by date, with deterministic tie-breaking
       const allBadges = [...nativeBadges, ...legacyBadges].sort((a, b) => {
         const timeA = a.eventDateFrom ? a.eventDateFrom.getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
         const timeB = b.eventDateFrom ? b.eventDateFrom.getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
-        return timeB - timeA;
+        if (timeB !== timeA) return timeB - timeA;
+        return String(b.id).localeCompare(String(a.id));
       });
 
+      const totalCount = allBadges.length;
+      const limit = input.limit ?? 20;
+      let startIndex = 0;
+
+      if (input.cursor) {
+        let targetId: string | null = null;
+        try {
+          const decoded = JSON.parse(Buffer.from(input.cursor, "base64").toString("utf-8"));
+          targetId = String(decoded.id || decoded);
+        } catch {
+          targetId = input.cursor;
+        }
+        const idx = allBadges.findIndex((b) => String(b.id) === targetId);
+        if (idx >= 0) {
+          startIndex = idx + 1;
+        } else {
+          // Stale or invalid cursor: halt pagination without infinite looping
+          return {
+            badges: [],
+            nextCursor: null,
+            totalCount,
+          };
+        }
+      }
+
+      const paginatedBadges = allBadges.slice(startIndex, startIndex + limit);
+      let nextCursor: string | null = null;
+      if (startIndex + limit < allBadges.length && paginatedBadges.length > 0) {
+        const lastBadge = paginatedBadges[paginatedBadges.length - 1];
+        nextCursor = Buffer.from(
+          JSON.stringify({
+            id: String(lastBadge.id),
+            createdAt: lastBadge.createdAt ? new Date(lastBadge.createdAt).toISOString() : null,
+          })
+        ).toString("base64");
+      }
+
       return {
-        badges: allBadges,
+        badges: paginatedBadges,
+        nextCursor,
+        totalCount,
       };
     }),
 
@@ -503,9 +560,9 @@ export const sbtRouter = router({
       }
 
       let verifiedTx: any = null;
-      if (treasuryAddress) {
+      if (treasuryAddress && !is_local_env()) {
         const maxAttempts = 6;
-        const delayMs = 2500;
+        const delayMs = process.env.NODE_ENV === "test" ? 10 : 2500;
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
           try {
             const startUtime = Math.floor((Date.now() - 1800 * 1000) / 1000);
@@ -571,6 +628,173 @@ export const sbtRouter = router({
       } catch (error) {
         const message = error instanceof Error ? error.message : "Failed to mint SBT badge";
         logger.error(`materializeOnChainSbt: Error minting SBT badge: ${message}`, error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message,
+        });
+      }
+    }),
+
+  /** Attendance record owner only: upgrade legacy attendance record to native on-chain TEP-85 SBT */
+  materializeLegacyRecord: initDataProtectedProcedure
+    .input(
+      z.object({
+        rewardId: z.string(),
+        walletAddress: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // 1. Get reward with visitor details
+      const rewardRow = await legacyAttendanceDB.findRewardWithVisitor(input.rewardId);
+      if (!rewardRow) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Reward record not found" });
+      }
+
+      // 2. Ownership verification: caller must own the record
+      if (rewardRow.userId !== ctx.user.user_id) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You do not own this attendance record",
+        });
+      }
+
+      // 3. Double minting check / idempotency
+      const rewardData = (rewardRow.data as any) || {};
+      const existingAddress =
+        (rewardData.materialized_sbt_address && String(rewardData.materialized_sbt_address).trim()) ||
+        (rewardData.sbt_address && String(rewardData.sbt_address).trim()) ||
+        null;
+      if (existingAddress) {
+        return {
+          success: true,
+          itemAddress: existingAddress,
+          explorerUrl: getExplorerLink(existingAddress),
+          isExisting: true,
+        };
+      }
+
+      const existingBadge = await sbtDB.findUserSbtForEvent(rewardRow.userId, rewardRow.eventUuid);
+      if (existingBadge && existingBadge.status === "minted" && existingBadge.itemAddress) {
+        await legacyAttendanceDB.updateRewardData(input.rewardId, {
+          ...rewardData,
+          materialized_sbt_address: existingBadge.itemAddress,
+          sbt_address: existingBadge.itemAddress,
+        });
+        return {
+          success: true,
+          itemAddress: existingBadge.itemAddress,
+          explorerUrl: getExplorerLink(existingBadge.itemAddress),
+          isExisting: true,
+        };
+      }
+
+      // 4. Resolve destination wallet address
+      let targetWallet = input.walletAddress;
+      if (!targetWallet) {
+        const user = await usersDB.selectUserById(ctx.user.user_id);
+        targetWallet = user?.wallet_address || undefined;
+      }
+      if (!targetWallet) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Wallet address is required to mint Soulbound credential",
+        });
+      }
+
+      try {
+        Address.parse(targetWallet);
+      } catch {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Invalid recipient wallet address: ${targetWallet}`,
+        });
+      }
+
+      // 5. Verify payment of >= 0.095 TON to treasury wallet with memo sbt_upgrade_legacy:<rewardId>
+      const treasuryAddress = config?.ONTON_WALLET_ADDRESS;
+      if (!treasuryAddress && !is_local_env()) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Treasury wallet not configured",
+        });
+      }
+
+      let verifiedTx: any = null;
+      if (treasuryAddress && !is_local_env()) {
+        const maxAttempts = 6;
+        const delayMs = process.env.NODE_ENV === "test" ? 10 : 2500;
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          try {
+            const startUtime = Math.floor((Date.now() - 1800 * 1000) / 1000);
+            const transactions = await tonCenter.fetchAllTransactions(treasuryAddress, startUtime, null, 30, "desc");
+            const parsed = await tonCenter.parseTransactions(transactions, "sbt_upgrade_legacy:");
+            const match = parsed.find(
+              (tx) => tx.order_uuid === input.rewardId && tx.rawAmount >= BigInt(95_000_000)
+            );
+            if (match) {
+              verifiedTx = match;
+              break;
+            }
+          } catch (err) {
+            logger.warn(`materializeLegacyRecord: TonCenter lookup attempt ${attempt} failed`, err);
+          }
+
+          if (attempt < maxAttempts) {
+            await new Promise((res) => setTimeout(res, delayMs));
+          }
+        }
+      }
+
+      if (!verifiedTx && !is_local_env()) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Payment transaction of 0.1 TON not found. Please wait a few seconds for network confirmation.",
+        });
+      }
+
+      // 6. Update user wallet address if walletAddress provided
+      if (input.walletAddress) {
+        try {
+          await usersDB.updateWallet(rewardRow.userId, input.walletAddress, "legacy_sbt_upgrade");
+        } catch (err) {
+          logger.error(`materializeLegacyRecord: Failed to update wallet for user ${rewardRow.userId}`, err);
+        }
+      }
+
+      // 7. Fetch event details for metadata
+      const eventData = await eventDB.fetchEventByUuid(rewardRow.eventUuid);
+      if (!eventData) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Event not found" });
+      }
+
+      // 8. Mint native TEP-85 SBT
+      try {
+        const item = await sbtService.mintSbtBadge({
+          eventUuid: rewardRow.eventUuid,
+          userId: rewardRow.userId,
+          walletAddress: targetWallet,
+          badgeTitle: `${eventData.title} Attendance Badge`,
+          badgeDescription: `Official Soulbound Proof of Attendance for ${eventData.title}`,
+          badgeImage: eventData.tsRewardImage || eventData.image_url || undefined,
+        });
+
+        // 9. Store the link in rewards.data
+        const updatedRewardData = {
+          ...rewardData,
+          materialized_sbt_address: item.itemAddress,
+          sbt_address: item.itemAddress,
+        };
+        await legacyAttendanceDB.updateRewardData(input.rewardId, updatedRewardData);
+
+        return {
+          success: true,
+          itemAddress: item.itemAddress,
+          explorerUrl: getExplorerLink(item.itemAddress),
+          isExisting: false,
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to mint SBT badge";
+        logger.error(`materializeLegacyRecord: Error minting SBT badge: ${message}`, error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message,

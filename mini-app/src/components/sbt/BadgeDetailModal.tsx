@@ -6,9 +6,13 @@ import OntonDialog from "@/components/OntonDialog";
 import Typography from "@/components/Typography";
 import useWebApp from "@/hooks/useWebApp";
 import { toast } from "sonner";
-import { Award, Check, Copy, ExternalLink, Send, ShieldCheck, Share2, Sparkles, ArrowLeft } from "lucide-react";
+import { Award, Check, Copy, ExternalLink, Send, ShieldCheck, Share2, Sparkles, ArrowLeft, Loader2 } from "lucide-react";
 import useTelegramStory from "@/hooks/useTelegramStory";
 import StoryCardPreview from "./StoryCardPreview";
+import { useTonConnectUI, useTonWallet } from "@tonconnect/ui-react";
+import { beginCell, toNano } from "@ton/core";
+import { SBT_ONCHAIN_UPGRADE_PRICE } from "@/constants";
+import { trpc } from "@/app/_trpc/client";
 
 export interface BadgeItemData {
   id?: number | string;
@@ -32,12 +36,16 @@ export interface BadgeItemData {
   issuer?: string;
   network?: string;
   rewardLink?: string | null;
+  kind?: "native_sbt" | "legacy_onchain" | "legacy_record";
+  canUpgrade?: boolean;
+  rewardId?: string | null;
 }
 
 interface BadgeDetailModalProps {
   badge: BadgeItemData | null;
   open: boolean;
   onClose: () => void;
+  onUpgradeSuccess?: () => void;
 }
 
 function truncateAddress(addr?: string | null): string {
@@ -55,15 +63,108 @@ export function parseDate(d: string | Date | number | null | undefined): Date | 
   return isNaN(dateObj.getTime()) ? null : dateObj;
 }
 
-export default function BadgeDetailModal({ badge, open, onClose }: BadgeDetailModalProps) {
+export default function BadgeDetailModal({ badge, open, onClose, onUpgradeSuccess }: BadgeDetailModalProps) {
   const webApp = useWebApp();
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [showStoryCard, setShowStoryCard] = useState(false);
   const { shareToStory } = useTelegramStory();
   const botUsername = process.env.NEXT_PUBLIC_BOT_USERNAME || "notnonstagebot";
 
+  const [tonConnectUI] = useTonConnectUI();
+  const wallet = useTonWallet();
+  const [isUpgrading, setIsUpgrading] = useState(false);
+  const [upgradeStep, setUpgradeStep] = useState<string>("");
+
+  const { data: treasuryConfig } = trpc.sbt.getTreasuryConfig.useQuery(undefined, {
+    enabled: open && Boolean(badge?.canUpgrade || badge?.kind === "legacy_record"),
+  });
+
+  const upgradeMutation = trpc.sbt.materializeLegacyRecord.useMutation({
+    onSuccess: (data) => {
+      setIsUpgrading(false);
+      setUpgradeStep("");
+      toast.success("TEP-85 Soulbound Token minted to your wallet!");
+      if (badge) {
+        badge.itemAddress = data.itemAddress;
+        badge.explorerUrl = data.explorerUrl;
+        badge.kind = "legacy_onchain";
+        badge.canUpgrade = false;
+      }
+      onUpgradeSuccess?.();
+    },
+    onError: (err) => {
+      setIsUpgrading(false);
+      setUpgradeStep("");
+      toast.error(err.message || "Failed to upgrade badge to on-chain");
+    },
+  });
+
+  const handleUpgradeToOnChain = async () => {
+    if (!badge?.rewardId) {
+      toast.error("Reward identifier missing for upgrade.");
+      return;
+    }
+
+    const userWallet = wallet?.account?.address;
+    if (!userWallet) {
+      toast.info("Please connect your TON wallet to upgrade to an on-chain token.");
+      tonConnectUI.openModal();
+      return;
+    }
+
+    const effectiveTreasuryAddress = treasuryConfig?.treasuryAddress;
+    if (!effectiveTreasuryAddress && process.env.NEXT_PUBLIC_ENV !== "local") {
+      toast.error("Treasury wallet not configured. Please try again later.");
+      return;
+    }
+
+    try {
+      setIsUpgrading(true);
+      setUpgradeStep("Awaiting wallet approval...");
+
+      const body = beginCell()
+        .storeUint(0, 32)
+        .storeStringTail(`sbt_upgrade_legacy:${badge.rewardId}`)
+        .endCell()
+        .toBoc();
+
+      if (effectiveTreasuryAddress) {
+        await tonConnectUI.sendTransaction({
+          validUntil: Math.floor(Date.now() / 1000) + 300,
+          messages: [
+            {
+              address: effectiveTreasuryAddress,
+              amount: toNano(String(treasuryConfig?.upgradePriceTon || SBT_ONCHAIN_UPGRADE_PRICE)).toString(),
+              payload: body.toString("base64"),
+            },
+          ],
+        });
+      }
+
+      setUpgradeStep("Verifying payment & minting token...");
+      upgradeMutation.mutate({
+        rewardId: badge.rewardId,
+        walletAddress: userWallet,
+      });
+    } catch (err: unknown) {
+      setIsUpgrading(false);
+      setUpgradeStep("");
+      const message = err instanceof Error ? err.message : "Transaction cancelled or failed";
+      const lower = message.toLowerCase();
+      if (!lower.includes("cancel") && !lower.includes("reject")) {
+        toast.error(message);
+      } else {
+        toast.info("Transaction cancelled");
+      }
+    }
+  };
+
   React.useEffect(() => {
-    if (!open) setShowStoryCard(false);
+    if (!open) {
+      setShowStoryCard(false);
+      setIsUpgrading(false);
+      setUpgradeStep("");
+    }
   }, [open]);
 
   if (!badge) return null;
@@ -201,15 +302,20 @@ export default function BadgeDetailModal({ badge, open, onClose }: BadgeDetailMo
         </div>
 
         {/* Verification Provenance Chip */}
-        {badge.itemAddress ? (
+        {badge.kind === "legacy_onchain" ? (
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 text-xs font-semibold">
+            <Award className="w-3.5 h-3.5" />
+            <span>On-chain (legacy)</span>
+          </div>
+        ) : badge.kind === "legacy_record" || (!badge.itemAddress && !badge.kind) ? (
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-xs font-semibold">
+            <Award className="w-3.5 h-3.5" />
+            <span>Attendance record (legacy)</span>
+          </div>
+        ) : (
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs font-semibold">
             <ShieldCheck className="w-3.5 h-3.5" />
             <span>TEP-85 Soulbound Credential</span>
-          </div>
-        ) : (
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 text-xs font-semibold">
-            <Award className="w-3.5 h-3.5" />
-            <span>Verified Attendance Credential</span>
           </div>
         )}
 
@@ -243,6 +349,15 @@ export default function BadgeDetailModal({ badge, open, onClose }: BadgeDetailMo
                   month: "short",
                   day: "numeric",
                 })}
+              </span>
+            </div>
+          )}
+
+          {badge.eventParticipationType && (
+            <div className="flex justify-between items-center py-1 border-b border-gray-100 dark:border-neutral-700/50">
+              <span className="text-gray-500 dark:text-gray-400">Participation</span>
+              <span className="font-medium text-gray-900 dark:text-gray-200">
+                {badge.eventParticipationType === "in_person" ? "In-Person" : "Online"}
               </span>
             </div>
           )}
@@ -308,6 +423,26 @@ export default function BadgeDetailModal({ badge, open, onClose }: BadgeDetailMo
 
         {/* Actions */}
         <div className="flex flex-col gap-2 w-full pt-1">
+          {(badge.kind === "legacy_record" || badge.canUpgrade) && (
+            <button
+              onClick={handleUpgradeToOnChain}
+              disabled={isUpgrading}
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-white font-medium text-xs transition shadow-sm active:scale-[0.98] disabled:opacity-60"
+            >
+              {isUpgrading ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>{upgradeStep || "Upgrading to On-Chain SBT..."}</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Upgrade to On-Chain SBT ({treasuryConfig?.upgradePriceTon || SBT_ONCHAIN_UPGRADE_PRICE} TON)</span>
+                </>
+              )}
+            </button>
+          )}
+
           <button
             onClick={handleShareStory}
             className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium text-xs transition shadow-sm active:scale-[0.98]"

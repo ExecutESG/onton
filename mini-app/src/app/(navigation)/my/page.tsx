@@ -141,7 +141,7 @@ export default function ProfilePage() {
         title="My Badges"
         subtitle="Proof of Attendance"
         footerTexts={[
-          { items: "Badges", count: userBadgesData?.badges?.length || 0 },
+          { items: "Badges", count: userBadgesData?.totalCount ?? userBadgesData?.badges?.length ?? 0 },
         ]}
       />
       <ActionCard
